@@ -86,7 +86,3 @@ Backlog je živi dokument i mora se redovno ažurirati:
 - Prioritete određuje Product Owner u suradnji sa stakeholderima.  
 - Stavke bez procjene složenosti nisu spremne za Sprint — moraju biti refiniran prije planiranja.  
 - Svaka stavka treba biti dovoljno jasna da tim može početi raditi bez dodatnih pitanja (Definition of Ready).  
-
----
-
-Backlog je živi dokument — redovno ažurirati nakon svakog sprinta  |  Stranica
