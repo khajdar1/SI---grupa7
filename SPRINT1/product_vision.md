@@ -17,6 +17,8 @@ U Bosni i Hercegovini, komunalna i servisna preduzeća (vodovod, plin, elektrodi
 - Servisne kompanije (preduzeća)
 - Komunalna preduzeća
 - Ostala preduzeća
+- Privatne kompanije (preduzeća) 
+
 
 ---
 
