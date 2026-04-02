@@ -11,7 +11,7 @@
 | Administrator | Upravlja i održava sistem i brine se za sigurnost | Sigurnost podataka i kontrola nad sistemom | Upravljanje korisničkim računima, backup podataka | Visok | Niska | Vrlo visoka |
 | Korisnička podrška | Pomaže korisnicima i odgovara na njihove zahtjeve | Efikasno rješavanje problema i kvalitetna podrška | Jednostavna komunikacija sa korisnicima i uvid u historiju komunikacije | Nizak | Vrlo visoka | Srednja |
 | Koordinator | Nadgleda i dodjeljuje zadatke serviserima | Efikasno raspoređivanje zadataka | Pregled svih prijava, raspored servisera, dodjela zadataka, praćenje statusa intervencija | Visok | Visoka | Visoka |
-| Računovodstvo | Upravlja finansijama | Tačna evidencija troškova i prihoda | Pristup izvještajima, kreiranje faktura, uvid u troškove intervencija | Srednji | Niska | Niska |
+| Računovodstvo | Upravlja finansijama | Tačna evidencija troškova i prihoda | Pristup izvještajima, uvid u troškove intervencija | Srednji | Niska | Niska |
 
 ---
 
