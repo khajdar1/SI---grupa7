@@ -61,7 +61,7 @@
 ### Kako se rješavaju neslaganja
 
 - Težnja ka tome da se veći broj članova ispoštuje, naravno cilj je da svaka odluka dovede do složnosti svih članova tima
-
+- U slučaju neslaganja odluku donosi Scrum Master
 ---
 
 ## Početne odgovornosti
