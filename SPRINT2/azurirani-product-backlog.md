@@ -59,6 +59,9 @@ Kerim Hajdar
 | PBI-024 | Validacija unosa podataka | Sistem validira sve korisničke unose (obavezna polja) prije spremanja podataka | Feature | Visok | Složenost | Todo | Sprint/Release |  |
 | PBI-025 | Detekcija duplikata prijave kvara | Sistem provjerava da li je isti korisnik u kratkom vremenskom periodu već prijavio isti kvar (na osnovu lokacije i opisa) i upozorava korisnika prije kreiranja nove intervencije | Feature | Visok | Složenost | Todo | Sprint/Release |  |
 | PBI-026 | Arhiviranje intervencija | Sistem arhivira završene ili otkazane intervencije nakon definisanog vremenskog perioda | Feature | Nizak | Složenost | Todo | Sprint/Release |  |
+| PBI-027 | Kreiranje tiketa za podršku | Korisnik može kreirati tiket za korisničku podršku kako bi postavio pitanje, prijavio problem u aplikaciji ili zatražio pomoć, uz mogućnost odabira kategorije upita | Feature | Nizak | Složenost | Todo | Sprint/Release | Odvojeno od prijave kvara |
+| PBI-028 | Dvosmjerna komunikacija na tiketu | Korisnik i podrška mogu razmjenjivati tekstualne poruke unutar otvorenog tiketa | Feature | Nizak | Složenost | Todo | Sprint/Release | |
+| PBI-029 | Notifikacija za tikete | Korisnik dobija in-app obavijest kada agent iz podrške odgovori na tiket, a agent kada stigne novi tiket ili odgovor korisnika | Feature | Nizak | Složenost | Todo | Sprint/Release | |
 ---
 
 ## LEGENDA & DEFINICIJE
