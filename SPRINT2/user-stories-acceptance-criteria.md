@@ -115,7 +115,7 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 - Otvoreno pitanje: Da li neprijavljeni korisnik unosi kontakt podatke kao dio obrasca?
 - Otvoreno pitanje: Kako se prate intervencije prijavljene od neprijavljenih korisnika?
 
-#### Veze i zavisnostii
+#### Veze i zavisnosti
 
 - **Preduvjet za:** PBI-004 (Planiranje intervencija), PBI-025 (Detekcija duplikata)
 - **Zavisi od:** –
@@ -129,7 +129,7 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 - Ako korisnik ne popuni obavezna polja (lokacija, opis, kategorija) i pokuša poslati obrazac, **sistem ne smije kreirati intervenciju** i mora označiti koje polje nedostaje.
 - Kada korisnik uspješno pošalje obrazac, **sistem mora automatski kreirati novu intervenciju** i prikazati potvrdu o prijemu (npr. broj intervencije ili poruku "Vaša prijava je zabilježena").
 - Sistem ne smije zahtijevati prijavu za slanje obrasca – **neprijavljeni korisnik mora moći prijaviti kvar** bez registracije.
-- Kreirani intervencija mora biti **odmah vidljiva koordinatoru** u listi aktivnih intervencija (PBI-007).
+- Kreirana intervencija mora biti **odmah vidljiva koordinatoru** u listi aktivnih intervencija (PBI-007).
 - Sistem mora dozvoliti upload **najmanje jedne slike ili dokumenta** uz svaku prijavu.
 
 ---
