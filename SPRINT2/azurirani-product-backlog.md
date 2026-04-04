@@ -62,6 +62,8 @@ Kerim Hajdar
 | PBI-027 | Kreiranje tiketa za podršku | Korisnik može kreirati tiket za korisničku podršku kako bi postavio pitanje, prijavio problem u aplikaciji ili zatražio pomoć, uz mogućnost odabira kategorije upita | Feature | Nizak | Složenost | Todo | Sprint/Release | Odvojeno od prijave kvara |
 | PBI-028 | Dvosmjerna komunikacija na tiketu | Korisnik i podrška mogu razmjenjivati tekstualne poruke unutar otvorenog tiketa | Feature | Nizak | Složenost | Todo | Sprint/Release | |
 | PBI-029 | Notifikacija za tikete | Korisnik dobija in-app obavijest kada agent iz podrške odgovori na tiket, a agent kada stigne novi tiket ili odgovor korisnika | Feature | Nizak | Složenost | Todo | Sprint/Release | |
+| PBI-030 | Kategorije i tipovi kvarova | Korisnik pri prijavi kvara bira kategoriju iz odgovarajuće liste(vodoinstalacije, struja, internet...) | Feature | Nizak | Složenost | Todo | Sprint/Release | Kategorije se mogu koristiti i za filtriranje|
+| PBI-031 | Višejezična podrška | Sistem podržava prikaz na više jezika | Feature | Nizak | Složenost | Todo | Sprint/Release | Korinsik može odabrati jezik u postavkama profila|
 ---
 
 ## LEGENDA & DEFINICIJE
