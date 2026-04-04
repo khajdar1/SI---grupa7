@@ -12,5 +12,8 @@
 | NFR_08 | Performanse | Sistem mora omogućiti unos nove intervencije u roku kraćem od 1 sekunde | Testiranje vremena odgovora API-ja | Visok | Bitno za hitne situacije |
 | NFR_09 | Privatnost| Sistem mora omogućiti prikaz samo relevantnih podataka korisnicima prema njihovoj ulozi | Testiranje pristupa različitim korisničkim ulogama | Visok | Npr. građanin ne vidi neke interne bilješke |
 | NFR_10 | Upotrebljivost | Sistem mora biti dostupan putem web preglednika bez potrebe za instalacijom | Testiranje na različitim browserima | Nizak | Olakšan pristup |
-
+| NFR_11 | Pouzdanost / Održivost | Sistem mora imati backup podataka svakih 24h i mogućnost brzog oporavka u slučaju greške | Testiranje restauracije podataka iz backupa | Srednji | Kritično za pouzdanost podataka |
+| NFR_12 | Skalabilnost | Sistem mora podržati najmanje 2000 istovremenih korisnika i 2000 aktivnih intervencija bez značajnog pada performansi | Load testing simulacijom velikog broja korisnika | Visok | Za buduće proširenje na više gradova |
+| NFR_13 | Upotrebljivost | Sistem mora biti potpuno responzivan i funkcionalan na mobilnim uređajima | Testiranje na različitim mobilnim uređajima i browserima | Srednji | Važno za servisne timove u terenu |
+| NFR_14 | Sigurnost | Sve akcije korisnika i administratora moraju biti zabilježene u logovima za potrebe revizije | Provjera logova, testiranje aktivnosti | Srednji | Omogućuje praćenje i kontrolu pristupa |
 
