@@ -20,39 +20,42 @@
 ---
 
 ### PBI-001 – Registracija korisnika
-
-**Tip:** Feature | **Prioritet:**  Kritičan | **Složenost:** 5 SP | **Sprint:** 5
-
+ 
+**Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 5 SP | **Status:** Todo | **Sprint:** 5
+ 
 #### User Story
-
-> Kao **administrator sistema**, želim **kreirati korisničke račune s dodjelom odgovarajuće uloge**, kako bih **osigurao da svaki korisnik ima pristup samo onim dijelovima sistema koji su relevantni za njegovu funkciju u timu**.
-
+ 
+> Kao **novi korisnik**, želim **samostalno kreirati korisnički račun unosom osnovnih podataka**, kako bih **dobio pristup sistemu bez potrebe za čekanjem da me administrator ručno registruje**.
+ 
 #### Poslovna vrijednost
-
-Bez registracije korisnika sistem nema osnovu za rad – nije moguće pratiti ko je kreirao intervenciju, ko je dodijelio servisera, niti ko je obavio terenski rad. Pravilna dodjela uloga (korisnik, serviser, koordinator, admin, menadžment) direktno utječe na sigurnost i ispravnost toka rada u cijelom sistemu.
-
+ 
+Samoregistracija smanjuje administrativni teret i ubrzava onboarding novih korisnika. Korisnik koji može sam kreirati račun u par minuta ima bolje korisničko iskustvo, a admin nije usko grlo za svaki novi pristup. Uloge osjetljivije od "Korisnik" (serviser, koordinator, admin, menadžment) i dalje dodjeljuje administrator, čime se zadržava kontrola nad privilegovanim pristupom.
+ 
 #### Pretpostavke i otvorena pitanja
-
-- Pretpostavljamo da admin kreira račune ručno; samoregistracija nije predviđena u MVP-u.
-- Otvoreno pitanje: Da li korisnik dobija automatski email s pristupnim podacima nakon kreiranja računa?
-- Otvoreno pitanje: Postoji li inicijalna lozinka ili admin postavlja lozinku direktno?
-
+ 
+- Samoregistracijom korisnik automatski dobija ulogu **Korisnik** – sve ostale uloge dodjeljuje admin naknadno.
+- Otvoreno pitanje: Da li je potrebna verifikacija email adrese nakon registracije (email potvrda)?
+- Otvoreno pitanje: Da li admin dobija notifikaciju kada se registruje novi korisnik?
+- Otvoreno pitanje: Postoje li zahtjevi za kompleksnost lozinke (minimalna dužina, specijalni znakovi)?
+ 
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** PBI-002 (Login), PBI-013 (Upravljanje računima)
 - **Zavisi od:** –
-
+ 
 ---
-
+ 
 #### Acceptance Kriteriji
-
-- Kada admin pristupi formi za kreiranje korisnika, **mora vidjeti polja**: ime, prezime, korisničko ime, email adresa, lozinka, i odabir uloge.
-- Ako admin ne popuni sva obavezna polja i pokuša sačuvati, **sistem ne smije kreirati račun** i mora prikazati jasnu poruku o svakom nepopunjenom polju.
-- Kada admin odabere ulogu iz padajućeg menija, **dostupne opcije moraju biti**: Korisnik, Serviser, Koordinator, Admin, Menadžment – i samo te opcije.
-- Ako admin unese korisničko ime ili email koji već postoji u sistemu, **sistem mora prikazati grešku** i spriječiti duplikat.
-- Kada se račun uspješno kreira, **sistem mora prikazati potvrdu** (npr. "Račun je uspješno kreiran") i račun mora biti vidljiv u listi korisnika.
-- Sistem ne smije dozvoliti kreiranje korisnika bez dodijeljene uloge.
-- Kreirani korisnik mora odmah biti u stanju prijaviti se u sistem koristeći dodijeljene pristupne podatke.
+ 
+- Na login stranici mora postojati **vidljiv link ili dugme "Registruj se"** koji otvara formu za registraciju.
+- Forma za registraciju mora sadržavati **obavezna polja**: ime, prezime, korisničko ime, email adresa, lozinka i potvrda lozinke.
+- Ako korisnik ne popuni sva obavezna polja i pokuša se registrovati, **sistem ne smije kreirati račun** i mora jasno označiti svako nepopunjeno polje.
+- Ako unesena lozinka i potvrda lozinke **nisu identične**, sistem mora prikazati grešku i odbiti registraciju.
+- Ako korisnik unese korisničko ime ili email koji **već postoji u sistemu**, sistem mora prikazati grešku i spriječiti duplikat.
+- Kada korisnik uspješno završi registraciju, **sistem mora automatski dodijeliti ulogu Korisnik** – korisnik ne smije moći sam odabrati drugu ulogu tokom samoregistracije.
+- Nakon uspješne registracije, **sistem mora prikazati potvrdu** (npr. "Vaš račun je uspješno kreiran") i korisnik mora moći odmah se prijaviti.
+- Admin mora moći **promijeniti ulogu novoregistrovanog korisnika** putem admin panela (PBI-013) ako je potrebno dodijeliti privilegovanu ulogu.
+- Sistem ne smije dozvoliti registraciju s **neispravnim formatom email adrese**.
 
 ---
 
