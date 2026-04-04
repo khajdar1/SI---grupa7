@@ -57,6 +57,8 @@ Kerim Hajdar
 | PBI-022 | Planirana/preventivna održavanja | Koordinator može kreirati intervenciju bez prijave kvara (planirano održavanje). Moguće je definisati periodičnost, pri čemu sistem automatski generiše nove intervencije prema definisanom rasporedu | Feature | Srednji | Složenost | Todo | Sprint/Release | Podrška za ponavljanje |
 | PBI-023 | Export podataka | Koordinator i menadžment mogu eksportovati kompletnu listu intervencija kao i izvještaje o intervencijama, u PDF format radi arhiviranja i daljnje analize | Feature | Nizak | Složenost | Todo | Sprint/Release |  |
 | PBI-024 | Validacija unosa podataka | Sistem validira sve korisničke unose (obavezna polja) prije spremanja podataka | Feature | Visok | Složenost | Todo | Sprint/Release |  |
+| PBI-025 | Detekcija duplikata prijave kvara | Sistem provjerava da li je isti korisnik u kratkom vremenskom periodu već prijavio isti kvar (na osnovu lokacije i opisa) i upozorava korisnika prije kreiranja nove intervencije | Feature | Visok | Složenost | Todo | Sprint/Release |  |
+| PBI-026 | Arhiviranje intervencija | Sistem arhivira završene ili otkazane intervencije nakon definisanog vremenskog perioda | Feature | Nizak | Složenost | Todo | Sprint/Release |  |
 ---
 
 ## LEGENDA & DEFINICIJE
@@ -80,7 +82,8 @@ Kerim Hajdar
 - U pregledu  
 - Završeno  
 - Blokirano  
-- Odgođeno  
+- Odgođeno
+- Otkazano  
 
 ---
 
