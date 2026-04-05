@@ -454,7 +454,7 @@ Notifikacije pretvaraju pasivni sistem (korisnik mora sam provjeravati novosti) 
 #### Pretpostavke i otvorena pitanja
 
 - MVP obuhvata: notifikaciju servisera pri dodjeli + notifikaciju koordinatora pri novoj prijavi kvara.
-- Otvoreno pitanje: Da li su notifikacije in-app, email ili push (mobilne)?
+- Notifikacije su implementirane kao in-app obavijesti unutar sistema.
 - Otvoreno pitanje: Da li korisnik može isključiti notifikacije?
 
 #### Veze i zavisnosti
