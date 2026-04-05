@@ -302,7 +302,7 @@ Praćenje statusa je temeljni mehanizam transparentnosti u sistemu. Bez njega, k
 #### Pretpostavke i otvorena pitanja
 
 - Moguće vrijednosti statusa: Otvoreno → U procesu → Završeno.
-- Otvoreno pitanje: Da li postoji status "Otkazano" ili "Na čekanju"? Nije navedeno u MVP-u, ali je vjerovatno potrebno u praksi.
+- Otvoreno pitanje: Da li postoji status "Na čekanju"? Nije navedeno u MVP-u, ali je vjerovatno potrebno u praksi.
 - Otvoreno pitanje: Može li serviser promijeniti status u "Završeno" ili je to isključivo koordinatorova akcija?
 
 #### Veze i zavisnosti
@@ -315,7 +315,7 @@ Praćenje statusa je temeljni mehanizam transparentnosti u sistemu. Bez njega, k
 #### Acceptance Kriteriji
 
 - Kada koordinator ili serviser otvori detalje intervencije, **mora vidjeti trenutni status i imati mogućnost izmjene**.
-- Sistem mora **dozvoliti promjenu statusa samo u unaprijed definisanom smjeru**: Otvoreno → U procesu → Završeno (nije moguće preskočiti status).
+- Sistem mora **dozvoliti promjenu statusa samo u unaprijed definisanom smjeru**: Otvoreno → U procesu → Završeno ili Otvoreno → Otkazano (nije moguće preskočiti status).
 - Svaka promjena statusa mora biti **automatski zabilježena u historiji intervencije** s: imenom korisnika koji je izvršio promjenu, datumom i tačnim vremenom.
 - Koordinator mora imati **pregled kompletne historije promjena statusa** unutar detalja svake intervencije.
 - Sistem ne smije dozvoliti **promjenu statusa Završene intervencije** bez posebnih administratorskih ovlasti.
