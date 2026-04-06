@@ -56,6 +56,7 @@ Samoregistracija smanjuje administrativni teret i ubrzava onboarding novih koris
 - Nakon uspješne registracije, **sistem mora prikazati potvrdu** (npr. "Vaš račun je uspješno kreiran") i korisnik mora moći odmah se prijaviti.
 - Admin mora moći **promijeniti ulogu novoregistrovanog korisnika** putem admin panela (PBI-013) ako je potrebno dodijeliti privilegovanu ulogu.
 - Sistem ne smije dozvoliti registraciju s **neispravnim formatom email adrese**.
+- Korisnički račun mora biti povezan sa određenom firmom/organizacijom.
 
 ---
 
@@ -514,6 +515,7 @@ Admin panel je osnova sigurnosti i organizacione kontrole. Kad zaposlenik napust
 - Sistem ne smije dozvoliti **brisanje korisnika koji ima vezane aktivne intervencije**.
 - Admin ne smije moći **deaktivirati vlastiti račun** (zaštita od slučajnog zaključavanja).
 - Svaka izmjena u korisničkim računima mora biti **zabilježena u audit logu**.
+- Admin prilikom kreiranja ili uređivanja korisnika dodjeljuje firmu kojoj korisnik pripada.
 
 ---
 
