@@ -1167,3 +1167,309 @@ Višejezična podrška proširuje krug korisnika sistema i smanjuje mogućnost g
 - Klik na notifikaciju mora **direktno otvoriti odgovarajući tiket**.
 - Sistem mora prikazati **broj nepročitanih notifikacija** i za tikete, vidljivo u navigaciji.
 - Korisnik ne smije primati **notifikacije za tuđe tikete**.
+
+---
+
+## NOVI PBI-ovi — v2.1
+
+---
+
+### PBI-032 – Upravljanje kategorijama kvarova (Admin)
+
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 4 SP | **Sprint:** 6
+
+#### User Story
+
+> Kao **administrator sistema**, želim **dodavati, uređivati i deaktivirati kategorije kvarova koje se prikazuju korisnicima pri prijavi kvara**, kako bih **osigurao da lista kategorija uvijek odražava stvarne tipove kvarova s kojima se organizacija susreće i bila dostupna od prvog dana korištenja sistema**.
+
+#### Poslovna vrijednost
+
+Kategorije kvarova su infrastrukturni element koji mora biti postavljen prije nego korisnici počnu prijavljovati kvarove. Bez upravljanja kategorijama putem admin panela, izmjena liste zahtijeva intervenciju developera, što usporava operativni rad. Dinamično upravljanje kategorijama daje organizaciji autonomiju i fleksibilnost bez tehničke zavisnosti.
+
+#### Pretpostavke i otvorena pitanja
+
+- Kategorije koje se deaktivišu ne brišu se iz sistema – ostaju vidljive na prethodnim intervencijama, ali se ne nude pri novim prijavama.
+- Otvoreno pitanje: Da li postoje podkategorije (npr. Struja → Kratki spoj / Nestanak struje)?
+- Otvoreno pitanje: Da li se kategorije primjenjuju globalno ili per-firma?
+
+#### Veze i zavisnosti
+
+- **Preduvjet za:** PBI-003 (Prijava kvara – odabir kategorije), PBI-030 (Kategorije i tipovi kvarova)
+- **Zavisi od:** PBI-002 (Login), PBI-001 (Registracija – admin mora biti u sistemu)
+
+---
+
+#### Acceptance Kriteriji
+
+- Admin mora imati pristup **listi svih kategorija kvarova** s informacijama: naziv, status (aktivna/neaktivna), datum kreiranja.
+- Admin mora moći **kreirati novu kategoriju** unosom naziva i opcionog opisa.
+- Sistem ne smije dozvoliti **kreiranje kategorije s već postojećim nazivom** – naziv mora biti jedinstven.
+- Admin mora moći **urediti naziv i opis** postojeće aktivne kategorije.
+- Admin mora moći **deaktivirati kategoriju** – deaktivirana kategorija ne smije se prikazivati korisnicima pri novim prijavama kvara.
+- Admin mora moći **reaktivirati prethodno deaktiviranu kategoriju**.
+- Deaktiviranje kategorije **ne smije retroaktivno uticati** na intervencije koje su prethodno evidentirane s tom kategorijom.
+- Ako nema niti jedne aktivne kategorije, **sistem mora prikazati upozorenje adminu** da korisnici neće moći prijaviti kvar.
+- Svaka izmjena kategorije mora biti **zabilježena s imenom admina i vremenskom oznakom**.
+
+---
+
+### PBI-033 – Pregled i upravljanje attachmentima
+
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 3 SP | **Sprint:** 7 (5 sprintova) / Sprint 8 (8 sprintova)
+
+#### User Story
+
+> Kao **koordinator ili administrator**, želim **pregledati, validirati i po potrebi obrisati fajlove priložene uz prijavu kvara**, kako bih **osigurao da sistem ne sadrži neprihvatljive, oštećene ili zlonamjerne datoteke i da attachmenti zauzimaju samo opravdani prostor**.
+
+#### Poslovna vrijednost
+
+Bez pregleda i kontrole nad priloženim fajlovima, korisnici mogu priložiti datoteke neodgovarajućeg tipa, prevelike veličine ili potencijalno štetnog sadržaja. Koordinator i admin moraju imati mehanizam za naknadnu kontrolu i čišćenje, posebno u situacijama kada korisnik priloži neodgovarajući materijal.
+
+#### Pretpostavke i otvorena pitanja
+
+- Dozvoljeni tipovi fajlova i maksimalna veličina definišu se u konfiguraciji sistema (admin nadležnost).
+- Otvoreno pitanje: Da li se brisanjem attachmenta briše i fizička datoteka s servera ili samo referenca?
+- Otvoreno pitanje: Da li koordinator može brisati ili samo admin?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-003 (Prijava kvara – upload fajlova)
+- **Veza s:** PBI-013 (Admin upravljanje)
+
+---
+
+#### Acceptance Kriteriji
+
+- U detaljima svake intervencije, koordinator i admin moraju moći **pregledati sve priložene fajlove** (naziv, tip, veličina, datum uploada).
+- Koordinator i admin moraju moći **otvoriti ili preuzeti svaki priloženi fajl** direktno iz sistema.
+- Admin mora moći **definisati dozvoljene tipove fajlova** (npr. JPG, PNG, PDF) i **maksimalnu veličinu** po fajlu u konfiguraciji.
+- Sistem mora **odbiti upload fajlova** koji ne odgovaraju dozvoljenim tipovima ili prelaze maksimalnu veličinu – uz jasnu poruku korisniku.
+- Koordinator ili admin mora moći **obrisati attachment** vezan za intervenciju uz obaveznu potvrdu akcije.
+- Sistem mora **zabilježiti ko je i kada obrisao attachment** u audit logu.
+- Ako intervencija nema priloženih fajlova, **sekcija attachmenta mora biti prikazana** s odgovarajućom porukom (npr. "Nema priloženih fajlova").
+
+---
+
+### PBI-034 – Geografski/mapski prikaz intervencija
+
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 4 SP | **Sprint:** 10 (5 sprintova) / Sprint 12 (8 sprintova)
+
+#### User Story
+
+> Kao **koordinator**, želim **pregledati intervencije prikazane na interaktivnoj mapi prema njihovoj lokaciji**, kako bih **dobio prostorni uvid u distribuciju zadataka na terenu i lakše koordinirao servisere u istom geografskom području**.
+
+#### Poslovna vrijednost
+
+Lista intervencija prikazuje šta postoji i kada je zakazano, ali ne govori ništa o tome gdje se sve dešava. Mapski prikaz omogućava koordinatoru da odmah vidi koncentracije kvarova, identifikuje preopterećena područja i efikasnije planira rute servisera – naročito u organizacijama s velikim terenskim pokrićem.
+
+#### Pretpostavke i otvorena pitanja
+
+- Prikaz zahtijeva da intervencije imaju definisane koordinate (geografsku lokaciju).
+- Otvoreno pitanje: Koji kartografski provider se koristi (Google Maps, OpenStreetMap, Mapbox)?
+- Otvoreno pitanje: Da li je moguće kreirati novu intervenciju klikom na lokaciju na mapi?
+- Otvoreno pitanje: Da li se prikazuju samo aktivne ili i arhivirane intervencije?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-004 (Planiranje – definisanje lokacije), PBI-007 (Lista intervencija)
+- **Veza s:** PBI-020 (Kalendarski prikaz – komplementarni prikazi)
+
+---
+
+#### Acceptance Kriteriji
+
+- Koordinator mora imati mogućnost **prebacivanja između listnog i mapskog prikaza** intervencija.
+- Svaka intervencija s definisanom lokacijom mora biti **prikazana kao marker/pin na mapi** na odgovarajućim koordinatama.
+- Klik na marker mora **otvoriti sažetak intervencije** (naziv, prioritet, status, dodjeljeni serviser) bez napuštanja mapskog prikaza.
+- Markeri moraju biti **vizualno razlikovani po prioritetu** (npr. boja: crvena = Hitan, narančasta = Visok itd.).
+- Koordinator mora moći **filtrirati prikazane intervencije** na mapi po statusu i/ili dodjeljenom serviseru.
+- Intervencije **bez definisane lokacije ne smiju biti prikazane** na mapi (ili se prikazuju u posebnoj listi ispod).
+- Mapa mora podržavati **zoom in/out i pomicanje** (pan) radi preglednosti u gustim područjima.
+- Mapski prikaz **ne smije prikazivati arhivirane intervencije** po defaultu.
+
+---
+
+### PBI-035 – Konfiguracija vremenskih rokova (SLA)
+
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 3 SP | **Sprint:** 7 (5 sprintova) / Sprint 9 (8 sprintova)
+
+#### User Story
+
+> Kao **administrator sistema**, želim **definirati vremenski rok za rješavanje intervencija za svaki nivo prioriteta**, kako bih **uspostavio mjerljive standarde usluge (SLA) koji služe kao osnova za automatska upozorenja o kašnjenju**.
+
+#### Poslovna vrijednost
+
+Bez definisanih rokova, upozorenja o kašnjenju (PBI-018) nemaju smisla jer sistem ne zna kada intervencija kasni. SLA konfiguracija daje organizaciji mogućnost da postavi vlastite standarde usluge koji odgovaraju prirodi posla i ugovornim obavezama prema klijentima, bez potrebe za izmjenama koda.
+
+#### Pretpostavke i otvorena pitanja
+
+- Rokovi se definišu per-prioritet: Hitan, Visok, Normalan, Nizak.
+- Otvoreno pitanje: Da li se SLA rokovi mogu definisati i per-kategorija kvara, ili samo per-prioritet?
+- Otvoreno pitanje: Da li SLA sat teče od kreiranja intervencije ili od dodjele serviseru?
+
+#### Veze i zavisnosti
+
+- **Preduvjet za:** PBI-018 (Upozorenje usljed kašnjenja)
+- **Zavisi od:** PBI-005 (Prioritet intervencije)
+
+---
+
+#### Acceptance Kriteriji
+
+- Admin mora imati pristup **stranici za konfiguraciju SLA rokova** s poljem za svaki nivo prioriteta: Hitan, Visok, Normalan, Nizak.
+- Admin mora moći **unijeti vremenski rok u satima** za svaki nivo prioriteta (npr. Hitan = 2h, Visok = 8h).
+- Sistem ne smije dozvoliti **čuvanje SLA konfiguracije s praznim poljem** za bilo koji nivo prioriteta.
+- Sistem ne smije dozvoliti **nulu ili negativnu vrijednost** kao rok.
+- Nakon čuvanja, nova SLA konfiguracija mora **odmah biti aktivna** za sve buduće provjere kašnjenja.
+- Promjena SLA konfiguracije mora biti **zabilježena u audit logu** s imenom admina i vremenskom oznakom.
+- Admin mora moći **pregledati trenutno aktivnu konfiguraciju** u svakom trenutku.
+- Sistem mora prikazati **jasnu vizualnu potvrdu** da su promjene uspješno sačuvane.
+
+---
+
+### PBI-036 – Feedback korisnika po završetku intervencije
+
+**Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 3 SP | **Sprint:** 10 (5 sprintova) / Sprint 12 (8 sprintova)
+
+#### User Story
+
+> Kao **korisnik koji je prijavio kvar**, želim **dobiti mogućnost da ocijenim ili potvrdim da je moj problem riješen nakon što budem obaviješten o završetku intervencije**, kako bih **dao povratnu informaciju o kvaliteti usluge i potvrdio da sam zadovoljan ishodom**.
+
+#### Poslovna vrijednost
+
+Feedback korisnika zatvara petlju između prijave kvara i potvrde rješenja iz perspektive korisnika – ne samo iz perspektive servisera. Organizacija dobija mjerljiv pokazatelj zadovoljstva korisnika po svakoj intervenciji, što omogućava identifikaciju slabih tačaka u procesu i praćenje trendova kvalitete usluge tokom vremena.
+
+#### Pretpostavke i otvorena pitanja
+
+- Feedback je opcionalan – korisnik nije obavezan ostaviti ocjenu.
+- Otvoreno pitanje: Koji je format ocjene – numerički (1–5), palac gore/dolje, ili opisni?
+- Otvoreno pitanje: Da li koordinator i menadžment mogu pregledati feedback u dashboardu?
+- Otvoreno pitanje: Nakon koliko vremena od završetka intervencije feedback više nije moguće ostaviti?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-008 (Praćenje statusa – status "Završeno"), PBI-012 (Notifikacije)
+- **Veza s:** PBI-014 (Menadžment dashboard – potencijalna integracija metrike)
+
+---
+
+#### Acceptance Kriteriji
+
+- Kada intervencija prijeđe u status "Završeno", korisnik koji je prijavio kvar mora dobiti **in-app obavijest s pozivom na feedback**.
+- Korisnik mora moći **ostaviti ocjenu** (minimalno: potvrda rješenja ili numerička ocjena 1–5) direktno iz notifikacije ili iz pregleda intervencije.
+- Korisnik mora imati mogućnost **dodavanja opcionog tekstualnog komentara** uz ocjenu.
+- Feedback mora biti **moguće ostaviti samo jednom** po intervenciji – ponovni unos nije dozvoljen.
+- Ako korisnik ne ostavi feedback, **sistem ne smije blokirati niti podsjetiti više od jednom**.
+- Koordinator i admin moraju moći **pregledati feedback** vezan za konkretnu intervenciju u njenim detaljima.
+- Sistem ne smije **prikazivati feedback jednog korisnika drugom korisniku** koji nije koordinator ili admin.
+
+---
+
+### PBI-037 – Automatska raspodjela intervencija
+
+**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 4 SP | **Sprint:** 10 (5 sprintova) / Sprint 13 (8 sprintova)
+
+#### User Story
+
+> Kao **koordinator**, želim **da sistem automatski dodijeli novu intervenciju manje opterećenom serviseru prema definisanim pravilima**, kako bih **smanjio ručni posao dodjele i osigurao ravnomjernu distribuciju posla – uz zadržanu mogućnost ručne izmjene**.
+
+#### Poslovna vrijednost
+
+U okruženjima s visokim volumenom intervencija, ručna dodjela svakog zadatka postaje uski grlo. Automatska raspodjela ubrzava proces, smanjuje rizik od propuštene dodjele i osigurava pravičniju distribuciju opterećenja. Koordinator i dalje ima punu kontrolu i može u svakom trenutku pregaziti automatsku odluku.
+
+#### Pretpostavke i otvorena pitanja
+
+- Kriterij raspodjele u MVP-u: broj trenutno aktivnih intervencija po serviseru (manje = prednost).
+- Otvoreno pitanje: Da li se automatska raspodjela primjenjuje na sve nove intervencije ili samo ako koordinator ne dodijeli unutar X minuta?
+- Otvoreno pitanje: Što se dešava ako nema dostupnih servisera?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-021 (Pregled dostupnosti servisera), PBI-006 (Dodjela servisera)
+- **Veza s:** PBI-012 (Notifikacije – serviser mora biti obaviješten o automatskoj dodjeli)
+
+---
+
+#### Acceptance Kriteriji
+
+- Kada se kreira nova intervencija, sistem mora **automatski dodijeliti je serviseru s najmanjim brojem aktivnih intervencija** prema pravilima definisanim u konfiguraciji.
+- Koordinator mora biti **jasno obaviješten da je dodjela automatski izvršena** (vizualna oznaka u detaljima intervencije).
+- Koordinator mora moći **ručno izmijeniti automatski dodijeljenog servisera** u svakom trenutku bez ograničenja.
+- Serviser koji je automatski dobio intervenciju mora primiti **in-app notifikaciju** identičnu onoj pri ručnoj dodjeli.
+- Sistem mora **evidentirati da je dodjela bila automatska** (za razliku od ručne) u historiji intervencije.
+- Ako nema dostupnih aktivnih servisera, **sistem ne smije blokirati kreiranje intervencije** – intervencija ostaje nedodijeljenom s odgovarajućom oznakom.
+- Admin mora moći **aktivirati ili deaktivirati** funkcionalnost automatske raspodjele iz konfiguracije sistema.
+
+---
+
+### PBI-038 – Masovne akcije na intervencijama
+
+**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 4 SP | **Sprint:** 10 (5 sprintova) / Sprint 12 (8 sprintova)
+
+#### User Story
+
+> Kao **koordinator**, želim **istovremeno izvršiti istu akciju (promjena statusa, dodjela servisera, arhiviranje) nad više odabranih intervencija**, kako bih **drastično smanjio broj klikova i ubrzao upravljanje u situacijama s visokim volumenom zadataka**.
+
+#### Poslovna vrijednost
+
+Upravljanje desetinama ili stotinama intervencija jedna-po-jedna je neprihvatljivo sporo. Masovne akcije su standardna funkcionalnost u operativnim alatima i direktno utječu na produktivnost koordinatora. Bez ove mogućnosti, svaka reorganizacija rada (npr. preraspodjela servisera ili masovno zatvaranje završenih zadataka) oduzima nerazumnu količinu vremena.
+
+#### Pretpostavke i otvorena pitanja
+
+- Masovne akcije su dostupne isključivo koordinatoru.
+- Otvoreno pitanje: Da li postoji limit broja intervencija koje se mogu odabrati odjednom?
+- Otvoreno pitanje: Da li se sve akcije primjenjuju i na arhivirane intervencije ili samo na aktivne?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-007 (Lista intervencija), PBI-008 (Promjena statusa), PBI-006 (Dodjela servisera), PBI-026 (Arhiviranje)
+
+---
+
+#### Acceptance Kriteriji
+
+- Koordinator mora moći **odabrati više intervencija** iz liste putem checkbox-a (uključujući opciju "Odaberi sve").
+- Nakon odabira, koordinator mora vidjeti **toolbar s dostupnim masovnim akcijama**: promjena statusa, dodjela servisera, arhiviranje.
+- Sistem mora tražiti **potvrdu korisnika** prije izvršavanja masovne akcije (npr. "Sigurni ste da želite promijeniti status za 15 intervencija?").
+- Masovna akcija mora biti **primijenjena na sve odabrane intervencije atomarno** – ili sve uspiju, ili sistem prikazuje grešku za svaku koja nije mogla biti ažurirana.
+- Nakon izvršene akcije, **lista mora biti osvježena** i prikazivati ažurirano stanje.
+- Sistem mora prikazati **sažetak rezultata** masovne akcije (npr. "15 od 15 intervencija uspješno ažurirano").
+- Ako koordinator odabere intervencije kojima određena akcija nije primjenjiva (npr. pokušaj arhiviranja aktivne intervencije), **sistem mora jasno naznačiti** koje intervencije su preskočene i zašto.
+
+---
+
+### PBI-039 – Blokiranje korisnika od strane firme
+
+**Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 2 SP | **Sprint:** 10 (5 sprintova) / Sprint 13 (8 sprintova)
+
+#### User Story
+
+> Kao **koordinator**, želim **blokirati korisnika za kojeg procijenim da se radi o spamu ili zloupotrebi sistema**, kako bih **spriječio daljnje lažne prijave i zaštitio tim od nepotrebnog opterećenja**.
+
+#### Poslovna vrijednost
+
+Otvoreni sistemi za prijavu kvarova (posebno dostupni i neprijavljenim korisnicima) mogu biti zloupotrijebljeni. Koordinator koji primijeti obrazac lažnih ili šaljivih prijava od istog korisnika mora imati brz mehanizam zaštite bez potrebe da angažuje administratora.
+
+#### Pretpostavke i otvorena pitanja
+
+- Blokiranje je reverzibilna akcija – korisnik može biti deblokiran.
+- Otvoreno pitanje: Da li blokirani korisnik dobija obavijest o blokiranju?
+- Otvoreno pitanje: Da li blokiranje važi samo za prijavu kvarova ili i za prijavu u sistem?
+- Otvoreno pitanje: Da li koordinator blokira korisnika u kontekstu firme ili globalno u sistemu?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-003 (Prijava kvara), PBI-001 (Registracija korisnika)
+- **Veza s:** PBI-013 (Admin upravljanje računima)
+
+---
+
+#### Acceptance Kriteriji
+
+- Koordinator mora imati **opciju blokiranja korisnika** dostupnu iz pregleda intervencija ili korisničkog profila.
+- Sistem mora tražiti **potvrdu akcije** prije blokiranja (npr. "Jeste li sigurni da želite blokirati ovog korisnika?").
+- Nakon blokiranja, **blokirani korisnik ne smije moći slati nove prijave kvarova** – sistem mora odbiti unos s odgovarajućom porukom.
+- Koordinator mora imati **pregled svih blokiranih korisnika** s mogućnošću deblokiranja.
+- Deblokiranje mora **odmah omogućiti korisniku** da ponovo podnosi prijave.
+- Svaka akcija blokiranja i debrokiranja mora biti **evidentirana u logu** s imenom koordinatora i vremenskom oznakom.
+- Blokiranje korisnika **ne smije automatski deaktivirati korisnički račun** – to je odvojena admin akcija (PBI-013).
