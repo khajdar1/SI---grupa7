@@ -133,6 +133,7 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 - Sistem ne smije zahtijevati prijavu za slanje obrasca – **neprijavljeni korisnik mora moći prijaviti kvar** bez registracije.
 - Kreirana intervencija mora biti **odmah vidljiva koordinatoru** u listi aktivnih intervencija (PBI-007).
 - Sistem mora dozvoliti upload **najmanje jedne slike ili dokumenta** uz svaku prijavu.
+- Sistem mora ponuditi listu predefinisanih hitnih intervencija, a korisnik mora imati mogućnost dodatnog unosa opisa kvara.
 
 ---
 
