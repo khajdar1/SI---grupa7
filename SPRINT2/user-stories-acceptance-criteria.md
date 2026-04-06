@@ -21,7 +21,7 @@
 
 ### PBI-001 – Registracija korisnika
  
-**Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 5 SP | **Status:** Todo | **Sprint:** 5
+**Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 5 SP | **Sprint:** 5
  
 #### User Story
  
@@ -1075,6 +1075,80 @@ Notifikacije za tikete imaju istu logiku kao i operativne notifikacije (PBI-012)
  
 - **Zavisi od:** PBI-027 (Kreiranje tiketa), PBI-028 (Komunikacija)
 - **Veza s:** PBI-012 (Operativne notifikacije)
+---
+- ### PBI-030 – Kategorije i tipovi kvarova
+
+**Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 3 SP | **Sprint:** Backlog
+
+#### User Story
+
+> Kao **korisnik**, želim **pri prijavi kvara odabrati kategoriju iz predefinisane liste** (npr. vodoinstalacije, struja, internet...), kako bih **preciznije opisao prirodu problema i omogućio koordinatoru brže razumijevanje i kategorizaciju bez dodatnih pojašnjenja**.
+
+#### Poslovna vrijednost
+
+Slobodni tekstualni unos tipa kvara dovodi do nekonzistentnih podataka – isti problem može biti opisan na desetak različitih načina. Predefinisane kategorije standardizuju unos, ubrzavaju trijažu koordinatora i omogućavaju filtriranje i analizu intervencija po tipu kvara.
+
+#### Pretpostavke i otvorena pitanja
+
+- Kategorije su predefinisane u sistemu; korisnik ne može kreirati vlastitu kategoriju pri prijavi.
+- Otvoreno pitanje: Ko upravlja listom kategorija – admin putem admin panela ili je lista fiksna u kodu?
+- Otvoreno pitanje: Da li jedna intervencija može imati više kategorija ili samo jednu?
+- Otvoreno pitanje: Da li postoje podkategorije (npr. Struja → Kratki spoj / Nestanak struje)?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-003 (Prijava kvara)
+- **Veza s:** PBI-007 (Lista intervencija – filtriranje po kategoriji), PBI-017 (Napredna pretraga)
+
+---
+
+#### Acceptance Kriteriji
+
+- Kada korisnik otvori formu za prijavu kvara, **mora vidjeti padajući meni ili listu za odabir kategorije** (npr. Vodoinstalacije, Struja, Internet, Grijanje, Lift, Ostalo).
+- Odabir kategorije mora biti **obavezno polje** – korisnik ne smije moći poslati prijavu bez odabrane kategorije.
+- Sistem mora **prikazati odabranu kategoriju u detalju intervencije** vidljivu koordinatoru i serviseru.
+- Koordinator i menadžment moraju moći **filtrirati listu intervencija po kategoriji** (veza s PBI-007).
+- Kategorija mora biti **uključena u rezultate napredne pretrage** (PBI-017) kao jedan od kriterija filtriranja.
+- Sistem ne smije dozvoliti **unos slobodnog teksta umjesto odabira** iz predefinisane liste.
+- Ako lista kategorija bude prazna ili nedostupna, **sistem mora prikazati odgovarajuću grešku** i spriječiti slanje obrasca.
+
+---
+
+### PBI-031 – Višejezična podrška
+
+**Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 5 SP | **Sprint:** Backlog
+
+#### User Story
+
+> Kao **korisnik sistema**, želim **moći odabrati jezik prikaza sučelja u postavkama svog profila**, kako bih **koristio sistem na jeziku koji mi je najrazumljiviji i izbjegao jezičke barijere pri svakodnevnom radu**.
+
+#### Poslovna vrijednost
+
+Višejezična podrška proširuje krug korisnika sistema i smanjuje mogućnost grešaka uzrokovanih nerazumijevanjem sučelja. Posebno je važna u sredinama s višejezičnim timovima ili u slučaju internacionalizacije proizvoda.
+
+#### Pretpostavke i otvorena pitanja
+
+- Minimalno podržani jezici u prvoj iteraciji trebaju biti definirani (npr. bosanski/hrvatski/srpski i engleski).
+- Otvoreno pitanje: Da li se jezik primjenjuje samo na sučelje ili i na sistemske poruke i emailove?
+- Otvoreno pitanje: Ko je odgovoran za prijevode – developer tim ili se koristi eksterni alat (npr. i18n fajlovi)?
+- Otvoreno pitanje: Da li neprijavljeni korisnici vide zadani jezik ili mogu odabrati prije logina?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-015 (Upravljanje korisničkim profilom)
+- **Veza s:** PBI-002 (Login – zadani jezik na login stranici)
+
+---
+
+#### Acceptance Kriteriji
+
+- Svaki prijavljeni korisnik mora imati **mogućnost odabira jezika u postavkama profila** iz liste podržanih jezika.
+- Nakon odabira i čuvanja jezika, **sučelje sistema mora biti prikazano na odabranom jeziku** pri svakom narednom loginu bez potrebe za ponovnim odabirom.
+- Promjena jezika mora se **primijeniti odmah** ili nakon osvježavanja stranice – bez potrebe za ponovnom prijavom.
+- Sistem mora **zapamtiti odabrani jezik** po korisničkom računu, ne samo po sesiji ili pregledniku.
+- Svi elementi sučelja (navigacija, dugmad, poruke grešaka, labele formi) moraju biti **prevedeni na odabrani jezik** – parcijalni prijevodi nisu prihvatljivi.
+- Sistem ne smije **prikazivati miješane jezike** na istoj stranici (npr. neke labele na jednom, a druge na drugom jeziku).
+- Ako prijevod za određeni element nedostaje, **sistem mora prikazati fallback vrijednost** (npr. engleski) umjesto praznog polja ili koda.
  
 ---
  
