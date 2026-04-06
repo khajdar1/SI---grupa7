@@ -64,6 +64,12 @@ Kerim Hajdar
 | PBI-029 | Notifikacija za tikete | Korisnik dobija in-app obavijest kada agent iz podrške odgovori na tiket, a agent kada stigne novi tiket ili odgovor korisnika | Feature | Nizak | Složenost | Todo | Sprint/Release | |
 | PBI-030 | Kategorije i tipovi kvarova | Korisnik pri prijavi kvara bira kategoriju iz odgovarajuće liste(vodoinstalacije, struja, internet...) | Feature | Nizak | Složenost | Todo | Sprint/Release | Kategorije se mogu koristiti i za filtriranje|
 | PBI-031 | Višejezična podrška | Sistem podržava prikaz na više jezika | Feature | Nizak | Složenost | Todo | Sprint/Release | Korinsik može odabrati jezik u postavkama profila|
+| PBI-032 | Upravljanje kategorijama kvarova | Admin dodaje, uređuje i deaktivira kategorije kvarova | Feature | Visok | Složenost | Todo | Sprint 5 | |
+| PBI-033 | Pregled i upravljanje attachmentima | Pregled, validacija i brisanje fajlova priloženih u prijavi kvara | Feature | Visok | Složenost | Todo | Sprint 6 | |
+| PBI-034 | Geografski/mapski prikaz intervencija | Koordinator vidi intervencije na mapi prema lokaciji i dopunjuje vremensku dimenziju | Feature | Visok | Složenost | Todo | Sprint/Release | |
+| PBI-035 | Konfiguracija vremenskih rokova | Admin definira rok za svaki prioritet(npr. hitan=2 h, visok=8h) | Feature | Visok | Složenost | Todo | Sprint 6 | |
+| PBI-036 | Feedback korisnika po završetku intervencije | Korisnik može ocijeniti intervenciju nakon što dobije obavijest o završetku | Feature | Nizak | Složenost | Todo | Sprint/Release | |
+| PBI-037 | Automatska raspodjela intervencija | Sistem automatski dodjeljuje intervenciju manje opterećenom serviseru prema definisanim pravilima | Feature | Srednji | Složenost | Todo | Sprint/Release | |
 ---
 
 ## LEGENDA & DEFINICIJE
