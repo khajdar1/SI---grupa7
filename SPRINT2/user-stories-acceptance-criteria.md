@@ -1120,16 +1120,16 @@ Slobodni tekstualni unos tipa kvara dovodi do nekonzistentnih podataka – isti 
 
 #### User Story
 
-> Kao **korisnik sistema**, želim **moći odabrati jezik prikaza sučelja u postavkama svog profila**, kako bih **koristio sistem na jeziku koji mi je najrazumljiviji i izbjegao jezičke barijere pri svakodnevnom radu**.
+> Kao **korisnik sistema**, želim **moći odabrati jezik prikaza interfejsa u postavkama svog profila**, kako bih **koristio sistem na jeziku koji mi je najrazumljiviji i izbjegao jezičke barijere pri svakodnevnom radu**.
 
 #### Poslovna vrijednost
 
-Višejezična podrška proširuje krug korisnika sistema i smanjuje mogućnost grešaka uzrokovanih nerazumijevanjem sučelja. Posebno je važna u sredinama s višejezičnim timovima ili u slučaju internacionalizacije proizvoda.
+Višejezična podrška proširuje krug korisnika sistema i smanjuje mogućnost grešaka uzrokovanih nerazumijevanjem interfejsa. Posebno je važna u sredinama s višejezičnim timovima ili u slučaju internacionalizacije proizvoda.
 
 #### Pretpostavke i otvorena pitanja
 
 - Minimalno podržani jezici u prvoj iteraciji trebaju biti definirani (npr. bosanski/hrvatski/srpski i engleski).
-- Otvoreno pitanje: Da li se jezik primjenjuje samo na sučelje ili i na sistemske poruke i emailove?
+- Otvoreno pitanje: Da li se jezik primjenjuje samo na infterfejs ili i na sistemske poruke i emailove?
 - Otvoreno pitanje: Ko je odgovoran za prijevode – developer tim ili se koristi eksterni alat (npr. i18n fajlovi)?
 - Otvoreno pitanje: Da li neprijavljeni korisnici vide zadani jezik ili mogu odabrati prije logina?
 
