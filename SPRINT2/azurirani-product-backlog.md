@@ -70,6 +70,8 @@ Kerim Hajdar
 | PBI-035 | Konfiguracija vremenskih rokova | Admin definira rok za svaki prioritet(npr. hitan=2 h, visok=8h) | Feature | Visok | Složenost | Todo | Sprint 6 | |
 | PBI-036 | Feedback korisnika po završetku intervencije | Korisnik može ocijeniti intervenciju nakon što dobije obavijest o završetku | Feature | Nizak | Složenost | Todo | Sprint/Release | |
 | PBI-037 | Automatska raspodjela intervencija | Sistem automatski dodjeljuje intervenciju manje opterećenom serviseru prema definisanim pravilima | Feature | Srednji | Složenost | Todo | Sprint/Release | |
+| PBI-038 | Masovne akcije | Koordinator može odjednom promijeniti status, dodijeliti servisera ili arhivirati više intervencija. Bez ovoga, upravljanje velikim brojem intervencija postaje mukotrpno | Feature | Srednji | Složenost | Todo | Sprint/Release | |
+| PBI-039 | Blokiranje korisnika od strane firmi | Koordinator može blokirati korisnika ukoliko procijeni da se radi o spamu | Feature | Nizak | Složenost | Todo | Sprint/Release | |
 ---
 
 ## LEGENDA & DEFINICIJE
