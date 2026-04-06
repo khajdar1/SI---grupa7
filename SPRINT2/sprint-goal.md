@@ -1,46 +1,21 @@
-## Sprint 5
-
-**Sprint broj**  
-Sprint 5  
-
-**Sprint cilj**  
-Omogućiti korisnicima pristup sistemu i unos novih intervencija kroz osnovne funkcionalnosti (registracija, login i prijava kvara).
-
-**Ključne stavke koje tim želi završiti**
-- PBI-001 Registracija korisnika  
-- PBI-002 Login  
-- PBI-003 Prijava kvara  
-- PBI-004 Planiranje intervencija  
-- PBI-005 Postavljanje prioriteta  
-
-**Rizici i zavisnosti**
-- Login zavisi od registracije  
-- Planiranje zavisi od prijave kvara  
-- Rizik: sigurnost autentifikacije i validacija unosa  
-
-
----
-
 ## Sprint 6
 
 **Sprint broj**  
 Sprint 6  
 
 **Sprint cilj**  
-Omogućiti operativno upravljanje intervencijama kroz dodjelu, praćenje i izvršenje zadataka.
+Omogućiti siguran pristup sistemu i postaviti temeljne funkcionalnosti autentifikacije i osnovne konfiguracije sistema (registracija, login, reset lozinke i kategorije kvarova kao preduvjet za prijavu kvara).
 
 **Ključne stavke koje tim želi završiti**
-- PBI-006 Dodjela servisera  
-- PBI-007 Pregled liste intervencija  
-- PBI-008 Praćenje statusa  
-- PBI-009 Pregled zadataka servisera  
-- PBI-010 Izvještaj o intervenciji  
+- PBI-001 Registracija korisnika  
+- PBI-002 Login  
+- PBI-019 Reset lozinke  
+- PBI-032 Upravljanje kategorijama kvarova (Admin)  
 
 **Rizici i zavisnosti**
-- Dodjela zavisi od planiranja (Sprint 5)  
-- Status zavisi od dodjele  
-- Rizik: kompleksnost sinhronizacije statusa i prikaza  
-
+- Login i reset lozinke zavise od registracije  
+- Kategorije kvarova su preduvjet za prijavu kvara (Sprint 7)  
+- Rizik: sigurnost autentifikacije, validacija podataka i upravljanje korisničkim ulogama  
 
 ---
 
