@@ -127,6 +127,7 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 - Kada korisnik otvori obrazac za prijavu kvara, **mora vidjeti polja**: lokacija, opis problema i kategorija usluge.
 - Sistem mora **omogućiti dodavanje slika ili dokumenata** (attachment) uz prijavu kvara.
 - Korisnik pri prijavi kvara bira firmu iz unaprijed definisane liste (dropdown), bez potrebe za ručnim unosom.
+- Sistem mora omogućiti automatsko popunjavanje lokacije korisnika ili uređaja.
 - Ako korisnik ne popuni obavezna polja (lokacija, opis, kategorija) i pokuša poslati obrazac, **sistem ne smije kreirati intervenciju** i mora označiti koje polje nedostaje.
 - Kada korisnik uspješno pošalje obrazac, **sistem mora automatski kreirati novu intervenciju** i prikazati potvrdu o prijemu (npr. broj intervencije ili poruku "Vaša prijava je zabilježena").
 - Sistem ne smije zahtijevati prijavu za slanje obrasca – **neprijavljeni korisnik mora moći prijaviti kvar** bez registracije.
