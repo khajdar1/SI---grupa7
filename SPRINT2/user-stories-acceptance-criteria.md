@@ -396,9 +396,11 @@ Izvještaj o intervenciji je osnova za historiju održavanja, analizu troškova 
 - Sistem mora **vezati izvještaj za konkretnu intervenciju** – nije moguće kreirati izvještaj koji nije vezan za postojeću intervenciju.
 - Kada serviser sačuva izvještaj, **sistem mora zabilježiti** ime servisera, datum i tačno vrijeme čuvanja.
 - Koordinator i admin moraju moći **pregledati izvještaj** unutar detalja intervencije.
-- Sistem mora dozvoliti **dodavanje izvještaja dok je intervencija u statusu "U procesu" ili "Otvoreno"**.
+- Sistem mora dozvoliti **dodavanje izvještaja dok je intervencija u statusu "U procesu" ili "Završeno"**.
+- Sistem ne smije dozvoliti unos izvještaja ako intervencija nije započeta.
 - Obračun troškova **ne smije biti dio forme u MVP-u** – polje za troškove ne bi trebalo biti prikazano.
 - Korisnik treba dobiti **potvrdu o uspješnom čuvanju** izvještaja nakon submita.
+- 
 
 ---
 
