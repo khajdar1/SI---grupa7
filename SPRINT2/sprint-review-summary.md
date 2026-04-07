@@ -2,10 +2,10 @@
 Sprint 2  
 
 **Planirani sprint goal**  
-Razraditi i prioritizirati ključne funkcionalnosti sistema za upravljanje servisnim intervencijama kroz user storyje, acceptance kriterije i osnovne nefunkcionalne zahtjeve.
+Razraditi i prioritizirati ključne funkcionalnosti sistema za upravljanje servisnim intervencijama kroz user storije, acceptance kriterije i osnovne nefunkcionalne zahtjeve.
 
 **Šta je završeno**
-- Definisani user storyji 
+- Definisani user storiji 
 - Napisani acceptance kriteriji za ključne funkcionalnosti  
 - Izvršena početna prioritizacija Product Backloga za MVP  
 - Identifikovani osnovni NFR zahtjevi 
