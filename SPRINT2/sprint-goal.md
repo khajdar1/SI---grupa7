@@ -14,7 +14,5 @@ Definisati i strukturirati Product Backlog kroz razradu user storyja, acceptance
 **Rizici i zavisnosti** 
 - Kvalitet storyja zavisi od razumijevanja uloga (korisnik, koordinator, serviser)  
 - Rizik: neprecizni acceptance kriteriji mogu dovesti do pogrešne implementacije u narednim sprintovima
-   
--Rizik: preširoki user story koji ne moze stati u jedan sprint
-
--Rizik: zanemarivanje NFR zahtjeva kasnije može izazvati tehničke probleme
+- Rizik: preširoki user story koji ne moze stati u jedan sprint
+- Rizik: zanemarivanje NFR zahtjeva kasnije može izazvati tehničke probleme
