@@ -9,9 +9,9 @@
 - Kategorija_kvara
 - Prijava_kvara
 - Intervencija
-- Izvještaj
+- Izvjestaj
 - Attachment
-- Dodjela_servisera
+- Zaduzeni_serviseri
 - Tiket
 - Poruka
 - Feedback
@@ -77,7 +77,7 @@
 - periodicnost
 - sljedece_generisanje
 
-**Izvještaj**
+**Izvjestaj**
 - id
 - intervencija_id (FK)
 - korisnik_id (FK)
@@ -94,9 +94,10 @@
 - tip_fajla
 - velicina_fajla
 - intervencija_id (FK)
-- prijava_id (FK)
+- prijava_id (FK, null)
+- izvjestaj_id (FK, null)
 
-**Zaduženi_serviseri**
+**Zaduzeni_serviseri**
 - id
 - intervencija_id (FK)
 - user_id (FK)
@@ -162,11 +163,11 @@
 - Prijava_kvara - Attachment: 1:N  
 - Intervencija – Firma: N:1  
 - Intervencija – Korisnik: 1:N
-- Intervencija - Attachment: 1:N  
 - Intervencija – Zaduženi_serviseri – Korisnik: M:N  
 - Intervencija – Izvještaj: 1:N
 - Intervencija - Komentar_intervencije: 1:N  
-- Intervencija - Feedback: 1:0..1  
+- Intervencija - Feedback: 1:0..1
+- Izvjestaj - Attachment: 1:N  
 - Tiket – Poruka: 1:N  
 
 ---
