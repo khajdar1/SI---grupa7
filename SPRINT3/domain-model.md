@@ -15,6 +15,8 @@
 - Tiket
 - Poruka
 - Feedback
+- Komentar_intervencije
+- Blokiranje_korisnika
 
 ---
 
@@ -66,10 +68,14 @@
 - datum_kreiranja
 - datum_pocetka
 - rok_zavrsetka
+- kategorija_id (FK)
 - kreirao_id (FK)
 - firma_id (FK)
 - arhivirano
+- tip
 - prijava_id (FK, null)
+- periodicnost
+- sljedece_generisanje
 
 **Izvještaj**
 - id
@@ -79,6 +85,7 @@
 - materijal
 - napomene
 - datum
+- status
 
 **Attachment**
 - id
@@ -87,6 +94,7 @@
 - tip_fajla
 - velicina_fajla
 - intervencija_id (FK)
+- prijava_id (FK)
 
 **Zaduženi_serviseri**
 - id
@@ -111,6 +119,7 @@
 **Feedback**
 - id
 - intervencija_id (FK)
+- serviser_id (FK)
 - korisnik_id (FK)
 - ocjena
 - komentar
@@ -122,6 +131,21 @@
 - rok_sati
 - azurirana_at
 
+**Komentar_intervencije**
+- id
+- intervencija_id (FK)
+- korisnik_id (FK)
+- tekst
+- datum_kreiranja
+
+**Blokiranje_korisnika**
+- id
+- korisnik_id (FK)
+- firma_id (FK)
+- koordinator_id (FK)
+- razlog
+- datum_blokiranja
+
 ---
 
 #### Veze između entiteta
@@ -129,16 +153,19 @@
 - Korisnik – Prijava_kvara: 1:N 
 - Korisnik - Tiket: 1:N 
 - Korisnik - Poruka: 1:N
+- Korisnik - Blokiranje_korisnika: 1:N
 - Kategorija – Prijava_kvara: 1:N  
 - Kategorija - Intervencija: 1:N
 - Firma – Prijava_kvara: 1:N 
 - Firma - Korisnik: 1:N 
-- Prijava_kvara – Intervencija: 1:0..1  
+- Prijava_kvara – Intervencija: 1:0..1
+- Prijava_kvara - Attachment: 1:N  
 - Intervencija – Firma: N:1  
-- Intervencija – Korisnik: 1:N  
+- Intervencija – Korisnik: 1:N
+- Intervencija - Attachment: 1:N  
 - Intervencija – Zaduženi_serviseri – Korisnik: M:N  
-- Intervencija – Izvještaj: 1:N  
-- Intervencija – Attachment: 1:N
+- Intervencija – Izvještaj: 1:N
+- Intervencija - Komentar_intervencije: 1:N  
 - Intervencija - Feedback: 1:0..1  
 - Tiket – Poruka: 1:N  
 
