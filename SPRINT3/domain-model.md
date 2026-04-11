@@ -32,7 +32,6 @@
 - password
 - uloga
 - aktivan
-- blokiran
 
 **Firma**
 - id
@@ -158,7 +157,8 @@
 - Kategorija – Prijava_kvara: 1:N  
 - Kategorija - Intervencija: 1:N
 - Firma – Prijava_kvara: 1:N 
-- Firma - Korisnik: 1:N 
+- Firma - Korisnik: 1:N
+- Firma - Blokiranje_korisnika: 1:N 
 - Prijava_kvara – Intervencija: 1:0..1
 - Prijava_kvara - Attachment: 1:N  
 - Intervencija – Firma: N:1  
@@ -167,6 +167,7 @@
 - Intervencija – Izvještaj: 1:N
 - Intervencija - Komentar_intervencije: 1:N  
 - Intervencija - Feedback: 1:0..1
+- Intervencija - Attachment: 1:N
 - Izvjestaj - Attachment: 1:N  
 - Tiket – Poruka: 1:N  
 
@@ -182,7 +183,7 @@
 - Svaka intervencija mora imati status, prioritet, firmu i kreatora.
 - Jedna intervencija može imati više servisera.
 - Izvještaj se može kreirati samo za postojeću intervenciju u statusu "U procesu" ili "Završeno".
-- Attachment je vezan za intervenciju; tip i veličina se validiraju.
+- Attachment je vezan za intervenciju, prijavu_kvara ili izvještaj gdje barem jedan FK mora biti popunjen; tip i veličina se validiraju.
 - Feedback se može ostaviti samo jednom po intervenciji.
 - SLA konfiguracija se pretražuje po enum vrijednosti prioriteta.
 - Tiket je potpuno odvojen od intervencija.
