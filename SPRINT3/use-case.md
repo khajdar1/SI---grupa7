@@ -187,7 +187,7 @@ Na temelju prikupljenih prijava, koordinator kreira zvaničnu intervenciju, defi
 2. Koordinator popunjava obrazac za intervenciju (datum izlaska, procjena trajanja rada i sl.).
 3. Koordinator vrši postavljanje prioriteta za novu intervenciju.
 4. Koordinator odabira i dodjeljuje adekvatnog servisera za rad.
-5. Sistem bilježi radni zadatak i njegov status automatski postavlja na „U procesu".
+5. Sistem bilježi radni zadatak i njegov status automatski postavlja na „Otvoreno".
 6. Sistem šalje in-app notifikacije serviseru i korisniku koji je kvar prijavio.
 
 **Alternativni tokovi:**
@@ -635,6 +635,7 @@ Koordinator može blokirati korisnika za kojeg procijeni da se radi o spamu ili 
 - **AT-1: Blokiranje korisnika direktno iz liste intervencija.** Umjesto otvaranja profila korisnika, koordinator može blokirati korisnika direktno iz kontekstnog menija na konkretnoj sumnjivoj prijavi kvara, bez navigiranja na korisnički profil.
 
 **Ishod:** Spriječena zloupotreba sistema kroz onemogućavanje daljnjih prijava od strane nepoželjnih korisnika, čime se osigurava pouzdan i stabilan rad sistema.
+
 ---
 
 ## PBI-027 — Kreiranje tiketa za podršku
