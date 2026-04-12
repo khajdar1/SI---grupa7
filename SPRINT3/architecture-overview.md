@@ -47,6 +47,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 1. React Web Client
 
 Odgovoran je za prikaz korisničkog interfejsa i interakciju sa krajnjim korisnicima sistema. Omogućava:
+
     - prijavu i autentikaciju korisnika,
     - unos prijava kvarova,
     - pregled statusa intervencija,
@@ -59,6 +60,7 @@ Frontend komunicira sa backendom putem API poziva i prikazuje podatke u formi ta
 2. Backend Application / REST API
 
 Predstavlja centralnu poslovnu logiku sistema. Njegove odgovornosti su:
+
     - obrada zahtjeva sa klijentske aplikacije,
     - validacija ulaznih podataka,
     - izvršavanje poslovnih pravila,
@@ -170,6 +172,7 @@ Tip interakcije između komponenti:
 
 
 Primjer toka podataka
+
 - Scenario 1: Prijava novog kvara
     - Korisnik unosi prijavu kvara kroz React web aplikaciju.
     - Frontend šalje POST zahtjev backend API-ju u JSON formatu.
