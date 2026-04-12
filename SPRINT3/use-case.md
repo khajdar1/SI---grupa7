@@ -2,7 +2,7 @@
 
 ---
 
-## PBI-001 — Registracija korisnika
+## UC-01 — Registracija korisnika
 
 **Akter:** Gost / Korisnik, Administrator
 
@@ -29,7 +29,7 @@ Kreiranje novog korisničkog računa u sistemu. Postoje dvije putanje: korisnik 
 
 ---
 
-## PBI-002 — Prijava u sistem
+## UC-02 — Prijava u sistem
 
 **Akter:** Gost / Korisnik, Serviser, Koordinator, Menadžment, Administrator
 
@@ -51,7 +51,7 @@ Registrovani korisnik unosi kredencijale i prijavljuje se u sistem kako bi dobio
 
 ---
 
-## PBI-019 — Reset lozinke
+## UC-03 — Reset lozinke
 
 **Akter:** Gost / Korisnik, Serviser, Koordinator, Menadžment
 
@@ -75,7 +75,7 @@ Korisnik može promijeniti lozinku na dva načina: putem opcije „Zaboravili st
 
 ---
 
-## PBI-015 — Upravljanje profilom
+## UC-04 — Upravljanje profilom
 
 **Akter:** Gost / Korisnik, Serviser, Koordinator, Menadžment, Administrator
 
@@ -96,7 +96,7 @@ Prijavljeni korisnik može pregledavati i mijenjati podatke svog korisničkog ra
 
 ---
 
-## PBI-003 — Prijava kvara
+## UC-05 — Prijava kvara
 
 **Akter:** Gost / Korisnik (prijavljen ili neprijavljen)
 
@@ -124,7 +124,7 @@ Korisnik ili gost prijavljuje kvar u sistemu popunjavanjem obrasca, što uključ
 
 ---
 
-### Odabir kategorije kvara
+### UC-06 - Odabir kategorije kvara
 
 **Akter:** Gost / Korisnik 
 
@@ -148,7 +148,7 @@ Korisnik bira najprikladniju kategoriju za svoj kvar iz predefinisane liste koju
 
 ---
 
-### Auto-detekcija lokacije
+### UC-07 - Auto-detekcija lokacije
 
 **Akter:** Gost / Korisnik 
 
@@ -171,7 +171,7 @@ Lokacija kvara može biti unesena automatski putem GPS detekcije uređaja ili ru
 
 ---
 
-## PBI-004 — Planiranje intervencije
+## UC-08 - Planiranje intervencije
 
 **Akter:** Koordinator
 
@@ -197,7 +197,7 @@ Na temelju prikupljenih prijava, koordinator kreira zvaničnu intervenciju, defi
 
 ---
 
-## PBI-005 — Postavljanje prioriteta
+## UC-09 — Postavljanje prioriteta
 
 **Akter:** Koordinator
 
@@ -219,7 +219,7 @@ Koordinator vrši rangiranje važnosti obavljanja intervencije kako bi servisni 
 
 ---
 
-## PBI-006 — Dodjela servisera
+## UC-10 — Dodjela servisera
 
 **Akter:** Koordinator 
 
@@ -243,7 +243,7 @@ Serviser se može dodijeliti intervenciji ručno od strane koordinatora ili auto
 
 ---
 
-## PBI-008 — Praćenje i izmjena statusa intervencije
+## UC-11 — Praćenje i izmjena statusa intervencije
 
 **Akter:** Koordinator, Serviser
 
@@ -268,7 +268,7 @@ Ovlaštena lica mijenjaju sistemski status intervencije kako bi svi korisnici si
 
 ---
 
-## PBI-016 — Dodavanje komentara na intervenciju
+## UC-12 — Dodavanje komentara na intervenciju
 
 **Akter:** Koordinator, Serviser
 
@@ -292,7 +292,7 @@ Koordinator i serviser mogu dodavati tekstualne komentare na intervenciju radi d
 
 ---
 
-## PBI-026 — Arhiviranje intervencija
+## UC-13 — Arhiviranje intervencija
 
 **Akter:** Koordinator
 
@@ -313,7 +313,7 @@ Završene ili otkazane intervencije mogu biti arhivirane ručno od strane koordi
 
 ---
 
-## PBI-022 — Planirana i preventivna održavanja
+## UC-14 — Planirana i preventivna održavanja
 
 **Akter:** Koordinator
 
@@ -335,7 +335,7 @@ Intervencija za preventivno održavanje može biti kreirana automatski od strane
 
 ---
 
-## PBI-007 — Lista aktivnih intervencija
+## UC-15 — Lista aktivnih intervencija
 
 **Akter:** Koordinator
 
@@ -359,7 +359,7 @@ Centralni pregled svih otvorenih radnih zadataka koji koordinatoru pruža moguć
 
 ---
 
-## PBI-017 — Napredna pretraga
+## UC-16 — Napredna pretraga
 
 **Akter:** Koordinator 
 
@@ -379,7 +379,7 @@ Višekriterijski mehanizam pretrage svih intervencija kojim koordinator precizno
 
 ---
 
-## PBI-020 — Kalendarski prikaz intervencija
+## UC-17 — Kalendarski prikaz intervencija
 
 **Akter:** Koordinator
 
@@ -403,7 +403,7 @@ Koordinator može pregledati intervencije u kalendarskom prikazu organizovanim p
 
 ---
 
-## PBI-034 — Geografski / mapski prikaz
+## UC-18 — Geografski / mapski prikaz
 
 **Akter:** Koordinator
 
@@ -424,7 +424,7 @@ Kartografski interfejs unutar aplikacije na kom su intervencije prikazane kao pi
 
 ---
 
-## PBI-011 — Historija intervencija (po lokaciji / uređaju)
+## UC-19 — Historija intervencija (po lokaciji / uređaju)
 
 **Akter:** Koordinator
 
@@ -448,7 +448,7 @@ Pregled prethodnih intervencija filtriranih po lokaciji ili uređaju, radi bolje
 
 ---
 
-## PBI-021 — Pregled dostupnosti servisera
+## UC-20 — Pregled dostupnosti servisera
 
 **Akter:** Koordinator
 
@@ -471,7 +471,7 @@ Kontrolna ploča raspoloživosti servisera koja koordinatoru pruža uvid u opter
 
 ---
 
-## PBI-014 — Menadžment dashboard
+## UC-21 — Menadžment dashboard
 
 **Akter:** Menadžment, Koordinator
 
@@ -492,7 +492,7 @@ Centralizirani prikaz ključnih pokazatelja uspješnosti koji omogućava praćen
 
 ---
 
-## PBI-009 — Pregled zadataka servisera
+## UC-22 — Pregled zadataka servisera
 
 **Akter:** Serviser, Koordinator
 
@@ -516,7 +516,7 @@ Serviser pregledava listu intervencija koje su mu dodijeljene. Koordinator može
 
 ---
 
-## PBI-010 — Evidencija izvještaja o intervenciji
+## UC-23 — Evidencija izvještaja o intervenciji
 
 **Akter:** Serviser
 
@@ -541,7 +541,7 @@ Serviser dokumentira ishod intervencije: opis obavljenih radova, utrošeni mater
 
 ---
 
-## PBI-033 — Pregled i upravljanje attachmentima
+## UC-24 — Pregled i upravljanje attachmentima
 
 **Akter:** Administrator, Koordinator
 
@@ -565,7 +565,7 @@ Centralizirani pregled fajlova priloženih uz prijave kvarova, uz mogućnost val
 
 ---
 
-## PBI-023 — Export podataka (PDF)
+## UC-25 — Export podataka (PDF)
 
 **Akter:** Koordinator, Menadžment
 
@@ -589,7 +589,7 @@ Pretvorba seta podataka iz sistema u PDF dokument za upotrebu s institucijama ko
 
 ---
 
-## PBI-036 — Feedback po završetku intervencije
+## UC-26 — Feedback po završetku intervencije
 
 **Akter:** Gost / Korisnik 
 
@@ -614,7 +614,7 @@ Korisnik koji je prijavio kvar dobija mogućnost ocjene završene intervencije, 
 
 ---
 
-## PBI-039 — Blokiranje korisnika
+## UC-27 — Blokiranje korisnika
 
 **Akter:** Koordinator
 
@@ -638,7 +638,7 @@ Koordinator može blokirati korisnika za kojeg procijeni da se radi o spamu ili 
 
 ---
 
-## PBI-027 — Kreiranje tiketa za podršku
+## UC-28 — Kreiranje tiketa za podršku
 
 **Akter:** Gost / Korisnik
 
@@ -662,7 +662,7 @@ Korisnik može kreirati tiket za korisničku podršku vezan za softverske ili ac
 
 ---
 
-## PBI-028 — Dvosmjerna komunikacija na tiketu
+## UC-29 — Dvosmjerna komunikacija na tiketu
 
 **Akter:** Gost / Korisnik, Tim podrške 
 
@@ -686,7 +686,7 @@ Integrisana komunikacija unutar tiketa koja omogućava direktnu i preglednu razm
 
 ---
 
-## PBI-013 — Upravljanje korisničkim računima 
+## UC-30 — Upravljanje korisničkim računima 
 
 **Akter:** Administrator
 
@@ -709,7 +709,7 @@ Upravljanje svim profilima i rolama u sistemu putem mehanizma upravljanja pristu
 
 ---
 
-## PBI-032 — Upravljanje kategorijama kvarova
+## UC-31 — Upravljanje kategorijama kvarova
 
 **Akter:** Administrator
 
@@ -731,7 +731,7 @@ Administrator dodaje, uređuje i deaktivira kategorije kvarova koje se prikazuju
 
 ---
 
-## PBI-035 — Konfiguracija SLA rokova
+## UC-32 — Konfiguracija SLA rokova
 
 **Akter:** Administrator
 
@@ -752,7 +752,7 @@ Administrator definiše vremenske rokove po prioritetima kvarova koji se koriste
 
 ---
 
-## PBI-026 Konfiguracija arhiviranja
+## UC-33 - Konfiguracija arhiviranja
 
 **Akter:** Administrator
 
