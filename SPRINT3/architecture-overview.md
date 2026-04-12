@@ -48,12 +48,12 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 
 Odgovoran je za prikaz korisničkog interfejsa i interakciju sa krajnjim korisnicima sistema. Omogućava:
 
-    - prijavu i autentikaciju korisnika,
-    - unos prijava kvarova,
-    - pregled statusa intervencija,
-    - upravljanje zadacima za koordinatore i ekipe,
-    - pregled izvještaja za menadžment,
-    - administraciju korisnika i prava pristupa.
+- prijavu i autentikaciju korisnika,
+- unos prijava kvarova,
+- pregled statusa intervencija,
+- upravljanje zadacima za koordinatore i ekipe,
+- pregled izvještaja za menadžment,
+- administraciju korisnika i prava pristupa.
 
 Frontend komunicira sa backendom putem API poziva i prikazuje podatke u formi tabela, formulara, mapa i dashboard prikaza.
 
@@ -61,12 +61,12 @@ Frontend komunicira sa backendom putem API poziva i prikazuje podatke u formi ta
 
 Predstavlja centralnu poslovnu logiku sistema. Njegove odgovornosti su:
 
-    - obrada zahtjeva sa klijentske aplikacije,
-    - validacija ulaznih podataka,
-    - izvršavanje poslovnih pravila,
-    - upravljanje tokom rada intervencija,
-    - komunikacija sa bazom podataka,
-    - upravljanje sigurnošću i pravima pristupa.
+- obrada zahtjeva sa klijentske aplikacije,
+- validacija ulaznih podataka,
+- izvršavanje poslovnih pravila,
+- upravljanje tokom rada intervencija,
+- komunikacija sa bazom podataka,
+- upravljanje sigurnošću i pravima pristupa.
 
 3. Auth Module
 
