@@ -7,9 +7,9 @@
 | ID | Opis rizika | Uzrok | Vjerovatnoća | Uticaj | Prioritet rizika | Plan mitigacije | Odgovorna uloga | Status |
 |----|------------|-------|--------------|--------|------------------|------------------|------------------|--------|
 | R1 | Kašnjenje implementacije ključnih funkcionalnosti | Loša procjena složenosti zadataka | Srednja | Visok | Visok | Redovan backlog refinement i praćenje sprintova | Scrum Master | Otvoren |
-| R2 | Problemi sa autentifikacijom korisnika | Greške u login/logout funkcionalnosti | Niska | Visok | Srednji | Testiranje autentifikacije i upravljanja sesijama | Backend developer | Otvoren |
+| R2 | Problemi sa autentifikacijom korisnika | Pogrešna implementacija autentifikacije | Niska | Visok | Srednji | Testiranje autentifikacije i upravljanja sesijama | Backend developer | Otvoren |
 | R3 | Gubitak podataka o intervencijama | Neispravan ili nepostojeći backup | Niska | Vrlo visok | Visok | Uvođenje automatskog backupa i testiranje restore-a | Backend/DevOps | Otvoren |
-| R4 | Pad performansi sistema | Velik broj korisnika i loša optimizacija | Srednja | Visok | Visok | Load testing i optimizacija baze i API-ja | Backend developer | Otvoren |
+| R4 | Pad performansi sistema | Loša skalabilnost sistema pri velikom broju korisnika | Srednja | Visok | Visok | Load testing i optimizacija baze i API-ja | Backend developer | Otvoren |
 | R5 | Neispravni korisnički unosi | Nedostatak validacije podataka | Visoka | Srednji | Visok | Implementacija validacije unosa | Frontend developer | Otvoren |
 | R6 | Pogrešna dodjela servisera | Nedovoljno razvijena logika dodjele | Srednja | Srednji | Srednji | Testiranje i mogućnost ručne dodjele | Koordinator | Otvoren |
 | R7 | Loše korisničko iskustvo (UI/UX) | Komplikovan ili neintuitivan interfejs | Srednja | Srednji | Srednji | Usability testiranje i poboljšanje dizajna | UI/UX dizajner | Otvoren |
@@ -21,6 +21,7 @@
 | R13 | Neusklađenost zahtjeva sa očekivanjima korisnika | Loša komunikacija sa stakeholderima | Srednja | Visok | Visok | Redovan feedback i validacija zahtjeva | Product Owner | Otvoren |
 | R14 | Problemi pri integraciji sistema | Neusklađen frontend i backend | Srednja | Srednji | Srednji | Integraciono testiranje | Development tim | Otvoren |
 | R15 | Problemi tokom deploymenta | Nedostatak iskustva sa deploy-om | Niska | Srednji | Nizak | Testno okruženje prije produkcije | DevOps | Otvoren |
+| R16 | Problem sa bazom podataka | Nedostupnost baze | Niska | Vrlo visok | Visok | Retry mehanizam i monitoring baze | Backend/DevOps | Otvoren |
 
 ---
 
