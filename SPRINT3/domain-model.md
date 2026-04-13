@@ -17,6 +17,8 @@
 - Feedback
 - Komentar_intervencije
 - Blokiranje_korisnika
+- Historija_status
+- Konfiguracija_sistema
 
 ---
 
@@ -100,6 +102,8 @@
 - id: INT (PK)
 - intervencija_id: INT (FK)
 - user_id: INT (FK)
+- nacin_dodjele: ENUM (Manuelno, Automatski)
+- vrijeme_dodjele: TIMESTAMP
 
 **Tiket**
 - id: INT (PK)
@@ -145,6 +149,21 @@
 - razlog: VARCHAR
 - vrijeme_blokiranja: TIMESTAMP
 
+**Historija_status**
+- id: INT (PK)
+- intervencija_id: INT (FK)
+- korisnik_id: INT (FK)
+- stari_status: ENUM (Otvoreno, U_procesu, Zavrseno, Otkazano)
+- novi_status: ENUM (Otvoreno, U_procesu, Zavrseno, Otkazano)
+- vrijeme_promjene: TIMESTAMP
+
+**Konfiguracija_sistema**
+- id: INT (PK)
+- kljuc: VARCHAR
+- vrijednost: VARCHAR
+- azurirao_id: INT (FK)
+- azurirano_at: TIMESTAMP
+
 ---
 
 #### Veze između entiteta
@@ -160,6 +179,12 @@
   
 ### Korisnik - Blokiranje_korisnika: 1:N
 - Jedan korisnik može biti blokiran više puta, ali svaki zapis blokiranja odnosi se na tačno jednog korisnika.
+
+### Korisnik - Historija_statusa: 1:N
+- Svaka promjena statusa je vezana za jednog korisnika (koordinatora) koji ju je izvršio.
+
+### Korisnik - Konfiguracija_sistema: 1:N
+- Administrator može ažurirati više konfiguracija i svaka konfiguracija ima tačno jednog (posljednjeg) urednika.
   
 ### Kategorija – Prijava_kvara: 1:N
 -  Jedna kategorija može pokriti više prijava kvara, ali svaka prijava mora biti svrstana u tačno jednu kategoriju.
@@ -176,8 +201,8 @@
 ### Firma - Blokiranje_korisnika: 1:N
 - Blokiranje korisnika uvijek se vrši u kontekstu konkretne firme, gdje firma može imati više zapisa blokiranih korisnika.
   
-### Prijava_kvara – Intervencija: 1:0..1
-- Jedna prijava kvara može rezultirati nastankom jedne intervencije, ili može predstavljati redovno održavanje.
+### Prijava_kvara – Intervencija: 1:N
+- Jedna prijava kvara može rezultirati nastankom jedne ili više intervencija.
   
 ### Prijava_kvara - Attachment: 1:N
 - Uz jednu prijavu kvara može biti priloženo više fajlova, ali svaki attachment zna uz koju prijavu pripada.
@@ -202,6 +227,9 @@
   
 ### Intervencija - Attachment: 1:N
 - Uz intervenciju mogu biti priloženi fajlovi
+
+### Intervencija - Historija_status: 1:N
+- Jedna intervencija može imati više zapisa o promjeni statusa
   
 ### Izvjestaj - Attachment: 1:N
 - Uz servisni izvještaj mogu biti priložene slike ili dokumenti kao dokaz obavljenog rada.
@@ -226,4 +254,7 @@
 - SLA konfiguracija se pretražuje po enum vrijednosti prioriteta.
 - Tiket je potpuno odvojen od intervencija.
 - Poruka mora pripadati tiketu i autoru.
+- Jedna prijava kvara može rezultirati s više intervencija u slučaju kada kvar nije riješen prvom intervencijom i koordinator kreira novu intervenciju za isti kvar.
+- Svaka promjena statusa intervencije automatski kreira novi zapis u Status_historija s trenutnim vremenom i korisnikom koji je promjenu izvršio.
 - Intervencije se arhiviraju, ali se ne brišu fizički iz baze.
+- Automatska raspodjela se izvršava samo ako je odgovarajuća konfiguracija aktivna.
