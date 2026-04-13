@@ -1,0 +1,193 @@
+# Test Strategy
+
+
+---
+
+## Pregled sekcija
+
+| Sekcija | Šta se popunajava |
+|---------|-----------------|
+| Cilj testiranja | Cilj, obim i kriterij uspjeha testiranja po funkcionalnim cjelinama |
+| Nivoi testiranja | Unit, integracijsko, sistemsko i prihvatno testiranje – fokus, odgovornosti i kriteriji |
+| Šta se testira u kojem nivou | Mapiranje PBI stavki na nivoe testiranja |
+| Veza s Acceptance Kriterijima | Mapiranje AC-a na nivoe testiranja i dokaze ispunjenja |
+| Način evidentiranja rezultata testiranja | Evidencija rezultata, struktura test slučaja i defekata |
+| Glavni rizici kvaliteta | Rizici, procjena vjerovatnoće i uticaja, mjere ublažavanja |
+
+---
+
+## Cilj testiranja
+
+| Cilj | Obim | Kriterij uspjeha |
+|------|------|-----------------|
+| Verifikacija registracije i upravljanja korisničkim računima (PBI-001, PBI-013) | Samoregistracija, kreiranje računa od strane admina, dodjela uloge i firme, deaktivacija i reaktivacija | Svi AC iz PBI-001 i PBI-013 zadovoljeni; samoregistrirani korisnik automatski dobija ulogu Korisnik; admin ne može deaktivirati vlastiti račun |
+| Verifikacija prijave, upravljanja sesijom i reset lozinke (PBI-002, PBI-019) | Login/logout tok za sve uloge (Gost, Korisnik, Serviser, Koordinator, Menadžment, Admin); reset lozinke putem emaila | Svi AC iz PBI-002 i PBI-019 zadovoljeni; deaktivirani račun ne može pristupiti sistemu; zaštićene stranice nedostupne bez aktivne sesije |
+| Provjera sistema permisija i uloga – RBAC (NFR_03, NFR_09) | Pristup svim modulima i podacima za svaku od šest korisničkih uloga | Svaka uloga pristupa isključivo sebi namijenjenim modulima; neovlašten URL pristup preusmjerava na login |
+| Validacija toka prijave kvara i automatskog kreiranja intervencije (PBI-003, PBI-004, PBI-032) | Anonimna i autentificirana prijava kvara; odabir kategorije; upload attachmenta; automatsko kreiranje intervencije | Svi AC iz PBI-003, PBI-004 i PBI-032 zadovoljeni; intervencija se kreira odmah i koordinator prima notifikaciju |
+| Verifikacija upravljanja intervencijama – prioritet, dodjela, status (PBI-005, PBI-006, PBI-008, PBI-035) | Postavljanje i izmjena prioriteta; dodjela servisera; tranzicije statusa; SLA konfiguracija i upozorenja o kašnjenju | Nedozvoljene tranzicije statusa su blokirane; SLA upozorenje se pojavljuje i nestaje ispravno; dodjela evidentira ko je dodijelio i kada |
+| Provjera pregleda intervencija i pretrage (PBI-007, PBI-017, PBI-021) | Lista aktivnih intervencija s filterima, sortiranjem i kombinovanim filterima; dostupnost servisera; napredna pretraga | Svi AC iz PBI-007 zadovoljeni; kombinovani filteri vraćaju ispravan presjek; serviseri sortirani po opterećenosti |
+| Verifikacija radnog toka servisera – zadaci, izvještaj, notifikacije (PBI-009, PBI-010, PBI-012) | Personalizovana lista zadataka; unos izvještaja; in-app notifikacije pri dodjeli i novoj prijavi | Serviser vidi isključivo sebi dodijeljene intervencije; izvještaj nije moguć za intervenciju koja nije započeta; notifikacija stiže u stvarnom vremenu |
+| Provjera administrativnih i menadžment funkcionalnosti (PBI-013, PBI-014) | Upravljanje korisničkim računima; menadžment dashboard s ključnim metrikama | Pristup dashboardu ograničen na uloge Menadžment i Admin; podaci na dashboardu konzistentni s listom intervencija |
+| Validacija sigurnosti podataka i validacije unosa (PBI-024, NFR_02, NFR_03) | Serverska validacija svih formi; zaštita od SQL injection i XSS napada; RBAC zaštita podataka | Validacija je implementirana i na serverskom sloju; polje email validira format; sistem odbija zlonamjerne unose |
+| Testiranje performansi i odziva sistema (NFR_01, NFR_08, NFR_12) | Učitavanje liste intervencija pri 1000 zapisa; API odziv za unos intervencije; 2000 istovremenih korisnika | Lista se učitava za < 2s; API odgovara za < 1s; sistem ostaje stabilan pri 2000 korisnika bez pada performansi |
+| Provjera responzivnosti na mobilnim uređajima (NFR_13) | Svi ključni tokovi servisera i koordinatora na mobilnim uređajima i različitim browserima | Ispravni prikaz i funkcionalnost na Chrome, Firefox i Edge; navigacija optimizovana za mobitele |
+| Verifikacija audit loga i arhiviranja (PBI-013, PBI-026, NFR_14) | Evidentiranje svih kritičnih akcija; automatsko i ručno arhiviranje završenih intervencija | Svaka izmjena bilježi korisnika, datum i vrijednost; arhivirane intervencije nisu vidljive u aktivnoj listi ali su dostupne u historiji |
+
+---
+
+## Nivoi testiranja
+
+Testna strategija obuhvata četiri osnovna nivoa testiranja. Testiranje se provodi iterativno kroz razvojne sprintove (Sprint 6–10): unit i integracijsko testiranje se izvršavaju tokom implementacije, dok se sistemsko i prihvatno testiranje provode po završetku implementacije funkcionalnosti u sprintu.
+
+| Nivo testiranja | Fokus | Odgovorna osoba | Alati | Ulazni kriteriji | Izlazni kriteriji |
+|----------------|-------|----------------|-------|-----------------|------------------|
+| **Unit testiranje** | Validacija pojedinačnih funkcija i poslovne logike: format emaila, obavezna polja, jačina lozinke, jedinstvenost korisničkog imena i emaila, dozvoljene tranzicije statusa (Otvoreno → U procesu → Završeno/Otkazano), SLA kalkulacija po prioritetu, logika detekcije duplikata, logika automatske raspodjele servisera, izračun prosječnog vremena rješavanja, provjera RBAC pravila po ulozi | Razvojni tim | Jest / JUnit / pytest | Implementirana funkcionalnost; dostupan izvorni kod; definisani ulazni i očekivani izlazni podaci | Minimalno 80% pokrivenosti poslovne logike; svi unit testovi prolaze; nema kritičnih grešaka |
+| **Integracijsko testiranje** | Provjera komunikacije između modula i servisa: prijava kvara → automatsko kreiranje intervencije (PBI-003 → PBI-004); dodjela servisera → notifikacija (PBI-006 → PBI-012); promjena statusa → ažuriranje liste (PBI-008 → PBI-007); SLA konfiguracija → upozorenje (PBI-035 → PBI-018); registracija → dodjela uloge i firme (PBI-001 → PBI-013); upload attachmenta → pregled (PBI-003 → PBI-033); export liste u PDF (PBI-007 → PBI-023); integracija s email serverom uz simulaciju nedostupnosti mail servera; konkurentnost pri istovremenom pokušaju dodjele istog servisera od strane dva koordinatora | Razvojni tim uz podršku QA | Postman / REST Assured / Supertest | Uspješno završeno unit testiranje; dostupno testno okruženje s bazom | Svi kritični integracijski tokovi prolaze bez grešaka; API i baza vraćaju konzistentne podatke |
+| **Sistemsko testiranje** | Kompletni end-to-end tokovi za sve uloge (Gost, Korisnik, Serviser, Koordinator, Menadžment, Admin); RBAC provjera za svaku kombinaciju uloga i funkcionalnosti; granični slučajevi i negativni scenariji; paginacija, filtriranje i sortiranje; ispravnost audit logova; provjera NFR zahtjeva (performanse, responzivnost, dostupnost) | QA tim | Cypress / Playwright za E2E; k6 / JMeter za performanse | Uspješno završeno integracijsko testiranje; stabilno testno okruženje; pripremljeni testni scenariji i podaci za sve uloge | 95% sistemskih testova prolazi; ključni poslovni tokovi rade bez blokera za sve uloge |
+| **Prihvatno testiranje (UAT)** | Potvrda da sistem ispunjava poslovne zahtjeve krajnjih korisnika: koordinatori i serviseri potvrđuju operativne tokove; menadžment potvrđuje dashboard; admin potvrđuje upravljanje računima; gost/korisnik potvrđuje prijavu kvara bez registracije; provjera da MVP opseg ne sadrži van-opsegne funkcionalnosti (grafički prikazi, obračun troškova, 2FA) | Product Owner, predstavnici krajnjih korisnika, QA | Ručno testiranje prema UAT scenarijima | Završeni svi prethodni nivoi testiranja bez blokirajućih defekata; pripremljeni UAT scenariji s realističnim podacima | Svi AC za stavke u sprintu potvrđeni; nema otvorenih blokirajućih defekata; PO odobrava isporuku |
+
+---
+
+## Šta se testira u kojem nivou
+
+Tabela prikazuje raspodjelu testnog fokusa po PBI stavkama. Oznake: **DA** = testira se na ovom nivou, **NE** = nije predmet testiranja na ovom nivou.
+
+| Funkcionalnost | Unit | Integracijsko | Sistemsko | UAT |
+|----------------|------|--------------|-----------|-----|
+| Registracija korisnika – samoregistracija i admin kreiranje (PBI-001) | DA – validacija obaveznih polja, format emaila, jedinstvenost emaila/korisničkog imena, automatska dodjela uloge Korisnik | DA – upis korisnika u bazu, dodjela firme, provjera jedinstvenosti na nivou baze | DA – kompletni tok samoregistracije i admin kreiranja; provjera da samoreg. korisnik ne može odabrati privilegovanu ulogu | DA – PO potvrđuje oba toka registracije |
+| Prijava u sistem i upravljanje sesijom (PBI-002) | DA – logika provjere kredencijala, logika završetka sesije | DA – auth API + baza + zaštita ruta; provjera da zaštićene rute nisu dostupne bez sesije | DA – tok prijave po ulogama; provjera da "Nazad" dugme ne vraća na zaštićenu stranicu nakon odjave; blokada deaktiviranog računa | DA – potvrda ispravnosti toka za sve uloge |
+| Reset lozinke (PBI-019) | DA – generisanje tokena, logika isteka, logika jednokratnosti linka | DA – slanje emaila, integracija s mail serverom; simulacija timeout-a mail servera | DA – kompletni tok: zahtjev → email → novi link → nova lozinka; provjera neutralne poruke za nepostojeći email | DA – PO potvrđuje tok |
+| Prijava kvara – anonimni korisnik (PBI-003) | DA – validacija obaveznih polja, format attachmenta | DA – kreiranje intervencije iz obrasca; integracija s notifikacijom koordinatora | DA – anonimni tok od početka do vidljivosti intervencije kod koordinatora | DA – potvrda jednostavnosti toka bez registracije |
+| Prijava kvara – prijavljeni korisnik s attachmentom i kategorijom (PBI-003, PBI-032, PBI-033) | DA – validacija tipa i veličine fajla; validacija kategorije | DA – upload fajla i pohrana; odabir kategorije iz liste | DA – tok s attachmentom, kategorijom i detekcijom duplikata | DA – potvrda korisničkog iskustva |
+| Planiranje intervencija (PBI-004) | DA – validacija obaveznih polja, vremenska oznaka kreiranja | DA – kreiranje intervencije bez i s vezom na prijavu kvara; vidljivost u listi | DA – koordinator kreira, uređuje i vidi intervenciju u listi s ispravnim statusom "Otvoreno" | DA – potvrda operativnog toka koordinatora |
+| Prioritet intervencije (PBI-005) | DA – validacija dozvoljenih vrijednosti prioriteta; logika sortiranja | DA – čuvanje promjene prioriteta s vremenskom oznakom i imenom korisnika | DA – prikaz prioriteta u listi; vizuelna razlika; sortiranje Hitan > Visok > Normalan > Nizak | DA – potvrda razumljivosti prikaza |
+| Konfiguracija SLA rokova (PBI-035) | DA – validacija da rok ne može biti 0 niti negativan | DA – primjena nove konfiguracije na buduće provjere kašnjenja; upis u audit log | DA – kompletni tok: admin konfiguriše → SLA ističe → upozorenje se pojavljuje → status Završeno → upozorenje nestaje | DA – PO potvrđuje logiku upozorenja |
+| Upozorenje o kašnjenju (PBI-018) | DA – logika provjere da li je SLA rok prošao | DA – integracija SLA konfiguracije s generisanjem upozorenja | DA – upozorenje vidljivo koordinatoru; ne mijenja status; intervencija bez roka ne generiše upozorenje | DA – potvrda vidljivosti i jasnoće upozorenja |
+| Dodjela servisera i dostupnost (PBI-006, PBI-021) | DA – logika sortiranja servisera po broju aktivnih intervencija; blokada deaktiviranog servisera | DA – čuvanje dodjele s audit logom; ažuriranje broja aktivnih intervencija servisera; concurrent dodjela – race condition test | DA – koordinator dodjeljuje, mijenja i uklanja servisera; lista sortirana po opterećenosti; deaktivirani serviseri nisu prikazani | DA – potvrda operativnog toka |
+| Lista aktivnih intervencija (PBI-007) | DA – logika filtriranja, sortiranja i kombinovanih filtera | DA – API dohvat filtriranih podataka; provjera da arhivirane intervencije nisu u aktivnoj listi | DA – prikaz za ulogu Koordinator i Menadžment; kombinovani filteri; vizuelna razlika prioriteta | DA – potvrda preglednosti i jasnoće liste |
+| Praćenje i izmjena statusa (PBI-008) | DA – dozvoljene i nedozvoljene tranzicije statusa; blokada izmjene Završene intervencije bez admin ovlasti | DA – bilježenje promjene s imenom, datumom i vremenom; ažuriranje liste bez ručnog osvježavanja | DA – kompletni statusni tok; historija promjena vidljiva u detaljima intervencije; serviser i koordinator imaju ispravne ovlasti | DA – potvrda toka |
+| Pregled zadataka servisera (PBI-009) | DA – logika filtriranja po dodjeli; provjera da serviser ne vidi tuđe intervencije | DA – API za personalizovanu listu; provjera izolacije podataka po serviseru | DA – serviser vidi samo sebi dodijeljene intervencije, sortirane po prioritetu; poruka ako nema zadataka | DA – potvrda fokusa i jednostavnosti prikaza |
+| Evidencija izvještaja o intervenciji (PBI-010) | DA – validacija obaveznih polja izvještaja; blokada ako intervencija nije u statusu U procesu ili Završeno | DA – vezivanje izvještaja za konkretnu intervenciju; pohrana s imenom servisera, datumom i vremenom | DA – serviser unosi, koordinator i admin pregledaju; obračun troškova nije prisutan u MVP | DA – potvrda toka dokumentiranja |
+| Historija intervencija po lokaciji/uređaju (PBI-011) | DA – logika filtriranja po lokaciji; sortiranje od najnovije prema najstarijoj | DA – API za historiju s filterom lokacije/uređaja | DA – prikaz samo završenih i arhiviranih; jasna poruka ako nema historije; klik na intervenciju otvara detalje | NE – niži prioritet za UAT |
+| Notifikacije (PBI-012) | DA – logika generisanja notifikacije pri dodjeli i novoj prijavi; logika badge brojača | DA – serviser prima notifikaciju pri dodjeli; koordinator pri novoj prijavi; klik preusmjerava na intervenciju | DA – badge vidljiv u navigaciji; notifikacije sadrže tražene podatke; asinhrono slanje | DA – PO potvrđuje pravovremene notifikacije |
+| Upravljanje korisničkim računima – Admin (PBI-013) | DA – validacija dodjele uloge; blokada brisanja korisnika s aktivnim intervencijama; blokada deaktivacije vlastitog računa | DA – deaktivacija odmah onemogućava pristup; svaka izmjena u audit logu | DA – kompletan RBAC tok; admin ne može deaktivirati sebe; deaktivirani korisnik ne može se prijaviti | DA – potvrda administrativnog toka |
+| Menadžment dashboard (PBI-014) | DA – kalkulacije: broj aktivnih/završenih, prosječno vrijeme rješavanja, distribucija po prioritetu | DA – konzistentnost podataka dashboarda s listom intervencija | DA – pristup ograničen na Menadžment i Admin; grafički prikazi nisu prisutni u MVP | DA – potvrda korisnosti dashboarda za menadžment |
+| Upravljanje profilom i reset lozinke (PBI-015) | DA – validacija izmjene podataka; blokada ako trenutna lozinka nije ispravna; provjera da uloga nije izmjenjiva | DA – izmjena profila bez prekida sesije | DA – korisnik ne može promijeniti vlastitu ulogu; neutralna poruka pri reset zahjevu za nepostojeći email | DA – potvrda toka |
+| Komentari intervencije (PBI-016) | DA – validacija da komentar nije prazan | DA – pohrana komentara s autorom, datumom i vremenom | DA – koordinator i serviser mogu dodavati; hronološki prikaz; trajno vidljivi | NE |
+| Napredna pretraga (PBI-017) | DA – logika kombinovanih kriterija pretrage | DA – API za pretragu s više parametara; full-text pretraga naziva/opisa | DA – pretraga po datumu, lokaciji, statusu, serviseru; jasna poruka ako nema rezultata | DA – potvrda za koordinatora |
+| Kalendarski prikaz (PBI-020) | NE | DA – API za dohvat intervencija s datumima | DA – dnevni/sedmični/mjesečni prikaz; klik na intervenciju otvara detalje; vizuelna razlika prioriteta | NE |
+| Planirana/preventivna održavanja (PBI-022) | DA – logika periodičnosti (dnevno/sedmično/mjesečno); kreiranje instanci | DA – automatsko generisanje intervencija prema rasporedu | DA – kreirane instance identične originalu osim datuma; zaustavljanje ponavljanja ne briše prethodne | NE |
+| Export podataka (PBI-023) | NE | DA – generisanje PDF-a s ispravnim podacima; provjera RBAC pri exportu | DA – PDF sadrži sve tražene kolone; nije moguće exportovati podatke van ovlasti korisnika | NE |
+| Validacija unosa podataka (PBI-024) | DA – validacija svih obaveznih polja; SQL injection i XSS zaštita na serverskom sloju | DA – testiranje validacije direktno na API sloju zaobilazeći klijentsku validaciju | DA – poruke greške prikazane uz polje; obavezna polja označena | DA – potvrda jasnoće poruka grešaka |
+| Detekcija duplikata (PBI-025) | DA – logika uspoređivanja lokacije i opisa; provjera da završena intervencija nije tretirana kao duplikat | DA – API provjera duplikata pri slanju forme | DA – upozorenje prikazano, korisnik može nastaviti; preusmjeravanje na postojeću intervenciju | NE |
+| Arhiviranje intervencija (PBI-026) | DA – logika vremenskog uvjeta za arhiviranje | DA – arhivirane intervencije dostupne u historiji i pretragama | DA – arhivirane intervencije nisu u aktivnoj listi; ručno arhiviranje s potvrdom | NE |
+| Tiket sistem za podršku (PBI-027, PBI-028, PBI-029) | DA – validacija forme tiketa; logika komunikacije unutar tiketa | DA – kreiranje tiketa s ID-om; razmjena poruka; notifikacije za tikete | DA – tiket ne kreira intervenciju; korisnik vidi samo vlastite tikete; agent vidi sve | NE |
+| Kategorije i tipovi kvarova (PBI-030, PBI-032) | DA – validacija jedinstvenosti naziva kategorije | DA – deaktivirana kategorija nije dostupna za nove prijave; retroaktivno ne mijenja stare | DA – padajući meni s aktivnim kategorijama; filtriranje liste po kategoriji | DA – admin potvrđuje upravljanje kategorijama |
+| Pregled i upravljanje attachmentima (PBI-033) | DA – validacija tipa fajla i veličine | DA – odbijanje nedozvoljenih fajlova s porukom; brisanje s audit logom | DA – koordinator i admin pregledaju, preuzimaju i brišu; sekcija vidljiva čak i ako nema fajlova | NE |
+| Mapski prikaz (PBI-034) | NE | DA – API za dohvat lokacija intervencija | DA – markeri vizuelno razlikovani po prioritetu; filtriranje po statusu/serviseru; arhivirane intervencije nisu na mapi | NE |
+| Feedback korisnika (PBI-036) | DA – logika jednokratnog feedbacka po intervenciji | DA – pohrana ocjene vezane za intervenciju | DA – in-app poziv na feedback pri statusu Završeno; koordinator i admin pregledaju | NE |
+| Automatska raspodjela (PBI-037) | DA – logika odabira servisera s najmanje aktivnih intervencija | DA – automatska dodjela pri kreiranju intervencije; evidentiranje da je dodjela automatska | DA – koordinator vidi oznaku automatske dodjele i može je izmijeniti; ako nema servisera, intervencija ostaje nedodijeljenom | DA – PO potvrđuje logiku i mogućnost override-a |
+| Masovne akcije (PBI-038) | DA – logika atomičnog izvršavanja skupa akcija | DA – API za masovne akcije; rollback pri djelomičnom neuspjehu | DA – odabir više intervencija; sažetak rezultata (N od M uspješno); preskočene intervencije s razlogom | NE |
+| Blokiranje korisnika (PBI-039) | DA – logika provjere blokiranosti pri slanju prijave | DA – blokirani korisnik ne može slati prijave; evidentiranje u logu | DA – koordinator blokira i deblokira; blokiranje ne deaktivira korisnički račun | NE |
+| Performanse i odziv (NFR_01, NFR_08, NFR_12) | NE | DA – mjerenje odziva API-ja za kreiranje intervencije (< 1s) i dohvat liste (< 2s za 1000 zapisa) | DA – load testiranje s 2000 istovremenih korisnika; stabilnost pod opterećenjem | DA – potvrda prihvatljivih performansi |
+| Responzivnost i podrška browsera (NFR_13) | NE | NE | DA – provjera ključnih tokova na Chrome, Firefox i Edge; prikaz na mobilnim uređajima za servisere | DA – terenski serviseri potvrđuju mobilni prikaz |
+| Audit log (NFR_14) | DA – logika bilježenja akcija | DA – provjera da svaki zapis sadrži korisnika, tip akcije i vremensku oznaku | DA – audit log dostupan samo adminu; zapisi su nepromjenjivi | DA – admin potvrđuje dostupnost i kompletnost |
+
+---
+
+## Veza s Acceptance Kriterijima
+
+Ova sekcija prikazuje kako se Acceptance Kriteriji iz Product Backloga (v2.1) mapiraju na nivoe testiranja i koje artefakte koristimo kao dokaz ispunjenja. Princip je: svaki AC = minimalno jedan pozitivni + jedan negativni test slučaj.
+
+| PBI referenca | Ključni Acceptance Kriterij | Nivoi verifikacije | Dokaz ispunjenja |
+|--------------|----------------------------|--------------------|-----------------|
+| PBI-001, PBI-013 | Samoregistrirani korisnik automatski dobija ulogu Korisnik i ne može odabrati drugu ulogu; korisnički račun vezan za firmu; admin ne može deaktivirati vlastiti račun | Unit, Integracijsko, Sistemsko, UAT | CI rezultat validacijske logike; API zapis dodjele uloge i firme; demo toka registracije |
+| PBI-002 | Generička poruka greške bez otkrivanja koja vrijednost je netačna; deaktivirani račun ne može se prijaviti; "Nazad" ne vraća na zaštićenu stranicu nakon odjave | Unit, Integracijsko, Sistemsko, UAT | CI rezultat za modul prijave; evidencija API provjere; demo toka odjave po ulogama |
+| PBI-003, PBI-032 | Anonimni korisnik može prijaviti kvar bez registracije; obavezno polje kategorija iz padajućeg menija; automatsko kreiranje intervencije vidljivo koordinatoru | Unit, Integracijsko, Sistemsko, UAT | Zapis API toka; demo anonimne i autentificirane prijave; evidencija vidljivosti intervencije |
+| PBI-005, PBI-035 | Prioritet je obavezno polje; promjena prioriteta evidentirana s oznakom vremena i imenom korisnika; SLA konfiguracija se odmah primjenjuje; prazno/nulto/negativno polje nije dozvoljeno | Unit, Integracijsko, Sistemsko, UAT | CI log za validacijsku logiku; API zapis pohrane SLA; evidencija audit loga |
+| PBI-006, PBI-021 | Lista servisera sortirana po broju aktivnih intervencija; dodjela evidentira ko je dodijelio i kada; deaktivirani serviseri nisu na listi | Unit, Integracijsko, Sistemsko, UAT | API zapis dodjele; demo sortiranja; provjera audit loga dodjele |
+| PBI-007 | Lista sortirana Hitan > Visok > Normalan > Nizak, unutar istog prioriteta po datumu; kombinovani filteri vraćaju presjek; arhivirane intervencije nisu u aktivnoj listi | Unit, Integracijsko, Sistemsko, UAT | Evidencija API filtera; demo kombinovanih filtera; provjera izolacije arhiviranih |
+| PBI-008 | Nije moguće preskočiti status niti izmijeniti Završenu intervenciju bez admin ovlasti; svaka promjena evidentirana u historiji s imenom, datumom i vremenom | Unit, Integracijsko, Sistemsko, UAT | CI log tranzicijske logike; API zapis historije promjena; negativni testovi nedozvoljenih tranzicija |
+| PBI-009 | Serviser vidi isključivo sebi dodijeljene intervencije; Završene intervencije jasno odvojene ili skrivene; poruka ako nema zadataka | Unit, Integracijsko, Sistemsko, UAT | API zapis filtriranja po korisniku; demo izolacije podataka |
+| PBI-010 | Izvještaj nije moguć ako intervencija nije u statusu U procesu ili Završeno; obračun troškova nije prisutan u MVP; pohrana s imenom servisera, datumom i vremenom | Unit, Integracijsko, Sistemsko, UAT | CI log blokade statusa; API zapis pohrane; provjera odsutnosti polja troškova |
+| PBI-012 | Notifikacija serviseru sadrži naziv, prioritet i lokaciju; notifikacija koordinatoru sadrži datum/vrijeme i lokaciju; klik preusmjerava na intervenciju; badge prikazuje broj nepročitanih | Integracijsko, Sistemsko, UAT | API zapis slanja notifikacija; demo preusmjeravanja; provjera sadržaja notifikacija |
+| PBI-014 | Dashboard dostupan samo Menadžmentu i Adminu; podaci konzistentni s listom intervencija; grafički prikazi nisu u MVP | Unit, Integracijsko, Sistemsko, UAT | Provjera RBAC na rutama dashboarda; demo provjere konzistentnosti podataka |
+| PBI-018 | Upozorenje vidljivo za svaku intervenciju kojoj je istekao SLA rok a nije Završena; ne mijenja status; nestaje čim intervencija prijeđe u Završeno; intervencija bez roka ne generiše upozorenje | Unit, Integracijsko, Sistemsko, UAT | CI log SLA logike; demo kompletnog toka upozorenja |
+| PBI-024 | Validacija implementirana i na serverskom sloju; sistem odbija SQL injection i XSS napade; poruke grešaka prikazane uz polje | Unit, Integracijsko, Sistemsko | CI log serverske validacije; API testovi s malicioznim unosima |
+| PBI-025 | Upozorenje o duplikatu prikazano ali ne blokira; Završena intervencija nije tretirana kao duplikat; upozorenje nije prikazano za prijave na različitim lokacijama | Unit, Integracijsko, Sistemsko | Evidencija API provjere duplikata; demo scenarija s i bez duplikata |
+| PBI-037 | Sistem automatski dodjeljuje servisera s najmanje aktivnih intervencija; koordinator vidi oznaku automatske dodjele; može je izmijeniti bez ograničenja; serviser prima identičnu notifikaciju; ako nema servisera, intervencija ostaje nedodijeljenom | Unit, Integracijsko, Sistemsko, UAT | CI log logike odabira; API zapis automatske dodjele; demo override-a od strane koordinatora |
+| NFR_01, NFR_08, NFR_12 | Lista intervencija učitana za < 2s pri 1000 zapisa; API odgovor za unos intervencije < 1s; stabilnost pri 2000 istovremenih korisnika | Integracijsko, Sistemsko | Izvještaj load testiranja s pragovima odziva i brojem grešaka |
+| NFR_02, NFR_03 | Autentifikacija sigurna; RBAC zaštita podataka; samo relevantni podaci vidljivi po ulozi | Unit, Integracijsko, Sistemsko | Evidencija negativnih scenarija pristupa; API provjere za 403 odgovor |
+| NFR_13 | Ispravni prikaz i funkcionalnost na Chrome, Firefox i Edge; navigacija za mobitele | Sistemsko, UAT | Evidencija provjere na browserima; demo na mobilnim uređajima |
+| NFR_14 | Svaki zapis audit loga sadrži korisnika, tip akcije, vremensku oznaku; pristup samo adminu; zapisi nepromjenjivi | Unit, Integracijsko, Sistemsko, UAT | Evidencija audit log zapisa nakon kritičnih akcija; provjera RBAC na rutama loga |
+
+---
+
+## Način evidentiranja rezultata testiranja
+
+Tabela se popunjava nakon izvršenja testnih aktivnosti. Nije potrebno unaprijed biti ispunjena.
+
+| Datum | PBI / NFR referenca | AC fokus | Nivo testiranja | Vrsta dokaza | Rezultat | ID defekta | Napomena |
+|-------|--------------------|---------|-----------------|----|---------|-----------|---------|
+| DD.MM.YYYY. | npr. PBI-008 | npr. Nedozvoljeni prelaz statusa je blokiran | Unit / Integracijsko / Sistemsko / UAT | CI log / API log / Zapis E2E toka / UAT zapisnik | PASS / FAIL / BLOCKED | BUG-DD.MM.YYYY-XXX ili N/A | Sprint, okruženje, dodatni kontekst |
+
+### Struktura test slučaja
+
+| Polje | Opis |
+|-------|------|
+| ID | Jedinstveni identifikator (npr. TC-PBI001-01) |
+| PBI referenca | ID backlog stavke |
+| AC referenca | Koji Acceptance Kriterij pokriva |
+| Preduslovi | Stanje sistema prije izvršavanja |
+| Koraci | Numerisani koraci izvršavanja |
+| Očekivani rezultat | Što sistem treba da uradi |
+| Stvarni rezultat | Što se desilo (popunjava tester) |
+| Status | PASS / FAIL / BLOCKED / SKIP |
+| Prioritet | Kritičan / Visok / Srednji / Nizak |
+
+### Klasifikacija defekata
+
+Notacija defekata: **BUG-[DD.MM.YYYY]-[sekvenca]** (npr. BUG-13.04.2026-001).
+
+| Ozbiljnost | Opis | Primjer |
+|-----------|------|---------|
+| S1 – Blocker | Sistem ne može funkcionisati | Login ne radi; intervencija se ne može kreirati |
+| S2 – Critical | Ključna funkcionalnost ne radi ispravno | Dodjela uloge ne funkcioniše; status se ne bilježi u historiji |
+| S3 – Major | Funkcionalnost radi, ali s greškom | Pogrešan sort u listi; notifikacija ne sadrži sve podatke |
+| S4 – Minor | Manji problem koji ne blokira rad | Greška u prijevodu; pogrešna boja indikatora prioriteta |
+| S5 – Trivial | Kozmetički problem | Poravnanje elementa; pravopisna greška u poruci |
+
+### Kriteriji zaustavljanja i nastavka testiranja
+
+**Zaustavljanje:** Više od 3 aktivna S1 defekta istovremeno; kritična infrastruktura nedostupna; više od 20% test slučajeva blokirano zbog neisporučenih preduvjeta.
+
+**Nastavak:** Svi S1 defekti zatvoreni ili zaobiđeni; infrastruktura dostupna i stabilna.
+
+### Izvještavanje
+
+- **Po sprintu:** Sprint Test Report – ukupni rezultati, lista otvorenih defekata, pokrivenost AC
+- **Release:** Release Test Summary – konsolidovani pregled svih sprintova, rizici, preporuka za isporuku
+
+---
+
+## Glavni rizici kvaliteta
+
+| ID rizika | Opis rizika | Vjerovatnoća (1–5) | Uticaj (1–5) | Nivo rizika (V×U) | Prioritet | Mjere ublažavanja |
+|-----------|------------|-------------------|-------------|-------------------|-----------|------------------|
+| R-01 | **RBAC nije ispravno implementiran** – korisnici vide tuđe podatke ili imaju privilegije koje im ne pripadaju (NFR_03, NFR_09) | 3 | 5 | 15 | Visok | Eksplicitni pozitivni i negativni scenariji za svaku kombinaciju uloga i funkcionalnosti; automatizovane API provjere za 403 odgovor; sigurnosni pregled u svakom PR-u |
+| R-02 | **Nedozvoljene tranzicije statusa** – mogućnost preskakanja statusaa ili izmjene Završene intervencije bez admin ovlasti (PBI-008) | 3 | 5 | 15 | Visok | Unit testovi za sve dozvoljene i nedozvoljene tranzicije; negativni sistemski testovi za svaki nedozvoljeni prelaz |
+| R-03 | **Validacija samo na klijentskoj strani** – serverska validacija zaobiđena direktnim API pozivom; rizik od SQL injection i XSS napada (PBI-024, NFR_02) | 4 | 5 | 20 | Visok | Obavezno testiranje validacije direktno na API sloju zaobilazeći browser; eksplicitni testovi s malicioznim unosima |
+| R-04 | **SLA kalkulacija ugrožava performanse** – on-the-fly SLA provjera za svaku intervenciju u listi može narušiti NFR_01 pri 1000+ zapisa (PBI-035, NFR_01, NFR_08) | 3 | 4 | 12 | Visok | Verifikovati pristup računanja s razvojnim timom; load test koji simulira istovremeno učitavanje liste i istek SLA rokova |
+| R-05 | **Pad performansi pod opterećenjem** – sistem ne zadovoljava NFR_01 (< 2s za 1000 zapisa) ili NFR_12 (2000 korisnika) (NFR_01, NFR_12) | 3 | 4 | 12 | Visok | Load testiranje s k6/JMeter u ranoj fazi; optimizacija upita prije sistemskog testiranja |
+| R-06 | **Notifikacije ne stignu ili sadrže netačne podatke** – koordinator/serviser propuštaju hitnu intervenciju (PBI-012) | 3 | 4 | 12 | Visok | Integracijsko testiranje notifikacijskog sistema; mock mail servera za simulaciju nedostupnosti; end-to-end verifikacija sadržaja notifikacije |
+| R-07 | **Mail server nedostupan blokira sinhrone tokove** – reset lozinke ili notifikacije blokiraju prijavu kvara ako je slanje sinhrono (PBI-012, PBI-019) | 3 | 4 | 12 | Visok | Verifikovati da je slanje maila asinhrono; testirati ponašanje pri timeout-u mail servera (mock/stub) |
+| R-08 | **Race condition pri dodjeli servisera** – dva koordinatora dodjeljuju istog servisera u istoj sekundi uzrokujući duplikatu dodjelu (PBI-006, PBI-021) | 2 | 4 | 8 | Srednji | Konkurentno integracijsko testiranje; provjera locking mehanizma u bazi; testiranje s paralelnim API pozivima |
+| R-09 | **Neprijavljeni korisnik pristupa zaštićenim stranicama** – direktni URL zaobilazeći autentifikaciju (PBI-002) | 2 | 5 | 10 | Visok | Sistemsko testiranje svih zaštićenih ruta bez aktivne sesije; provjera preusmjeravanja na login |
+| R-10 | **Detekcija duplikata daje lažno pozitivne ili negativne rezultate** – korisnici blokirani od legitimnih prijava ili duplikati prolaze (PBI-025) | 3 | 3 | 9 | Srednji | Testiranje s kombinacijama: ista/različita lokacija, sličan/različit opis, Završena/aktivna intervencija |
+| R-11 | **Masovne akcije ostavljaju nekonzistentno stanje** – dijelomično izvršena akcija na 50+ intervencija (PBI-038) | 3 | 4 | 12 | Visok | Testiranje atomičnosti; provjera rollback ponašanja pri neuspjehu jedne od intervencija; sažetak rezultata s označenim preskočenima |
+| R-12 | **Export PDF sadrži podatke van ovlasti korisnika** – RBAC nije primijenjen pri generisanju dokumenta (PBI-023) | 2 | 5 | 10 | Visok | Testiranje exporta za svaku ulogu; provjera da PDF sadrži samo podatke vidljive ulozi |
+| R-13 | **Mobilna responzivnost neadekvatna za servisere na terenu** – ključni tokovi ne rade na mobilnim uređajima (NFR_13) | 3 | 3 | 9 | Srednji | Cross-device testiranje na Android/iOS za tokove servisera (pregled zadataka, promjena statusa, unos izvještaja) |
+| R-14 | **Nepotpunost audit loga** – kritične akcije nisu evidentirane ili zapisi su izmjenjivi (NFR_14) | 2 | 4 | 8 | Srednji | Provjera audit loga nakon svakog kritičnog E2E toka; verifikacija da zapisi nisu izmjenjivi ni od strane admina |
+
+---
+
