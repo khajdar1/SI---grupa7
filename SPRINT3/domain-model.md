@@ -6,7 +6,7 @@
 
 - Korisnik
 - Firma
-- Kategorija_kvara
+- Kategorija
 - Prijava_kvara
 - Intervencija
 - Izvjestaj
