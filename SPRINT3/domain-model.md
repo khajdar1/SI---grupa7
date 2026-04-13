@@ -19,6 +19,7 @@
 - Blokiranje_korisnika
 - Historija_status
 - Konfiguracija_sistema
+- Notifikacija
 
 ---
 
@@ -164,6 +165,17 @@
 - azurirao_id: INT (FK)
 - azurirano_at: TIMESTAMP
 
+**Notifikacija**
+- id: INT (PK)
+- korisnik_id: INT (FK)
+- naslov: VARCHAR
+- tekst: TEXT
+- tip: ENUM (Nova_prijava, Dodjela_intervencije, Promjena_statusa, Feedback_zahtjev, Automatska_dodjela, Novi_tiket, Odgovor_na_tiket)
+- procitano: BOOLEAN
+- intervencija_id: INT (FK, nullable)
+- tiket_id: INT (FK, nullable)
+- vrijeme_kreiranja: TIMESTAMP
+
 ---
 
 ### Veze između entiteta
@@ -185,6 +197,9 @@
 
 #### Korisnik - Konfiguracija_sistema: 1:N
 - Administrator može ažurirati više konfiguracija i svaka konfiguracija ima tačno jednog (posljednjeg) urednika.
+
+#### Korisnik - Notifikacija: 1:N
+- Jedan korisnik može dobiti više notifikacija.
   
 #### Kategorija – Prijava_kvara: 1:N
 -  Jedna kategorija može pokriti više prijava kvara, ali svaka prijava mora biti svrstana u tačno jednu kategoriju.
@@ -230,12 +245,18 @@
 
 #### Intervencija - Historija_status: 1:N
 - Jedna intervencija može imati više zapisa o promjeni statusa
+
+#### Intervencija - Notifikacija: 1:N
+- Notifikacija može biti vezana za konkretnu intervenciju.
   
 #### Izvjestaj - Attachment: 1:N
 - Uz servisni izvještaj mogu biti priložene slike ili dokumenti kao dokaz obavljenog rada.
   
 #### Tiket – Poruka: 1:N 
 - Jedan tiket sadrži cijelu komunikacijsku nit između korisnika i tima podrške kroz više poruka.
+
+#### Tiket - Notifikacija: 1:N
+- Jedan tiket može kreirati više notifikacija.
 
 ---
 
@@ -257,4 +278,8 @@
 - Jedna prijava kvara može rezultirati s više intervencija u slučaju kada kvar nije riješen prvom intervencijom i koordinator kreira novu intervenciju za isti kvar.
 - Svaka promjena statusa intervencije automatski kreira novi zapis u Status_historija s trenutnim vremenom i korisnikom koji je promjenu izvršio.
 - Intervencije se arhiviraju, ali se ne brišu fizički iz baze.
+- Notifikacija se kreira automatski pri: dodjeli servisera, novoj prijavi kvara, promjeni statusa, završetku intervencije, automatskoj dodjeli i aktivnosti na tiketu.
+- Ako ista notifikacija ide na više korisnika, kreira se zaseban zapis po primaocu.
 - Automatska raspodjela se izvršava samo ako je odgovarajuća konfiguracija aktivna.
+- Koordinator mora moći ručno izmijeniti automatski dodijeljenog servisera u svakom trenutku bez ograničenja.
+- Intervencija može biti bez dodjele servisera ako nema dostupnih servisera pri automatskoj raspodjeli gdje je koordinator u obavezi naknadno dodijeliti servisera ručno.
