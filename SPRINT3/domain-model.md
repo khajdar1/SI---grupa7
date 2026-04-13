@@ -23,128 +23,127 @@
 #### Ključni atributi
 
 **Korisnik**
-- id
-- firma_id (FK, null)
-- ime
-- prezime
-- korisnicko_ime
-- email
-- password
-- uloga
-- aktivan
+- id: INT (PK)
+- firma_id: INT (FK, nullable)
+- ime: VARCHAR
+- prezime: VARCHAR
+- korisnicko_ime: VARCHAR
+- email: VARCHAR
+- password: VARCHAR
+- uloga: ENUM (Gost, Korisnik, Serviser, Koordinator, Menadzment, Administrator)
+- aktivan: BOOLEAN
 
 **Firma**
-- id
-- naziv
-- kontakt
-- tip
+- id: INT (PK)
+- naziv: VARCHAR
+- kontakt: VARCHAR
+- tip: VARCHAR
 
 **Kategorija**
-- id
-- naziv
-- opis
+- id: INT (PK)
+- naziv: VARCHAR
+- opis: VARCHAR
 
 **Prijava_kvara**
-- id
-- opis
-- lokacija
-- latitude
-- longitude
-- user_id (FK, null)
-- kategorija_id (FK)
-- firma_id (FK)
-- datum_prijave
+- id: INT (PK)
+- opis: VARCHAR
+- lokacija: VARCHAR
+- latitude: DECIMAL
+- longitude: DECIMAL
+- user_id: INT (FK, nullable)
+- kategorija_id: INT (FK)
+- firma_id: INT (FK)
+- vrijeme_prijave: TIMESTAMP
 
 **Intervencija**
-- id
-- lokacija
-- latitude
-- longitude
-- naziv
-- opis
-- prioritet
-- status
-- datum_kreiranja
-- datum_pocetka
-- rok_zavrsetka
-- kategorija_id (FK)
-- kreirao_id (FK)
-- firma_id (FK)
-- arhivirano
-- tip
-- prijava_id (FK, null)
-- periodicnost
-- sljedece_generisanje
+- id: INT (PK)
+- lokacija: VARCHAR
+- latitude: DECIMAL
+- longitude: DECIMAL
+- naziv: VARCHAR
+- opis: VARCHAR
+- prioritet: ENUM (Hitan, Visok, Normalan, Nizak)
+- status: ENUM (Otvoreno, U_procesu, Zavrseno, Otkazano)
+- datum_kreiranja: DATE
+- vrijeme_pocetka: TIMESTAMP
+- rok_zavrsetka: TIMESTAMP
+- kategorija_id: INT (FK)
+- kreirao_id: INT (FK)
+- firma_id: INT (FK)
+- arhivirano: BOOLEAN
+- tip: ENUM (Kvar, Preventivno_odrzavanje)
+- prijava_id: INT (FK, nullable)
+- periodicnost: ENUM (Dnevno, Sedmicno, Mjesecno, Godisnje), nullable
+- sljedece_generisanje: DATETIME
 
 **Izvjestaj**
-- id
-- intervencija_id (FK)
-- korisnik_id (FK)
-- opis
-- materijal
-- napomene
-- datum
-- status
+- id: INT (PK)
+- intervencija_id: INT (FK)
+- korisnik_id: INT (FK)
+- opis: TEXT
+- materijal: TEXT
+- napomene: TEXT
+- datum: DATE
+- status: ENUM (Nacrt, Finaliziran)
 
 **Attachment**
-- id
-- url
-- naziv_fajla
-- tip_fajla
-- velicina_fajla
-- intervencija_id (FK)
-- prijava_id (FK, null)
-- izvjestaj_id (FK, null)
+- id: INT (PK)
+- url: VARCHAR
+- naziv_fajla: VARCHAR
+- tip_fajla: VARCHAR
+- velicina_fajla: INT
+- intervencija_id: INT (FK)
+- prijava_id: INT (FK, nullable)
+- izvjestaj_id: INT (FK, nullable)
 
 **Zaduzeni_serviseri**
-- id
-- intervencija_id (FK)
-- user_id (FK)
+- id: INT (PK)
+- intervencija_id: INT (FK)
+- user_id: INT (FK)
 
 **Tiket**
-- id
-- korisnik_id (FK)
-- naslov
-- kategorija
-- status
-- datum_kreiranja
+- id: INT (PK)
+- korisnik_id: INT (FK)
+- naslov: VARCHAR
+- kategorija: VARCHAR
+- status: ENUM (Otvoreno, U_toku, Rijeseno, Zatvoreno)
+- vrijeme_kreiranja: TIMESTAMP
 
 **Poruka**
-- id
-- tiket_id (FK)
-- korisnik_id (FK)
-- tekst
-- datum_kreiranja
+- id: INT (PK)
+- tiket_id: INT (FK)
+- korisnik_id: INT (FK)
+- tekst: TEXT
+- vrijeme_kreiranja: TIMESTAMP
 
 **Feedback**
-- id
-- intervencija_id (FK)
-- serviser_id (FK)
-- korisnik_id (FK)
-- ocjena
-- komentar
-- datum_kreiranja
+- id: INT (PK)
+- intervencija_id: INT (FK)
+- korisnik_id: INT (FK)
+- ocjena: INT
+- komentar: VARCHAR
+- vrijeme_kreiranja: TIMESTAMP
 
 **SLA_Konfiguracija**
-- id
-- prioritet
-- rok_sati
-- azurirana_at
+- id: INT (PK)
+- prioritet: ENUM (Hitan, Visok, Normalan, Nizak)
+- rok_sati: INT
+- azurirana_at: TIMESTAMP
 
 **Komentar_intervencije**
-- id
-- intervencija_id (FK)
-- korisnik_id (FK)
-- tekst
-- datum_kreiranja
+- id: INT (PK)
+- intervencija_id: INT (FK)
+- korisnik_id: INT (FK)
+- tekst: TEXT
+- vrijeme_kreiranja: TIMESTAMP
 
 **Blokiranje_korisnika**
-- id
-- korisnik_id (FK)
-- firma_id (FK)
-- koordinator_id (FK)
-- razlog
-- datum_blokiranja
+- id: INT (PK)
+- korisnik_id: INT (FK)
+- firma_id: INT (FK)
+- koordinator_id:INT (FK)
+- razlog: VARCHAR
+- vrijeme_blokiranja: TIMESTAMP
 
 ---
 
