@@ -2,7 +2,7 @@
 ### Domain Model
 ---
 
-#### Glavni entiteti
+### Glavni entiteti
 
 - Korisnik
 - Firma
@@ -22,7 +22,7 @@
 
 ---
 
-#### Ključni atributi
+### Ključni atributi
 
 **Korisnik**
 - id: INT (PK)
@@ -166,80 +166,80 @@
 
 ---
 
-#### Veze između entiteta
+### Veze između entiteta
 
-### Korisnik – Prijava_kvara: 1:N 
+#### Korisnik – Prijava_kvara: 1:N 
 - Jedan korisnik može podnijeti više prijava kvara, ali svaka prijava kvara može biti vezana za najviše jednog korisnika.
   
-### Korisnik - Tiket: 1:N 
+#### Korisnik - Tiket: 1:N 
 - Jedan korisnik može kreirati više tiketa za podršku, ali svaki tiket pripada tačno jednom korisniku.
   
-### Korisnik - Poruka: 1:N
+#### Korisnik - Poruka: 1:N
 - Jedan korisnik može napisati više poruka unutar tiketa, ali svaka poruka ima tačno jednog autora.
   
-### Korisnik - Blokiranje_korisnika: 1:N
+#### Korisnik - Blokiranje_korisnika: 1:N
 - Jedan korisnik može biti blokiran više puta, ali svaki zapis blokiranja odnosi se na tačno jednog korisnika.
 
-### Korisnik - Historija_statusa: 1:N
+#### Korisnik - Historija_statusa: 1:N
 - Svaka promjena statusa je vezana za jednog korisnika (koordinatora) koji ju je izvršio.
 
-### Korisnik - Konfiguracija_sistema: 1:N
+#### Korisnik - Konfiguracija_sistema: 1:N
 - Administrator može ažurirati više konfiguracija i svaka konfiguracija ima tačno jednog (posljednjeg) urednika.
   
-### Kategorija – Prijava_kvara: 1:N
+#### Kategorija – Prijava_kvara: 1:N
 -  Jedna kategorija može pokriti više prijava kvara, ali svaka prijava mora biti svrstana u tačno jednu kategoriju.
   
-### Kategorija - Intervencija: 1:N
+#### Kategorija - Intervencija: 1:N
 - Jedna kategorija može biti dodijeljena većem broju intervencija, ali svaka intervencija ima tačno jednu kategoriju.
   
 ### Firma – Prijava_kvara: 1:N
 - Jedna firma može primiti više prijava kvara, ali svaka prijava mora biti upućena tačno jednoj firmi.
   
-### Firma - Korisnik: 1:N
+#### Firma - Korisnik: 1:N
 - Jedna firma može imati više korisnika (zaposlenika), ali korisnik može biti vezan za najviše jednu firmu.
   
-### Firma - Blokiranje_korisnika: 1:N
+#### Firma - Blokiranje_korisnika: 1:N
 - Blokiranje korisnika uvijek se vrši u kontekstu konkretne firme, gdje firma može imati više zapisa blokiranih korisnika.
   
-### Prijava_kvara – Intervencija: 1:N
+#### Prijava_kvara – Intervencija: 1:N
 - Jedna prijava kvara može rezultirati nastankom jedne ili više intervencija.
   
-### Prijava_kvara - Attachment: 1:N
+#### Prijava_kvara - Attachment: 1:N
 - Uz jednu prijavu kvara može biti priloženo više fajlova, ali svaki attachment zna uz koju prijavu pripada.
   
-### Intervencija – Firma: N:1 
+#### Intervencija – Firma: N:1 
 - Svaka intervencija mora biti vezana za tačno jednu firmu koja je odgovorna za njeno izvršenje, dok jedna firma može imati više intervencija.
   
-### Intervencija – Korisnik: 1:N
+#### Intervencija – Korisnik: 1:N
 - Svaka intervencija mora imati tačno jednog kreatora (koordinatora)
   
-### Intervencija – Zaduženi_serviseri – Korisnik: M:N 
+#### Intervencija – Zaduženi_serviseri – Korisnik: M:N 
 - Jedna intervencija može imati više zaduženih servisera, a jedan serviser može biti zadužen za više intervencija istovremeno.
   
-### Intervencija – Izvještaj: 1:N
+#### Intervencija – Izvještaj: 1:N
 - Jedna intervencija može imati više izvještaja, ali svaki izvještaj pripada tačno jednoj intervenciji.
   
-### Intervencija - Komentar_intervencije: 1:N 
+#### Intervencija - Komentar_intervencije: 1:N 
 - Na jednoj intervenciji može biti ostavljeno više komentara od strane koordinatora ili servisera, ali svaki komentar vezan je za tačno jednu intervenciju.
   
-### Intervencija - Feedback: 1:0..1
+#### Intervencija - Feedback: 1:0..1
 - Po završetku intervencije korisnik može ostaviti tačno jedan feedback.
   
-### Intervencija - Attachment: 1:N
+#### Intervencija - Attachment: 1:N
 - Uz intervenciju mogu biti priloženi fajlovi
 
-### Intervencija - Historija_status: 1:N
+#### Intervencija - Historija_status: 1:N
 - Jedna intervencija može imati više zapisa o promjeni statusa
   
-### Izvjestaj - Attachment: 1:N
+#### Izvjestaj - Attachment: 1:N
 - Uz servisni izvještaj mogu biti priložene slike ili dokumenti kao dokaz obavljenog rada.
   
-### Tiket – Poruka: 1:N 
+#### Tiket – Poruka: 1:N 
 - Jedan tiket sadrži cijelu komunikacijsku nit između korisnika i tima podrške kroz više poruka.
 
 ---
 
-#### Poslovna pravila važna za model
+### Poslovna pravila važna za model
 
 - Svaki korisnik mora imati dodijeljenu ulogu (enum).
 - Korisnik može biti aktivan ili blokiran - blokiranje ne deaktivira račun.
