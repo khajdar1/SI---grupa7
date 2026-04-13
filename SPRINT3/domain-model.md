@@ -207,7 +207,7 @@
 #### Kategorija - Intervencija: 1:N
 - Jedna kategorija može biti dodijeljena većem broju intervencija, ali svaka intervencija ima tačno jednu kategoriju.
   
-### Firma – Prijava_kvara: 1:N
+#### Firma – Prijava_kvara: 1:N
 - Jedna firma može primiti više prijava kvara, ali svaka prijava mora biti upućena tačno jednoj firmi.
   
 #### Firma - Korisnik: 1:N
@@ -276,7 +276,7 @@
 - Tiket je potpuno odvojen od intervencija.
 - Poruka mora pripadati tiketu i autoru.
 - Jedna prijava kvara može rezultirati s više intervencija u slučaju kada kvar nije riješen prvom intervencijom i koordinator kreira novu intervenciju za isti kvar.
-- Svaka promjena statusa intervencije automatski kreira novi zapis u Status_historija s trenutnim vremenom i korisnikom koji je promjenu izvršio.
+- Svaka promjena statusa intervencije automatski kreira novi zapis u Historija_status s trenutnim vremenom i korisnikom koji je promjenu izvršio.
 - Intervencije se arhiviraju, ali se ne brišu fizički iz baze.
 - Notifikacija se kreira automatski pri: dodjeli servisera, novoj prijavi kvara, promjeni statusa, završetku intervencije, automatskoj dodjeli i aktivnosti na tiketu.
 - Ako ista notifikacija ide na više korisnika, kreira se zaseban zapis po primaocu.
