@@ -2,7 +2,7 @@
 
 ## Kratak opis arhitektonskog pristupa
 
-Za razvoj sistema za prijavu, praćenje i upravljanje kvarovima predviđen je web-based client-server arhitektonski pristup. Sistem će koristiti React za implementaciju korisničkog interfejsa, dok će serverski dio sistema biti realizovan kao Node.js aplikacija koristeći Express.js framework, koji implementira REST API za komunikaciju sa klijentskom aplikacijom. Backend aplikacija će biti povezana sa MySQL bazom podataka.
+Za razvoj sistema za prijavu, praćenje i upravljanje kvarovima predviđen je web-based client-server arhitektonski pristup. Sistem će koristiti Next.js za implementaciju korisničkog interfejsa, dok će serverski dio sistema biti realizovan kao Node.js aplikacija koristeći Express.js framework, koji implementira REST API za komunikaciju sa klijentskom aplikacijom. Backend aplikacija će biti povezana sa MySQL bazom podataka.
 
 Predložena je monolitna modularna arhitektura, sa jasno odvojenim logičkim modulima unutar jedne backend aplikacije. Ovakav pristup je izabran zato što je pogodan za sistem srednje složenosti, omogućava brži razvoj, jednostavnije testiranje i lakše održavanje u početnim fazama projekta. 
 
@@ -11,7 +11,7 @@ Predložena je monolitna modularna arhitektura, sa jasno odvojenim logičkim mod
 Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 
 1. Klijentska aplikacija (Frontend)
-- Web aplikacija razvijena u React-u, dostupna kroz preglednik.
+- Web aplikacija razvijena u Next.js-u, dostupna kroz preglednik.
 
 2. Aplikacioni server (Backend)
 - Centralni serverski sloj implementiran kao Node.js aplikacija koristeći Express.js framework, koji pruža REST API za komunikaciju sa klijentskom aplikacijom. Backend je odgovoran za obradu zahtjeva, validaciju podataka, primjenu poslovne logike i komunikaciju sa bazom podataka.
@@ -44,7 +44,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Omogućava upload, čuvanje i pristup datotekama vezanim za prijave kvarova i intervencije. Sistem čuva metapodatke o fajlovima (naziv, tip, veličina, putanja, povezanost sa prijavom) u bazi podataka, dok se sami fajlovi čuvaju u cloud storage sistemu (AWS S3). Ovakav pristup omogućava efikasno upravljanje većim količinama podataka, bolju skalabilnost i veću pouzdanost u odnosu na lokalno čuvanje datoteka.
 
 ## Odgovornosti komponenti
-1. React Web Client
+1. Next.js Web Client
 
 Odgovoran je za prikaz korisničkog interfejsa i interakciju sa krajnjim korisnicima sistema. Omogućava:
 
@@ -174,7 +174,7 @@ Tip interakcije između komponenti:
 Primjer toka podataka
 
 - Scenario 1: Prijava novog kvara
-    - Korisnik unosi prijavu kvara kroz React web aplikaciju.
+    - Korisnik unosi prijavu kvara kroz Next.js web aplikaciju.
     - Frontend šalje POST zahtjev backend API-ju u JSON formatu.
     - Backend validira podatke i zapisuje prijavu u MySQL bazu.
     - Incident Management Module kreira zapis prijave i dodjeljuje početni status.
@@ -237,16 +237,16 @@ Razlozi:
 - Pogodnost za različite tipove korisnika omogućava fleksibilno korištenje sistema u različitim radnim okruženjima, uključujući kancelarijski i terenski rad.
 - Jednostavnije uvođenje u radno okruženje jer nije potrebna instalacija niti specifična konfiguracija na korisničkim uređajima.
 
-4. React za frontend
+4. Next.js za frontend
 
-Za implementaciju klijentske aplikacije odabran je React.
+Za implementaciju klijentske aplikacije odabran je Next.js.
 
 Razlozi:
 
-- Komponentni pristup razvoju interfejsa omogućava podjelu UI-a na manje, ponovno iskoristive cjeline, što olakšava razvoj i održavanje aplikacije.
-- Efikasno upravljanje stanjem aplikacije posebno je važno za sistem sa velikim brojem interakcija (statusi kvarova, dodjela timova, notifikacije).
-- Podrška za SPA (Single Page Application) omogućava brže i responzivnije korisničko iskustvo bez stalnog učitavanja stranica.
-- Jednostavna integracija sa REST API-jem čini React pogodnim za komunikaciju sa backend sistemom zasnovanim na HTTP zahtjevima.
+- Next.js omogućava kombinaciju server-side rendering-a, route-based strukture i komponentnog razvoja, što je pogodno za sistem sa više uloga i različitim pregledima podataka.
+- App Router pristup olakšava organizaciju page shellova za autentikaciju, dashboard, administraciju i operativne tokove.
+- Integracija sa React ekosistemom čini Next.js pogodnim za prikaz kompleksnih operativnih ekrana bez nepotrebne client-side rute logike.
+- Jednostavna integracija sa REST API-jem čini Next.js pogodnim za komunikaciju sa backend sistemom zasnovanim na HTTP zahtjevima.
 
 5. MySQL kao baza podataka
 
@@ -266,7 +266,7 @@ Razlozi:
 
 - Jednostavna implementacija i razumijevanje REST pristupa omogućava brži razvoj i lakšu integraciju komponenti.
 - Standardizovan način komunikacije koji je široko prihvaćen u web aplikacijama.
-- Kompatibilnost sa frontend tehnologijama kao što je React, koji prirodno koristi HTTP zahtjeve.
+- Kompatibilnost sa frontend tehnologijama kao što je Next.js, koji prirodno koristi HTTP zahtjeve.
 - Lako testiranje i dokumentovanje API-ja korištenjem alata kao što je Postman.
 
 7. JWT i OAuth
@@ -276,7 +276,7 @@ Odlučeno je da se koristi JWT (JSON Web Token) i OAuth 2.0 podrška predviđena
 Razlozi:
 
 - Stateless pristup autentikaciji kod JWT-a znači da server ne mora čuvati stanje korisničkih sesija, već se svi potrebni podaci o korisniku nalaze unutar samog tokena. 
-- Jednostavna integracija sa REST API arhitekturom omogućava da se JWT token šalje uz svaki HTTP zahtjev (najčešće u Authorization headeru), što se uklapa u način komunikacije između React frontenda i backend API-ja.
+- Jednostavna integracija sa REST API arhitekturom omogućava da se JWT token šalje uz svaki HTTP zahtjev (najčešće u Authorization headeru), što se uklapa u način komunikacije između Next.js frontenda i backend API-ja.
 - Efikasno upravljanje autentikacijom i autorizacijom jer token može sadržavati informacije o korisniku i njegovoj ulozi, što omogućava backendu da brzo provjeri prava pristupa bez dodatnih upita prema bazi podataka u svakom zahtjevu.
 - Fleksibilnost i proširivost sistema jer se uvođenjem OAuth-a omogućava lakše povezivanje sa drugim sistemima bez potrebe za kreiranjem novih korisničkih naloga unutar aplikacije.
 - JWT tokeni imaju ograničeno vrijeme trajanja, čime se dodatno povećava sigurnost sistema.
