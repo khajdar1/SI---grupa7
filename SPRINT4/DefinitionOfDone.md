@@ -32,6 +32,3 @@ Stavka se smatra završenom kada su ispunjeni sljedeći uslovi:
 - Stvarno stanje se reflektuje kroz Sprint Backlog
 - Ukoliko funkcionalnost koristi AI evidentirana je kroz AI Usage Log
 
----
-
-Tim može proširiti ovu definiciju u skladu sa potrebama projekta, ali je važno da svi članovi tima koriste jedinstvenu Definition of Done tokom razvoja.
