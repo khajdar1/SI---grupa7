@@ -2,7 +2,7 @@
 
 Repozitorij projekta "Sistem za upravljanje servisnim intervencijama".
 
-Dokumentacija sprintova ostaje u postojećim `SPRINT1/` do `SPRINT4/` folderima, a implementacioni skeleton je smješten u `SPRINT4/projekat/`.
+Dokumentacija sprintova ostaje u postojećim `SPRINT1/` do `SPRINT4/` folderima, a implementacioni skeleton je smješten u root `projekat/` folderu.
 
 ## Kontekst projekta
 
@@ -11,7 +11,8 @@ Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servis
 ## Kako je organizovan skeleton
 
 - `projekat/frontend/` je Next.js App Router aplikacija i predstavlja prezentacioni sloj sistema.
-- `projekat/backend/` je Node.js + Express API u TypeScriptu i predstavlja poslovni sloj i pristup podacima.
+- `projekat/backend/` je Node.js + Express API u TypeScriptu sa Prisma ORM slojem i predstavlja poslovni sloj i pristup podacima.
+- `projekat/backend/prisma/` sadrži Prisma schema fajl i buduću osnovu za migracije.
 - `projekat/backend/src/modules/attachments/` je početni file-storage/attachment stub za metapodatke i budući Cloudflare R2 objektni storage preko S3-kompatibilnog API-ja.
 - `SPRINT1/` do `SPRINT4/` sadrže projektnu dokumentaciju, odluke i planove.
 - `projekat/infra/mysql/init/` je rezervisan za buduće MySQL init skripte koje se montiraju kroz Docker Compose.
@@ -24,16 +25,17 @@ Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/ho
 ## Tehnički setup
 
 - Frontend: Next.js 15, React 18, TypeScript, Axios, Socket.IO client
-- Backend: Node.js 20, Express, TypeScript, MySQL, Socket.IO, Zod, Helmet, CORS, dotenv
+- Backend: Node.js 20, Express, TypeScript, Prisma ORM, MySQL, Socket.IO, Zod, Helmet, CORS, dotenv
 - [projekat/docker-compose.yml](projekat/docker-compose.yml) diže frontend, backend i MySQL iz istog fajla
 - Razvojni alati: npm workspaces u [projekat/package.json](projekat/package.json), `tsx` za backend development server, `tsc` za build i typecheck
 
 ## Lokalni start
 
 1. Uđi u `projekat`.
-2. Kopiraj `.env.example` u `.env` i po potrebi promijeni `PUBLIC_HOST`.
+2. Kopiraj `.env.example` u `.env` i po potrebi promijeni `PUBLIC_HOST` i `DATABASE_URL`.
 3. Pokreni `npm install`.
-4. Pokreni cijeli stack sa `npm run compose:up`.
+4. Pokreni `npm run prisma:generate --workspace backend` ako radiš lokalno ili ako si mijenjao Prisma schema fajl.
+5. Pokreni cijeli stack sa `npm run compose:up`.
 
 Frontend, backend i MySQL se dižu iz istog `docker-compose.yml` fajla.
 

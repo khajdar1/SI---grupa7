@@ -29,11 +29,7 @@ services:
       CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000
       SOCKET_CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000
       JWT_SECRET: ${JWT_SECRET:-change-me}
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-service_interventions}
-      MYSQL_USER: ${MYSQL_USER:-service_app}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-service_app}
+      DATABASE_URL: "mysql://${MYSQL_USER:-service_app}:${MYSQL_PASSWORD:-service_app}@mysql:3306/${MYSQL_DATABASE:-service_interventions}"
     ports:
       - "4000:4000"
 

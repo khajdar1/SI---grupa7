@@ -8,11 +8,9 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   SOCKET_CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().default('change-me'),
-  MYSQL_HOST: z.string().default('localhost'),
-  MYSQL_PORT: z.coerce.number().default(3306),
-  MYSQL_DATABASE: z.string().default('service_interventions'),
-  MYSQL_USER: z.string().default('service_app'),
-  MYSQL_PASSWORD: z.string().default('service_app'),
+  DATABASE_URL: z
+    .string()
+    .default('mysql://service_app:service_app@localhost:3306/service_interventions'),
 });
 
 export const env = envSchema.parse(process.env);

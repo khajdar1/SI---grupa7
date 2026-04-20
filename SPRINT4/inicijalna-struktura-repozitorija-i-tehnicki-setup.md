@@ -11,7 +11,8 @@ Skeleton projekta nije samo tekstualni opis, nego kompletan skup dijelova koji z
 Skeleton je složen iz nekoliko jasno odvojenih cjelina:
 
 - frontend sloj koji služi kao korisnički interfejs i koristi App Router pristup;
-- backend sloj koji sadrži Express aplikaciju, konfiguraciju, realtime bootstrap i domenske module;
+- backend sloj koji sadrži Express aplikaciju, Prisma ORM konfiguraciju, realtime bootstrap i domenske module;
+- Prisma schema sloj koji definiše modele, relacije i buduće migracije za MySQL bazu;
 - attachments sloj unutar backenda koji je početna tačka za file storage i kasniju object storage vezu;
 - infrastrukturni sloj za MySQL inicijalizaciju i pokretanje servisa;
 - zajednički projektni setup za skripte, build i lokalno podizanje cijelog stacka;
@@ -118,7 +119,7 @@ Tehnički setup ovog projekta je složen oko jednog frontend sloja, jednog backe
 | Sloj | Tehnologija / alat | Zašto je tu |
 | --- | --- | --- |
 | Frontend | Next.js 15, React 18, TypeScript | daje aplikacijski shell, route-based prikaz i tipiziran UI sloj |
-| Backend | Node.js 20, Express, TypeScript | pokreće API, poslovnu logiku i server stranu aplikacije |
+| Backend | Node.js 20, Express, TypeScript, Prisma ORM | pokreće API, poslovnu logiku i server stranu aplikacije |
 | Baza podataka | MySQL 8 | čuva trajne podatke sistema |
 | File storage stub | attachments modul | rezervisano mjesto za metapodatke i kasniji upload |
 | Kontejnerizacija | Docker Compose | podiže cijeli stack jednim procesom |
@@ -128,7 +129,8 @@ Tehnički setup ovog projekta je složen oko jednog frontend sloja, jednog backe
 | --- | --- | --- |
 | Axios | frontend | centralno HTTP povezivanje s API-jem |
 | Socket.IO | frontend i backend | realtime komunikacija i događaji |
-| mysql2 | backend | direktna i stabilna veza s MySQL bazom |
+| Prisma Client | backend | tipiziran ORM sloj za rad s MySQL bazom |
+| Prisma CLI | backend | generisanje clienta, migracije i schema workflow |
 | Zod | backend | validacija ulaza na jednom mjestu |
 | Helmet | backend | osnovni sigurnosni HTTP headeri |
 | CORS | backend | kontrola pristupa između različitih origin adresa |
@@ -161,21 +163,34 @@ Backend je organizovan kao modularni API i obuhvata sve dijelove potrebne za pok
 | `src/server.ts` | runtime bootstrap | pokreće server i veže ga za port |
 | `src/app.ts` | centralna Express konfiguracija | drži middleware, rute i opšta podešavanja |
 | `src/config/env.ts` | environment konfiguracija | učitava i provjerava varijable okruženja |
-| `src/config/database.ts` | konekcija prema bazi | centralizuje pristup MySQL bazi |
+| `src/config/database.ts` | Prisma client singleton | centralizuje pristup MySQL bazi kroz ORM sloj |
 | `src/routes/health.route.ts` | health provjera | daje brzu provjeru da servis radi |
 | `src/realtime/socket.ts` | Socket.IO bootstrap | priprema realtime događaje i konekcije |
 | `src/modules/*` | domenski moduli | razdvaja poslovne cjeline po funkciji |
 | `src/modules/attachments/` | file-storage stub | početna tačka za metapodatke i budući upload |
+| `backend/prisma/schema.prisma` | Prisma schema | definiše modele, relacije i putanju ka migracijama |
 
 ### 3.4 Baza podataka — MySQL
 
-Koristi se MySQL 8, a baza se pokreće zajedno sa ostatkom stacka kroz jedan compose fajl i koristi zajedničke `MYSQL_*` varijable.
+Koristi se MySQL 8, a backend pristupa bazi kroz Prisma Client i standardni `DATABASE_URL` connection string. MySQL container i dalje koristi `MYSQL_*` varijable za inicijalizaciju.
 
 | Stavka | Vrijednost | Zašto |
 | --- | --- | --- |
 | Baza podataka | MySQL 8 | stabilno relacijsko čuvanje podataka |
-| Konfiguracija | `MYSQL_*` varijable | da se kredencijali i parametri ne pišu direktno u kod |
+| Konfiguracija backenda | `DATABASE_URL` | jedan standardni connection string za Prisma Client |
+| Konfiguracija MySQL kontejnera | `MYSQL_*` varijable | da se kredencijali i parametri ne pišu direktno u kod |
 | Inicijalni SQL | infrastrukturni sloj projekta | da seed i setup budu odvojeni od aplikacijske logike |
+
+### 3.4.1 Prisma workflow
+
+Prisma se koristi kao ORM sloj između Express backenda i MySQL baze. Zbog toga se schema i client generišu kroz standardne Prisma komande.
+
+| Komanda | Kada se koristi | Zašto |
+| --- | --- | --- |
+| `npm run prisma:generate --workspace backend` | nakon instalacije i nakon svake promjene schema.prisma | generiše tipizirani Prisma Client |
+| `npm run prisma:migrate --workspace backend` | kada se schema mijenja i treba formalna migracija | kreira migracije i ažurira bazu kroz kontrolisan proces |
+| `npm run prisma:push --workspace backend` | u ranoj fazi ili kod brzog prototipiranja | sinhronizuje schema i bazu bez ručnog pisanja migracija |
+| `npm run prisma:studio --workspace backend` | kada treba vizuelni pregled podataka | otvara Prisma Studio za pregled i uređivanje podataka |
 
 ### 3.5 Docker Compose i lokalni start
 
@@ -190,12 +205,13 @@ Cijeli stack se podiže iz jednog compose fajla i obuhvata frontend, backend i M
 
 ### 3.6 Konfiguracione varijable
 
-Jedan zajednički `.env` fajl nosi `PUBLIC_HOST`, `JWT_SECRET` i `MYSQL_*` varijable.
+Jedan zajednički `.env` fajl nosi `PUBLIC_HOST`, `JWT_SECRET`, `DATABASE_URL` i `MYSQL_*` varijable.
 
 | Varijabla | Gdje se koristi | Zašto |
 | --- | --- | --- |
 | `PUBLIC_HOST` | frontend, backend i deploy setup | javna adresa aplikacije |
 | `JWT_SECRET` | backend auth sloj | potpisivanje i provjera tokena |
+| `DATABASE_URL` | backend Prisma Client | konekcija prema MySQL bazi kroz ORM sloj |
 | `MYSQL_*` | backend i baza | kredencijali i parametri za vezu prema bazi |
 
 `PUBLIC_HOST` mora biti browser-accessible host, najčešće `http://localhost` za lokalni rad ili javni host/IP za server.

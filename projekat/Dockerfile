@@ -2,12 +2,15 @@
 
 FROM node:20-bookworm-slim AS base
 WORKDIR /app
+ENV DATABASE_URL=mysql://service_app:service_app@localhost:3306/service_interventions
 
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
+COPY backend/prisma backend/prisma
 
 RUN npm ci
+RUN npm run prisma:generate --workspace backend
 
 FROM base AS backend-build
 COPY backend/ backend/

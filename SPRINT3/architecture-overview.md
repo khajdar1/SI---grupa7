@@ -2,7 +2,7 @@
 
 ## Kratak opis arhitektonskog pristupa
 
-Za razvoj sistema za prijavu, praćenje i upravljanje kvarovima predviđen je web-based client-server arhitektonski pristup. Sistem će koristiti Next.js za implementaciju korisničkog interfejsa, dok će serverski dio sistema biti realizovan kao Node.js aplikacija koristeći Express.js framework, koji implementira REST API za komunikaciju sa klijentskom aplikacijom. Backend aplikacija će biti povezana sa MySQL bazom podataka.
+Za razvoj sistema za prijavu, praćenje i upravljanje kvarovima predviđen je web-based client-server arhitektonski pristup. Sistem će koristiti Next.js za implementaciju korisničkog interfejsa, dok će serverski dio sistema biti realizovan kao Node.js aplikacija koristeći Express.js framework, koji implementira REST API za komunikaciju sa klijentskom aplikacijom. Backend aplikacija će biti povezana sa MySQL bazom podataka preko Prisma ORM sloja.
 
 Predložena je monolitna modularna arhitektura, sa jasno odvojenim logičkim modulima unutar jedne backend aplikacije. Ovakav pristup je izabran zato što je pogodan za sistem srednje složenosti, omogućava brži razvoj, jednostavnije testiranje i lakše održavanje u početnim fazama projekta. 
 
@@ -17,7 +17,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Centralni serverski sloj implementiran kao Node.js aplikacija koristeći Express.js framework, koji pruža REST API za komunikaciju sa klijentskom aplikacijom. Backend je odgovoran za obradu zahtjeva, validaciju podataka, primjenu poslovne logike i komunikaciju sa bazom podataka.
 
 3. Baza podataka
-- Relacijska baza podataka MySQL za trajno čuvanje podataka o korisnicima, kvarovima, intervencijama, timovima i historiji aktivnosti.
+- Relacijska baza podataka MySQL za trajno čuvanje podataka o korisnicima, kvarovima, intervencijama, timovima i historiji aktivnosti, dok Prisma Client služi kao ORM sloj između backend logike i baze.
 
 4. Modul za autentikaciju i autorizaciju
 - Podsistem zadužen za prijavu korisnika, upravljanje sesijama i kontrolu pristupa na osnovu korisničkih uloga. U okviru ovog modula koristi se kombinacija JWT (JSON Web Token) autentikacije i opcionalne podrške za OAuth 2.0 protokol. JWT se primjenjuje za upravljanje korisničkim sesijama unutar sistema, dok OAuth 2.0 omogućava jednostavnu i sigurnu integraciju sa eksternim identitetskim provajderima, poput Google-a ili Microsoft-a, čime se korisnicima olakšava prijava korištenjem postojećih naloga.
@@ -164,7 +164,7 @@ Sistem razmjenjuje i obrađuje sljedeće tipove podataka:
 Tip interakcije između komponenti:
 
 - Frontend ↔ Backend: komunikacija putem HTTP/HTTPS REST API poziva, razmjena podataka u JSON formatu.
-- Backend ↔ MySQL: komunikacija putem SQL upita.
+- Backend ↔ MySQL: komunikacija putem Prisma Client-a koji generiše SQL upite.
 - Backend ↔ Notification Service: asinhrona ili polu-sinhrona komunikacija za slanje obavještenja.
 - Backend ↔ File Storage (Cloudflare R2): komunikacija putem HTTPS protokola korištenjem S3-kompatibilnog API-ja za upload i pristup datotekama. Datoteke se šalju kao binarni sadržaj, dok se u bazi čuvaju reference (URL ili key).
 - Frontend ↔ File Storage (Cloudflare R2): indirektna komunikacija putem signed URL-ova, koji omogućavaju direktan i siguran pristup datotekama bez prolaska kroz backend.
@@ -176,7 +176,7 @@ Primjer toka podataka
 - Scenario 1: Prijava novog kvara
     - Korisnik unosi prijavu kvara kroz Next.js web aplikaciju.
     - Frontend šalje POST zahtjev backend API-ju u JSON formatu.
-    - Backend validira podatke i zapisuje prijavu u MySQL bazu.
+    - Backend validira podatke i preko Prisma Client-a zapisuje prijavu u MySQL bazu.
     - Incident Management Module kreira zapis prijave i dodjeljuje početni status.
     - Notification Module šalje potvrdu korisniku.
     - Koordinator u svom interfejsu vidi novu prijavu.
@@ -185,7 +185,7 @@ Primjer toka podataka
     - Koordinator otvara listu otvorenih kvarova.
     - Backend dohvaća podatke iz baze i vraća ih frontend-u.
     - Koordinator bira tim i dodjeljuje intervenciju.
-    - Modul za raspodjelu i koordinaciju timova ažurira zapis u bazi.
+    - Modul za raspodjelu i koordinaciju timova ažurira zapis u bazi preko Prisma Client-a.
     - Modul za notifikacije (WebSocket) momentalno šalje obavještenje terenskoj ekipi.
     - Ekipa ažurira status rada sa terena.
 
@@ -194,7 +194,7 @@ Primjer toka podataka
     - Backend validira datoteku (tip, veličina, sigurnosne provjere).
     - Backend zatim šalje datoteku u Cloudflare R2 cloud storage.
     - Nakon uspješnog upload-a, backend dobija referencu (URL ili key) datoteke.
-    - Metapodaci o datoteci (naziv, tip, veličina, storage putanja, povezanost sa prijavom) se čuvaju u MySQL bazi.
+    - Metapodaci o datoteci (naziv, tip, veličina, storage putanja, povezanost sa prijavom) se čuvaju u MySQL bazi preko Prisma Client-a.
     - Backend evidentira završetak, vrijeme intervencije i napomene.
     - Sistem ažurira historiju aktivnosti.
     - Menadžment može kasnije analizirati trajanje i efikasnost rješavanja.
@@ -248,15 +248,16 @@ Razlozi:
 - Integracija sa React ekosistemom čini Next.js pogodnim za prikaz kompleksnih operativnih ekrana bez nepotrebne client-side rute logike.
 - Jednostavna integracija sa REST API-jem čini Next.js pogodnim za komunikaciju sa backend sistemom zasnovanim na HTTP zahtjevima.
 
-5. MySQL kao baza podataka
+5. MySQL kao baza podataka uz Prisma ORM
 
-Za čuvanje podataka koristi se MySQL relacijska baza podataka.
+Za čuvanje podataka koristi se MySQL relacijska baza podataka, a Prisma ORM je sloj kroz koji backend pristupa tim podacima.
 
 Razlozi:
 
 - Pouzdanost i stabilnost MySQL-a čine ga pogodnim za sisteme koji zahtijevaju kontinuiran rad i integritet podataka.
 - Strukturirani model podataka omogućava jasno definisanje relacija između entiteta kao što su korisnici, kvarovi, intervencije i timovi.
 - Podrška za transakcije je ključna za osiguravanje ispravnosti operacija, posebno kod ažuriranja statusa i dodjele zadataka.
+- Prisma ORM daje tipiziran, čitljiv i standardizovan pristup bazama podataka, što timu smanjuje količinu ručnog SQL-a i ubrzava razvoj.
 
 6. REST API komunikacija
 
