@@ -7,10 +7,10 @@ Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koj
 | Sprint | Uloga u planu | Fokus |
 | --- | --- | --- |
 | Sprint 5 | Develop sprint / početak Release 1 | Skeleton projekta, env konfiguracija, validacija, kategorije kvarova i SLA preduvjeti |
-| Sprint 6 | Kraj Release 1 | Registracija, login, prijava kvara i osnovno planiranje intervencije |
-| Sprint 7 | Release 2 | Operativno upravljanje intervencijama i attachmentima |
-| Sprint 8-9 | Release 3 | Administracija, nadzor, pretraga, podrška i stabilizacija |
-| Sprint 10 | Release 4 | Dodatne funkcije i optimizacije |
+| Sprint 6 | Nastavak Release 1 | Registracija, login, prijava kvara i osnovno planiranje intervencije |
+| Sprint 7 | Kraj Release 1 | Operativno upravljanje intervencijama i attachmentima |
+| Sprint 8-9 | Release 2 | Administracija, nadzor, pretraga, podrška i stabilizacija |
+| Sprint 10 | Release 3 | Dodatne funkcije i optimizacije |
 
 
 ## Plan release cjelina
