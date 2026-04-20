@@ -19,7 +19,7 @@ Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servis
 
 ## Inicijalna struktura repozitorija
 
-Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/hotfix mergeove i deployment, `develop` je integraciona grana, `feature/*` grane nose pojedinačne user story stavke, `fix/*` služi za obične bugfixeve iz razvoja, `other/*` pokriva chore i sitne tehničke zadatke, `release/*` služi za stabilizaciju verzija, a `hotfix/*` za hitne produkcijske ispravke. Detalji su opisani u [inicijalna-struktura-repozitorija-i-tehnicki-setup.md](inicijalna-struktura-repozitorija-i-tehnicki-setup.md).
+Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/hotfix mergeove i deployment, `develop` je integraciona grana, `feature/*` grane nose pojedinačne user story stavke, `fix/*` služi za obične bugfixeve iz razvoja, `other/*` pokriva chore i sitne tehničke zadatke, `release/*` služi za stabilizaciju verzija, a `hotfix/*` za hitne produkcijske ispravke. Detalji su opisani u [inicijalna-struktura-repozitorija-i-tehnicki-setup.md](SPRINT4/inicijalna-struktura-repozitorija-i-tehnicki-setup.md).
 
 ## Tehnički setup
 
