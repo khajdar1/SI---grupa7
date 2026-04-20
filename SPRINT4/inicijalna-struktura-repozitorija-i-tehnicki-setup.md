@@ -58,7 +58,7 @@ Priprema verzije
 develop → release/x.x.x → stabilizacija → merge u master + develop → tag verzije → brisanje grane
 
 Hitna produkcijska ispravka
-master → hotfix/* → ispravka → merge u master + develop → brisanje grane
+master → hotfix/* → ispravka → PR → review → merge u master + develop → brisanje grane
 ```
 
 ### 2.3 PR i review
