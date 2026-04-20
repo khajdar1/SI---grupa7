@@ -6,7 +6,7 @@ Dokumentacija sprintova ostaje u postojećim `SPRINT1/` do `SPRINT4/` folderima,
 
 ## Kontekst projekta
 
-Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servisnim intervencijama. Prema prethodnim sprint dokumentima, MVP pokriva prijavu kvara, dodjelu i praćenje intervencija, upravljanje korisničkim računima, historiju, notifikacije i osnovnu administraciju.
+Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servisnim intervencijama. MVP pokriva prijavu kvara, dodjelu i praćenje intervencija, upravljanje korisničkim računima, historiju, notifikacije i osnovnu administraciju.
 
 ## Kako je organizovan skeleton
 
