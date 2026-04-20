@@ -2,8 +2,6 @@
 
 Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koje su dovoljno vrijedne i stabilne da se mogu demonstrirati i, kada dođe vrijeme, isporučiti korisniku. Ako je backlog item prevelik, može se podijeliti na više release slice-ova, ali svaki slice mora imati smislen i upotrebljiv rezultat.
 
-Sprint 5 je razvojni sprint za tehničku pripremu i postavljanje temelja projekta. On ulazi u prvi release slice zajedno sa Sprintom 6, jer su obe cjeline povezane osnovnim funkcionalnim tokom sistema.
-
 ## Timeline
 
 | Sprint | Uloga u planu | Fokus |
@@ -14,11 +12,6 @@ Sprint 5 je razvojni sprint za tehničku pripremu i postavljanje temelja projekt
 | Sprint 8-9 | Release 3 | Administracija, nadzor, pretraga, podrška i stabilizacija |
 | Sprint 10 | Release 4 | Dodatne funkcije i optimizacije |
 
-## Razvojni sprint
-
-| Sprint | Tip | Fokus | Ishod |
-| --- | --- | --- | --- |
-| Sprint 5 | Develop sprint | Skeleton projekta, struktura repozitorija, Docker setup, env konfiguracija, osnovna validacija, upravljanje kategorijama kvarova i drugi tehnički/funkcionalni preduvjeti | Spremna osnova za feature razvoj i prve release cjeline |
 
 ## Plan release cjelina
 
