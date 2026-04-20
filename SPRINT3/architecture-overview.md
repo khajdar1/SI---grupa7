@@ -41,7 +41,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Sloj za buduće povezivanje sa eksternim sistemima, kao što su SMS/email servisi.
 
 11. File Storage Modul
-- Omogućava upload, čuvanje i pristup datotekama vezanim za prijave kvarova i intervencije. Sistem čuva metapodatke o fajlovima (naziv, tip, veličina, putanja, povezanost sa prijavom) u bazi podataka, dok se sami fajlovi čuvaju u cloud storage sistemu (AWS S3). Ovakav pristup omogućava efikasno upravljanje većim količinama podataka, bolju skalabilnost i veću pouzdanost u odnosu na lokalno čuvanje datoteka.
+- Omogućava upload, čuvanje i pristup datotekama vezanim za prijave kvarova i intervencije. Sistem čuva metapodatke o fajlovima (naziv, tip, veličina, putanja, povezanost sa prijavom) u bazi podataka, dok se sami fajlovi čuvaju u cloud storage sistemu (Cloudflare R2 free tier). Ovakav pristup omogućava efikasno upravljanje većim količinama podataka, bolju skalabilnost i veću pouzdanost u odnosu na lokalno čuvanje datoteka.
 
 ## Odgovornosti komponenti
 1. Next.js Web Client
@@ -166,8 +166,8 @@ Tip interakcije između komponenti:
 - Frontend ↔ Backend: komunikacija putem HTTP/HTTPS REST API poziva, razmjena podataka u JSON formatu.
 - Backend ↔ MySQL: komunikacija putem SQL upita.
 - Backend ↔ Notification Service: asinhrona ili polu-sinhrona komunikacija za slanje obavještenja.
-- Backend ↔ File Storage (AWS S3): komunikacija putem HTTPS protokola korištenjem S3 API-ja za upload i pristup datotekama. Datoteke se šalju kao binarni sadržaj, dok se u bazi čuvaju reference (URL ili key).
-- Frontend ↔ File Storage (AWS S3): indirektna komunikacija putem pre-signed URL-ova, koji omogućavaju direktan i siguran pristup datotekama bez prolaska kroz backend.
+- Backend ↔ File Storage (Cloudflare R2): komunikacija putem HTTPS protokola korištenjem S3-kompatibilnog API-ja za upload i pristup datotekama. Datoteke se šalju kao binarni sadržaj, dok se u bazi čuvaju reference (URL ili key).
+- Frontend ↔ File Storage (Cloudflare R2): indirektna komunikacija putem signed URL-ova, koji omogućavaju direktan i siguran pristup datotekama bez prolaska kroz backend.
 - Unutrašnji moduli backenda: logička komunikacija kroz interne slojeve i funkcijske pozive.
 
 
@@ -192,9 +192,9 @@ Primjer toka podataka
 - Scenario 3: Zatvaranje intervencije
     - Terenska ekipa označava intervenciju kao završenu i započinje upload finalnog izvještaja.
     - Backend validira datoteku (tip, veličina, sigurnosne provjere).
-    - Backend zatim šalje datoteku u AWS S3 cloud storage.
+    - Backend zatim šalje datoteku u Cloudflare R2 cloud storage.
     - Nakon uspješnog upload-a, backend dobija referencu (URL ili key) datoteke.
-    - Metapodaci o datoteci (naziv, tip, veličina, S3 putanja, povezanost sa prijavom) se čuvaju u MySQL bazi.
+    - Metapodaci o datoteci (naziv, tip, veličina, storage putanja, povezanost sa prijavom) se čuvaju u MySQL bazi.
     - Backend evidentira završetak, vrijeme intervencije i napomene.
     - Sistem ažurira historiju aktivnosti.
     - Menadžment može kasnije analizirati trajanje i efikasnost rješavanja.
@@ -210,9 +210,9 @@ Razlozi:
 
 - Sistem je funkcionalno povezan i obuhvata domenski blisko vezane procese, zbog čega nema potrebe za fizičkim razdvajanjem servisa.
 - Smanjuje se kompleksnost sistema jer se izbjegava mrežna komunikacija između servisa, sinhronizacija podataka i dodatna infrastruktura.
-- Razvoj i održavanje su jednostavniji jer se cijela poslovna logika nalazi u jednoj aplikaciji, što olakšava razumijevanje i izmjene.
+- Razvoj i održavanje su jednostavniji jer se cijela poslovna logika nalazi u jednoj modularnoj API aplikaciji, što olakšava razumijevanje i izmjene.
 - Testiranje je efikasnije, posebno integraciono testiranje, jer nema zavisnosti između više nezavisnih servisa.
-- Deploy proces je jednostavniji (jedna aplikacija), što smanjuje mogućnost grešaka prilikom isporuke.
+- Deploy proces je jednostavniji jer se backend isporučuje kao jedna modularna API aplikacija, dok se frontend deploya zasebno kao Next.js klijent, što smanjuje mogućnost grešaka prilikom isporuke.
 - Arhitektura omogućava kasniju evoluciju u mikroservise ukoliko sistem poraste i pojavi se realna potreba za skaliranjem pojedinih dijelova.
 
 2. Client-server pristup
@@ -362,7 +362,7 @@ Rizici:
 
 7. Rizik vezan za cloud storage
 
-U slučaju nedostupnosti servisa (AWS S3) ili problema sa mrežnom konekcijom funkcionisanje sistema zavisi od treće strane.
+U slučaju nedostupnosti servisa (Cloudflare R2) ili problema sa mrežnom konekcijom funkcionisanje sistema zavisi od treće strane.
 
 Rizici:
 
