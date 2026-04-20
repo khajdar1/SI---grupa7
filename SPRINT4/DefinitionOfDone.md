@@ -31,7 +31,7 @@ DoD je dogovoreni skup kriterija koji tim koristi da odluči kada je user story 
 - Nove promjene ne narušavaju postojeće funkcionalnosti.
 - Ne postoje otvoreni critical ili high bugovi vezani za tu stavku.
 
-### Ne-funkcionalni kriteriji
+### Nefunkcionalni kriteriji
 
 - Ako promjena dodiruje autentikaciju, autorizaciju, input validation ili tajne, urađena je osnovna security provjera i nema očiglednih rupa u pristupu.
 - Ako promjena utiče na UI, provjerena je osnovna dostupnost preko tastature, čitljivost i responsive ponašanje na ciljanim rezolucijama.
