@@ -6,6 +6,7 @@ DoD je dogovoreni skup kriterija koji tim koristi da odluči kada je user story 
 
 - User story ispunjava sva acceptance criteria.
 - Funkcionalnost radi u dogovorenom opsegu, uključujući normalan tok i relevantne edge caseove.
+- Kod je napisan u skladu sa dogovorenim projektnim konvencijama i standardima (struktura, naming, formatting, lint/formatter).
 - Kod je pregledan i odobren kroz pull request.
 - Relevantni testovi su prošli.
 - Izmjene su integrisane u GitFlow tok i spojene u `develop`.
@@ -62,6 +63,7 @@ DoD je dogovoreni skup kriterija koji tim koristi da odluči kada je user story 
 - Release grana se poslije validacije merge-a u `master` i nazad u `develop`.
 - Hitna produkcijska ispravka ide kroz `hotfix/*` granu iz `master` i vraća se i u `master` i u `develop`.
 - Konflikti su riješeni prije merge-a, a branch je ažuriran prema target grani.
+- Hotfix također prolazi review; kod urgentnih ispravki review može biti ubrzan, ali se ne preskače.
 - Za security-sensitive, auth ili database schema promjene traži se dodatni pregled drugog člana tima i kratka provjera rizika prije merge-a.
 
 ### Dokumentacija i traceability
@@ -71,18 +73,7 @@ DoD je dogovoreni skup kriterija koji tim koristi da odluči kada je user story 
 - Relevantna tehnička dokumentacija je ažurirana.
 - Ako se koristi AI, to je evidentirano kroz AI Usage Log.
 
-## 3. Kako to izgleda praktično
-
-Primjer: user story za prijavu putem Google naloga nije done samo zato što je login ekran napravljen. Done je tek kada:
-
-- login radi na ciljanoj okolini,
-- acceptance criteria su zadovoljeni,
-- code review je odrađen,
-- testovi prolaze,
-- feature je spojen u `develop`,
-- i tim se slaže da nema otvorenih blokirajućih problema.
-
-## 4. Napomena
+## 3. Napomena
 
 Ovaj DoD je projektno-specifičan i može se ažurirati ako se promijeni arhitektura, test strategija ili deploy proces.
 

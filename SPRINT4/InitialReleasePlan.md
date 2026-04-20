@@ -2,21 +2,39 @@
 
 Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koje su dovoljno vrijedne i stabilne da se mogu demonstrirati i, kada dođe vrijeme, isporučiti korisniku. Ako je backlog item prevelik, može se podijeliti na više release slice-ova, ali svaki slice mora imati smislen i upotrebljiv rezultat.
 
+Sprint 5 je razvojni sprint za tehničku pripremu i postavljanje temelja projekta. On ulazi u prvi release slice zajedno sa Sprintom 6, jer su obe cjeline povezane osnovnim funkcionalnim tokom sistema.
+
+## Timeline
+
+| Sprint | Uloga u planu | Fokus |
+| --- | --- | --- |
+| Sprint 5 | Develop sprint / početak Release 1 | Skeleton projekta, env konfiguracija, validacija, kategorije kvarova i SLA preduvjeti |
+| Sprint 6 | Kraj Release 1 | Registracija, login, prijava kvara i osnovno planiranje intervencije |
+| Sprint 7 | Release 2 | Operativno upravljanje intervencijama i attachmentima |
+| Sprint 8-9 | Release 3 | Administracija, nadzor, pretraga, podrška i stabilizacija |
+| Sprint 10 | Release 4 | Dodatne funkcije i optimizacije |
+
+## Razvojni sprint
+
+| Sprint | Tip | Fokus | Ishod |
+| --- | --- | --- | --- |
+| Sprint 5 | Develop sprint | Skeleton projekta, struktura repozitorija, Docker setup, env konfiguracija, osnovna validacija, upravljanje kategorijama kvarova i drugi tehnički/funkcionalni preduvjeti | Spremna osnova za feature razvoj i prve release cjeline |
+
 ## Plan release cjelina
 
-| Release | Sprint window | Funkcionalna cjelina | Uključeni PBIs | Izlazni kriteriji |
-| --- | --- | --- | --- | --- |
-| Release 1 | Sprint 6 | Pristup sistemu i prijava kvarova | PBI-001, PBI-002, PBI-019, PBI-032, PBI-003, PBI-004, PBI-005 | Registracija, login, reset lozinke, kategorije kvarova, unos kvara i inicijalno planiranje intervencije rade end-to-end; testovi prolaze; demo je moguć na target okolini. |
-| Release 2 | Sprint 7 | Operativno upravljanje intervencijama i prilozima | PBI-006, PBI-007, PBI-008, PBI-009, PBI-010, PBI-033, PBI-035 | Serviseri se dodjeljuju intervencijama, statusi se mijenjaju, liste rade, izvještaji, SLA i upravljanje prilozima rade, a operativni tok je stabilan za koordinatore. |
-| Release 3 | Sprint 8-9 | Administracija, analitika i release hardening | PBI-011, PBI-012, PBI-013, PBI-014, PBI-015, PBI-016, PBI-017, PBI-018, PBI-020, PBI-021, PBI-024, PBI-025 | Historija, notifikacije, admin kontrola, dashboard, profil, komentari, napredna pretraga, kalendar, dostupnost servisera, validacija i detekcija duplikata su spremni za inicijalni release kandidat i PO demo. |
-| Release 4 | Sprint 10 | Proširenja i podrška nakon osnovnog release kandidata | PBI-022, PBI-023, PBI-026, PBI-027, PBI-028, PBI-029, PBI-030, PBI-031, PBI-034, PBI-036, PBI-037, PBI-038, PBI-039 | Planirana održavanja, export, arhiviranje, tiket podrška, višejezičnost, map prikaz, feedback, automatska raspodjela, masovne akcije i blokiranje korisnika rade end-to-end; sistem pokriva i planirane proširenja nakon osnovnog release kandidata. |
+| Release | Sprint window | Funkcionalna cjelina | Uključeni PBIs | Glavni rizik | Izlazni kriteriji |
+| --- | --- | --- | --- | --- | --- |
+| Release 1 | Sprint 5-6 | Osnovni pristup, validacija i prijava kvara | PBI-024, PBI-032, PBI-035, PBI-001, PBI-002, PBI-003, PBI-004, PBI-005, PBI-006, PBI-019, PBI-030 | Rizik da validacija, kategorije kvarova, SLA preduvjeti ili osnovni korisnički tok nisu dovoljno stabilni za end-to-end korištenje. | Registracija, login, reset lozinke, validacija unosa, kategorije kvarova, prijava kvara, planiranje intervencije i dodjela rade end-to-end; testovi prolaze; demo je moguć na target okolini. |
+| Release 2 | Sprint 7 | Operativno upravljanje intervencijama i attachmentima | PBI-007, PBI-008, PBI-009, PBI-010, PBI-011, PBI-016, PBI-033 | Rizik da statusni tok, izvještaji ili attachment flow utiču na operativnu stabilnost koordinatora i servisera. | Lista aktivnih intervencija, statusi, zadaci servisera, izvještaji, historija, komentari i upravljanje prilozima rade dosljedno; testovi prolaze i demo je moguć na target okolini. |
+| Release 3 | Sprint 8-9 | Administracija, nadzor i podrška | PBI-012, PBI-013, PBI-014, PBI-015, PBI-017, PBI-018, PBI-020, PBI-021, PBI-025, PBI-026, PBI-027, PBI-028 | Rizik da veći broj uloga, notifikacija, pretrage i support tokova uvede regresije ili RBAC greške. | Notifikacije, admin kontrola, dashboard, profil, napredna pretraga, SLA upozorenja, kalendar, dostupnost servisera, detekcija duplikata, arhiviranje i podrška kroz tikete rade end-to-end. |
+| Release 4 | Sprint 10 | Dodatne funkcije i optimizacije | PBI-022, PBI-023, PBI-029, PBI-031, PBI-034, PBI-036, PBI-037, PBI-038, PBI-039 | Rizik da proširenja poput tiketa, mape, višejezičnosti i automatske raspodjele povećaju kompleksnost bez direktnog povećanja osnovne korisničke vrijednosti. | Planirana održavanja, export, notifikacije za tikete, višejezičnost, map prikaz, feedback, automatska raspodjela, masovne akcije i blokiranje korisnika rade end-to-end; sistem pokriva planirana proširenja nakon osnovnog release kandidata. |
 
 ## Zavisnosti i pravila planiranja
 
-- Release 1 zavisi od autentifikacije, RBAC-a, kategorija kvarova i validacije unosa.
-- Release 2 zavisi od stabilnog podatkovnog modela za intervencije, korisničkih uloga, osnovnih operativnih statusa i rješenja za upload priloga.
-- Release 3 zavisi od prethodnih release cjelina, notifikacijskog toka, pretrage, validacije i dovoljno stabilnog backend-a i baze.
-- Release 4 zavisi od prethodnih release cjelina, operativnih statusa, notifikacija, SLA i dosljednih pravila za proširenja sistema.
+- Release 1 zavisi od autentifikacije, RBAC-a, PBI-024, PBI-032, PBI-035 i osnovnog modela prijave i obrade intervencija.
+- Release 2 zavisi od stabilnog operativnog toka, notifikacija, priloga, izvještaja i provjerene logike statusa.
+- Release 3 zavisi od prethodnih release cjelina, notifikacijskog toka, pretrage, SLA pravila i stabilnog support procesa.
+- Release 4 zavisi od prethodnih release cjelina, ticketing toka, map prikaza, automatske raspodjele i dosljednih pravila za proširenja sistema.
 - Svaki release mora činiti zaokruženu funkcionalnu cjelinu, čak i kada neki backlog item mora biti podijeljen na više manjih isporuka.
 - Plan se revidira nakon svakog sprint review-a u skladu sa kapacitetom tima, rizicima i stvarnim napretkom.
 

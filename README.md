@@ -10,27 +10,27 @@ Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servis
 
 ## Kako je organizovan skeleton
 
-- `SPRINT4/projekat/frontend/` je Next.js App Router aplikacija i predstavlja prezentacioni sloj sistema.
-- `SPRINT4/projekat/backend/` je Node.js + Express API u TypeScriptu i predstavlja poslovni sloj i pristup podacima.
-- `SPRINT4/projekat/backend/src/modules/attachments/` je početni file-storage/attachment stub za metapodatke i budući Cloudflare R2 objektni storage preko S3-kompatibilnog API-ja.
+- `projekat/frontend/` je Next.js App Router aplikacija i predstavlja prezentacioni sloj sistema.
+- `projekat/backend/` je Node.js + Express API u TypeScriptu i predstavlja poslovni sloj i pristup podacima.
+- `projekat/backend/src/modules/attachments/` je početni file-storage/attachment stub za metapodatke i budući Cloudflare R2 objektni storage preko S3-kompatibilnog API-ja.
 - `SPRINT1/` do `SPRINT4/` sadrže projektnu dokumentaciju, odluke i planove.
-- `SPRINT4/projekat/infra/mysql/init/` je rezervisan za buduće MySQL init skripte koje se montiraju kroz Docker Compose.
-- `SPRINT4/projekat/package.json` koristi npm workspaces za zajedničke skripte i build/typecheck tokove.
+- `projekat/infra/mysql/init/` je rezervisan za buduće MySQL init skripte koje se montiraju kroz Docker Compose.
+- `projekat/package.json` koristi npm workspaces za zajedničke skripte i build/typecheck tokove.
 
 ## Inicijalna struktura repozitorija
 
-Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/hotfix mergeove i deployment, `develop` je integraciona grana, `feature/*` grane nose pojedinačne user story stavke, `fix/*` služi za obične bugfixeve iz razvoja, `other/*` pokriva chore i sitne tehničke zadatke, `release/*` služi za stabilizaciju verzija, a `hotfix/*` za hitne produkcijske ispravke. Detalji su opisani u [SPRINT4/inicijalna-struktura-repozitorija-i-tehnicki-setup.md](SPRINT4/inicijalna-struktura-repozitorija-i-tehnicki-setup.md).
+Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/hotfix mergeove i deployment, `develop` je integraciona grana, `feature/*` grane nose pojedinačne user story stavke, `fix/*` služi za obične bugfixeve iz razvoja, `other/*` pokriva chore i sitne tehničke zadatke, `release/*` služi za stabilizaciju verzija, a `hotfix/*` za hitne produkcijske ispravke. Detalji su opisani u [inicijalna-struktura-repozitorija-i-tehnicki-setup.md](inicijalna-struktura-repozitorija-i-tehnicki-setup.md).
 
 ## Tehnički setup
 
 - Frontend: Next.js 15, React 18, TypeScript, Axios, Socket.IO client
 - Backend: Node.js 20, Express, TypeScript, MySQL, Socket.IO, Zod, Helmet, CORS, dotenv
-- [SPRINT4/projekat/docker-compose.yml](SPRINT4/projekat/docker-compose.yml) diže frontend, backend i MySQL iz istog fajla
-- Razvojni alati: npm workspaces u [SPRINT4/projekat/package.json](SPRINT4/projekat/package.json), `tsx` za backend development server, `tsc` za build i typecheck
+- [projekat/docker-compose.yml](projekat/docker-compose.yml) diže frontend, backend i MySQL iz istog fajla
+- Razvojni alati: npm workspaces u [projekat/package.json](projekat/package.json), `tsx` za backend development server, `tsc` za build i typecheck
 
 ## Lokalni start
 
-1. Uđi u `SPRINT4/projekat`.
+1. Uđi u `projekat`.
 2. Kopiraj `.env.example` u `.env` i po potrebi promijeni `PUBLIC_HOST`.
 3. Pokreni `npm install`.
 4. Pokreni cijeli stack sa `npm run compose:up`.
