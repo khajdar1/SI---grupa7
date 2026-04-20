@@ -1,4 +1,4 @@
-# 14. Initial Release Plan
+# Initial Release Plan
 
 Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koje su dovoljno vrijedne i stabilne da se mogu demonstrirati i, kada dođe vrijeme, isporučiti korisniku. Ako je backlog item prevelik, može se podijeliti na više release slice-ova, ali svaki slice mora imati smislen i upotrebljiv rezultat.
 
