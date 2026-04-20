@@ -12,7 +12,7 @@ Rješenje je planirano kao web sistem za prijavu, praćenje i upravljanje servis
 
 - `SPRINT4/projekat/frontend/` je Next.js App Router aplikacija i predstavlja prezentacioni sloj sistema.
 - `SPRINT4/projekat/backend/` je Node.js + Express API u TypeScriptu i predstavlja poslovni sloj i pristup podacima.
-- `SPRINT4/projekat/backend/src/modules/attachments/` je početni file-storage/attachment stub za metapodatke i buduću S3 integraciju.
+- `SPRINT4/projekat/backend/src/modules/attachments/` je početni file-storage/attachment stub za metapodatke i budući Cloudflare R2 objektni storage preko S3-kompatibilnog API-ja.
 - `SPRINT1/` do `SPRINT4/` sadrže projektnu dokumentaciju, odluke i planove.
 - `SPRINT4/projekat/infra/mysql/init/` je rezervisan za buduće MySQL init skripte koje se montiraju kroz Docker Compose.
 - `SPRINT4/projekat/package.json` koristi npm workspaces za zajedničke skripte i build/typecheck tokove.
