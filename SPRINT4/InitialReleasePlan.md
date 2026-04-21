@@ -6,9 +6,9 @@ Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koj
 
 | Sprint | Uloga u planu | Fokus |
 | --- | --- | --- |
-| Sprint 5 | Develop sprint / početak Release 1 | Skeleton projekta, env konfiguracija, validacija, kategorije kvarova i SLA preduvjeti |
-| Sprint 6 | Nastavak Release 1 | Registracija, login, prijava kvara i osnovno planiranje intervencije |
-| Sprint 7 | Kraj Release 1 | Operativno upravljanje intervencijama i attachmentima |
+| Sprint 5 | Develop sprint / početak Release 1 | Preduvjeti i fundament — validacija unosa, upravljanje kategorijama kvarova (Admin), SLA konfiguracija, registracija korisnika, login, reset lozinke, prijava kvara |
+| Sprint 6 | Nastavak Release 1 | Planiranje i pregled — kreiranje i zakazivanje intervencija, postavljanje prioriteta, dodjela servisera, pregled liste aktivnih intervencija, historija, komentari, upravljanje attachmentima |
+| Sprint 7 | Kraj Release 1 | Operativno upravljanje — pregled zadataka servisera, praćenje i izmjena statusa intervencija, evidencija izvještaja o intervenciji |
 | Sprint 8-9 | Release 2 | Administracija, nadzor, pretraga, podrška i stabilizacija |
 | Sprint 10 | Release 3 | Dodatne funkcije i optimizacije |
 
@@ -17,7 +17,7 @@ Initial Release Plan grupiše Product Backlog u funkcionalne release cjeline koj
 
 | Release | Sprint window | Funkcionalna cjelina | Uključeni PBIs | Glavni rizik | Izlazni kriteriji |
 | --- | --- | --- | --- | --- | --- |
-| Release 1 | Sprint 5-7 | Osnovni pristup, validacija, prijava kvara i operativno upravljanje intervencijama | PBI-024, PBI-032, PBI-035, PBI-001, PBI-002, PBI-003, PBI-004, PBI-005, PBI-006, PBI-019, PBI-030, PBI-007, PBI-008, PBI-009, PBI-010, PBI-011, PBI-016, PBI-033 | Rizik da validacija, kategorije kvarova, SLA preduvjeti ili osnovni korisnički tok nisu dovoljno stabilni za end-to-end korištenje. Rizik da statusni tok, izvještaji ili attachment flow utiču na operativnu stabilnost koordinatora i servisera. | Registracija, login, reset lozinke, validacija unosa, kategorije kvarova, prijava kvara, planiranje intervencije i dodjela rade end-to-end; lista aktivnih intervencija, statusi, zadaci servisera, izvještaji, historija, komentari i upravljanje prilozima rade dosljedno; testovi prolaze; demo je moguć na target okolini. |
+| Release 1 | Sprint 5-7 | Osnovni pristup, validacija, prijava kvara i operativno upravljanje intervencijama | **Sprint 5:** PBI-024, PBI-032, PBI-035, PBI-001, PBI-002, PBI-019, PBI-030, PBI-003 — **Sprint 6:** PBI-004, PBI-033, PBI-005, PBI-006, PBI-007, PBI-016, PBI-011 — **Sprint 7:** PBI-009, PBI-008, PBI-010 | Rizik da validacija, kategorije kvarova, SLA preduvjeti ili osnovni korisnički tok nisu dovoljno stabilni za end-to-end korištenje. Rizik da statusni tok, izvještaji ili attachment flow utiču na operativnu stabilnost koordinatora i servisera. | Registracija, login, reset lozinke, validacija unosa, kategorije kvarova, prijava kvara, planiranje intervencije i dodjela rade end-to-end; lista aktivnih intervencija, statusi, zadaci servisera, izvještaji, historija, komentari i upravljanje prilozima rade dosljedno; testovi prolaze; demo je moguć na target okolini. |
 | Release 2 | Sprint 8-9 | Administracija, nadzor i podrška | PBI-012, PBI-013, PBI-014, PBI-015, PBI-017, PBI-018, PBI-020, PBI-021, PBI-025, PBI-026, PBI-027, PBI-028 | Rizik da veći broj uloga, notifikacija, pretrage i support tokova uvede regresije ili RBAC greške. | Notifikacije, admin kontrola, dashboard, profil, napredna pretraga, SLA upozorenja, kalendar, dostupnost servisera, detekcija duplikata, arhiviranje i podrška kroz tikete rade end-to-end. |
 | Release 3 | Sprint 10 | Dodatne funkcije i optimizacije | PBI-022, PBI-023, PBI-029, PBI-031, PBI-034, PBI-036, PBI-037, PBI-038, PBI-039 | Rizik da proširenja poput tiketa, mape, višejezičnosti i automatske raspodjele povećaju kompleksnost bez direktnog povećanja osnovne korisničke vrijednosti. | Planirana održavanja, export, notifikacije za tikete, višejezičnost, map prikaz, feedback, automatska raspodjela, masovne akcije i blokiranje korisnika rade end-to-end; sistem pokriva planirana proširenja nakon osnovnog release kandidata. |
 
