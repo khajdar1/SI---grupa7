@@ -4,6 +4,8 @@ Ovaj folder sadrži Prisma schema, migracije i seed za backend bazu.
 
 Schema model ne čuva lozinke. Korisnik ima lokalni profil u aplikaciji, a prvi eksterni identitetski provajder u ovoj fazi je Microsoft Entra.
 
+Prisma CLI koristi `../prisma.config.ts` sa podrazumijevanim `DATABASE_URL` za lokalni razvoj, tako da nije potrebno ručno postavljati shell varijablu pri svakom pokretanju Prisma komandi.
+
 ## Komande
 
 1. `npm run prisma:generate --workspace backend` nakon svake izmjene `schema.prisma`.

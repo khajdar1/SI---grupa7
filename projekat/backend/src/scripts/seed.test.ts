@@ -15,7 +15,6 @@ import {
   type SeedSlaConfigurationInput,
   type SeedUserInput,
   Priority,
-  UserRole,
   seedDatabase,
 } from './seed';
 
@@ -123,17 +122,32 @@ test('should seed the demo dataset with local profiles and external identities',
   const electricalCategory = state.categories.get('Elektricni kvar');
   assert.ok(electricalCategory);
 
-  const customer = Array.from(state.users.values()).find((user) => user.role === UserRole.USER);
-  const coordinator = Array.from(state.users.values()).find((user) => user.role === UserRole.COORDINATOR);
-  const servicer = Array.from(state.users.values()).find((user) => user.role === UserRole.SERVICER);
-  assert.ok(customer);
+  const admin = state.users.get('ana.admin@demo.local');
+  const coordinator = state.users.get('milan.koordinator@demo.local');
+  const servicer = state.users.get('marko.serviser@demo.local');
+  const management = state.users.get('lejla.menadzment@demo.local');
+  const customer = state.users.get('jelena.korisnik@demo.local');
+  assert.ok(admin);
   assert.ok(coordinator);
   assert.ok(servicer);
+  assert.ok(management);
+  assert.ok(customer);
 
   const externalIdentityProviders = Array.from(state.externalIdentities.values())
     .map((identity) => identity.provider)
     .sort();
   assert.deepEqual(externalIdentityProviders, ['entra', 'entra', 'entra', 'entra', 'entra']);
+
+  const externalIdentitySubjects = Array.from(state.externalIdentities.values())
+    .map((identity) => identity.providerSubject)
+    .sort();
+  assert.deepEqual(externalIdentitySubjects, [
+    'entra-admin-001',
+    'entra-coordinator-001',
+    'entra-management-001',
+    'entra-servicer-001',
+    'entra-user-001',
+  ].sort());
 
   const externalIdentityUserIds = new Set(Array.from(state.externalIdentities.values()).map((identity) => identity.userId));
   for (const user of state.users.values()) {
@@ -159,20 +173,14 @@ test('should seed the demo dataset with local profiles and external identities',
   assert.equal(assignment.userId, servicer.id);
   assert.equal(assignment.method, AssignmentMethod.MANUAL);
 
-  const userRoles = Array.from(state.users.values()).map((user) => user.role).sort();
-  assert.deepEqual(userRoles, [UserRole.ADMIN, UserRole.COORDINATOR, UserRole.MANAGEMENT, UserRole.SERVICER, UserRole.USER].sort());
-
-  const linkedUsers = Array.from(state.users.values()).filter((user) => user.role !== UserRole.ADMIN);
-  for (const user of linkedUsers) {
-    assert.equal(user.companyId, company.id);
-  }
+  assert.equal(admin.companyId, null);
+  assert.equal(coordinator.companyId, company.id);
+  assert.equal(servicer.companyId, company.id);
+  assert.equal(management.companyId, company.id);
+  assert.equal(customer.companyId, company.id);
 
   const externalIdentityLinks = Array.from(state.externalIdentities.values()).map((identity) => `${identity.userId}:${identity.provider}`);
   assert.equal(new Set(externalIdentityLinks).size, 5);
-
-  const admin = Array.from(state.users.values()).find((user) => user.role === UserRole.ADMIN);
-  assert.ok(admin);
-  assert.equal(admin.companyId, null);
 
   assert.deepEqual(
     Array.from(state.slaConfigurations.values())

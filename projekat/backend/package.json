@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:seed": "tsx src/scripts/seed.ts",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio"
   },

@@ -1,4 +1,12 @@
+import 'dotenv/config';
+
 import { PrismaClient } from '@prisma/client';
+
+const DEFAULT_DATABASE_URL = 'mysql://service_app:service_app@localhost:3306/service_interventions';
+
+function resolveDatabaseUrl(): string {
+  return process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
+}
 
 export const Priority = {
   URGENT: 'URGENT',
@@ -60,9 +68,12 @@ export interface SeedUserInput {
   readonly lastName: string;
   readonly username: string;
   readonly email: string;
-  readonly role: UserRole;
   readonly active: boolean;
   readonly companyId: number | null;
+}
+
+interface SeedUserSeed extends SeedUserInput {
+  readonly role: UserRole;
 }
 
 export interface SeedExternalIdentityInput {
@@ -118,7 +129,9 @@ interface SeedRecord {
   id: number;
 }
 
-type SeedUserRecord = SeedRecord & SeedUserInput;
+type SeedUserRecord = SeedRecord & SeedUserInput & {
+  role: UserRole;
+};
 
 interface UpsertModel<TWhere, TData, TResult extends SeedRecord> {
   upsert(args: { where: TWhere; create: TData; update: Partial<TData> }): Promise<TResult>;
@@ -132,7 +145,7 @@ export interface SeedClient {
   company: UpsertModel<{ name: string }, SeedCompanyInput, SeedRecord & SeedCompanyInput>;
   category: UpsertModel<{ name: string }, SeedCategoryInput, SeedRecord & SeedCategoryInput>;
   slaConfiguration: UpsertModel<{ priority: Priority }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
-  user: UpsertModel<{ email: string }, SeedUserInput, SeedUserRecord>;
+  user: UpsertModel<{ email: string }, SeedUserInput, SeedRecord & SeedUserInput>;
   externalIdentity: IdUpsertModel<SeedExternalIdentityInput>;
   faultReport: IdUpsertModel<SeedFaultReportInput>;
   intervention: IdUpsertModel<SeedInterventionInput>;
@@ -193,52 +206,52 @@ function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
   ];
 }
 
-function buildDemoUserSeeds(companyId: number): SeedUserInput[] {
+function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
   return [
     {
       firstName: 'Ana',
       lastName: 'Administrator',
       username: 'ana.admin',
       email: 'ana.admin@demo.local',
-      role: UserRole.ADMIN,
       active: true,
       companyId: null,
+      role: UserRole.ADMIN,
     },
     {
       firstName: 'Milan',
       lastName: 'Koordinator',
       username: 'milan.koordinator',
       email: 'milan.koordinator@demo.local',
-      role: UserRole.COORDINATOR,
       active: true,
       companyId,
+      role: UserRole.COORDINATOR,
     },
     {
       firstName: 'Marko',
       lastName: 'Serviser',
       username: 'marko.serviser',
       email: 'marko.serviser@demo.local',
-      role: UserRole.SERVICER,
       active: true,
       companyId,
+      role: UserRole.SERVICER,
     },
     {
       firstName: 'Lejla',
       lastName: 'Menadzment',
       username: 'lejla.menadzment',
       email: 'lejla.menadzment@demo.local',
-      role: UserRole.MANAGEMENT,
       active: true,
       companyId,
+      role: UserRole.MANAGEMENT,
     },
     {
       firstName: 'Jelena',
       lastName: 'Korisnik',
       username: 'jelena.korisnik',
       email: 'jelena.korisnik@demo.local',
-      role: UserRole.USER,
       active: true,
       companyId,
+      role: UserRole.USER,
     },
   ];
 }
@@ -437,13 +450,19 @@ async function seedUsers(
   companyId: number,
 ): Promise<SeedUserRecord[]> {
   return Promise.all(
-    buildDemoUserSeeds(companyId).map((userSeed) =>
-      client.user.upsert({
-        where: { email: userSeed.email },
-        create: userSeed,
-        update: userSeed,
-      }),
-    ),
+    buildDemoUserSeeds(companyId).map(async (userSeed) => {
+      const { role, ...persistedUserSeed } = userSeed;
+      const user = await client.user.upsert({
+        where: { email: persistedUserSeed.email },
+        create: persistedUserSeed,
+        update: persistedUserSeed,
+      });
+
+      return {
+        ...user,
+        role,
+      };
+    }),
   );
 }
 
@@ -519,7 +538,13 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
 }
 
 export async function main(): Promise<void> {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({
+    datasources: {
+      db: {
+        url: resolveDatabaseUrl(),
+      },
+    },
+  });
 
   try {
     const summary = await seedDatabase(createPrismaSeedClient(prisma));
