@@ -5,6 +5,7 @@
 ### Glavni entiteti
 
 - Korisnik
+- Eksterni_identitet
 - Firma
 - Kategorija
 - Prijava_kvara
@@ -32,9 +33,14 @@
 - prezime: VARCHAR
 - korisnicko_ime: VARCHAR
 - email: VARCHAR
-- password: VARCHAR
-- uloga: ENUM (Gost, Korisnik, Serviser, Koordinator, Menadzment, Administrator)
 - aktivan: BOOLEAN
+
+**Eksterni_identitet**
+- id: INT (PK)
+- korisnik_id: INT (FK)
+- provajder: VARCHAR
+- provider_subject: VARCHAR
+- vrijeme_kreiranja: TIMESTAMP
 
 **Firma**
 - id: INT (PK)
@@ -200,6 +206,9 @@
 
 #### Korisnik - Notifikacija: 1:N
 - Jedan korisnik može dobiti više notifikacija.
+
+#### Korisnik - Eksterni_identitet: 1:N
+- Jedan korisnik može imati jedan ili više eksternih identiteta po provajderu, ali svaki eksterni identitet pripada tačno jednom korisniku.
   
 #### Kategorija – Prijava_kvara: 1:N
 -  Jedna kategorija može pokriti više prijava kvara, ali svaka prijava mora biti svrstana u tačno jednu kategoriju.
@@ -262,7 +271,8 @@
 
 ### Poslovna pravila važna za model
 
-- Svaki korisnik mora imati dodijeljenu ulogu (enum).
+- Svaki korisnik ima lokalni profil i najmanje jedan povezani eksterni identitet; lozinke i uloge se ne čuvaju lokalno.
+- Dozvole u sistemu određuju se na osnovu uloga i claimova koje vraća eksterni identitetski provajder.
 - Korisnik može biti aktivan ili blokiran - blokiranje ne deaktivira račun.
 - Prijava kvara može biti podnesena bez registracije (user_id nullable).
 - Prijava kvara mora biti vezana za firmu i kategoriju.
