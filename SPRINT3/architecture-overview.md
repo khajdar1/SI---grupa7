@@ -20,7 +20,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Relacijska baza podataka MySQL za trajno čuvanje podataka o korisnicima, kvarovima, intervencijama, timovima i historiji aktivnosti, dok Prisma Client služi kao ORM sloj između backend logike i baze.
 
 4. Modul za autentikaciju i autorizaciju
-- Podsistem zadužen za prijavu korisnika, upravljanje sesijama i kontrolu pristupa na osnovu korisničkih uloga. U okviru ovog modula koristi se kombinacija JWT (JSON Web Token) autentikacije i opcionalne podrške za OAuth 2.0 protokol. JWT se primjenjuje za upravljanje korisničkim sesijama unutar sistema, dok OAuth 2.0 omogućava jednostavnu i sigurnu integraciju sa eksternim identitetskim provajderima, poput Google-a ili Microsoft-a, čime se korisnicima olakšava prijava korištenjem postojećih naloga.
+- Podsistem zadužen za prijavu korisnika, upravljanje sesijama i kontrolu pristupa na osnovu identiteta i uloga koje dolaze iz eksternog identitetskog provajdera. Aplikacija ne čuva lozinke niti lokalne uloge; korisnik kreira lokalni profil, a provajder identiteta je izvor prijave i role/claimova. JWT (JSON Web Token) se koristi za sesije aplikacije, dok OAuth 2.0/OIDC omogućava sigurnu integraciju sa eksternim provajderima, poput Google-a ili Microsoft-a.
 
 5. Modul za upravljanje kvarovima i intervencijama
 - Glavni poslovni modul zadužen za prijavu kvara, klasifikaciju, određivanje prioriteta, dodjelu timova i praćenje statusa.
@@ -32,7 +32,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Komponenta zadužena za slanje obavještenja korisnicima i zaposlenima o promjenama statusa, novim zadacima i hitnim intervencijama. Koristi WebSocket konekciju za isporuku notifikacija u realnom vremenu, omogućavajući trenutno obavještavanje bez potrebe za osvježavanjem stranice.
 
 8. Administrativni modul
-- Komponenta za upravljanje korisničkim računima, rolama, pravima pristupa i osnovnim sistemskim postavkama.
+- Komponenta za upravljanje korisničkim profilima, povezanim eksternim identitetima i osnovnim sistemskim postavkama.
 
 9. Analitičko-izvještajni modul
 - Podsistem za pregled historije intervencija, osnovnih statistika i izvještaja za menadžment.
@@ -270,26 +270,26 @@ Razlozi:
 - Kompatibilnost sa frontend tehnologijama kao što je Next.js, koji prirodno koristi HTTP zahtjeve.
 - Lako testiranje i dokumentovanje API-ja korištenjem alata kao što je Postman.
 
-7. JWT i OAuth
+7. JWT i OAuth/OIDC
 
-Odlučeno je da se koristi JWT (JSON Web Token) i OAuth 2.0 podrška predviđena kao dodatna funkcionalnost za integraciju sa eksternim identitetskim sistemima.
+Odlučeno je da se koristi JWT (JSON Web Token) za aplikacijske sesije, dok OAuth 2.0/OIDC služi kao most prema eksternim identitetskim sistemima.
 
 Razlozi:
 
 - Stateless pristup autentikaciji kod JWT-a znači da server ne mora čuvati stanje korisničkih sesija, već se svi potrebni podaci o korisniku nalaze unutar samog tokena. 
 - Jednostavna integracija sa REST API arhitekturom omogućava da se JWT token šalje uz svaki HTTP zahtjev (najčešće u Authorization headeru), što se uklapa u način komunikacije između Next.js frontenda i backend API-ja.
-- Efikasno upravljanje autentikacijom i autorizacijom jer token može sadržavati informacije o korisniku i njegovoj ulozi, što omogućava backendu da brzo provjeri prava pristupa bez dodatnih upita prema bazi podataka u svakom zahtjevu.
+- Efikasno upravljanje autentikacijom i autorizacijom jer token može sadržavati identitet i role/claimove korisnika, što omogućava backendu da brzo provjeri prava pristupa bez dodatnih upita prema bazi podataka u svakom zahtjevu.
 - Fleksibilnost i proširivost sistema jer se uvođenjem OAuth-a omogućava lakše povezivanje sa drugim sistemima bez potrebe za kreiranjem novih korisničkih naloga unutar aplikacije.
 - JWT tokeni imaju ograničeno vrijeme trajanja, čime se dodatno povećava sigurnost sistema.
 
 8. Role-based access control
 
-Sistem koristi kontrolu pristupa zasnovanu na ulogama (RBAC).
+Sistem koristi kontrolu pristupa zasnovanu na ulogama i claimovima koje vraća eksterni identitetski provajder.
 
 Razlozi:
 
 - Različiti tipovi korisnika imaju različite odgovornosti (npr. korisnik prijavljuje kvar, koordinator dodjeljuje zadatke, administrator upravlja sistemom).
-- Povećanje sigurnosti sistema jer se pristup funkcionalnostima ograničava na osnovu uloge.
+- Povećanje sigurnosti sistema jer se pristup funkcionalnostima ograničava na osnovu role/claimova iz provajdera.
 - Sprječava neovlašten pristup osjetljivim funkcijama i podacima.
 
 9. Audit log i historija aktivnosti

@@ -5,7 +5,8 @@ const authRouter = Router();
 authRouter.get('/', (_req, res) => {
   res.json({
     module: 'auth',
-    endpoints: ['POST /login', 'POST /register', 'POST /logout', 'POST /forgot-password', 'POST /reset-password'],
+    flow: 'local-profile-plus-external-identity',
+    endpoints: ['POST /register', 'POST /login', 'POST /logout'],
   });
 });
 
