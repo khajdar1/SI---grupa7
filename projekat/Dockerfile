@@ -12,7 +12,7 @@ COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 COPY backend/prisma backend/prisma
-COPY backend/prisma prisma
+COPY backend/prisma.config.ts backend/prisma.config.ts
 
 RUN npm ci
 RUN npm run prisma:generate --workspace backend
@@ -31,12 +31,13 @@ COPY frontend/ frontend/
 RUN npm run build --workspace frontend
 
 FROM base AS backend-runtime
+WORKDIR /app/backend
 ENV NODE_ENV=production
 
-COPY --from=backend-build /app/backend/dist backend/dist
+COPY --from=backend-build /app/backend/dist dist
 
 EXPOSE 4000
-CMD ["npm", "run", "start", "--workspace", "backend"]
+CMD ["npm", "run", "start"]
 
 FROM node:20-bookworm-slim AS frontend-runtime
 WORKDIR /app

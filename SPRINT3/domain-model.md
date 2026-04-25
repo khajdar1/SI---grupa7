@@ -208,7 +208,7 @@
 - Jedan korisnik može dobiti više notifikacija.
 
 #### Korisnik - Eksterni_identitet: 1:N
-- Jedan korisnik može imati jedan ili više eksternih identiteta po provajderu, ali svaki eksterni identitet pripada tačno jednom korisniku.
+- Jedan korisnik može imati više eksternih identiteta kroz različite provajdere, ali najviše jedan identitet po istom provajderu; svaki eksterni identitet pripada tačno jednom korisniku.
   
 #### Kategorija – Prijava_kvara: 1:N
 -  Jedna kategorija može pokriti više prijava kvara, ali svaka prijava mora biti svrstana u tačno jednu kategoriju.

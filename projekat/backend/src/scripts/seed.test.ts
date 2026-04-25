@@ -25,7 +25,7 @@ interface MemoryState {
   categories: Map<string, SeedCategoryInput & { id: number }>;
   slaConfigurations: Map<PriorityValue, SeedSlaConfigurationInput & { id: number }>;
   users: Map<string, SeedUserInput & { id: number }>;
-  externalIdentities: Map<number, SeedExternalIdentityInput>;
+  externalIdentities: Map<string, SeedExternalIdentityInput & { id: number }>;
   faultReports: Map<number, SeedFaultReportInput>;
   interventions: Map<number, SeedInterventionInput>;
   assignments: Map<number, SeedAssignmentInput>;
@@ -78,7 +78,10 @@ function createMemorySeedClient(): { client: SeedClient; state: MemoryState } {
       upsert: async ({ where, create, update }) => upsertByKey(state.users, where.email, create, update),
     },
     externalIdentity: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.externalIdentities, where.id, create, update),
+      upsert: async ({ where, create, update }) => {
+        const key = `${where.provider_providerSubject.provider}:${where.provider_providerSubject.providerSubject}`;
+        return upsertByKey(state.externalIdentities, key, create, update);
+      },
     },
     faultReport: {
       upsert: async ({ where, create, update }) => upsertByKey(state.faultReports, where.id, create, update),

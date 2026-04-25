@@ -1,20 +1,20 @@
 import 'dotenv/config';
 
-import { PrismaClient } from '@prisma/client';
+import {
+  AssignmentMethod,
+  InterventionStatus,
+  InterventionType,
+  PrismaClient,
+  Priority,
+} from '@prisma/client';
+
+export { AssignmentMethod, InterventionStatus, InterventionType, Priority };
 
 const DEFAULT_DATABASE_URL = 'mysql://service_app:service_app@localhost:3306/service_interventions';
 
 function resolveDatabaseUrl(): string {
   return process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
 }
-
-export const Priority = {
-  URGENT: 'URGENT',
-  HIGH: 'HIGH',
-  NORMAL: 'NORMAL',
-  LOW: 'LOW',
-} as const;
-export type Priority = (typeof Priority)[keyof typeof Priority];
 
 export const UserRole = {
   GUEST: 'GUEST',
@@ -25,26 +25,6 @@ export const UserRole = {
   ADMIN: 'ADMIN',
 } as const;
 export type UserRole = (typeof UserRole)[keyof typeof UserRole];
-
-export const InterventionStatus = {
-  OPEN: 'OPEN',
-  IN_PROGRESS: 'IN_PROGRESS',
-  DONE: 'DONE',
-  CANCELED: 'CANCELED',
-} as const;
-export type InterventionStatus = (typeof InterventionStatus)[keyof typeof InterventionStatus];
-
-export const InterventionType = {
-  ISSUE: 'ISSUE',
-  PREVENTIVE: 'PREVENTIVE',
-} as const;
-export type InterventionType = (typeof InterventionType)[keyof typeof InterventionType];
-
-export const AssignmentMethod = {
-  MANUAL: 'MANUAL',
-  AUTOMATIC: 'AUTOMATIC',
-} as const;
-export type AssignmentMethod = (typeof AssignmentMethod)[keyof typeof AssignmentMethod];
 
 export interface SeedCompanyInput {
   readonly name: string;
@@ -77,7 +57,6 @@ interface SeedUserSeed extends SeedUserInput {
 }
 
 export interface SeedExternalIdentityInput {
-  readonly id: number;
   readonly userId: number;
   readonly provider: string;
   readonly providerSubject: string;
@@ -133,6 +112,13 @@ type SeedUserRecord = SeedRecord & SeedUserInput & {
   role: UserRole;
 };
 
+type ExternalIdentityWhereUniqueInput = {
+  provider_providerSubject: {
+    provider: string;
+    providerSubject: string;
+  };
+};
+
 interface UpsertModel<TWhere, TData, TResult extends SeedRecord> {
   upsert(args: { where: TWhere; create: TData; update: Partial<TData> }): Promise<TResult>;
 }
@@ -146,7 +132,7 @@ export interface SeedClient {
   category: UpsertModel<{ name: string }, SeedCategoryInput, SeedRecord & SeedCategoryInput>;
   slaConfiguration: UpsertModel<{ priority: Priority }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
   user: UpsertModel<{ email: string }, SeedUserInput, SeedRecord & SeedUserInput>;
-  externalIdentity: IdUpsertModel<SeedExternalIdentityInput>;
+  externalIdentity: UpsertModel<ExternalIdentityWhereUniqueInput, SeedExternalIdentityInput, SeedRecord & SeedExternalIdentityInput>;
   faultReport: IdUpsertModel<SeedFaultReportInput>;
   intervention: IdUpsertModel<SeedInterventionInput>;
   assignment: IdUpsertModel<SeedAssignmentInput>;
@@ -267,31 +253,26 @@ function buildDemoExternalIdentitySeeds(
 
   return [
     {
-      id: 1,
       userId: adminUser.id,
       provider: 'entra',
       providerSubject: 'entra-admin-001',
     },
     {
-      id: 2,
       userId: coordinatorUser.id,
       provider: 'entra',
       providerSubject: 'entra-coordinator-001',
     },
     {
-      id: 3,
       userId: servicerUser.id,
       provider: 'entra',
       providerSubject: 'entra-servicer-001',
     },
     {
-      id: 4,
       userId: managementUser.id,
       provider: 'entra',
       providerSubject: 'entra-management-001',
     },
     {
-      id: 5,
       userId: customerUser.id,
       provider: 'entra',
       providerSubject: 'entra-user-001',
@@ -374,9 +355,16 @@ async function seedExternalIdentities(
   return Promise.all(
     buildDemoExternalIdentitySeeds(users).map((identitySeed) =>
       client.externalIdentity.upsert({
-        where: { id: identitySeed.id },
+        where: {
+          provider_providerSubject: {
+            provider: identitySeed.provider,
+            providerSubject: identitySeed.providerSubject,
+          },
+        },
         create: identitySeed,
-        update: identitySeed,
+        update: {
+          userId: identitySeed.userId,
+        },
       }),
     ),
   );

@@ -14,4 +14,4 @@ Prisma CLI koristi `../prisma.config.ts` sa podrazumijevanim `DATABASE_URL` za l
 
 ## Seed ponašanje
 
-Seed koristi `upsert` operacije po prirodnim ključevima, tako da se može pokrenuti više puta bez dupliranja kompanije, kategorija, SLA konfiguracija, demo korisnika ili njihovih eksternih identiteta. Demo korisnici se povezuju sa Microsoft Entra identitetom.
+Seed koristi `upsert` operacije po prirodnim ključevima, tako da se može pokrenuti više puta bez dupliranja kompanije, kategorija, SLA konfiguracija, demo korisnika ili njihovih eksternih identiteta. Za `ExternalIdentity` koristi se kompozitni ključ `provider + providerSubject`. Demo korisnici se povezuju sa Microsoft Entra identitetom.
