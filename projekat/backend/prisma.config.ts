@@ -1,12 +1,9 @@
 /// <reference types="node" />
 
 import { defineConfig } from 'prisma/config';
+import { requireDatabaseUrl } from './src/config/database-url';
 
-const DEFAULT_DATABASE_URL = 'mysql://service_app:service_app@localhost:3306/service_interventions';
-
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = DEFAULT_DATABASE_URL;
-}
+const databaseUrl = requireDatabaseUrl('Prisma CLI commands');
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -16,6 +13,6 @@ export default defineConfig({
   },
   engine: 'classic',
   datasource: {
-    url: process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL,
+    url: databaseUrl,
   },
 });

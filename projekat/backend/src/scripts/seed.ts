@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 import {
   AssignmentMethod,
   InterventionStatus,
@@ -7,16 +5,11 @@ import {
   PrismaClient,
   Priority,
 } from '@prisma/client';
+import { requireDatabaseUrl } from '../config/database-url';
 
 export { AssignmentMethod, InterventionStatus, InterventionType, Priority };
 
-const DEFAULT_DATABASE_URL = 'mysql://service_app:service_app@localhost:3306/service_interventions';
-
-function resolveDatabaseUrl(): string {
-  return process.env.DATABASE_URL ?? DEFAULT_DATABASE_URL;
-}
-
-export const UserRole = {
+export const DemoUserPersona = {
   GUEST: 'GUEST',
   USER: 'USER',
   SERVICER: 'SERVICER',
@@ -24,7 +17,7 @@ export const UserRole = {
   MANAGEMENT: 'MANAGEMENT',
   ADMIN: 'ADMIN',
 } as const;
-export type UserRole = (typeof UserRole)[keyof typeof UserRole];
+export type DemoUserPersona = (typeof DemoUserPersona)[keyof typeof DemoUserPersona];
 
 export interface SeedCompanyInput {
   readonly name: string;
@@ -53,7 +46,7 @@ export interface SeedUserInput {
 }
 
 interface SeedUserSeed extends SeedUserInput {
-  readonly role: UserRole;
+  readonly persona: DemoUserPersona;
 }
 
 export interface SeedExternalIdentityInput {
@@ -109,7 +102,7 @@ interface SeedRecord {
 }
 
 type SeedUserRecord = SeedRecord & SeedUserInput & {
-  role: UserRole;
+  persona: DemoUserPersona;
 };
 
 type ExternalIdentityWhereUniqueInput = {
@@ -201,7 +194,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       email: 'ana.admin@demo.local',
       active: true,
       companyId: null,
-      role: UserRole.ADMIN,
+      persona: DemoUserPersona.ADMIN,
     },
     {
       firstName: 'Milan',
@@ -210,7 +203,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       email: 'milan.koordinator@demo.local',
       active: true,
       companyId,
-      role: UserRole.COORDINATOR,
+      persona: DemoUserPersona.COORDINATOR,
     },
     {
       firstName: 'Marko',
@@ -219,7 +212,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       email: 'marko.serviser@demo.local',
       active: true,
       companyId,
-      role: UserRole.SERVICER,
+      persona: DemoUserPersona.SERVICER,
     },
     {
       firstName: 'Lejla',
@@ -228,7 +221,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       email: 'lejla.menadzment@demo.local',
       active: true,
       companyId,
-      role: UserRole.MANAGEMENT,
+      persona: DemoUserPersona.MANAGEMENT,
     },
     {
       firstName: 'Jelena',
@@ -237,7 +230,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       email: 'jelena.korisnik@demo.local',
       active: true,
       companyId,
-      role: UserRole.USER,
+      persona: DemoUserPersona.USER,
     },
   ];
 }
@@ -245,11 +238,11 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
 function buildDemoExternalIdentitySeeds(
   users: SeedUserRecord[],
 ): SeedExternalIdentityInput[] {
-  const adminUser = requireSeedUser(users, UserRole.ADMIN);
-  const coordinatorUser = requireSeedUser(users, UserRole.COORDINATOR);
-  const servicerUser = requireSeedUser(users, UserRole.SERVICER);
-  const managementUser = requireSeedUser(users, UserRole.MANAGEMENT);
-  const customerUser = requireSeedUser(users, UserRole.USER);
+  const adminUser = requireSeedUser(users, DemoUserPersona.ADMIN);
+  const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
+  const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
+  const managementUser = requireSeedUser(users, DemoUserPersona.MANAGEMENT);
+  const customerUser = requireSeedUser(users, DemoUserPersona.USER);
 
   return [
     {
@@ -337,12 +330,12 @@ function requireSeedCategory(
 
 function requireSeedUser(
   users: SeedUserRecord[],
-  role: UserRole,
+  persona: DemoUserPersona,
 ): SeedUserRecord {
-  const user = users.find((item) => item.role === role);
+  const user = users.find((item) => item.persona === persona);
 
   if (!user) {
-    throw new Error(`Missing seed user role: ${role}`);
+    throw new Error(`Missing seed user persona: ${persona}`);
   }
 
   return user;
@@ -439,7 +432,7 @@ async function seedUsers(
 ): Promise<SeedUserRecord[]> {
   return Promise.all(
     buildDemoUserSeeds(companyId).map(async (userSeed) => {
-      const { role, ...persistedUserSeed } = userSeed;
+      const { persona, ...persistedUserSeed } = userSeed;
       const user = await client.user.upsert({
         where: { email: persistedUserSeed.email },
         create: persistedUserSeed,
@@ -448,7 +441,7 @@ async function seedUsers(
 
       return {
         ...user,
-        role,
+        persona,
       };
     }),
   );
@@ -506,9 +499,9 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   const users = await seedUsers(client, company.id);
   const externalIdentities = await seedExternalIdentities(client, users);
   const electricalCategory = requireSeedCategory(categories, 'Elektricni kvar');
-  const customerUser = requireSeedUser(users, UserRole.USER);
-  const coordinatorUser = requireSeedUser(users, UserRole.COORDINATOR);
-  const servicerUser = requireSeedUser(users, UserRole.SERVICER);
+  const customerUser = requireSeedUser(users, DemoUserPersona.USER);
+  const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
+  const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
   const faultReport = await seedFaultReport(client, company.id, electricalCategory.id, customerUser.id);
   const intervention = await seedIntervention(client, company.id, electricalCategory.id, coordinatorUser.id, faultReport.id);
   await seedAssignment(client, intervention.id, servicerUser.id);
@@ -529,7 +522,7 @@ export async function main(): Promise<void> {
   const prisma = new PrismaClient({
     datasources: {
       db: {
-        url: resolveDatabaseUrl(),
+        url: requireDatabaseUrl('seed script'),
       },
     },
   });
