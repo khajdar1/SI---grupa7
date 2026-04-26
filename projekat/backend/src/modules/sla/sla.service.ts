@@ -66,13 +66,14 @@ export class SlaService {
     }
 
     const validPriorities = Object.values(Priority);
-    for (const update of updates) {
-      if (!validPriorities.includes(update.priority)) {
-        fieldErrors[update.priority] = "Invalid priority level";
-      }
-    }
+    for (let i = 0; i < updates.length; i++) {
+      const update = updates[i];
+      const priorityFieldKey = `configurations[${i}].priority`;
 
-    for (const update of updates) {
+      if (!validPriorities.includes(update.priority)) {
+        fieldErrors[priorityFieldKey] = "Invalid priority level";
+        continue;
+      }
       const fieldKey = `${update.priority}_hours`;
 
       if (update.deadlineHours === null || update.deadlineHours === undefined) {
