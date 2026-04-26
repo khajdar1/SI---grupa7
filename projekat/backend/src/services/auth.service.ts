@@ -1,5 +1,13 @@
 import { prisma } from "../config/database";
-import type { RegisterInput } from "../modules/auth/auth.schema";
+import type { RegisterInput} from "../modules/auth/auth.schema";
+import {
+  getKeycloakAdminToken,
+  createKeycloakUser,
+  deleteKeycloakUser,
+  KeycloakError,
+} from "../clients/keycloak.client";
+
+export { KeycloakError };
 
 export type RegisteredUser = {
   id: number;
@@ -17,140 +25,103 @@ export class ConflictError extends Error {
   }
 }
 
-export class KeycloakError extends Error {
+export class NotFoundError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "KeycloakError";
+    this.name = "NotFoundError";
   }
 }
 
-async function getKeycloakAdminToken(): Promise<string> {
-  const res = await fetch(
-    `${process.env.KEYCLOAK_URL}/realms/${process.env.KEYCLOAK_REALM}/protocol/openid-connect/token`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: process.env.KEYCLOAK_CLIENT_ID!,
-        client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
-      }),
-    }
-  );
-  if (!res.ok) throw new KeycloakError("Ne mogu dobiti Keycloak admin token.");
-  const data = await res.json();
-  return data.access_token;
+async function assertNoDuplicateUser(username: string, email: string): Promise<void> {
+  const existing = await prisma.user.findFirst({
+    where: { OR: [{ username }, { email }] },
+  });
+  if (existing) {
+    throw new ConflictError("Username or email is already taken.");
+  }
 }
 
-async function createKeycloakUser(
-  token: string,
-  input: RegisterInput
-): Promise<string> {
-  const res = await fetch(
-    `${process.env.KEYCLOAK_URL}/admin/realms/${process.env.KEYCLOAK_REALM}/users`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+async function persistUser(
+  data: {
+    firstName: string;
+    lastName: string;
+    username: string;
+    email: string;
+  },
+  keycloakSub: string
+): Promise<RegisteredUser> {
+  return prisma.user.create({
+    data: {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      username: data.username,
+      email: data.email,
+      externalIdentities: {
+        create: {
+          provider: "keycloak",
+          providerSubject: keycloakSub,
+        },
       },
-      body: JSON.stringify({
-        username: input.username,
-        email: input.email,
-        firstName: input.firstName,
-        lastName: input.lastName,
-        enabled: true,
-        credentials: [
-          { type: "password", value: input.password, temporary: false },
-        ],
-      }),
-    }
-  );
-
-  if (res.status === 409) {
-    throw new ConflictError("Korisnik s tim emailom ili korisničkim imenom već postoji u sistemu.");
-  }
-  if (!res.ok) {
-    const errorDetails = await res.text(); 
-    console.error("[Keycloak Debug] Detalji greške:", errorDetails); 
-    throw new KeycloakError("Greška pri kreiranju korisnika u Keycloaku.");
-  }
-
-  const location = res.headers.get("Location");
-  if (!location) throw new KeycloakError("Keycloak nije vratio ID novog korisnika.");
-  
-  const sub = location.split("/").pop();
-  if (!sub) throw new KeycloakError("Ne mogu parsirati Keycloak korisničkog ID-a.");
-  return sub;
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      username: true,
+      email: true,
+      createdAt: true,
+    },
+  });
 }
 
 export class AuthService {
- async register(input: RegisterInput): Promise<RegisteredUser> {
-    const { firstName, lastName, username, email, password, companyId } = input;
+  async register(input: RegisterInput): Promise<RegisteredUser> {
+    const { firstName, lastName, username, email } = input;
 
-    console.log(`[AuthService] Pokušaj registracije za korisnika: ${username} (${email})`);
+    console.log(
+      `[AuthService] Self-registration attempt — username: ${username}, email: ${email}`
+    );
 
-    if (companyId) {
-      console.log(`[AuthService] Provjera firme ID: ${companyId}`);
-      const company = await prisma.company.findUnique({ where: { id: companyId } });
-      if (!company) {
-        console.warn(`[AuthService] Firma sa ID ${companyId} nije pronađena.`);
-        throw new ConflictError("The selected company does not exist.");
-      }
-    }
+    await assertNoDuplicateUser(username, email);
 
-    const existingUser = await prisma.user.findFirst({
-      where: { OR: [{ username }, { email }] }
-    });
-
-    if (existingUser) {
-      console.warn(`[AuthService] Korisnik već postoji u lokalnoj bazi (username/email).`);
-      throw new ConflictError("Username or email is already taken.");
-    }
-
-    let keycloakSub: string;
-    try {
-      console.log(`[AuthService] Dobavljanje Keycloak admin tokena...`);
-      const adminToken = await getKeycloakAdminToken();
-      
-      console.log(`[AuthService] Kreiranje korisnika u Keycloaku...`);
-      keycloakSub = await createKeycloakUser(adminToken, input);
-      console.log(`[AuthService] Keycloak korisnik kreiran uspješno (SUB: ${keycloakSub})`);
-    } catch (err) {
-      console.error(`[AuthService] Greška u komunikaciji s Keycloakom:`, err);
-      throw err;
-    }
+    const keycloakSub = await this.createKeycloakUserSafe(input);
 
     try {
-      console.log(`[AuthService] Spasavanje korisnika u MySQL...`);
-      const user = await prisma.user.create({
-        data: {
-          firstName,
-          lastName,
-          username,
-          email,
-          companyId: companyId ?? null,
-          externalIdentities: {
-            create: {
-              provider: "keycloak",
-              providerSubject: keycloakSub,
-            },
-          },
-        },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          username: true,
-          email: true,
-          createdAt: true,
-        },
-      });
-      console.log(`[AuthService] Korisnik uspješno spašen u bazu (ID: ${user.id})`);
+      const user = await persistUser({ firstName, lastName, username, email }, keycloakSub);
+      console.log(`[AuthService] User registered successfully (id: ${user.id})`);
       return user;
     } catch (err) {
-      console.error(`[AuthService] Kritična greška: Keycloak korisnik kreiran, ali MySQL upis nije uspio:`, err);
-      throw new Error("Greška pri upisu u lokalnu bazu podataka.");
+      return this.rollbackKeycloakUser(keycloakSub, err);
     }
+  }
+
+  private async createKeycloakUserSafe(
+    input: RegisterInput
+  ): Promise<string> {
+    try {
+      const adminToken = await getKeycloakAdminToken();
+      const sub = await createKeycloakUser(adminToken, input);
+      console.log(`[AuthService] Keycloak user created (sub: ${sub})`);
+      return sub;
+    } catch (err) {
+      if (err instanceof Error && err.message === "KEYCLOAK_CONFLICT") {
+        throw new ConflictError("Username or email is already taken.");
+      }
+      console.error("[AuthService] Keycloak error:", err);
+      throw err;
+    }
+  }
+
+  private async rollbackKeycloakUser(
+    keycloakSub: string,
+    originalError: unknown
+  ): Promise<never> {
+    console.error(
+      "[AuthService] Critical: Keycloak user created but local DB write failed. " +
+        "Attempting rollback...",
+      originalError
+    );
+    await deleteKeycloakUser(keycloakSub);
+    throw new Error("Registration failed due to a database error. Please try again.");
   }
 }
