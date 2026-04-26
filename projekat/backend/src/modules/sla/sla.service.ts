@@ -1,16 +1,6 @@
 import { Priority } from "@prisma/client";
 import { AuditService } from "../../shared/audit.service";
 
-export class ValidationError extends Error {
-  constructor(
-    message: string,
-    public fieldErrors: Record<string, string> = {},
-  ) {
-    super(message);
-    this.name = "ValidationError";
-  }
-}
-
 export interface SlaConfiguration {
   id: number;
   priority: Priority;
@@ -42,78 +32,42 @@ export class SlaService {
 
   async updateSlaConfigurations(
     updates: SlaData[],
+    userId?: number,
   ): Promise<SlaConfiguration[]> {
-    const fieldErrors: Record<string, string> = {};
+    // Request validator has already checked:
+    // - array format and non-empty
+    // - each config is valid object with proper types
+    // - all priorities are valid enum values
+    // - all deadlineHours are positive integers within range
+    //
+    // Service only validates business invariants:
 
-    if (!Array.isArray(updates) || updates.length === 0) {
-      throw new ValidationError("Updates array cannot be empty", fieldErrors);
-    }
-
+    // Check for duplicate priorities within this batch
+    // (request validator checks this, but we validate as defensive measure for business logic consistency)
     const prioritySet = new Set<Priority>();
-    for (let i = 0; i < updates.length; i++) {
-      if (prioritySet.has(updates[i].priority)) {
-        fieldErrors[`duplicate_${i}`] =
-          `Duplicate priority "${updates[i].priority}" at index ${i}. Each priority can only be updated once per request.`;
-      }
-      prioritySet.add(updates[i].priority);
-    }
-
-    if (Object.keys(fieldErrors).length > 0) {
-      throw new ValidationError(
-        "Duplicate priorities detected in batch update",
-        fieldErrors,
-      );
-    }
-
-    const validPriorities = Object.values(Priority);
     for (const update of updates) {
-      if (!validPriorities.includes(update.priority)) {
-        fieldErrors[update.priority] = "Invalid priority level";
+      if (prioritySet.has(update.priority)) {
+        throw new Error(
+          `Business logic error: Duplicate priority "${update.priority}" in batch update`,
+        );
       }
+      prioritySet.add(update.priority);
     }
 
-    for (const update of updates) {
-      const fieldKey = `${update.priority}_hours`;
-
-      if (update.deadlineHours === null || update.deadlineHours === undefined) {
-        fieldErrors[fieldKey] = "Hours value cannot be empty";
-        continue;
-      }
-
-      if (!Number.isInteger(update.deadlineHours)) {
-        fieldErrors[fieldKey] = "Hours must be a whole number";
-        continue;
-      }
-
-      if (update.deadlineHours <= 0) {
-        fieldErrors[fieldKey] = "Hours must be greater than zero";
-        continue;
-      }
-
-      if (update.deadlineHours > 8760) {
-        fieldErrors[fieldKey] =
-          "Hours value is too large (max 8760 hours = 365 days)";
-      }
-    }
-
-    if (Object.keys(fieldErrors).length > 0) {
-      throw new ValidationError(
-        "SLA configuration validation failed",
-        fieldErrors,
-      );
-    }
-
+    // Fetch current values for audit logging before making changes
     const currentConfigs = await this.repository.findAll();
     const currentMap = new Map(
       currentConfigs.map((c) => [c.priority, c.deadlineHours]),
     );
 
+    // Apply updates
     const results = await Promise.all(
       updates.map((update) =>
         this.repository.update(update.priority, update.deadlineHours),
       ),
     );
 
+    // Audit log changes
     for (const config of results) {
       const oldValue = currentMap.get(config.priority) ?? 0;
       if (oldValue !== config.deadlineHours) {
@@ -121,6 +75,7 @@ export class SlaService {
           config.priority,
           oldValue,
           config.deadlineHours,
+          userId,
         );
       }
     }

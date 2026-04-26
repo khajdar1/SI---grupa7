@@ -93,7 +93,10 @@ export function validateNoDuplicatePriorities(configurations: unknown): {
   error?: string;
 } {
   if (!Array.isArray(configurations)) {
-    return { valid: true };
+    return {
+      valid: false,
+      error: "Configurations must be an array.",
+    };
   }
 
   const priorities = new Set<string>();

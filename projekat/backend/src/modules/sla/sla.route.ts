@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../../config/database";
-import { SlaService, ISlaRepository, ValidationError } from "./sla.service";
+import { SlaService, ISlaRepository } from "./sla.service";
 import { validateUpdateSlaRequest } from "./sla.request-validators";
 
 const slaRouter = Router();
@@ -35,19 +35,19 @@ slaRouter.get("/", async (_req, res) => {
 slaRouter.put("/", validateUpdateSlaRequest, async (req, res) => {
   try {
     const { configurations } = req.body;
+    const userId = (req as any).user?.id;
 
-    const updated = await slaService.updateSlaConfigurations(configurations);
+    const updated = await slaService.updateSlaConfigurations(
+      configurations,
+      userId,
+    );
 
     res.json(updated);
   } catch (error) {
-    if (error instanceof ValidationError) {
-      res.status(400).json({
-        message: error.message,
-        errors: error.fieldErrors,
-      });
-      return;
-    }
-    res.status(500).json({ message: "Failed to update SLA configurations" });
+    res.status(500).json({
+      message: "Failed to update SLA configurations",
+      errors: {},
+    });
   }
 });
 

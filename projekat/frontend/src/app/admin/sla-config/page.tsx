@@ -17,6 +17,42 @@ const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   LOW: { label: "Nizak", color: "#1976d2" },
 };
 
+/**
+ * Map backend error keys to frontend field keys.
+ * Backend may return errors with keys like "URGENT_hours", "config_0", etc.
+ * Frontend always uses "PRIORITY_hours" format.
+ */
+function mapBackendErrors(
+  backendErrors: Record<string, string>,
+): Record<string, string> {
+  const mappedErrors: Record<string, string> = {};
+
+  for (const [key, message] of Object.entries(backendErrors)) {
+    // Already in correct format: URGENT_hours, HIGH_hours, etc.
+    if (key.match(/^(URGENT|HIGH|NORMAL|LOW)_hours$/)) {
+      mappedErrors[key] = message;
+    }
+    // Backend request validator uses config_N format: extract priority from error message
+    else if (key.startsWith("config_")) {
+      // The error message should contain the priority info
+      // Try to extract priority from message if present
+      const message_str = String(message);
+      for (const priority of ["URGENT", "HIGH", "NORMAL", "LOW"]) {
+        if (message_str.includes(priority)) {
+          mappedErrors[`${priority}_hours`] = message;
+          break;
+        }
+      }
+      // If priority not found in message, skip or use generic key
+      if (!Object.values(mappedErrors).includes(message)) {
+        mappedErrors["_general"] = message;
+      }
+    }
+  }
+
+  return mappedErrors;
+}
+
 export default function AdminSlaConfigPage() {
   const [configs, setConfigs] = useState<SlaConfig[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,7 +60,7 @@ export default function AdminSlaConfigPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [formData, setFormData] = useState<Record<string, string | number>>({
+  const [formData, setFormData] = useState<Record<string, string>>({
     URGENT: "",
     HIGH: "",
     NORMAL: "",
@@ -45,9 +81,9 @@ export default function AdminSlaConfigPage() {
       const res = await api.get("/sla");
       setConfigs(res.data);
 
-      const data: Record<string, string | number> = {};
+      const data: Record<string, string> = {};
       res.data.forEach((config: SlaConfig) => {
-        data[config.priority] = config.deadlineHours;
+        data[config.priority] = String(config.deadlineHours);
       });
 
       setFormData(data);
@@ -87,17 +123,20 @@ export default function AdminSlaConfigPage() {
   };
 
   const handleInputChange = (priority: string, value: string) => {
-    const newValue = value === "" ? "" : Number(value);
-
+    // Store raw string value in form state
     setFormData((prev) => ({
       ...prev,
-      [priority]: newValue,
+      [priority]: value,
     }));
 
-    const error =
-      newValue === ""
-        ? "Value cannot be empty"
-        : validateField(priority, Number(newValue));
+    // Validate the numeric value for immediate UX feedback
+    let error = "";
+    if (value === "") {
+      error = "Value cannot be empty";
+    } else {
+      const numValue = Number(value);
+      error = validateField(priority, numValue);
+    }
 
     setFieldErrors((prev) => {
       const updated = { ...prev };
@@ -116,34 +155,13 @@ export default function AdminSlaConfigPage() {
     setError("");
     setFieldErrors({});
 
-    const newFieldErrors: Record<string, string> = {};
-    const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
-
-    for (const priority of priorityOrder) {
-      const value = formData[priority];
-
-      if (value === "") {
-        newFieldErrors[`${priority}_hours`] = "Value cannot be empty";
-        continue;
-      }
-
-      const error = validateField(priority, Number(value));
-      if (error) {
-        newFieldErrors[`${priority}_hours`] = error;
-      }
-    }
-
-    if (Object.keys(newFieldErrors).length > 0) {
-      setFieldErrors(newFieldErrors);
-      return;
-    }
-
     try {
       setSaving(true);
 
+      const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
       const configurations = priorityOrder.map((priority) => ({
         priority,
-        deadlineHours: Number(formData[priority]),
+        deadlineHours: parseInt(formData[priority], 10),
       }));
 
       await api.put("/sla", { configurations });
@@ -153,13 +171,24 @@ export default function AdminSlaConfigPage() {
       setSuccessMessage("SLA configuration updated successfully!");
     } catch (err: any) {
       const backendErrors = err?.response?.data?.errors || {};
-      if (Object.keys(backendErrors).length > 0) {
-        setFieldErrors(backendErrors);
+      const mappedErrors = mapBackendErrors(backendErrors);
+
+      // Extract and remove general errors from mapped errors
+      const generalErrors = mappedErrors["_general"];
+      if (generalErrors) {
+        delete mappedErrors["_general"];
       }
 
-      setError(
-        err?.response?.data?.message || "Failed to update SLA configuration",
-      );
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors(mappedErrors);
+      }
+
+      const mainMessage =
+        err?.response?.data?.message || "Failed to update SLA configuration";
+      const fullMessage = generalErrors
+        ? `${mainMessage}. ${generalErrors}`
+        : mainMessage;
+      setError(fullMessage);
     } finally {
       setSaving(false);
     }
