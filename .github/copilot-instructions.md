@@ -18,6 +18,7 @@
 | PBI too large for one session | Break it down. State what you are covering. |
 | Dependency PBI not yet implemented | Block. Report. Do not stub or fake it. |
 | Improvement or risk spotted | Add to 💡 Suggestions. Do not implement it. |
+| User provides failing command/output | Reproduce same command first, then fix, then rerun same command until it passes or blocker is explicit |
 | Git / branching question | Read `SPRINT4/inicijalna-struktura-repozitorija-i-tehnicki-setup.md` §2 |
 | DoD question | Read `SPRINT4/DefinitionOfDone.md` |
 
@@ -53,6 +54,7 @@ Do not write any code until you can answer **yes** to every item:
 - [ ] All dependent PBIs or services are already implemented and available
 - [ ] I have identified every edge case and error state — and either the PBI covers them or I have flagged them
 - [ ] I am not implementing anything outside the stated scope
+- [ ] I know which exact command(s) will verify this change and I will run them before reporting completion
 
 **If any item is "no" → ask first.**
 
@@ -125,6 +127,7 @@ Do not write any code until you can answer **yes** to every item:
 - Sanitize and validate all inputs at the boundary of the system (API layer, event handler, form). Assume all external input is hostile.
 - Never construct SQL, shell commands, or template strings from raw user input.
 - Do not hardcode credentials, API keys, or environment-specific values. Use the env/config pattern defined in the skeleton.
+- Do not commit default DB URLs with usernames/passwords in application source, Prisma config, or Dockerfile ENV unless explicitly required by documentation.
 - Flag any security concern immediately, even if it is outside the PBI scope.
 
 ### Dependencies
@@ -396,5 +399,108 @@ like "User not found."
 
 ---
 
+## 15. Execution Reliability Addendum (Sprint 5.1)
+
+These rules exist to prevent recurring integration mistakes and improve first-pass correctness.
+
+1. **Reproduce first, then fix.**
+	- If the user provides an error and command, run that same command first (same workspace/cwd context where possible).
+	- Do not start by proposing generic fixes before reproducing.
+
+2. **Verify with the same failing command.**
+	- After changes, rerun the exact failing command.
+	- A fix is only "verified" if that command exits successfully, or a blocker is explicitly reported.
+
+3. **No success claims without execution evidence.**
+	- Never state "fixed" based on reasoning alone.
+	- If execution is impossible (tooling unavailable, service down), explicitly say so and give the next executable command.
+
+4. **Docker-specific validation is mandatory for Docker fixes.**
+	- For Docker build errors, run a targeted service build first (for example `docker compose build <service>`).
+	- For runtime/compose startup issues, validate with compose commands against the impacted service(s).
+
+5. **Prisma and DB config consistency.**
+	- Keep one clear source-of-truth pattern for `DATABASE_URL` (documented `.env` flow).
+	- Avoid hidden fallback credentials in source-controlled files.
+	- If Prisma CLI and runtime use different config paths, document and verify both.
+
+6. **Seed safety and clarity.**
+	- Prefer natural keys/composite unique keys for idempotent upserts.
+	- Do not upsert by autoincrement IDs when stable unique keys exist.
+	- Use naming that reflects intent (e.g., demo persona vs persisted role) when auth/storage semantics differ.
+
+7. **Documentation sync in the same change set.**
+	- If behavior changes, update the related docs in the same PR/branch (README, Prisma docs, architecture/domain notes when applicable).
+
+8. **User-driven implementation follow-through.**
+	- If user asks for suggestions and then asks to apply them, implement directly unless blocked by scope or ambiguity.
+	- Ask questions only when needed to avoid incorrect implementation.
+
+---
+
+## 16. Coding Best-Practice Quality Gate (Sprint 5.2)
+
+These rules tighten implementation quality while preserving all scope and documentation constraints above.
+
+### 16.1 Delivery Workflow (Mandatory)
+For each implementation task, follow this sequence in order:
+1. **Understand**: Restate the requested outcome and identify the exact files likely involved.
+2. **Ground in docs**: Confirm architecture/domain/API references for the touched area.
+3. **Implement minimally**: Apply the smallest correct change that satisfies acceptance criteria.
+4. **Verify locally**: Run the relevant checks and tests, starting narrow then widening scope.
+5. **Self-review**: Check for regressions, edge cases, and naming/typing consistency.
+6. **Report with evidence**: State what was changed, what was run, and what passed/failed.
+
+If any step cannot be completed, report the blocker explicitly and stop claiming completion.
+
+### 16.2 Code Construction Rules
+- Prefer small, composable functions with clear inputs/outputs over monolithic logic.
+- Use guard clauses to fail early for invalid state and reduce nesting.
+- Keep domain logic pure where possible; isolate side effects at boundaries.
+- Name by business meaning, not implementation detail. Avoid unclear abbreviations.
+- Replace repeated logic with local helpers only when reuse is real (do not over-abstract).
+- Avoid hidden fallbacks that can mask configuration errors; fail loudly with actionable messages.
+- Preserve backward compatibility of existing contracts unless the PBI explicitly changes them.
+
+### 16.3 Data, Validation, and Security Discipline
+- Validate all external inputs at entry boundaries and return typed, explicit failures.
+- Never trust client-provided identifiers, roles, or state-transition permissions.
+- Redact or omit sensitive values in logs; log only diagnosis-safe context.
+- Treat idempotency as a requirement for retry-prone operations (events, seeds, sync jobs).
+- Prefer explicit constraints and invariants over comments that describe intended behavior.
+
+### 16.4 Test Depth Requirements
+In addition to Section 7 categories, ensure tests cover:
+- At least one test that proves a critical business rule cannot be bypassed.
+- At least one dependency-failure path for each external collaborator used by the unit.
+- At least one regression-oriented case for the exact bug or behavior being changed.
+
+When a bug fix is implemented, include a test that fails before the fix and passes after it.
+
+### 16.5 Verification Evidence Standard
+Before reporting completion, include:
+- Exact command(s) executed.
+- Pass/fail status for each command.
+- If something was not run, the explicit reason and the next executable command.
+
+Do not use phrases like "should pass" or "looks fixed" without command evidence.
+
+### 16.6 Response Format Clarification
+- Section 12 response template is mandatory for **PBI implementation delivery** responses.
+- For non-implementation requests (analysis, planning, explanation), respond directly and concisely.
+- Never present speculative assumptions as facts; place them under Assumptions or Open Questions.
+
+### 16.7 Lightweight Final Check (Pre-Submit)
+Before finalizing a response, confirm all are true:
+- Scope respected (no out-of-PBI changes)
+- Contracts preserved or explicitly approved to change
+- Types and lint are clean for touched files
+- Tests relevant to the change were run
+- Security/privacy logging rules followed
+- Docs updated when behavior/config changed
+- Assumptions, open questions, and blockers clearly listed
+
+---
+
 *Place this file at `.github/copilot-instructions.md`. It is automatically loaded by GitHub Copilot for all contributors.*
-*Last updated: Sprint 5 kickoff.*
+*Last updated: Sprint 5.2 coding best-practice quality gate.*
