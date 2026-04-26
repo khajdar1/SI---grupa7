@@ -38,11 +38,13 @@ export default function AdminCategoriesPage() {
         await api.patch(`/categories/${formData.id}`, {
           name: formData.name,
           description: formData.description,
+          updatedById: 1, // Dummy admin ID
         });
       } else {
         await api.post("/categories", {
           name: formData.name,
           description: formData.description,
+          updatedById: 1, // Dummy admin ID
         });
       }
       setFormData({ id: 0, name: "", description: "" });
@@ -61,7 +63,10 @@ export default function AdminCategoriesPage() {
 
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
     try {
-      await api.patch(`/categories/${id}/status`, { active: !currentStatus });
+      await api.patch(`/categories/${id}/status`, { 
+        active: !currentStatus,
+        adminId: 1 // Dummy admin ID
+      });
       fetchCategories();
     } catch (err: any) {
        setError(err?.response?.data?.message || "Failed to update status.");
@@ -143,9 +148,13 @@ export default function AdminCategoriesPage() {
                      {c.active ? <span style={{color: "green", fontSize: '14px', marginLeft: '8px'}}>(Active)</span> : <span style={{color: "darkred", fontSize: '14px', marginLeft: '8px'}}>(Inactive)</span>}
                   </h3>
                   {c.description && <p style={{ fontSize: '0.9em', color: '#555', margin: '0 0 8px 0' }}>{c.description}</p>}
-                  <p style={{ fontSize: '0.8em', color: '#888', margin: '0 0 12px 0' }}>
-                     Created: {new Date(c.createdAt).toLocaleDateString()}
-                  </p>
+                  <div style={{ fontSize: '0.75em', color: '#888', marginBottom: '12px' }}>
+                     <p style={{ margin: '0' }}>Created: {new Date(c.createdAt).toLocaleString()}</p>
+                     <p style={{ margin: '0' }}>
+                        Last modified: {new Date(c.updatedAt).toLocaleString()}
+                        {c.updatedBy && ` by ${c.updatedBy.firstName} ${c.updatedBy.lastName}`}
+                     </p>
+                  </div>
                   <div className="button-row">
                     <button 
                        type="button" 

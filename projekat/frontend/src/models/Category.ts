@@ -5,6 +5,13 @@ export interface Category {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  updatedById: number | null;
+  updatedBy?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    username: string;
+  } | null;
 }
 
 export interface CreateCategoryDTO {

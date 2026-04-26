@@ -92,6 +92,7 @@ model User {
   comments             InterventionComment[]   @relation("CommentAuthor")
   statusChanges        StatusHistory[]         @relation("StatusHistoryAuthor")
   updatedConfigs       SystemConfig[]          @relation("SystemConfigEditor")
+  updatedCategories    Category[]              @relation("CategoryEditor")
   tickets              Ticket[]
   messages             Message[]               @relation("MessageAuthor")
   feedbacks            Feedback[]
@@ -119,6 +120,8 @@ model Category {
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+  updatedById  Int?
+  updatedBy    User?         @relation("CategoryEditor", fields: [updatedById], references: [id], onDelete: SetNull)
   faultReports FaultReport[]
   interventions Intervention[]
 }

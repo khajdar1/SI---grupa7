@@ -5,10 +5,47 @@ import { CategoryService, ICategoryRepository, ValidationError } from './categor
 const categoriesRouter = Router();
 
 const prismaCategoryRepository: ICategoryRepository = {
-  findMany: () => prisma.category.findMany({ orderBy: { createdAt: 'desc' } }),
+  findMany: () => prisma.category.findMany({ 
+    orderBy: { createdAt: 'desc' },
+    include: {
+      updatedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true
+        }
+      }
+    }
+  }),
   findByName: (name: string) => prisma.category.findUnique({ where: { name } }),
-  create: (data) => prisma.category.create({ data }),
-  update: (id: number, data) => prisma.category.update({ where: { id }, data }),
+  create: (data) => prisma.category.create({ 
+    data,
+    include: {
+      updatedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true
+        }
+      }
+    }
+  }),
+  update: (id: number, data) => prisma.category.update({ 
+    where: { id }, 
+    data,
+    include: {
+      updatedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true
+        }
+      }
+    }
+  }),
 };
 
 const categoryService = new CategoryService(prismaCategoryRepository);
@@ -52,8 +89,8 @@ categoriesRouter.patch('/:id', async (req, res) => {
 categoriesRouter.patch('/:id/status', async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { active } = req.body;
-    const category = await categoryService.updateStatus(id, active);
+    const { active, adminId } = req.body;
+    const category = await categoryService.updateStatus(id, active, adminId);
     res.json(category);
   } catch (error) {
     res.status(500).json({ message: 'Failed to update category status' });

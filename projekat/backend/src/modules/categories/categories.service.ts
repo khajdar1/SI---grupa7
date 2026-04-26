@@ -9,6 +9,7 @@ export interface CategoryData {
   name: string;
   description?: string;
   active?: boolean;
+  updatedById?: number;
 }
 
 export interface ICategoryRepository {
@@ -40,6 +41,7 @@ export class CategoryService {
     return this.repository.create({
       name,
       description: data.description?.trim(),
+      updatedById: data.updatedById,
     });
   }
 
@@ -62,10 +64,14 @@ export class CategoryService {
       updateData.description = data.description.trim();
     }
 
+    if (data.updatedById !== undefined) {
+      updateData.updatedById = data.updatedById;
+    }
+
     return this.repository.update(id, updateData);
   }
 
-  async updateStatus(id: number, active: boolean) {
-    return this.repository.update(id, { active });
+  async updateStatus(id: number, active: boolean, adminId: number) {
+    return this.repository.update(id, { active, updatedById: adminId });
   }
 }
