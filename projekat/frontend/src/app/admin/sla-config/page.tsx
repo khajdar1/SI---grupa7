@@ -67,20 +67,22 @@ export default function AdminSlaConfigPage() {
   }, []);
 
   const validateField = (priority: string, hours: number): string => {
+    const priorityLabel = PRIORITY_LABELS[priority]?.label ?? priority;
+
     if (hours === null || hours === undefined || Number.isNaN(hours)) {
-      return "Value cannot be empty";
+      return `${priorityLabel}: value cannot be empty`;
     }
 
     if (!Number.isInteger(hours)) {
-      return "Must be a whole number";
+      return `${priorityLabel}: must be a whole number`;
     }
 
     if (hours <= 0) {
-      return "Must be greater than zero";
+      return `${priorityLabel}: must be greater than zero`;
     }
 
     if (hours > 8760) {
-      return "Value is too large (max 8760 hours)";
+      return `${priorityLabel}: value is too large (max 8760 hours)`;
     }
 
     return "";
