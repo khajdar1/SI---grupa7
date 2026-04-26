@@ -3,6 +3,8 @@ import express from 'express';
 import helmet from 'helmet';
 
 import { env } from './config/env';
+import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware';
+import { requestLoggerMiddleware } from './middleware/request-logger.middleware';
 import healthRouter from './routes/health.route';
 import faultReportsRouter from './modules/fault-reports/fault-reports.route';
 import authRouter from './modules/auth/auth.route';
@@ -35,6 +37,7 @@ export function createApp() {
   app.use(cors({ origin: allowedOrigins, credentials: true }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(requestLoggerMiddleware);
 
   app.use('/api/v1/health', healthRouter);
   app.use('/api/v1/fault-reports', faultReportsRouter);
@@ -58,6 +61,9 @@ export function createApp() {
   app.use('/api/v1/blocking', blockingRouter);
   app.use('/api/v1/system-config', systemConfigRouter);
   app.use('/api/v1/maps', mapsRouter);
+  app.use(notFoundMiddleware);
+  app.use(errorMiddleware);
+
 
   app.use((_req, res) => {
     res.status(404).json({
