@@ -47,3 +47,64 @@
 - **Ko je koristio alat:** Iman Šehić
 
 ---
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** Claude (Anthropic)
+
+**Svrha korištenja:** Arhitekturalna analiza i refaktorisanje SLA konfiguracijskog modula na osnovu code review povratne informacije.
+
+**Kratak opis zadatka ili upita:** Tim je radio na poboljšanju kvalitete SLA modula kroz separaciju odgovornosti i standardizaciju grešaka. Zadaci su obuhvatili:
+
+- Premještanje input validacije iz servisa u request layer
+- Kreiranja tipiziranih audit event modela umjesto generičkog logiranja
+- Simplifikaciju frontend state managementa
+- Stroga validacija u validator funkcijama
+- Error field mapping između backendu i frontendu
+
+**Šta je AI predložio ili generisao:**
+
+1. **Backend refaktorisanje (sla.service.ts):**
+   - Uklanjanje duplog validiranja iz servisa (array format, field types, priority enums, value ranges)
+   - Zadržavanje samo business invarianti (duplicate priority detection)
+   - Uklanjanje `ValidationError` klase (prebačeno u request layer)
+   - Fokus na core business logic: audit logging, data operations
+
+2. **Audit Service typing (audit.service.ts):**
+   - Kreiranja `SlaConfigurationChangeEvent` interfejsa koji ekstenduje `AuditLogEntry`
+   - Uklanjanje `Record<string, any>` tipova u favour specifičnih struktura
+   - Dokumentacija pattern-a za buduće event tipove
+
+3. **Frontend state management (page.tsx):**
+   - Promjena `formData` tipa sa `Record<string, string | number>` na `Record<string, string>`
+   - Konverzija brojeva u stringove samo na submit vremenu
+   - `mapBackendErrors()` helper funkcija za mapiranje backend error ključeva na frontend polja
+
+4. **Validator striktnost (sla.validators.ts):**
+   - `validateNoDuplicatePriorities()` sada vraća `valid: false` za non-array input umjesto молчећег success
+
+**Šta je tim prihvatio:**
+
+- Kompletna refaktorisanja separacije validacije u request layer
+- Tipiziranje audit events umjesto generičkog logiranja
+- Frontend state management sa stringovima umjesto mješovitih tipova
+- Strika validacija u validator funkcijama
+
+**Šta je tim izmijenio:**
+
+- User je undid route.ts izmjene jer nije bilo spreman za kompletan refactor u tom momentu
+- Frontend validator dodano prikazivanje priority labela u error porukama (npr. "Hitan: value cannot be empty")
+- Dodan test za duplicate priority business invariant u sla.service.test.ts
+
+**Šta je tim odbacio:**
+
+- N/A
+
+**Rizici, problemi ili greške koje su uočene:**
+
+- Git merge konflikt između lokalne refaktorisane verzije i remote verzije sa starim kodom — riješeno prihvatanjem lokalne verzije
+- Undoing route.ts izmjena ostavilo je logiku za `ValidationError` koja više nije potrebna — evidentirana kao tehnički dug
+- Frontend error mapping koristi heuristiku (traži priority u error poruci) što može biti fragilan ako se poruke promijene
+
+
+**Ko je koristio alat:** Lamija Bojić
