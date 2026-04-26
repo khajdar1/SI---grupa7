@@ -1,8 +1,22 @@
 "use client";
 
 import Link from 'next/link';
+import { useRegister } from './useRegister';
+import { getPasswordStrength } from './register.validation';
 
-export default function Page() {
+export default function RegisterPage() {
+  const {
+    formData,
+    errors,
+    submitting,
+    serverError,
+    success,
+    handleChange,
+    handleSubmit,
+  } = useRegister();
+
+  const strength = getPasswordStrength(formData.password);
+
   return (
     <section className="auth-layout auth-layout--wide">
       <article className="auth-card panel">
@@ -10,50 +24,56 @@ export default function Page() {
           <span className="section-kicker">Onboarding</span>
           <h1 className="section-title">Registration shell</h1>
           <p className="section-copy">
-            The self-registration flow keeps the default role limited to a regular user, while administrators will get
-            separate account management tools in the admin area.
+            The self-registration flow keeps the default role limited to a regular user.
           </p>
         </div>
 
-        <form className="form-grid form-grid--two-columns" onSubmit={(event) => event.preventDefault()}>
+        {serverError && <div style={{ color: 'red', marginBottom: '1rem' }}>{serverError}</div>}
+        {success && <div style={{ color: 'green', marginBottom: '1rem' }}>Uspješno ste registrovani! Preusmjeravanje...</div>}
+
+        <form className="form-grid form-grid--two-columns" onSubmit={handleSubmit}>
           <label className="field">
             <span>First name</span>
-            <input type="text" name="firstName" autoComplete="given-name" />
+            <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} />
+            {errors.firstName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.firstName}</span>}
           </label>
 
           <label className="field">
             <span>Last name</span>
-            <input type="text" name="lastName" autoComplete="family-name" />
+            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} />
+            {errors.lastName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.lastName}</span>}
           </label>
 
           <label className="field">
             <span>Username</span>
-            <input type="text" name="username" autoComplete="username" />
+            <input type="text" name="username" value={formData.username} onChange={handleChange} />
+            {errors.username && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.username}</span>}
           </label>
 
           <label className="field">
             <span>Email</span>
-            <input type="email" name="email" autoComplete="email" />
+            <input type="email" name="email" value={formData.email} onChange={handleChange} />
+            {errors.email && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.email}</span>}
           </label>
 
           <label className="field">
             <span>Password</span>
-            <input type="password" name="password" autoComplete="new-password" />
+            <input type="password" name="password" value={formData.password} onChange={handleChange} />
+            {formData.password && (
+              <span style={{ color: strength.color, fontSize: '0.8rem' }}>Snaga lozinke: {strength.label}</span>
+            )}
+            {errors.password && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password}</span>}
           </label>
 
           <label className="field">
             <span>Confirm password</span>
-            <input type="password" name="confirmPassword" autoComplete="new-password" />
-          </label>
-
-          <label className="field field--full">
-            <span>Company / organization</span>
-            <input type="text" name="company" placeholder="Selected during onboarding" />
+            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} />
+            {errors.confirmPassword && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.confirmPassword}</span>}
           </label>
 
           <div className="form-actions field--full">
-            <button className="button button--solid" type="submit">
-              Create account
+            <button className="button button--solid" type="submit" disabled={submitting || success}>
+              {submitting ? 'Kreiranje...' : 'Create account'}
             </button>
             <Link className="button button--ghost" href="/login">
               Back to login
@@ -61,19 +81,6 @@ export default function Page() {
           </div>
         </form>
       </article>
-
-      <aside className="panel panel--soft stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Rules from the backlog</span>
-          <h2 className="section-title">Registration is not a free-for-all.</h2>
-        </div>
-
-        <ul className="quick-facts">
-          <li>Passwords and usernames will be validated before the account is created.</li>
-          <li>Admin-managed roles and company bindings will stay outside self-registration.</li>
-          <li>The backend will own the final decision on duplicates and role assignment.</li>
-        </ul>
-      </aside>
     </section>
   );
 }

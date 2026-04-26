@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { registerController } from '../../controllers/auth.controller';
 
 const authRouter = Router();
 
@@ -9,5 +10,7 @@ authRouter.get('/', (_req, res) => {
     endpoints: ['POST /register', 'POST /login', 'POST /logout'],
   });
 });
+
+authRouter.post('/register', registerController);
 
 export default authRouter;
