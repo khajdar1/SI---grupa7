@@ -13,6 +13,7 @@ COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
 COPY backend/prisma backend/prisma
 COPY backend/prisma.config.ts backend/prisma.config.ts
+COPY backend/src/config/database-url.ts backend/src/config/database-url.ts
 
 RUN npm ci
 RUN npm run prisma:generate --workspace backend
