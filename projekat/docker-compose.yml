@@ -18,12 +18,11 @@ services:
     image: quay.io/keycloak/keycloak:26.6.1
     container_name: keycloak
     environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME:-service_app_admin}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-service_admin}
+      KC_BOOTSTRAP_ADMIN_USERNAME: service_app_admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: service_admin
+    command: start-dev
     volumes:
       - ./.containers/identity:/opt/keycloak/data
-      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm.json
-    command: start-dev --import-realm
     ports:
       - "8080:8080"
     
@@ -43,9 +42,9 @@ services:
       SOCKET_CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000
       JWT_SECRET: ${JWT_SECRET:-change-me}
       DATABASE_URL: "mysql://${MYSQL_USER:-service_app}:${MYSQL_PASSWORD:-service_app}@mysql:3306/${MYSQL_DATABASE:-service_interventions}"
-      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-service-system}
-      KEYCLOAK_CLIENT_ID:  ${KEYCLOAK_CLIENT_ID:-backend-service}
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_REALM: service-system
+      KEYCLOAK_CLIENT_ID: backend-service
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
     ports:
       - "4000:4000"
