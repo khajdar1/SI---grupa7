@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 export default function Page() {
   return (
     <div className="page stack">
@@ -30,11 +32,17 @@ export default function Page() {
           </div>
 
           <div className="tag-row">
-            {['Fault categories', 'SLA limits', 'Audit log', 'Disabled states'].map((item) => (
+            {['SLA limits', 'Audit log', 'Disabled states'].map((item) => (
               <span key={item} className="tag tag--muted">
                 {item}
               </span>
             ))}
+          </div>
+
+          <div className="button-row" style={{ marginTop: '16px' }}>
+            <Link href="/admin/categories" className="button button--solid">
+              Manage Categories
+            </Link>
           </div>
         </article>
       </section>
