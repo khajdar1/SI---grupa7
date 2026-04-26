@@ -22,14 +22,14 @@ export default function RegisterPage() {
       <article className="auth-card panel">
         <div className="section-heading section-heading--compact">
           <span className="section-kicker">Onboarding</span>
-          <h1 className="section-title">Registration shell</h1>
+          <h1 className="section-title">Create Account</h1>
           <p className="section-copy">
-            The self-registration flow keeps the default role limited to a regular user.
+            Register to access the platform.
           </p>
         </div>
 
         {serverError && <div style={{ color: 'red', marginBottom: '1rem' }}>{serverError}</div>}
-        {success && <div style={{ color: 'green', marginBottom: '1rem' }}>Uspješno ste registrovani! Preusmjeravanje...</div>}
+        {success && <div style={{ color: 'green', marginBottom: '1rem' }}>Registration successful! Redirecting...</div>}
 
         <form className="form-grid form-grid--two-columns" onSubmit={handleSubmit}>
           <label className="field">
@@ -60,7 +60,7 @@ export default function RegisterPage() {
             <span>Password</span>
             <input type="password" name="password" value={formData.password} onChange={handleChange} />
             {formData.password && (
-              <span style={{ color: strength.color, fontSize: '0.8rem' }}>Snaga lozinke: {strength.label}</span>
+              <span style={{ color: strength.color, fontSize: '0.8rem' }}>Password strength: {strength.label}</span>
             )}
             {errors.password && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password}</span>}
           </label>
@@ -73,7 +73,7 @@ export default function RegisterPage() {
 
           <div className="form-actions field--full">
             <button className="button button--solid" type="submit" disabled={submitting || success}>
-              {submitting ? 'Kreiranje...' : 'Create account'}
+              {submitting ? 'Creating...' : 'Create account'}
             </button>
             <Link className="button button--ghost" href="/login">
               Back to login

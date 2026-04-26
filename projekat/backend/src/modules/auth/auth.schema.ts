@@ -1,19 +1,19 @@
 import { z } from "zod";
  
 export const registerSchema = z.object({
-  firstName: z.string().min(1, "Ime je obavezno."),
-  lastName:  z.string().min(1, "Prezime je obavezno."),
-  username:  z.string().min(2, "Korisničko ime mora imati najmanje 2 znaka."),
-  email:     z.string().email("Format email adrese nije ispravan."),
+  firstName: z.string().min(1, "First name is required."),
+  lastName:  z.string().min(1, "Last name is required."),
+  username:  z.string().min(2, "Username must be at least 2 characters."),
+  email:     z.string().email("Invalid email format."),
   password:  z
     .string()
-    .min(8, "Lozinka mora imati najmanje 8 znakova.")
-    .regex(/[0-9]/, "Lozinka mora sadržavati najmanje jedan broj.")
-    .regex(/[A-Z]/, "Lozinka mora sadržavati najmanje jedno veliko slovo."),
+    .min(8, "Password must be at least 8 characters.")
+    .regex(/[0-9]/, "Password must contain at least one number.")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter."),
   companyId: z
-    .number({ invalid_type_error: "companyId mora biti broj." })
+    .number({ invalid_type_error: "companyId must be a number." })
     .int()
-    .positive("companyId mora biti pozitivan cijeli broj.")
+    .positive()
     .optional(),
 });
 

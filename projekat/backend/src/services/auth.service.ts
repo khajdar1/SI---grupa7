@@ -95,7 +95,7 @@ export class AuthService {
       const company = await prisma.company.findUnique({ where: { id: companyId } });
       if (!company) {
         console.warn(`[AuthService] Firma sa ID ${companyId} nije pronađena.`);
-        throw new ConflictError("Odabrana firma ne postoji u sistemu.");
+        throw new ConflictError("The selected company does not exist.");
       }
     }
 
@@ -105,7 +105,7 @@ export class AuthService {
 
     if (existingUser) {
       console.warn(`[AuthService] Korisnik već postoji u lokalnoj bazi (username/email).`);
-      throw new ConflictError("Korisničko ime ili email je već zauzet.");
+      throw new ConflictError("Username or email is already taken.");
     }
 
     let keycloakSub: string;

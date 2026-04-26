@@ -56,7 +56,7 @@ export function useRegister() {
       setTimeout(() => router.push("/login"), 2500);
     } catch (err: any) {
       setServerError(
-        err?.response?.data?.message ?? "Greška pri registraciji. Pokušajte ponovo."
+        err?.response?.data?.message ?? "Registration failed. Please try again"
       );
     } finally {
       setSubmitting(false);
