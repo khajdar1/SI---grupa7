@@ -1,4 +1,5 @@
 import { Priority } from "@prisma/client";
+import { AuditService } from "../../shared/audit.service";
 
 export class ValidationError extends Error {
   constructor(
@@ -10,32 +11,60 @@ export class ValidationError extends Error {
   }
 }
 
+export interface SlaConfiguration {
+  id: number;
+  priority: Priority;
+  deadlineHours: number;
+  updatedAt: Date;
+}
+
 export interface SlaData {
   priority: Priority;
   deadlineHours: number;
 }
 
 export interface ISlaRepository {
-  findAll(): Promise<any[]>;
-  findByPriority(priority: Priority): Promise<any | null>;
-  update(priority: Priority, deadlineHours: number): Promise<any>;
+  findAll(): Promise<SlaConfiguration[]>;
+  findByPriority(priority: Priority): Promise<SlaConfiguration | null>;
+  update(priority: Priority, deadlineHours: number): Promise<SlaConfiguration>;
 }
 
 export class SlaService {
   constructor(private readonly repository: ISlaRepository) {}
 
-  async getAllSlaConfigurations() {
+  async getAllSlaConfigurations(): Promise<SlaConfiguration[]> {
     return this.repository.findAll();
   }
 
-  async getSlaByPriority(priority: Priority) {
+  async getSlaByPriority(priority: Priority): Promise<SlaConfiguration | null> {
     return this.repository.findByPriority(priority);
   }
 
-  async updateSlaConfigurations(updates: SlaData[]) {
+  async updateSlaConfigurations(
+    updates: SlaData[],
+  ): Promise<SlaConfiguration[]> {
     const fieldErrors: Record<string, string> = {};
 
-    // Validate all priorities
+    if (!Array.isArray(updates) || updates.length === 0) {
+      throw new ValidationError("Updates array cannot be empty", fieldErrors);
+    }
+
+    const prioritySet = new Set<Priority>();
+    for (let i = 0; i < updates.length; i++) {
+      if (prioritySet.has(updates[i].priority)) {
+        fieldErrors[`duplicate_${i}`] =
+          `Duplicate priority "${updates[i].priority}" at index ${i}. Each priority can only be updated once per request.`;
+      }
+      prioritySet.add(updates[i].priority);
+    }
+
+    if (Object.keys(fieldErrors).length > 0) {
+      throw new ValidationError(
+        "Duplicate priorities detected in batch update",
+        fieldErrors,
+      );
+    }
+
     const validPriorities = Object.values(Priority);
     for (const update of updates) {
       if (!validPriorities.includes(update.priority)) {
@@ -43,7 +72,6 @@ export class SlaService {
       }
     }
 
-    // Validate all hours are positive integers
     for (const update of updates) {
       const fieldKey = `${update.priority}_hours`;
 
@@ -63,7 +91,6 @@ export class SlaService {
       }
 
       if (update.deadlineHours > 8760) {
-        // 365 * 24 hours = max reasonable value
         fieldErrors[fieldKey] =
           "Hours value is too large (max 8760 hours = 365 days)";
       }
@@ -76,12 +103,27 @@ export class SlaService {
       );
     }
 
-    // Update all configurations
+    const currentConfigs = await this.repository.findAll();
+    const currentMap = new Map(
+      currentConfigs.map((c) => [c.priority, c.deadlineHours]),
+    );
+
     const results = await Promise.all(
       updates.map((update) =>
         this.repository.update(update.priority, update.deadlineHours),
       ),
     );
+
+    for (const config of results) {
+      const oldValue = currentMap.get(config.priority) ?? 0;
+      if (oldValue !== config.deadlineHours) {
+        AuditService.logSlaConfigurationChange(
+          config.priority,
+          oldValue,
+          config.deadlineHours,
+        );
+      }
+    }
 
     return results;
   }

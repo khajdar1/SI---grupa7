@@ -5,29 +5,43 @@ import { SlaService, ValidationError, ISlaRepository } from "./sla.service";
 
 const mockRepository: ISlaRepository = {
   findAll: async () => [
-    { priority: Priority.URGENT, deadlineHours: 2, updatedAt: new Date() },
-    { priority: Priority.HIGH, deadlineHours: 8, updatedAt: new Date() },
-    { priority: Priority.NORMAL, deadlineHours: 24, updatedAt: new Date() },
-    { priority: Priority.LOW, deadlineHours: 72, updatedAt: new Date() },
+    {
+      id: 1,
+      priority: Priority.URGENT,
+      deadlineHours: 2,
+      updatedAt: new Date(),
+    },
+    { id: 2, priority: Priority.HIGH, deadlineHours: 8, updatedAt: new Date() },
+    {
+      id: 3,
+      priority: Priority.NORMAL,
+      deadlineHours: 24,
+      updatedAt: new Date(),
+    },
+    { id: 4, priority: Priority.LOW, deadlineHours: 72, updatedAt: new Date() },
   ],
   findByPriority: async (priority: Priority) => {
     const configs: Record<Priority, any> = {
       [Priority.URGENT]: {
+        id: 1,
         priority: Priority.URGENT,
         deadlineHours: 2,
         updatedAt: new Date(),
       },
       [Priority.HIGH]: {
+        id: 2,
         priority: Priority.HIGH,
         deadlineHours: 8,
         updatedAt: new Date(),
       },
       [Priority.NORMAL]: {
+        id: 3,
         priority: Priority.NORMAL,
         deadlineHours: 24,
         updatedAt: new Date(),
       },
       [Priority.LOW]: {
+        id: 4,
         priority: Priority.LOW,
         deadlineHours: 72,
         updatedAt: new Date(),
@@ -36,6 +50,7 @@ const mockRepository: ISlaRepository = {
     return configs[priority] || null;
   },
   update: async (priority: Priority, deadlineHours: number) => ({
+    id: 1,
     priority,
     deadlineHours,
     updatedAt: new Date(),
@@ -49,7 +64,6 @@ describe("SlaService", () => {
     slaService = new SlaService(mockRepository);
   });
 
-  // Happy Path Tests
   it("should retrieve all SLA configurations", async () => {
     const configs = await slaService.getAllSlaConfigurations();
     assert.strictEqual(configs.length, 4);
@@ -59,6 +73,7 @@ describe("SlaService", () => {
 
   it("should retrieve SLA configuration by priority", async () => {
     const config = await slaService.getSlaByPriority(Priority.URGENT);
+    assert(config !== null, "Config should not be null");
     assert.strictEqual(config.priority, Priority.URGENT);
     assert.strictEqual(config.deadlineHours, 2);
   });
@@ -82,7 +97,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
       assert.match(
         Object.values((error as ValidationError).fieldErrors)[0],
         /greater than zero/i,
@@ -97,7 +115,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
     }
   });
 
@@ -108,7 +129,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
       assert.match(
         Object.values((error as ValidationError).fieldErrors)[0],
         /cannot be empty/i,
@@ -125,7 +149,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
     }
   });
 
@@ -137,7 +164,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
       assert.match(
         Object.values((error as ValidationError).fieldErrors)[0],
         /whole number/i,
@@ -153,7 +183,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
       assert.match(
         Object.values((error as ValidationError).fieldErrors)[0],
         /Invalid priority/i,
@@ -175,7 +208,10 @@ describe("SlaService", () => {
       assert.fail("Should have thrown ValidationError");
     } catch (error) {
       assert(error instanceof ValidationError);
-      assert(Object.keys((error as ValidationError).fieldErrors).length > 0);
+      assert(
+        Object.keys((error as ValidationError).fieldErrors).length > 0,
+        "Should have field errors",
+      );
       assert.match(
         Object.values((error as ValidationError).fieldErrors)[0],
         /too large/i,
@@ -202,7 +238,7 @@ describe("SlaService", () => {
     } catch (error) {
       assert(error instanceof ValidationError);
       const fieldErrors = (error as ValidationError).fieldErrors;
-      assert(Object.keys(fieldErrors).length > 0);
+      assert(Object.keys(fieldErrors).length > 0, "Should have field errors");
     }
   });
 
@@ -218,7 +254,10 @@ describe("SlaService", () => {
     } catch (error) {
       assert(error instanceof ValidationError);
       const fieldErrors = (error as ValidationError).fieldErrors;
-      assert(Object.keys(fieldErrors).length >= 3);
+      assert(
+        Object.keys(fieldErrors).length >= 3,
+        "Should have at least 3 field errors",
+      );
       assert("URGENT_hours" in fieldErrors);
       assert("HIGH_hours" in fieldErrors);
       assert("NORMAL_hours" in fieldErrors);

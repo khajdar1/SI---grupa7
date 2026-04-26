@@ -24,24 +24,32 @@ export default function AdminSlaConfigPage() {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [formData, setFormData] = useState<Record<string, number>>({
-    URGENT: 0,
-    HIGH: 0,
-    NORMAL: 0,
-    LOW: 0,
+  const [formData, setFormData] = useState<Record<string, string | number>>({
+    URGENT: "",
+    HIGH: "",
+    NORMAL: "",
+    LOW: "",
   });
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString("bs-BA");
+  };
 
   const fetchSlaConfigs = async () => {
     try {
       setLoading(true);
       const res = await api.get("/sla");
       setConfigs(res.data);
-      const data: Record<string, number> = {};
+
+      const data: Record<string, string | number> = {};
       res.data.forEach((config: SlaConfig) => {
         data[config.priority] = config.deadlineHours;
       });
+
       setFormData(data);
       setError("");
       setFieldErrors({});
@@ -59,21 +67,19 @@ export default function AdminSlaConfigPage() {
   }, []);
 
   const validateField = (priority: string, hours: number): string => {
-    if (hours === null || hours === undefined) {
+    if (hours === null || hours === undefined || Number.isNaN(hours)) {
       return "Value cannot be empty";
     }
 
-    const numHours = Number(hours);
-
-    if (!Number.isInteger(numHours)) {
+    if (!Number.isInteger(hours)) {
       return "Must be a whole number";
     }
 
-    if (numHours <= 0) {
+    if (hours <= 0) {
       return "Must be greater than zero";
     }
 
-    if (numHours > 8760) {
+    if (hours > 8760) {
       return "Value is too large (max 8760 hours)";
     }
 
@@ -81,14 +87,18 @@ export default function AdminSlaConfigPage() {
   };
 
   const handleInputChange = (priority: string, value: string) => {
-    const numValue = value === "" ? 0 : Number(value);
+    const newValue = value === "" ? "" : Number(value);
+
     setFormData((prev) => ({
       ...prev,
-      [priority]: numValue,
+      [priority]: newValue,
     }));
 
-    // Real-time validation
-    const error = validateField(priority, numValue);
+    const error =
+      newValue === ""
+        ? "Value cannot be empty"
+        : validateField(priority, Number(newValue));
+
     setFieldErrors((prev) => {
       const updated = { ...prev };
       if (error) {
@@ -106,12 +116,18 @@ export default function AdminSlaConfigPage() {
     setError("");
     setFieldErrors({});
 
-    // Client-side validation
     const newFieldErrors: Record<string, string> = {};
     const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
 
     for (const priority of priorityOrder) {
-      const error = validateField(priority, formData[priority]);
+      const value = formData[priority];
+
+      if (value === "") {
+        newFieldErrors[`${priority}_hours`] = "Value cannot be empty";
+        continue;
+      }
+
+      const error = validateField(priority, Number(value));
       if (error) {
         newFieldErrors[`${priority}_hours`] = error;
       }
@@ -124,19 +140,23 @@ export default function AdminSlaConfigPage() {
 
     try {
       setSaving(true);
+
       const configurations = priorityOrder.map((priority) => ({
         priority,
-        deadlineHours: formData[priority],
+        deadlineHours: Number(formData[priority]),
       }));
 
       await api.put("/sla", { configurations });
+
+      await fetchSlaConfigs();
+
       setSuccessMessage("SLA configuration updated successfully!");
-      fetchSlaConfigs();
     } catch (err: any) {
       const backendErrors = err?.response?.data?.errors || {};
       if (Object.keys(backendErrors).length > 0) {
         setFieldErrors(backendErrors);
       }
+
       setError(
         err?.response?.data?.message || "Failed to update SLA configuration",
       );
@@ -150,247 +170,76 @@ export default function AdminSlaConfigPage() {
       <section className="section-heading">
         <span className="section-kicker">Administration</span>
         <h1 className="section-title">SLA Configuration</h1>
-        <p className="section-copy">
-          Define response time deadlines (in hours) for each intervention
-          priority level. These deadlines serve as the basis for delay
-          notifications and service metrics.
-        </p>
       </section>
 
-      {error && (
-        <div
-          style={{
-            color: "#b91c1c",
-            padding: "12px",
-            backgroundColor: "#fee2e2",
-            borderRadius: "4px",
-            marginBottom: "1rem",
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {successMessage && (
-        <div
-          style={{
-            color: "#065f46",
-            padding: "12px",
-            backgroundColor: "#dcfce7",
-            borderRadius: "4px",
-            marginBottom: "1rem",
-          }}
-        >
-          {successMessage}
-        </div>
-      )}
+      {error && <div style={{ color: "red" }}>{error}</div>}
+      {successMessage && <div style={{ color: "green" }}>{successMessage}</div>}
 
       <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <h2 className="section-title">Update SLA Timeouts</h2>
-          </div>
+        <article>
+          <h2>Update SLA Timeouts</h2>
 
           {loading ? (
-            <p>Loading SLA configurations...</p>
+            <p>Loading...</p>
           ) : (
-            <form onSubmit={handleSubmit} className="stack-tight">
+            <form onSubmit={handleSubmit}>
               {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map(
                 (priority) => {
                   const fieldKey = `${priority}_hours`;
                   const hasError = fieldKey in fieldErrors;
-                  const priorityConfig = PRIORITY_LABELS[priority];
 
                   return (
                     <div key={priority}>
-                      <label
-                        className="field"
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "4px",
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: "14px",
-                            fontWeight: "500",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-block",
-                              width: "12px",
-                              height: "12px",
-                              borderRadius: "2px",
-                              backgroundColor: priorityConfig.color,
-                            }}
-                          />
-                          {priorityConfig.label}{" "}
-                          <span style={{ fontSize: "12px", color: "#666" }}>
-                            ({priority})
-                          </span>
-                        </span>
+                      <label>
+                        {PRIORITY_LABELS[priority].label}
                         <input
                           type="number"
-                          min="1"
-                          max="8760"
-                          value={formData[priority] || ""}
+                          value={formData[priority]}
                           onChange={(e) =>
                             handleInputChange(priority, e.target.value)
                           }
-                          placeholder="e.g. 2, 8, 24, 72"
-                          aria-invalid={hasError}
-                          className={hasError ? "input-invalid" : ""}
-                          style={{
-                            padding: "8px",
-                            border: hasError
-                              ? "2px solid #b91c1c"
-                              : "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontSize: "14px",
-                          }}
                         />
-                        {hasError && (
-                          <span
-                            className="field-error"
-                            style={{
-                              color: "#b91c1c",
-                              fontSize: "12px",
-                              marginTop: "2px",
-                            }}
-                          >
-                            {fieldErrors[fieldKey]}
-                          </span>
-                        )}
                       </label>
+
+                      {hasError && (
+                        <p style={{ color: "red" }}>{fieldErrors[fieldKey]}</p>
+                      )}
                     </div>
                   );
                 },
               )}
 
-              <div
-                className="button-row"
-                style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginTop: "20px",
-                }}
+              <button
+                type="submit"
+                disabled={saving || Object.keys(fieldErrors).length > 0}
               >
-                <button
-                  type="submit"
-                  disabled={saving || Object.keys(fieldErrors).length > 0}
-                  className="button button--solid"
-                  style={{
-                    opacity:
-                      saving || Object.keys(fieldErrors).length > 0 ? 0.6 : 1,
-                    cursor:
-                      saving || Object.keys(fieldErrors).length > 0
-                        ? "not-allowed"
-                        : "pointer",
-                  }}
-                >
-                  {saving ? "Saving..." : "Save SLA Configuration"}
-                </button>
-              </div>
+                {saving ? "Saving..." : "Save"}
+              </button>
             </form>
           )}
         </article>
 
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <h2 className="section-title">Current Configuration</h2>
-          </div>
+        <article>
+          <h2>Current Configuration</h2>
 
           {loading ? (
             <p>Loading...</p>
           ) : configs.length > 0 ? (
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
-            >
-              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map(
-                (priority) => {
-                  const config = configs.find((c) => c.priority === priority);
-                  const priorityConfig = PRIORITY_LABELS[priority];
-
-                  return (
-                    <div
-                      key={priority}
-                      style={{
-                        padding: "12px",
-                        border: "1px solid #e5e7eb",
-                        borderLeft: `4px solid ${priorityConfig.color}`,
-                        borderRadius: "4px",
-                        backgroundColor: "#f9fafb",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <div>
-                          <p
-                            style={{
-                              margin: "0 0 4px 0",
-                              fontWeight: "500",
-                              fontSize: "14px",
-                            }}
-                          >
-                            {priorityConfig.label}
-                          </p>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontSize: "12px",
-                              color: "#666",
-                            }}
-                          >
-                            Updated:{" "}
-                            {new Date(
-                              config?.updatedAt || "",
-                            ).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "24px",
-                            fontWeight: "bold",
-                            color: priorityConfig.color,
-                          }}
-                        >
-                          {config?.deadlineHours}h
-                        </div>
-                      </div>
-                    </div>
-                  );
-                },
-              )}
-            </div>
+            configs.map((c) => (
+              <div key={c.priority}>
+                <strong>{c.priority}</strong>: {c.deadlineHours}h
+                <div style={{ fontSize: "12px", color: "#666" }}>
+                  Updated: {formatDate(c.updatedAt)}
+                </div>
+              </div>
+            ))
           ) : (
-            <p style={{ color: "#d97706" }}>
-              No SLA configurations found. Please save initial configuration
-              above.
-            </p>
+            <p>No data</p>
           )}
         </article>
       </section>
 
-      <div
-        className="button-row"
-        style={{
-          marginTop: "20px",
-        }}
-      >
-        <Link className="button button--ghost" href="/admin">
-          Back to Admin
-        </Link>
-      </div>
+      <Link href="/admin">Back</Link>
     </div>
   );
 }

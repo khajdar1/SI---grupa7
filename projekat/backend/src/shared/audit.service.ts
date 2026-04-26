@@ -27,8 +27,8 @@ export class AuditService {
       timestamp: timestamp.toISOString(),
     };
 
-    // Log to console for now
-    console.log("[AUDIT LOG]", JSON.stringify(logEntry, null, 2));
+    // Log to console as single-line JSON for production log aggregation
+    console.log(JSON.stringify({ level: "info", ...logEntry }));
 
     // TODO: In future sprints, persist this to AuditLog table in database
     // await prisma.auditLog.create({
