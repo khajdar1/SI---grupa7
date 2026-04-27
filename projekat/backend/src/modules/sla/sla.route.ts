@@ -15,9 +15,10 @@ const prismaSlaRepository: ISlaRepository = {
       where: { priority },
     }),
   update: (priority, deadlineHours) =>
-    prisma.slaConfiguration.update({
+    prisma.slaConfiguration.upsert({
       where: { priority },
-      data: { deadlineHours, updatedAt: new Date() },
+      update: { deadlineHours },
+      create: { priority, deadlineHours },
     }),
 };
 
