@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorizeRoles } from "../../middleware/auth.middleware";
+import { registerController } from '../../controllers/auth.controller';
 
 const authRouter = Router();
 
@@ -19,5 +20,6 @@ authRouter.get(
     res.json({ message: 'Admin ruta radi' });
   }
 );
+authRouter.post('/register', registerController);
 
 export default authRouter;
