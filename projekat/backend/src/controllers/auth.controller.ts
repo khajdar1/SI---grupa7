@@ -124,3 +124,22 @@ export const logoutController = async (req: Request, res: Response): Promise<voi
     res.status(500).json({ message: "An internal server error occurred. Please try again." });
   }
 };
+
+export const resetPasswordController = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+       res.status(400).json({ message: "Email is required." });
+       return;
+    }
+
+    console.log(`[ResetPasswordController] Reset request received for: ${email}`);
+    await authService.triggerPasswordReset(email);
+
+    res.status(200).json({ message: "If the email exists, a reset link has been sent." });
+  } catch (error: unknown) {
+    console.error("[ResetPasswordController] Unexpected error:", error);
+    res.status(500).json({ message: "An internal server error occurred." });
+  }
+};

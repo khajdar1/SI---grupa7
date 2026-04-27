@@ -175,3 +175,48 @@ export async function logoutKeycloakUser(refreshToken: string): Promise<void> {
     console.log(`[KeycloakClient] Keycloak session terminated successfully.`);
   }
 }
+
+export async function sendKeycloakResetEmail(adminToken: string, email: string): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const usersRes = await fetch(
+    `${url}/admin/realms/${realm}/users?email=${encodeURIComponent(email)}&exact=true`,
+    {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+
+  if (!usersRes.ok) {
+    throw new KeycloakError("Failed to fetch user for password reset.");
+  }
+
+  const users = await usersRes.json();
+  if (!users || users.length === 0) {
+    console.warn(`[KeycloakClient] Reset requested for unknown email: ${email}`);
+    return; 
+  }
+
+  const userId = users[0].id;
+
+  const actionsRes = await fetch(
+    `${url}/admin/realms/${realm}/users/${userId}/execute-actions-email`,
+    {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${adminToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(["UPDATE_PASSWORD"]),
+    }
+  );
+
+  if (!actionsRes.ok) {
+    throw new KeycloakError("Failed to trigger password reset email in Keycloak.");
+  }
+
+  console.log(`[KeycloakClient] Password reset email triggered for user ID: ${userId}`);
+}
