@@ -47,3 +47,40 @@
 - **Ko je koristio alat:** Iman Šehić
 
 ---
+
+- **Datum:** 27.04.2026.  
+- **Sprint broj:** Sprint 5  
+- **Alat koji je korišten:** ChatGPT (OpenAI), Codex (VS Code)  
+
+- **Svrha korištenja:**  
+Implementacija reusable authentication i authorization middleware-a, debugging TypeScript grešaka i konfiguracije backend okruženja.
+
+- **Kratak opis zadatka ili upita:**  
+Razvoj middleware-a za provjeru autentifikacije i role-based pristupa (RBAC) u Express backendu. Zadatak je obuhvatio kreiranje `authenticate` i `authorizeRoles` funkcija, povezivanje middleware-a sa rutama (`auth` i `users`), te testiranje različitih scenarija pristupa (401, 403, 200).
+
+- **Šta je AI predložio ili generisao:**  
+- Strukturu Express middleware-a za autentifikaciju i autorizaciju  
+- Implementaciju `authorizeRoles` funkcije sa podrškom za više uloga  
+- Rješenja za TypeScript greške (`RequestHandler`, tipovi za `req.user`)  
+- Upute za testiranje ruta putem Postman-a (401/403/200 scenariji)  
+- Pomoć pri konfiguraciji `.env` i Prisma okruženja  
+
+- **Šta je tim prihvatio:**  
+- Osnovnu strukturu middleware-a (`authenticate`, `authorizeRoles`)  
+- Način integracije middleware-a u backend rute  
+- Predložene test scenarije za validaciju funkcionalnosti  
+
+- **Šta je tim izmijenio:**  
+- Prilagođena `authorizeRoles` funkcija za provjeru više uloga  
+- Integracija middleware-a u više modula (`auth`, `users`) radi reusability  
+- Dodan mock korisnik za potrebe testiranja (privremeno rješenje)  
+
+- **Šta je tim odbacio:**  
+/  
+
+- **Rizici, problemi ili greške koje su uočene:**  
+- Problemi sa env konfiguracijom (`DATABASE_URL` nije bio prepoznat)  
+- TypeScript greške vezane za tipove (`req`, `res`, `next`)  
+- Potencijalni rizik jer autentifikacija trenutno koristi mock podatke umjesto stvarnog JWT mehanizma  
+
+- **Ko je koristio alat:** Dalila Tanković
