@@ -113,6 +113,31 @@
 
 - **Datum:** 27.04.2026.
 - **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** Google Gemini (Antigravity AI)
+- **Svrha korištenja:** Implementacija PBI-030 (Kategorije i tipovi kvarova) i audit logging sistema.
+- **Kratak opis zadatka ili upita:** Razvoj backend i frontend komponenti za upravljanje kategorijama kvarova. Zadatak je obuhvatio kreiranje Prisma modela, CRUD API ruta, admin panela za upravljanje kategorijama, te integraciju u formu za prijavu kvara.
+- **Šta je AI predložio ili generisao:**
+    - Modifikaciju `schema.prisma` dodavanjem modela `Category` sa audit poljima (`updatedById`).
+    - Backend module `categories.service.ts` i `categories.route.ts` za kompletan CRUD ciklus.
+    - Frontend stranicu `/admin/categories/page.tsx` za admin upravljanje (aktivacija/deaktivacija).
+    - Rješenja za sinhronizaciju baze podataka (`prisma db push`) nakon problema sa shadow database-om.
+- **Šta je tim prihvatio:**
+    - Kompletnu šemu baze podataka i relacije sa modelima `FaultReport` i `Intervention`.
+    - Logiku da se kategorije ne brišu trajno (soft-deactivate) radi očuvanja integriteta starih podataka.
+    - Implementaciju audit logova koji bilježe ko je i kada zadnji put izmijenio kategoriju.
+- **Šta je tim izmijenio:**
+    - UI komponente u admin panelu su prilagođene da koriste zajedničke stilove aplikacije (vibrant dark mode).
+    - Dodana je dodatna validacija na backendu za provjeru jedinstvenosti naziva kategorije prije upisa.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** 
+    - Inicijalni problem sa Prisma migracijama zbog nedostatka permisija na shadow bazi (riješeno kroz manualnu sinhronizaciju).
+    - Rizik od nekonzistentnosti podataka ako bi se kategorija obrisala dok postoje aktivne intervencije (spriječeno implementacijom `active` statusa).
+- **Ko je koristio alat:** Nedim Omanović
+
+---
+
+- **Datum:** 27.04.2026.
+- **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** Google Gemini (LLM)
 - **Svrha korištenja:** Implementacija session managementa, zaštita ruta (Middleware) i razvoj logike za Login/Logout.
 - **Kratak opis zadatka ili upita:** Razvoj kompletnog protoka za prijavu i odjavu korisnika uz integraciju sa Keycloak-om, prelazak sa LocalStorage na Cookies radi server-side validacije u Middleware-u.
@@ -126,3 +151,4 @@
 - **Ko je koristio alat:** Iman Šehić
 
 ---
+
