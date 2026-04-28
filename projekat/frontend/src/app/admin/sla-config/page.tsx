@@ -17,35 +17,20 @@ const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
   LOW: { label: "Nizak", color: "#1976d2" },
 };
 
-/**
- * Map backend error keys to frontend field keys.
- * Backend may return errors with keys like "URGENT_hours", "config_0", etc.
- * Frontend always uses "PRIORITY_hours" format.
- */
 function mapBackendErrors(
   backendErrors: Record<string, string>,
 ): Record<string, string> {
   const mappedErrors: Record<string, string> = {};
 
   for (const [key, message] of Object.entries(backendErrors)) {
-    // Already in correct format: URGENT_hours, HIGH_hours, etc.
     if (key.match(/^(URGENT|HIGH|NORMAL|LOW)_hours$/)) {
       mappedErrors[key] = message;
-    }
-    // Backend request validator uses config_N format: extract priority from error message
-    else if (key.startsWith("config_")) {
-      // The error message should contain the priority info
-      // Try to extract priority from message if present
-      const message_str = String(message);
+    } else if (key.startsWith("config_")) {
       for (const priority of ["URGENT", "HIGH", "NORMAL", "LOW"]) {
-        if (message_str.includes(priority)) {
+        if (String(message).includes(priority)) {
           mappedErrors[`${priority}_hours`] = message;
           break;
         }
-      }
-      // If priority not found in message, skip or use generic key
-      if (!Object.values(mappedErrors).includes(message)) {
-        mappedErrors["_general"] = message;
       }
     }
   }
@@ -69,10 +54,10 @@ export default function AdminSlaConfigPage() {
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "—";
-    const date = new Date(dateString);
-    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString("bs-BA");
+  const formatDate = (date?: string) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("bs-BA");
   };
 
   const fetchSlaConfigs = async () => {
@@ -82,13 +67,13 @@ export default function AdminSlaConfigPage() {
       setConfigs(res.data);
 
       const data: Record<string, string> = {};
-      res.data.forEach((config: SlaConfig) => {
-        data[config.priority] = String(config.deadlineHours);
+      res.data.forEach((c: SlaConfig) => {
+        data[c.priority] = String(c.deadlineHours);
       });
 
       setFormData(data);
-      setError("");
       setFieldErrors({});
+      setError("");
     } catch (err: any) {
       setError(
         err?.response?.data?.message || "Failed to load SLA configurations",
@@ -102,164 +87,206 @@ export default function AdminSlaConfigPage() {
     fetchSlaConfigs();
   }, []);
 
-  const validateField = (priority: string, hours: number): string => {
-    const priorityLabel = PRIORITY_LABELS[priority]?.label ?? priority;
+  const validateField = (priority: string, value: string): string => {
+    const label = PRIORITY_LABELS[priority].label;
 
-    if (hours === null || hours === undefined || Number.isNaN(hours)) {
-      return `${priorityLabel}: value cannot be empty`;
-    }
+    if (value === "") return `${label}: value cannot be empty`;
 
-    if (!Number.isInteger(hours)) {
-      return `${priorityLabel}: must be a whole number`;
-    }
+    const num = Number(value);
 
-    if (hours <= 0) {
-      return `${priorityLabel}: must be greater than zero`;
-    }
-
-    if (hours > 8760) {
-      return `${priorityLabel}: value is too large (max 8760 hours)`;
-    }
+    if (!Number.isInteger(num)) return `${label}: must be whole number`;
+    if (num <= 0) return `${label}: must be > 0`;
+    if (num > 8760) return `${label}: max 8760h`;
 
     return "";
   };
 
   const handleInputChange = (priority: string, value: string) => {
-    // Store raw string value in form state
-    setFormData((prev) => ({
-      ...prev,
-      [priority]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [priority]: value }));
 
-    // Validate the numeric value for immediate UX feedback
-    let error = "";
-    if (value === "") {
-      error = "Value cannot be empty";
-    } else {
-      const numValue = Number(value);
-      error = validateField(priority, numValue);
-    }
+    const error = validateField(priority, value);
 
     setFieldErrors((prev) => {
       const updated = { ...prev };
-      if (error) {
-        updated[`${priority}_hours`] = error;
-      } else {
-        delete updated[`${priority}_hours`];
-      }
+      if (error) updated[`${priority}_hours`] = error;
+      else delete updated[`${priority}_hours`];
       return updated;
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage("");
     setError("");
-    setFieldErrors({});
+    setSuccessMessage("");
+
+    const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
+
+    const newErrors: Record<string, string> = {};
+    for (const p of priorityOrder) {
+      const err = validateField(p, formData[p]);
+      if (err) newErrors[`${p}_hours`] = err;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
+      return;
+    }
 
     try {
       setSaving(true);
 
-      const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
-      const configurations = priorityOrder.map((priority) => ({
-        priority,
-        deadlineHours: parseInt(formData[priority], 10),
+      const configurations = priorityOrder.map((p) => ({
+        priority: p,
+        deadlineHours: parseInt(formData[p], 10),
       }));
 
       await api.put("/sla", { configurations });
 
       await fetchSlaConfigs();
-
       setSuccessMessage("SLA configuration updated successfully!");
     } catch (err: any) {
       const backendErrors = err?.response?.data?.errors || {};
-      const mappedErrors = mapBackendErrors(backendErrors);
+      setFieldErrors(mapBackendErrors(backendErrors));
 
-      // Extract and remove general errors from mapped errors
-      const generalErrors = mappedErrors["_general"];
-      if (generalErrors) {
-        delete mappedErrors["_general"];
-      }
-
-      if (Object.keys(mappedErrors).length > 0) {
-        setFieldErrors(mappedErrors);
-      }
-
-      const mainMessage =
-        err?.response?.data?.message || "Failed to update SLA configuration";
-      const fullMessage = generalErrors
-        ? `${mainMessage}. ${generalErrors}`
-        : mainMessage;
-      setError(fullMessage);
+      setError(
+        err?.response?.data?.message || "Failed to update SLA configuration",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Administration</span>
-        <h1 className="section-title">SLA Configuration</h1>
-      </section>
+    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px" }}>
+      <h1 style={{ fontSize: 28, marginBottom: 20 }}>SLA Configuration</h1>
 
-      {error && <div style={{ color: "red" }}>{error}</div>}
-      {successMessage && <div style={{ color: "green" }}>{successMessage}</div>}
+      {error && (
+        <div style={{ background: "#fee2e2", padding: 10, marginBottom: 10 }}>
+          {error}
+        </div>
+      )}
 
-      <section className="split-grid">
-        <article>
-          <h2>Update SLA Timeouts</h2>
+      {successMessage && (
+        <div style={{ background: "#dcfce7", padding: 10, marginBottom: 10 }}>
+          {successMessage}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+        {/* FORM */}
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 8,
+            padding: 20,
+            background: "#fff",
+          }}
+        >
+          <h2 style={{ marginBottom: 15 }}>Update SLA</h2>
 
           {loading ? (
             <p>Loading...</p>
           ) : (
             <form onSubmit={handleSubmit}>
-              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map(
-                (priority) => {
-                  const fieldKey = `${priority}_hours`;
-                  const hasError = fieldKey in fieldErrors;
+              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map((p) => {
+                const key = `${p}_hours`;
+                const hasError = key in fieldErrors;
 
-                  return (
-                    <div key={priority}>
-                      <label>
-                        {PRIORITY_LABELS[priority].label}
-                        <input
-                          type="number"
-                          value={formData[priority]}
-                          onChange={(e) =>
-                            handleInputChange(priority, e.target.value)
-                          }
+                return (
+                  <div key={p} style={{ marginBottom: 15 }}>
+                    <label style={{ display: "block", marginBottom: 5 }}>
+                      <span
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 10,
+                            height: 10,
+                            background: PRIORITY_LABELS[p].color,
+                            borderRadius: 2,
+                          }}
                         />
-                      </label>
+                        {PRIORITY_LABELS[p].label}
+                      </span>
+                    </label>
 
-                      {hasError && (
-                        <p style={{ color: "red" }}>{fieldErrors[fieldKey]}</p>
-                      )}
-                    </div>
-                  );
-                },
-              )}
+                    <input
+                      type="number"
+                      value={formData[p]}
+                      onChange={(e) => handleInputChange(p, e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px",
+                        borderRadius: 6,
+                        border: hasError
+                          ? "2px solid #dc2626"
+                          : "1px solid #ccc",
+                      }}
+                    />
+
+                    {hasError && (
+                      <p style={{ color: "#dc2626", fontSize: 12 }}>
+                        {fieldErrors[key]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
 
               <button
                 type="submit"
                 disabled={saving || Object.keys(fieldErrors).length > 0}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  background: "#111827",
+                  color: "white",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                  opacity:
+                    saving || Object.keys(fieldErrors).length > 0 ? 0.6 : 1,
+                }}
               >
-                {saving ? "Saving..." : "Save"}
+                {saving ? "Saving..." : "Save Configuration"}
               </button>
             </form>
           )}
-        </article>
+        </div>
 
-        <article>
-          <h2>Current Configuration</h2>
+        {/* DISPLAY */}
+        <div
+          style={{
+            border: "1px solid #e5e7eb",
+            borderRadius: 8,
+            padding: 20,
+            background: "#fff",
+          }}
+        >
+          <h2 style={{ marginBottom: 15 }}>Current</h2>
 
           {loading ? (
             <p>Loading...</p>
           ) : configs.length > 0 ? (
             configs.map((c) => (
-              <div key={c.priority}>
-                <strong>{c.priority}</strong>: {c.deadlineHours}h
-                <div style={{ fontSize: "12px", color: "#666" }}>
+              <div
+                key={c.priority}
+                style={{
+                  borderLeft: `4px solid ${PRIORITY_LABELS[c.priority].color}`,
+                  padding: 10,
+                  marginBottom: 10,
+                  background: "#f9fafb",
+                  borderRadius: 6,
+                }}
+              >
+                <strong>{PRIORITY_LABELS[c.priority].label}</strong>
+                <div style={{ fontSize: 18, fontWeight: "bold" }}>
+                  {c.deadlineHours}h
+                </div>
+                <div style={{ fontSize: 12, color: "#666" }}>
                   Updated: {formatDate(c.updatedAt)}
                 </div>
               </div>
@@ -267,10 +294,12 @@ export default function AdminSlaConfigPage() {
           ) : (
             <p>No data</p>
           )}
-        </article>
-      </section>
+        </div>
+      </div>
 
-      <Link href="/admin">Back</Link>
+      <div style={{ marginTop: 20 }}>
+        <Link href="/admin">← Back to Admin</Link>
+      </div>
     </div>
   );
 }
