@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+
 import { api } from "../../../lib/api";
 
 interface SlaConfig {
@@ -10,7 +11,7 @@ interface SlaConfig {
   updatedAt: string;
 }
 
-const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
+const PRIORITY_LABELS: Record<SlaConfig["priority"], { label: string; color: string }> = {
   URGENT: { label: "Hitan", color: "#d32f2f" },
   HIGH: { label: "Visok", color: "#f57c00" },
   NORMAL: { label: "Normalan", color: "#388e3c" },
@@ -25,12 +26,17 @@ function mapBackendErrors(
   for (const [key, message] of Object.entries(backendErrors)) {
     if (key.match(/^(URGENT|HIGH|NORMAL|LOW)_hours$/)) {
       mappedErrors[key] = message;
-    } else if (key.startsWith("config_")) {
-      for (const priority of ["URGENT", "HIGH", "NORMAL", "LOW"]) {
-        if (String(message).includes(priority)) {
-          mappedErrors[`${priority}_hours`] = message;
-          break;
-        }
+      continue;
+    }
+
+    if (!key.startsWith("config_")) {
+      continue;
+    }
+
+    for (const priority of ["URGENT", "HIGH", "NORMAL", "LOW"] as const) {
+      if (String(message).includes(priority)) {
+        mappedErrors[`${priority}_hours`] = message;
+        break;
       }
     }
   }
@@ -44,20 +50,21 @@ export default function AdminSlaConfigPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  const [formData, setFormData] = useState<Record<string, string>>({
+  const [formData, setFormData] = useState<Record<SlaConfig["priority"], string>>({
     URGENT: "",
     HIGH: "",
     NORMAL: "",
     LOW: "",
   });
-
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const formatDate = (date?: string) => {
-    if (!date) return "—";
-    const d = new Date(date);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("bs-BA");
+    if (!date) {
+      return "-";
+    }
+
+    const parsed = new Date(date);
+    return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleDateString("bs-BA");
   };
 
   const fetchSlaConfigs = async () => {
@@ -66,17 +73,23 @@ export default function AdminSlaConfigPage() {
       const res = await api.get("/sla");
       setConfigs(res.data);
 
-      const data: Record<string, string> = {};
-      res.data.forEach((c: SlaConfig) => {
-        data[c.priority] = String(c.deadlineHours);
+      const nextFormData: Record<SlaConfig["priority"], string> = {
+        URGENT: "",
+        HIGH: "",
+        NORMAL: "",
+        LOW: "",
+      };
+
+      res.data.forEach((config: SlaConfig) => {
+        nextFormData[config.priority] = String(config.deadlineHours);
       });
 
-      setFormData(data);
+      setFormData(nextFormData);
       setFieldErrors({});
       setError("");
     } catch (err: any) {
       setError(
-        err?.response?.data?.message || "Failed to load SLA configurations",
+        err?.response?.data?.message ?? "Failed to load SLA configurations",
       );
     } finally {
       setLoading(false);
@@ -84,32 +97,47 @@ export default function AdminSlaConfigPage() {
   };
 
   useEffect(() => {
-    fetchSlaConfigs();
+    void fetchSlaConfigs();
   }, []);
 
-  const validateField = (priority: string, value: string): string => {
+  const validateField = (priority: SlaConfig["priority"], value: string) => {
     const label = PRIORITY_LABELS[priority].label;
 
-    if (value === "") return `${label}: value cannot be empty`;
+    if (value === "") {
+      return `${label}: vrijednost je obavezna.`;
+    }
 
-    const num = Number(value);
+    const numericValue = Number(value);
 
-    if (!Number.isInteger(num)) return `${label}: must be whole number`;
-    if (num <= 0) return `${label}: must be > 0`;
-    if (num > 8760) return `${label}: max 8760h`;
+    if (!Number.isInteger(numericValue)) {
+      return `${label}: unesite cijeli broj sati.`;
+    }
+
+    if (numericValue <= 0) {
+      return `${label}: vrijednost mora biti veća od 0.`;
+    }
+
+    if (numericValue > 8760) {
+      return `${label}: maksimalna vrijednost je 8760 sati.`;
+    }
 
     return "";
   };
 
-  const handleInputChange = (priority: string, value: string) => {
+  const handleInputChange = (priority: SlaConfig["priority"], value: string) => {
     setFormData((prev) => ({ ...prev, [priority]: value }));
 
-    const error = validateField(priority, value);
+    const message = validateField(priority, value);
 
     setFieldErrors((prev) => {
       const updated = { ...prev };
-      if (error) updated[`${priority}_hours`] = error;
-      else delete updated[`${priority}_hours`];
+
+      if (message) {
+        updated[`${priority}_hours`] = message;
+      } else {
+        delete updated[`${priority}_hours`];
+      }
+
       return updated;
     });
   };
@@ -119,37 +147,37 @@ export default function AdminSlaConfigPage() {
     setError("");
     setSuccessMessage("");
 
-    const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
+    const priorities: SlaConfig["priority"][] = ["URGENT", "HIGH", "NORMAL", "LOW"];
+    const nextErrors: Record<string, string> = {};
 
-    const newErrors: Record<string, string> = {};
-    for (const p of priorityOrder) {
-      const err = validateField(p, formData[p]);
-      if (err) newErrors[`${p}_hours`] = err;
+    for (const priority of priorities) {
+      const message = validateField(priority, formData[priority]);
+      if (message) {
+        nextErrors[`${priority}_hours`] = message;
+      }
     }
 
-    if (Object.keys(newErrors).length > 0) {
-      setFieldErrors(newErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
       return;
     }
 
     try {
       setSaving(true);
 
-      const configurations = priorityOrder.map((p) => ({
-        priority: p,
-        deadlineHours: parseInt(formData[p], 10),
+      const configurations = priorities.map((priority) => ({
+        priority,
+        deadlineHours: parseInt(formData[priority], 10),
       }));
 
       await api.put("/sla", { configurations });
-
       await fetchSlaConfigs();
-      setSuccessMessage("SLA configuration updated successfully!");
+      setSuccessMessage("SLA konfiguracija je uspješno sačuvana.");
     } catch (err: any) {
-      const backendErrors = err?.response?.data?.errors || {};
+      const backendErrors = err?.response?.data?.errors ?? {};
       setFieldErrors(mapBackendErrors(backendErrors));
-
       setError(
-        err?.response?.data?.message || "Failed to update SLA configuration",
+        err?.response?.data?.message ?? "Failed to update SLA configuration",
       );
     } finally {
       setSaving(false);
@@ -157,80 +185,64 @@ export default function AdminSlaConfigPage() {
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 20 }}>SLA Configuration</h1>
+    <div className="page stack">
+      <section className="section-heading">
+        <span className="section-kicker">Administration</span>
+        <h1 className="section-title">SLA Configuration</h1>
+      </section>
 
-      {error && (
-        <div style={{ background: "#fee2e2", padding: 10, marginBottom: 10 }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="form-error">{error}</div>}
+      {successMessage && <div className="form-success">{successMessage}</div>}
 
-      {successMessage && (
-        <div style={{ background: "#dcfce7", padding: 10, marginBottom: 10 }}>
-          {successMessage}
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {/* FORM */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            padding: 20,
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ marginBottom: 15 }}>Update SLA</h2>
+      <section className="split-grid">
+        <article className="panel stack-tight">
+          <div className="section-heading section-heading--compact">
+            <h2 className="section-title">Update SLA Timeouts</h2>
+          </div>
 
           {loading ? (
             <p>Loading...</p>
           ) : (
-            <form onSubmit={handleSubmit}>
-              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map((p) => {
-                const key = `${p}_hours`;
-                const hasError = key in fieldErrors;
+            <form className="stack-tight" onSubmit={handleSubmit}>
+              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map((priority) => {
+                const fieldKey = `${priority}_hours`;
+                const hasError = fieldKey in fieldErrors;
 
                 return (
-                  <div key={p} style={{ marginBottom: 15 }}>
-                    <label style={{ display: "block", marginBottom: 5 }}>
+                  <div key={priority} className="field">
+                    <label className="field-label" htmlFor={fieldKey}>
                       <span
+                        aria-hidden="true"
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
+                          width: 10,
+                          height: 10,
+                          borderRadius: 2,
+                          background: PRIORITY_LABELS[priority].color,
                         }}
-                      >
-                        <span
-                          style={{
-                            width: 10,
-                            height: 10,
-                            background: PRIORITY_LABELS[p].color,
-                            borderRadius: 2,
-                          }}
-                        />
-                        {PRIORITY_LABELS[p].label}
-                      </span>
+                      />
+                      {PRIORITY_LABELS[priority].label}
+                      <span className="field-required">*</span>
                     </label>
 
                     <input
+                      id={fieldKey}
+                      className={hasError ? "field-input--error" : undefined}
                       type="number"
-                      value={formData[p]}
-                      onChange={(e) => handleInputChange(p, e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        borderRadius: 6,
-                        border: hasError
-                          ? "2px solid #dc2626"
-                          : "1px solid #ccc",
-                      }}
+                      min={1}
+                      max={8760}
+                      step={1}
+                      required
+                      value={formData[priority]}
+                      onChange={(event) =>
+                        handleInputChange(priority, event.target.value)
+                      }
+                      aria-invalid={hasError}
+                      aria-describedby={hasError ? `${fieldKey}-error` : undefined}
                     />
 
                     {hasError && (
-                      <p style={{ color: "#dc2626", fontSize: 12 }}>
-                        {fieldErrors[key]}
+                      <p id={`${fieldKey}-error`} className="field-error">
+                        {fieldErrors[fieldKey]}
                       </p>
                     )}
                   </div>
@@ -239,66 +251,51 @@ export default function AdminSlaConfigPage() {
 
               <button
                 type="submit"
+                className="button button--solid"
                 disabled={saving || Object.keys(fieldErrors).length > 0}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  background: "#111827",
-                  color: "white",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  opacity:
-                    saving || Object.keys(fieldErrors).length > 0 ? 0.6 : 1,
-                }}
               >
                 {saving ? "Saving..." : "Save Configuration"}
               </button>
             </form>
           )}
-        </div>
+        </article>
 
-        {/* DISPLAY */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            padding: 20,
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ marginBottom: 15 }}>Current</h2>
+        <article className="panel stack-tight">
+          <div className="section-heading section-heading--compact">
+            <h2 className="section-title">Current Configuration</h2>
+          </div>
 
           {loading ? (
             <p>Loading...</p>
           ) : configs.length > 0 ? (
-            configs.map((c) => (
+            configs.map((config) => (
               <div
-                key={c.priority}
+                key={config.priority}
+                className="panel panel--soft stack-tight"
                 style={{
-                  borderLeft: `4px solid ${PRIORITY_LABELS[c.priority].color}`,
-                  padding: 10,
-                  marginBottom: 10,
-                  background: "#f9fafb",
-                  borderRadius: 6,
+                  padding: 18,
+                  borderLeft: `4px solid ${PRIORITY_LABELS[config.priority].color}`,
                 }}
               >
-                <strong>{PRIORITY_LABELS[c.priority].label}</strong>
-                <div style={{ fontSize: 18, fontWeight: "bold" }}>
-                  {c.deadlineHours}h
-                </div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  Updated: {formatDate(c.updatedAt)}
-                </div>
+                <strong>{PRIORITY_LABELS[config.priority].label}</strong>
+                <span style={{ fontSize: "1.4rem", fontWeight: 700 }}>
+                  {config.deadlineHours}h
+                </span>
+                <span className="field-help">
+                  Updated: {formatDate(config.updatedAt)}
+                </span>
               </div>
             ))
           ) : (
             <p>No data</p>
           )}
-        </div>
-      </div>
+        </article>
+      </section>
 
-      <div style={{ marginTop: 20 }}>
-        <Link href="/admin">← Back to Admin</Link>
+      <div className="button-row">
+        <Link className="button button--ghost" href="/admin">
+          Back to Admin
+        </Link>
       </div>
     </div>
   );

@@ -449,6 +449,16 @@ li {
   font-weight: 700;
 }
 
+.field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-required {
+  color: #b42318;
+}
+
 .field input,
 .field select,
 .field textarea {
@@ -474,6 +484,39 @@ li {
   outline: none;
   border-color: rgba(15, 118, 110, 0.48);
   box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1);
+}
+
+.field-input--error {
+  border-color: rgba(180, 35, 24, 0.58) !important;
+  box-shadow: 0 0 0 4px rgba(180, 35, 24, 0.08);
+}
+
+.field-error {
+  color: #b42318;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.field-help {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.form-error {
+  padding: 14px 16px;
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  border-radius: 16px;
+  background: rgba(180, 35, 24, 0.08);
+  color: #8f1f14;
+}
+
+.form-success {
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 118, 110, 0.18);
+  border-radius: 16px;
+  background: rgba(15, 118, 110, 0.08);
+  color: #0b5b55;
 }
 
 .field--full {

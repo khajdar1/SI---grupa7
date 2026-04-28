@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
+import { getApiFieldErrors } from "../../lib/form-validation";
 import { validateRegisterForm } from "./register.validation";
 import type { RegisterFormData, RegisterFormErrors} from "./register.types";
  
@@ -55,6 +56,11 @@ export function useRegister() {
       setSuccess(true);
       setTimeout(() => router.push("/login"), 2500);
     } catch (err: any) {
+      const backendFieldErrors = getApiFieldErrors(err);
+      if (Object.keys(backendFieldErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...backendFieldErrors }));
+      }
+
       setServerError(
         err?.response?.data?.message ?? "Registration failed. Please try again"
       );

@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
-import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
-import { registerSchema } from "../modules/auth/auth.schema";
 import { ZodError } from "zod";
+
 import { loginKeycloakUser, logoutKeycloakUser } from "../clients/keycloak.client";
+import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
 
 const authService = new AuthService();
 
 export const registerController = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     console.log("[RegisterController] Registration request received:", {
@@ -16,13 +16,12 @@ export const registerController = async (
       email: req.body?.email,
     });
 
-    const input = registerSchema.parse(req.body);
-    const user = await authService.register(input);
+    const user = await authService.register(req.body);
 
     res.status(201).json(user);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
-      res.status(400).json({ message: "Validation error.", errors: error.errors });
+      res.status(400).json({ message: "Validation error.", errors: error.flatten().fieldErrors });
       return;
     }
 
@@ -46,13 +45,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
   try {
     const { username, password } = req.body;
 
-    console.log(`[LoginController] Login attempt — username: ${username}`);
-
-    if (!username || !password) {
-      console.warn("[LoginController] Login rejected — missing username or password.");
-      res.status(400).json({ message: "Username and password are required." });
-      return;
-    }
+    console.log(`[LoginController] Login attempt - username: ${username}`);
 
     let tokens: { access_token: string; refresh_token: string };
 
@@ -61,7 +54,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
     } catch (error: unknown) {
       const errorName = error instanceof Error ? error.name : "UnknownError";
       console.warn(
-        `[LoginController] Keycloak authentication failed — errorType: ${errorName}`
+        `[LoginController] Keycloak authentication failed - errorType: ${errorName}`,
       );
       res.status(401).json({ message: "Invalid username or password." });
       return;
@@ -71,14 +64,14 @@ export const loginController = async (req: Request, res: Response): Promise<void
 
     if (!userInDb) {
       console.warn(
-        `[LoginController] Login failed — user authenticated in Keycloak but not found in local DB — username: ${username}`
+        `[LoginController] Login failed - user authenticated in Keycloak but not found in local DB - username: ${username}`,
       );
       res.status(404).json({ message: "User could not be found." });
       return;
     }
 
     console.log(
-      `[LoginController] Login successful — username: ${username}, id: ${userInDb.id}`
+      `[LoginController] Login successful - username: ${username}, id: ${userInDb.id}`,
     );
 
     res.status(200).json({
@@ -90,7 +83,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error(
-      `[LoginController] Unexpected error during login — message: ${errorMessage}`
+      `[LoginController] Unexpected error during login - message: ${errorMessage}`,
     );
     res.status(500).json({ message: "An internal server error occurred. Please try again." });
   }
@@ -113,26 +106,24 @@ export const logoutController = async (req: Request, res: Response): Promise<voi
       console.warn("[LogoutController] Logout requested without refresh token.");
     }
 
-    console.log("[LogoutController] Logout request received — client must clear stored token.");
+    console.log("[LogoutController] Logout request received - client must clear stored token.");
 
     res.status(200).json({ message: "Logged out successfully." });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error(
-      `[LogoutController] Unexpected error during logout — message: ${errorMessage}`
+      `[LogoutController] Unexpected error during logout - message: ${errorMessage}`,
     );
     res.status(500).json({ message: "An internal server error occurred. Please try again." });
   }
 };
 
-export const resetPasswordController = async (req: Request, res: Response): Promise<void> => {
+export const resetPasswordController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
   try {
     const { email } = req.body;
-    
-    if (!email) {
-       res.status(400).json({ message: "Email is required." });
-       return;
-    }
 
     console.log(`[ResetPasswordController] Reset request received for: ${email}`);
     await authService.triggerPasswordReset(email);

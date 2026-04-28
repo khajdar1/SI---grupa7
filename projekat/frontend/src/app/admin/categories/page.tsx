@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../../lib/api";
+import { getApiFieldErrors, validateRequired } from "../../../lib/form-validation";
 import { Category } from "../../../models/Category";
 
 export default function AdminCategoriesPage() {
@@ -13,6 +14,7 @@ export default function AdminCategoriesPage() {
   const [formData, setFormData] = useState({ id: 0, name: "", description: "" });
   const [isEditing, setIsEditing] = useState(false);
   const [formError, setFormError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const fetchCategories = async () => {
     try {
@@ -33,6 +35,14 @@ export default function AdminCategoriesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    const nameError = validateRequired(formData.name, "Category name is required.");
+    if (nameError) {
+      setFieldErrors({ name: nameError });
+      setFormError("Please correct the highlighted fields.");
+      return;
+    }
+
+    setFieldErrors({});
     try {
       if (isEditing) {
         await api.patch(`/categories/${formData.id}`, {
@@ -49,7 +59,12 @@ export default function AdminCategoriesPage() {
       setIsEditing(false);
       fetchCategories();
     } catch (err: any) {
-       setFormError(err?.response?.data?.message || "An error occurred.");
+      const backendFieldErrors = getApiFieldErrors(err);
+      if (Object.keys(backendFieldErrors).length > 0) {
+        setFieldErrors(backendFieldErrors);
+      }
+
+      setFormError(err?.response?.data?.message || "An error occurred.");
     }
   };
 
@@ -57,6 +72,7 @@ export default function AdminCategoriesPage() {
     setIsEditing(true);
     setFormData({ id: category.id, name: category.name, description: category.description || "" });
     setFormError("");
+    setFieldErrors({});
   };
 
   const handleToggleStatus = async (id: number, currentStatus: boolean) => {
@@ -72,6 +88,7 @@ export default function AdminCategoriesPage() {
     setFormData({ id: 0, name: "", description: "" });
     setIsEditing(false);
     setFormError("");
+    setFieldErrors({});
   };
 
   return (
@@ -93,24 +110,55 @@ export default function AdminCategoriesPage() {
           </div>
           
           <form onSubmit={handleSubmit} className="stack-tight">
-            {formError && <div style={{color: 'red', marginBottom: '10px'}}>{formError}</div>}
-            <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-              <label>Name (unique):</label>
+            {formError && <div className="form-error">{formError}</div>}
+            <div className="field">
+              <label className="field-label">Name (unique) <span className="field-required">*</span></label>
               <input
                 type="text"
-                required
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                className={fieldErrors.name ? "field-input--error" : undefined}
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  setFieldErrors((prev) => {
+                    if (!prev.name) {
+                      return prev;
+                    }
+
+                    const nextErrors = { ...prev };
+                    delete nextErrors.name;
+                    return nextErrors;
+                  });
+                }}
+                aria-invalid={Boolean(fieldErrors.name)}
+                aria-describedby={fieldErrors.name ? "category-name-error" : undefined}
               />
+              {fieldErrors.name && <span id="category-name-error" className="field-error">{fieldErrors.name}</span>}
             </div>
-            <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
-              <label>Description:</label>
+            <div className="field">
+              <label className="field-label">Description</label>
               <textarea
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minHeight: '80px' }}
+                className={fieldErrors.description ? "field-input--error" : undefined}
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  setFieldErrors((prev) => {
+                    if (!prev.description) {
+                      return prev;
+                    }
+
+                    const nextErrors = { ...prev };
+                    delete nextErrors.description;
+                    return nextErrors;
+                  });
+                }}
+                aria-invalid={Boolean(fieldErrors.description)}
+                aria-describedby={fieldErrors.description ? "category-description-error" : undefined}
               />
+              {fieldErrors.description && (
+                <span id="category-description-error" className="field-error">
+                  {fieldErrors.description}
+                </span>
+              )}
             </div>
             <div className="button-row">
               <button type="submit" className="button button--solid">

@@ -28,47 +28,97 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {serverError && <div style={{ color: 'red', marginBottom: '1rem' }}>{serverError}</div>}
-        {success && <div style={{ color: 'green', marginBottom: '1rem' }}>Registration successful! Redirecting...</div>}
+        {serverError && <div className="form-error">{serverError}</div>}
+        {success && <div className="form-success">Registration successful! Redirecting...</div>}
 
         <form className="form-grid form-grid--two-columns" onSubmit={handleSubmit}>
           <label className="field">
-            <span>First name</span>
-            <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} />
-            {errors.firstName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.firstName}</span>}
+            <span className="field-label">First name <span className="field-required">*</span></span>
+            <input
+              className={errors.firstName ? "field-input--error" : undefined}
+              type="text"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.firstName)}
+              aria-describedby={errors.firstName ? "register-firstName-error" : undefined}
+            />
+            {errors.firstName && <span id="register-firstName-error" className="field-error">{errors.firstName}</span>}
           </label>
 
           <label className="field">
-            <span>Last name</span>
-            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} />
-            {errors.lastName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.lastName}</span>}
+            <span className="field-label">Last name <span className="field-required">*</span></span>
+            <input
+              className={errors.lastName ? "field-input--error" : undefined}
+              type="text"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.lastName)}
+              aria-describedby={errors.lastName ? "register-lastName-error" : undefined}
+            />
+            {errors.lastName && <span id="register-lastName-error" className="field-error">{errors.lastName}</span>}
           </label>
 
           <label className="field">
-            <span>Username</span>
-            <input type="text" name="username" value={formData.username} onChange={handleChange} />
-            {errors.username && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.username}</span>}
+            <span className="field-label">Username <span className="field-required">*</span></span>
+            <input
+              className={errors.username ? "field-input--error" : undefined}
+              type="text"
+              name="username"
+              value={formData.username}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.username)}
+              aria-describedby={errors.username ? "register-username-error" : undefined}
+            />
+            {errors.username && <span id="register-username-error" className="field-error">{errors.username}</span>}
           </label>
 
           <label className="field">
-            <span>Email</span>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} />
-            {errors.email && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.email}</span>}
+            <span className="field-label">Email <span className="field-required">*</span></span>
+            <input
+              className={errors.email ? "field-input--error" : undefined}
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "register-email-error" : undefined}
+            />
+            {errors.email && <span id="register-email-error" className="field-error">{errors.email}</span>}
           </label>
 
           <label className="field">
-            <span>Password</span>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} />
+            <span className="field-label">Password <span className="field-required">*</span></span>
+            <input
+              className={errors.password ? "field-input--error" : undefined}
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "register-password-error" : "register-password-help"}
+            />
             {formData.password && (
-              <span style={{ color: strength.color, fontSize: '0.8rem' }}>Password strength: {strength.label}</span>
+              <span id="register-password-help" className="field-help" style={{ color: strength.color }}>
+                Password strength: {strength.label}
+              </span>
             )}
-            {errors.password && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password}</span>}
+            {errors.password && <span id="register-password-error" className="field-error">{errors.password}</span>}
           </label>
 
           <label className="field">
-            <span>Confirm password</span>
-            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} />
-            {errors.confirmPassword && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.confirmPassword}</span>}
+            <span className="field-label">Confirm password <span className="field-required">*</span></span>
+            <input
+              className={errors.confirmPassword ? "field-input--error" : undefined}
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              aria-invalid={Boolean(errors.confirmPassword)}
+              aria-describedby={errors.confirmPassword ? "register-confirmPassword-error" : undefined}
+            />
+            {errors.confirmPassword && <span id="register-confirmPassword-error" className="field-error">{errors.confirmPassword}</span>}
           </label>
 
           <div className="form-actions field--full">

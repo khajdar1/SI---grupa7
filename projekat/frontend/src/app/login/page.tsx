@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useLogin } from './useLogin';
 
 export default function LoginPage() {
-  const { formData, submitting, serverError, handleChange, handleSubmit } = useLogin();
+  const { formData, errors, submitting, serverError, handleChange, handleSubmit } = useLogin();
 
   return (
     <section className="auth-layout">
@@ -17,31 +17,39 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {serverError && <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>{serverError}</div>}
+        {serverError && <div className="form-error">{serverError}</div>}
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Username</span>
+            <span className="field-label">Username <span className="field-required">*</span></span>
             <input 
+              className={errors.username ? "field-input--error" : undefined}
               type="text" 
               name="username" 
               autoComplete="username" 
               placeholder="jdoe" 
               value={formData.username}
               onChange={handleChange}
+              aria-invalid={Boolean(errors.username)}
+              aria-describedby={errors.username ? "login-username-error" : undefined}
             />
+            {errors.username && <span id="login-username-error" className="field-error">{errors.username}</span>}
           </label>
 
           <label className="field">
-            <span>Password</span>
+            <span className="field-label">Password <span className="field-required">*</span></span>
             <input 
+              className={errors.password ? "field-input--error" : undefined}
               type="password" 
               name="password" 
               autoComplete="current-password" 
               placeholder="********" 
               value={formData.password}
               onChange={handleChange}
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "login-password-error" : undefined}
             />
+            {errors.password && <span id="login-password-error" className="field-error">{errors.password}</span>}
           </label>
 
           <div className="form-actions">

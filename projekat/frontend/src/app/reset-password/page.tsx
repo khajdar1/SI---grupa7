@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useResetPassword } from './useResetPassword'; 
 
 export default function ResetPasswordPage() {
-  const { email, setEmail, submitting, message, handleSubmit } = useResetPassword();
+  const { email, setEmail, errors, submitting, message, handleSubmit } = useResetPassword();
 
   return (
     <section className="auth-layout">
@@ -25,8 +25,9 @@ export default function ResetPasswordPage() {
 
         <form className="form-grid" onSubmit={handleSubmit}>
           <label className="field">
-            <span>Email</span>
+            <span className="field-label">Email <span className="field-required">*</span></span>
             <input 
+              className={errors.email ? "field-input--error" : undefined}
               type="email" 
               name="email" 
               autoComplete="email" 
@@ -34,7 +35,10 @@ export default function ResetPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "reset-email-error" : undefined}
             />
+            {errors.email && <span id="reset-email-error" className="field-error">{errors.email}</span>}
           </label>
 
           <div className="form-actions">

@@ -7,7 +7,7 @@ import {
   resetPasswordController,
 } from '../../controllers/auth.controller';
 import { validate } from '../../middleware/validate.middleware';
-import { registerSchema, loginSchema } from './auth.schema';
+import { registerSchema, loginSchema, resetPasswordSchema } from './auth.schema';
 import { authRateLimiter } from '../../middleware/rateLimit.middleware';
 
 const authRouter = Router();
@@ -31,7 +31,7 @@ authRouter.get(
 
 authRouter.post('/register', authRateLimiter, validate(registerSchema), registerController);
 authRouter.post('/login', authRateLimiter, validate(loginSchema), loginController);
-authRouter.post('/reset-password', authRateLimiter, resetPasswordController);
+authRouter.post('/reset-password', authRateLimiter, validate(resetPasswordSchema), resetPasswordController);
 authRouter.post('/logout', logoutController);
 
 export default authRouter;
