@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function Page() {
   return (
@@ -7,7 +7,8 @@ export default function Page() {
         <span className="section-kicker">Administration</span>
         <h1 className="section-title">Admin shell</h1>
         <p className="section-copy">
-          The admin workspace will eventually cover user accounts, categories, SLA values, and audit visibility.
+          The admin workspace will eventually cover user accounts, categories,
+          SLA values, and audit visibility.
         </p>
       </section>
 
@@ -32,16 +33,27 @@ export default function Page() {
           </div>
 
           <div className="tag-row">
-            {['SLA limits', 'Audit log', 'Disabled states'].map((item) => (
+            {["SLA limits", "Audit log", "Disabled states"].map((item) => (
               <span key={item} className="tag tag--muted">
                 {item}
               </span>
             ))}
           </div>
 
-          <div className="button-row" style={{ marginTop: '16px' }}>
+          <div
+            className="button-row"
+            style={{
+              marginTop: "16px",
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+            }}
+          >
             <Link href="/admin/categories" className="button button--solid">
               Manage Categories
+            </Link>
+            <Link href="/admin/sla-config" className="button button--solid">
+              Configure SLA
             </Link>
           </div>
         </article>

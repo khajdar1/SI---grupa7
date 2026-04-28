@@ -36,6 +36,7 @@ const authNavItems = [
   { label: 'Login', to: '/login' },
   { label: 'Register', to: '/register' },
   { label: 'Reset Password', to: '/reset-password' },
+  { label: 'Logout', to: '/logout' },
 ];
 
 export default function RootLayout({ children }: RootLayoutProps) {
