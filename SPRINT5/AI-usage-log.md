@@ -17,6 +17,39 @@
 
 ---
 
+- **Datum:** 25.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.3-Codex
+- **Svrha korištenja:** Implementacija PBI-041 (Inicijalna Prisma migracija za trenutne modele).
+- **Kratak opis zadatka ili upita:** Usklađivanje Prisma schema i početne migracije sa trenutnim modelima baze, uklanjanje lokalnog čuvanja lozinke i dodavanje veze za eksterni identitet korisnika.
+- **Šta je AI predložio ili generisao:**
+    - Izmjene u `schema.prisma` za uklanjanje `passwordHash` i dodavanje `ExternalIdentity` modela.
+    - Početnu migraciju SQL-a usklađenu sa trenutnim modelima.
+    - Dopune Prisma dokumentacije za novi auth workflow bez lokalnih lozinki.
+- **Šta je tim prihvatio:** Promjene schema i migracije, kao i dokumentacijska pojašnjenja za novi auth model.
+- **Šta je tim izmijenio:** Prilagođen je naziv i struktura relacije eksternog identiteta kako bi ostala provider-agnostic, a auth model je ostao vođen backend logikom za role i permisije.
+- **Šta je tim odbacio:** Lokalno čuvanje lozinki i bilo kakvo uvođenje password-based auth toka u ovom PBI-ju.
+- **Rizici, problemi ili greške koje su uočene:** Rizik od nekonzistentnosti između schema.prisma, migracije i seed-a ako se ne ažuriraju zajedno; zbog toga je dokumentacija odmah sinhronizovana.
+- **Ko je koristio alat:** Kerim Hajdar
+
+---
+
+- **Datum:** 25.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.3-Codex
+- **Svrha korištenja:** Implementacija PBI-042 (Početni seed podaci za razvoj i demo).
+- **Kratak opis zadatka ili upita:** Kreiranje determinističnog seed seta za razvoj i demo podatke, uključujući kompaniju, kategorije, SLA konfiguracije, korisnike i njihove eksterne identitete.
+- **Šta je AI predložio ili generisao:**
+    - `seed.ts` sa idempotentnim `upsert` logikama za demo podatke.
+    - Seed testove koji provjeravaju broj zapisa, veze između entiteta i idempotentno pokretanje seed-a.
+    - Usklađivanje seed podataka sa provider-first auth modelom i eksternim identitetima.
+- **Šta je tim prihvatio:** Kompletan seed flow, testove i idempotentno ponašanje pri ponovnom pokretanju.
+- **Šta je tim izmijenio:** Hard-coded numerički identifikatori za eksterni identitet su zamijenjeni prirodnim ključevima, a seed-only uloga je preimenovana u demo persona radi jasnijeg značenja.
+- **Šta je tim odbacio:** Local password seed podaci i bilo kakvo dupliranje auth podataka izvan lokalnog profila i eksternog identiteta.
+- **Rizici, problemi ili greške koje su uočene:** Seed mora ostati sinhronizovan sa schema.prisma i dokumentacijom; ako se promijeni auth model, seed i testovi moraju biti ažurirani zajedno.
+- **Ko je koristio alat:** Kerim Hajdar
+---
+
 - **Datum:** 26.04.2026.
 - **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** Claude (Anthropic)
