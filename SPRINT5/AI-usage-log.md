@@ -1,5 +1,22 @@
 # AI Usage Log
 
+- **Datum:** 29.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.2-Codex
+- **Svrha korištenja:** Implementacija PBI-040 (CI/CD pipeline za automatsku provjeru i isporuku) i azuriranje CI/CD dokumentacije.
+- **Kratak opis zadatka ili upita:** Postavljanje GitHub Actions workflowa za PR provjere na `develop`, release workflow za `release/1.0` i `master`, izrada verzionisanih artefakata, deploy frontenda na Cloudflare Pages i uskladjivanje dokumentacije sa novim targetima.
+- **Šta je AI predložio ili generisao:**
+    - `ci.yml` workflow za build i typecheck (root, backend, frontend) na PR prema `develop`.
+    - `release.yml` workflow za build, typecheck, verzionisane artefakte i Cloudflare Pages deploy.
+    - Dokumentacijsko azuriranje CI/CD, deploy topologije i otvorenih pitanja u tehničkom setup dokumentu.
+- **Šta je tim prihvatio:** Workflow fajlove i dokumentacijske izmjene za CI/CD i deploy.
+- **Šta je tim izmijenio:** Prihvacen je fallback verzije na `build-<shortsha>` kada commit nema git tag.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Produkcijske vrijednosti za `NEXT_PUBLIC_API_BASE_URL` i `NEXT_PUBLIC_SOCKET_URL` moraju biti postavljene u Cloudflare/Railway okruzenju da frontend ne ostane vezan za lokalni host.
+- **Ko je koristio alat:** Razvojni tim
+
+---
+
 - **Datum:** 26.04.2026.
 - **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** Google Gemini (LLM)

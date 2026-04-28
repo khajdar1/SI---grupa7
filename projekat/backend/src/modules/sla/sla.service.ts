@@ -1,5 +1,11 @@
-import { Priority } from "@prisma/client";
 import { AuditService } from "../../shared/audit.service";
+
+export enum Priority {
+  URGENT = "URGENT",
+  HIGH = "HIGH",
+  NORMAL = "NORMAL",
+  LOW = "LOW",
+}
 
 export interface SlaConfiguration {
   id: number;
