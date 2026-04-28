@@ -1,4 +1,4 @@
-import { Priority } from "@prisma/client";
+import { Priority } from "./sla.service";
 
 const VALID_PRIORITIES = Object.values(Priority);
 

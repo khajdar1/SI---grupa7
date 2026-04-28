@@ -1,7 +1,6 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert";
-import { Priority } from "@prisma/client";
-import { SlaService, ISlaRepository } from "./sla.service";
+import { Priority, SlaService, ISlaRepository } from "./sla.service";
 
 const mockRepository: ISlaRepository = {
   findAll: async () => [
