@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../../lib/api";
-import { getApiFieldErrors, validateRequired } from "../../../lib/form-validation";
+import {
+  clearFieldError,
+  getApiFieldErrors,
+  validateRequired,
+  validateSafeText,
+} from "../../../lib/form-validation";
 import { Category } from "../../../models/Category";
 
 export default function AdminCategoriesPage() {
@@ -35,9 +40,23 @@ export default function AdminCategoriesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError("");
+    const nextFieldErrors: Record<string, string> = {};
     const nameError = validateRequired(formData.name, "Category name is required.");
+    const descriptionError = validateSafeText(formData.description, {
+      maxLength: 500,
+      maxLengthMessage: "Description must be at most 500 characters.",
+    });
+
     if (nameError) {
-      setFieldErrors({ name: nameError });
+      nextFieldErrors.name = nameError;
+    }
+
+    if (descriptionError) {
+      nextFieldErrors.description = descriptionError;
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       setFormError("Please correct the highlighted fields.");
       return;
     }
@@ -119,15 +138,7 @@ export default function AdminCategoriesPage() {
                 className={fieldErrors.name ? "field-input--error" : undefined}
                 onChange={(e) => {
                   setFormData({ ...formData, name: e.target.value });
-                  setFieldErrors((prev) => {
-                    if (!prev.name) {
-                      return prev;
-                    }
-
-                    const nextErrors = { ...prev };
-                    delete nextErrors.name;
-                    return nextErrors;
-                  });
+                  setFieldErrors((prev) => clearFieldError(prev, "name"));
                 }}
                 aria-invalid={Boolean(fieldErrors.name)}
                 aria-describedby={fieldErrors.name ? "category-name-error" : undefined}
@@ -141,15 +152,7 @@ export default function AdminCategoriesPage() {
                 className={fieldErrors.description ? "field-input--error" : undefined}
                 onChange={(e) => {
                   setFormData({ ...formData, description: e.target.value });
-                  setFieldErrors((prev) => {
-                    if (!prev.description) {
-                      return prev;
-                    }
-
-                    const nextErrors = { ...prev };
-                    delete nextErrors.description;
-                    return nextErrors;
-                  });
+                  setFieldErrors((prev) => clearFieldError(prev, "description"));
                 }}
                 aria-invalid={Boolean(fieldErrors.description)}
                 aria-describedby={fieldErrors.description ? "category-description-error" : undefined}

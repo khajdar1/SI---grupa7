@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
-import { getApiFieldErrors, validateRequired } from "../../lib/form-validation";
+import { clearFieldError, getApiFieldErrors, validateRequired } from "../../lib/form-validation";
 import Cookies from 'js-cookie';
 
 export function useLogin() {
@@ -15,15 +15,7 @@ export function useLogin() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setServerError(null);
-    setErrors((prev) => {
-      if (!prev[name]) {
-        return prev;
-      }
-
-      const nextErrors = { ...prev };
-      delete nextErrors[name];
-      return nextErrors;
-    });
+    setErrors((prev) => clearFieldError(prev, name));
   }
 
   async function handleSubmit(e: React.FormEvent) {

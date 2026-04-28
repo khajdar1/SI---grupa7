@@ -1,22 +1,31 @@
 import type { RegisterFormData, RegisterFormErrors } from "./register.types";
+import { validateEmail, validateSafeText } from "../../lib/form-validation";
  
 export function validateRegisterForm(data: RegisterFormData): RegisterFormErrors {
   const errors: RegisterFormErrors = {};
  
-  if (!data.firstName.trim()) errors.firstName = "First name is required.";
-  if (!data.lastName.trim()) errors.lastName = "Last name is required.";
- 
-  if (!data.username.trim()) {
-    errors.username = "Username is required.";
-  } else if (data.username.length < 2) {
-    errors.username = "Username must be at least 2 characters long.";
-  }
- 
-  if (!data.email.trim()) {
-    errors.email = "Email address is required.";
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-    errors.email = "Invalid email format.";
-  }
+  errors.firstName = validateSafeText(data.firstName, {
+    requiredMessage: "First name is required.",
+    maxLength: 100,
+    maxLengthMessage: "First name must be at most 100 characters long.",
+  });
+  errors.lastName = validateSafeText(data.lastName, {
+    requiredMessage: "Last name is required.",
+    maxLength: 100,
+    maxLengthMessage: "Last name must be at most 100 characters long.",
+  });
+  errors.username = validateSafeText(data.username, {
+    requiredMessage: "Username is required.",
+    minLength: 2,
+    minLengthMessage: "Username must be at least 2 characters long.",
+    maxLength: 50,
+    maxLengthMessage: "Username must be at most 50 characters long.",
+  });
+  errors.email = validateEmail(
+    data.email,
+    "Email address is required.",
+    "Invalid email format.",
+  );
  
   if (!data.password) {
     errors.password = "Password is required.";
@@ -34,7 +43,9 @@ export function validateRegisterForm(data: RegisterFormData): RegisterFormErrors
     errors.confirmPassword = "Passwords do not match.";
   }
  
-  return errors;
+  return Object.fromEntries(
+    Object.entries(errors).filter(([, value]) => typeof value === "string" && value.length > 0),
+  );
 }
  
 export function getPasswordStrength(password: string): { level: number; label: string; color: string; } {

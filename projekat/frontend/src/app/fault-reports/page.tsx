@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from 'next/link';
 import { api } from "../../lib/api";
+import { clearFieldError, validateRequiredSelection } from "../../lib/form-validation";
 import { Category } from "../../models/Category";
 
 export default function Page() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -23,6 +25,22 @@ export default function Page() {
     fetchCategories();
   }, []);
 
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const categoryError = validateRequiredSelection(
+      selectedCategory,
+      "Please select a category before continuing.",
+    );
+
+    if (categoryError) {
+      setFieldErrors({ category: categoryError });
+      return;
+    }
+
+    setFieldErrors({});
+  };
+
   return (
     <section className="page stack">
       <article className="panel stack-tight">
@@ -36,7 +54,7 @@ export default function Page() {
 
         {error && <div style={{color: 'red', marginBottom: '10px'}}>{error}</div>}
 
-        <form className="stack-tight">
+        <form className="stack-tight" onSubmit={handleSubmit}>
           <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px'}}>
              <label htmlFor="category" style={{fontWeight: 'bold'}}>Category of Malfunction *</label>
              {categories.length === 0 ? (
@@ -46,8 +64,13 @@ export default function Page() {
                    id="category"
                    required
                    value={selectedCategory} 
-                   onChange={(e) => setSelectedCategory(e.target.value)}
+                   onChange={(e) => {
+                     setSelectedCategory(e.target.value);
+                     setFieldErrors((prev) => clearFieldError(prev, "category"));
+                   }}
                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '16px' }}
+                   aria-invalid={Boolean(fieldErrors.category)}
+                   aria-describedby={fieldErrors.category ? "fault-report-category-error" : undefined}
                 >
                    <option value="" disabled>-- Select a Category --</option>
                    {categories.map((c) => (
@@ -55,10 +78,15 @@ export default function Page() {
                    ))}
                 </select>
              )}
+             {fieldErrors.category && (
+               <span id="fault-report-category-error" className="field-error">
+                 {fieldErrors.category}
+               </span>
+             )}
           </div>
 
           <div className="button-row">
-            <button type="button" className="button button--solid" disabled={!selectedCategory}>
+            <button type="submit" className="button button--solid" disabled={!categories.length}>
                Submit Report (Stub)
             </button>
             <Link className="button button--ghost" href="/dashboard">

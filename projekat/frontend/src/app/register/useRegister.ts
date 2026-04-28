@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "../../lib/api";
-import { getApiFieldErrors } from "../../lib/form-validation";
+import { clearFieldError, getApiFieldErrors } from "../../lib/form-validation";
 import { validateRegisterForm } from "./register.validation";
 import type { RegisterFormData, RegisterFormErrors} from "./register.types";
  
@@ -26,9 +26,10 @@ export function useRegister() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setServerError(null);
  
     if (errors[name as keyof RegisterFormData]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+      setErrors((prev) => clearFieldError(prev, name));
     }
   }
  

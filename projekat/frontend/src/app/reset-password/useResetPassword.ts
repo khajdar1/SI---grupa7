@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../../lib/api";
-import { getApiFieldErrors, validateEmail } from "../../lib/form-validation";
+import { clearFieldError, getApiFieldErrors, validateEmail } from "../../lib/form-validation";
 
 export function useResetPassword() {
   const [email, setEmail] = useState("");
@@ -48,15 +48,7 @@ export function useResetPassword() {
     email,
     setEmail: (value: string) => {
       setEmail(value);
-      setErrors((prev) => {
-        if (!prev.email) {
-          return prev;
-        }
-
-        const nextErrors = { ...prev };
-        delete nextErrors.email;
-        return nextErrors;
-      });
+      setErrors((prev) => clearFieldError(prev, "email"));
     },
     errors,
     submitting,
