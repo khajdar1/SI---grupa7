@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { registerController, loginController, logoutController, resetPasswordController } from '../../controllers/auth.controller';
  
 const authRouter = Router();
- 
+
 authRouter.get('/', (_req, res) => {
   res.json({
     module: 'auth',
