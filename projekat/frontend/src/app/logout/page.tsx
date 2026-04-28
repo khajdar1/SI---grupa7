@@ -1,5 +1,5 @@
-export const runtime = 'edge';
 "use client";
+export const runtime = 'edge';
 
 import { useEffect } from "react";
 import { useLogin } from "../login/useLogin"; 
