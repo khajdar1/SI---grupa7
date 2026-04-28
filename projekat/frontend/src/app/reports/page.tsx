@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 const reportCards = [
   { label: 'Completed interventions', value: '127' },
   { label: 'Average closure time', value: '6.4h' },
