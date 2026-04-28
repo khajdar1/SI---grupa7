@@ -1,8 +1,11 @@
 "use client";
 
 import Link from 'next/link';
+import { useLogin } from './useLogin';
 
-export default function Page() {
+export default function LoginPage() {
+  const { formData, submitting, serverError, handleChange, handleSubmit } = useLogin();
+
   return (
     <section className="auth-layout">
       <article className="auth-card panel">
@@ -10,25 +13,40 @@ export default function Page() {
           <span className="section-kicker">Authentication</span>
           <h1 className="section-title">Login shell</h1>
           <p className="section-copy">
-            The final implementation will validate credentials, route users by role, and keep protected screens out of
-            reach without an active session.
+            Enter your credentials to securely access the platform.
           </p>
         </div>
 
-        <form className="form-grid" onSubmit={(event) => event.preventDefault()}>
+        {serverError && <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>{serverError}</div>}
+
+        <form className="form-grid" onSubmit={handleSubmit}>
           <label className="field">
             <span>Username</span>
-            <input type="text" name="username" autoComplete="username" placeholder="jdoe" />
+            <input 
+              type="text" 
+              name="username" 
+              autoComplete="username" 
+              placeholder="jdoe" 
+              value={formData.username}
+              onChange={handleChange}
+            />
           </label>
 
           <label className="field">
             <span>Password</span>
-            <input type="password" name="password" autoComplete="current-password" placeholder="********" />
+            <input 
+              type="password" 
+              name="password" 
+              autoComplete="current-password" 
+              placeholder="********" 
+              value={formData.password}
+              onChange={handleChange}
+            />
           </label>
 
           <div className="form-actions">
-            <button className="button button--solid" type="submit">
-              Sign in
+            <button className="button button--solid" type="submit" disabled={submitting}>
+              {submitting ? 'Signing in...' : 'Sign in'}
             </button>
             <Link className="button button--ghost" href="/reset-password">
               Reset password
@@ -42,14 +60,14 @@ export default function Page() {
 
       <aside className="panel panel--soft stack-tight">
         <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Behavior from the docs</span>
-          <h2 className="section-title">What this page will eventually cover</h2>
+          <span className="section-kicker">Security</span>
+          <h2 className="section-title">Protected Access</h2>
         </div>
 
         <ul className="quick-facts">
-          <li>Generic error responses for invalid credentials.</li>
-          <li>Blocked access for disabled accounts.</li>
-          <li>Session termination on logout and role-based redirects.</li>
+          <li>Sessions are securely managed via Keycloak.</li>
+          <li>Role-based access limits functionality based on your account level.</li>
+          <li>Ensure you log out when using public devices.</li>
         </ul>
       </aside>
     </section>

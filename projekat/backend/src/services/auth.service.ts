@@ -6,6 +6,7 @@ import {
   deleteKeycloakUser,
   KeycloakError,
 } from "../clients/keycloak.client";
+import { sendKeycloakResetEmail } from "../clients/keycloak.client";
 
 export { KeycloakError };
 
@@ -123,5 +124,29 @@ export class AuthService {
     );
     await deleteKeycloakUser(keycloakSub);
     throw new Error("Registration failed due to a database error. Please try again.");
+  }
+
+  async getUserByUsername(username: string): Promise<RegisteredUser | null> {
+      return prisma.user.findUnique({
+      where: { username },
+      select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          email: true,
+          createdAt: true,
+      },
+      });
+    }
+
+  async triggerPasswordReset(email: string): Promise<void> {
+    try {
+      const adminToken = await getKeycloakAdminToken();
+      await sendKeycloakResetEmail(adminToken, email);
+    } catch (err) {
+      console.error("[AuthService] Error during password reset request:", err);
+      throw err;
+    }
   }
 }
