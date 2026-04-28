@@ -1,13 +1,35 @@
 import {
-  AssignmentMethod,
-  InterventionStatus,
-  InterventionType,
   PrismaClient,
-  Priority,
 } from '@prisma/client';
 import { requireDatabaseUrl } from '../config/database-url';
 
-export { AssignmentMethod, InterventionStatus, InterventionType, Priority };
+export const Priority = {
+  URGENT: 'URGENT',
+  HIGH: 'HIGH',
+  NORMAL: 'NORMAL',
+  LOW: 'LOW',
+} as const;
+export type PriorityValue = (typeof Priority)[keyof typeof Priority];
+
+export const InterventionStatus = {
+  OPEN: 'OPEN',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+  CANCELED: 'CANCELED',
+} as const;
+export type InterventionStatusValue = (typeof InterventionStatus)[keyof typeof InterventionStatus];
+
+export const InterventionType = {
+  ISSUE: 'ISSUE',
+  PREVENTIVE: 'PREVENTIVE',
+} as const;
+export type InterventionTypeValue = (typeof InterventionType)[keyof typeof InterventionType];
+
+export const AssignmentMethod = {
+  MANUAL: 'MANUAL',
+  AUTOMATIC: 'AUTOMATIC',
+} as const;
+export type AssignmentMethodValue = (typeof AssignmentMethod)[keyof typeof AssignmentMethod];
 
 export const DemoUserPersona = {
   GUEST: 'GUEST',
@@ -32,7 +54,7 @@ export interface SeedCategoryInput {
 }
 
 export interface SeedSlaConfigurationInput {
-  readonly priority: Priority;
+  readonly priority: PriorityValue;
   readonly deadlineHours: number;
 }
 
@@ -69,9 +91,9 @@ export interface SeedInterventionInput {
   readonly name: string;
   readonly description: string;
   readonly location: string;
-  readonly priority: Priority;
-  readonly status: InterventionStatus;
-  readonly type: InterventionType;
+  readonly priority: PriorityValue;
+  readonly status: InterventionStatusValue;
+  readonly type: InterventionTypeValue;
   readonly archived: boolean;
   readonly categoryId: number;
   readonly creatorId: number;
@@ -83,7 +105,7 @@ export interface SeedAssignmentInput {
   readonly id: number;
   readonly interventionId: number;
   readonly userId: number;
-  readonly method: AssignmentMethod;
+  readonly method: AssignmentMethodValue;
 }
 
 export interface SeedSummary {
@@ -123,7 +145,7 @@ interface IdUpsertModel<TData extends SeedRecord> {
 export interface SeedClient {
   company: UpsertModel<{ name: string }, SeedCompanyInput, SeedRecord & SeedCompanyInput>;
   category: UpsertModel<{ name: string }, SeedCategoryInput, SeedRecord & SeedCategoryInput>;
-  slaConfiguration: UpsertModel<{ priority: Priority }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
+  slaConfiguration: UpsertModel<{ priority: PriorityValue }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
   user: UpsertModel<{ email: string }, SeedUserInput, SeedRecord & SeedUserInput>;
   externalIdentity: UpsertModel<ExternalIdentityWhereUniqueInput, SeedExternalIdentityInput, SeedRecord & SeedExternalIdentityInput>;
   faultReport: IdUpsertModel<SeedFaultReportInput>;

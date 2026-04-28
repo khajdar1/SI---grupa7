@@ -4,6 +4,7 @@
 
 | ID | Naziv zadatka / Storija | Odgovorna osoba | Status | Napomena |
 |----|------------------------|-----------------|--------|----------|
+| **PBI-040** | CI/CD pipeline za automatsku provjeru i isporuku | Tim | Završeno | GitHub Actions za PR develop + release/master deploy frontend na Cloudflare Pages; backend preko Railway GitHub integracije |
 | **PBI-041** | Inicijalna Prisma migracija za trenutne modele | Kerim Hajdar | Završeno | Pokriva sve modele, enum tipove i relacije iz schema.prisma; preduvjet za sve ostale stavke |
 | **PBI-042** | Početni seed podaci za razvoj i demo | Kerim Hajdar | Završeno | Seed uključuje firmu, kategorije kvarova, SLA konfiguraciju i korisnike za glavne uloge |
 | **PBI-044** | Osnovno centralizirano logovanje i health nadzor | Lejla Gičević | Završeno | Health endpoint dostupan i lokalno i u Docker okruženju |

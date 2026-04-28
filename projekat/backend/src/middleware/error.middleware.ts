@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, Request, RequestHandler } from 'express';
 import { Prisma } from '@prisma/client';
+import { PrismaClientKnownRequestError, PrismaClientInitializationError } from '@prisma/client/runtime/library';
 import { ZodError } from 'zod';
 
 import { env } from '../config/env';
@@ -10,7 +11,7 @@ function getRequestId(req: Request) {
   return req.headers['x-request-id'];
 }
 
-function mapPrismaError(error: Prisma.PrismaClientKnownRequestError) {
+function mapPrismaError(error: PrismaClientKnownRequestError) {
   if (error.code === 'P2002') {
     return {
       statusCode: 400,
@@ -64,12 +65,12 @@ export const errorMiddleware: ErrorRequestHandler = (error, req, res, _next) => 
       field: issue.path.join('.') || 'request',
       message: issue.message,
     }));
-  } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  } else if (error instanceof PrismaClientKnownRequestError) {
     const mappedError = mapPrismaError(error);
     statusCode = mappedError.statusCode;
     code = mappedError.code;
     message = mappedError.message;
-  } else if (error instanceof Prisma.PrismaClientInitializationError) {
+  } else if (error instanceof PrismaClientInitializationError) {
     statusCode = 503;
     code = 'DATABASE_UNAVAILABLE';
     message = 'Database is currently unavailable.';
