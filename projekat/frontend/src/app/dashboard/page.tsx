@@ -1,3 +1,5 @@
+export const runtime = 'edge';
+
 export default function Page() {
   const stats = [
     { label: 'Open interventions', value: '18' },
