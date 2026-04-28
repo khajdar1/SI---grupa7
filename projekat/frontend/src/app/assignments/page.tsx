@@ -1,3 +1,4 @@
+export const runtime = 'edge';
 export default function Page() {
   const ranking = [
     'Technician 01 - 2 active interventions',
