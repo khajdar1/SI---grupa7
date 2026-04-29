@@ -1,83 +1,87 @@
-"use client";
+'use client';
+export const runtime = 'edge';
 
 import Link from 'next/link';
+
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ROUTES } from '@/constants';
+
 import { useLogin } from './useLogin';
 
 export default function LoginPage() {
   const { formData, errors, submitting, serverError, handleChange, handleSubmit } = useLogin();
 
   return (
-    <section className="auth-layout">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Authentication</span>
-          <h1 className="section-title">Login shell</h1>
-          <p className="section-copy">
-            Enter your credentials to securely access the platform.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Login"
+        subtitle="Enter your credentials to access the platform."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Login' }]}
+      />
 
-        {serverError && <div className="form-error">{serverError}</div>}
+      <Card className="max-w-xl">
+        <CardContent className="space-y-5 pt-6">
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label className="field">
-            <span className="field-label">Username <span className="field-required">*</span></span>
-            <input 
-              className={errors.username ? "field-input--error" : undefined}
-              type="text" 
-              name="username" 
-              autoComplete="username" 
-              placeholder="jdoe" 
-              value={formData.username}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.username)}
-              aria-describedby={errors.username ? "login-username-error" : undefined}
-            />
-            {errors.username && <span id="login-username-error" className="field-error">{errors.username}</span>}
-          </label>
+          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                name="username"
+                autoComplete="username"
+                placeholder="jdoe"
+                value={formData.username}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.username)}
+                aria-describedby={errors.username ? 'login-username-error' : undefined}
+              />
+              {errors.username ? (
+                <p id="login-username-error" className="text-xs text-destructive">
+                  {errors.username}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Password <span className="field-required">*</span></span>
-            <input 
-              className={errors.password ? "field-input--error" : undefined}
-              type="password" 
-              name="password" 
-              autoComplete="current-password" 
-              placeholder="********" 
-              value={formData.password}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.password)}
-              aria-describedby={errors.password ? "login-password-error" : undefined}
-            />
-            {errors.password && <span id="login-password-error" className="field-error">{errors.password}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                autoComplete="current-password"
+                placeholder="********"
+                value={formData.password}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={errors.password ? 'login-password-error' : undefined}
+              />
+              {errors.password ? (
+                <p id="login-password-error" className="text-xs text-destructive">
+                  {errors.password}
+                </p>
+              ) : null}
+            </div>
 
-          <div className="form-actions">
-            <button className="button button--solid" type="submit" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign in'}
-            </button>
-            <Link className="button button--ghost" href="/reset-password">
-              Reset password
-            </Link>
-            <Link className="button button--ghost" href="/register">
-              Create account
-            </Link>
-          </div>
-        </form>
-      </article>
-
-      <aside className="panel panel--soft stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Security</span>
-          <h2 className="section-title">Protected Access</h2>
-        </div>
-
-        <ul className="quick-facts">
-          <li>Sessions are securely managed via Keycloak.</li>
-          <li>Role-based access limits functionality based on your account level.</li>
-          <li>Ensure you log out when using public devices.</li>
-        </ul>
-      </aside>
-    </section>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Signing in...' : 'Sign in'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.RESET_PASSWORD}>Reset password</Link>
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.REGISTER}>Create account</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

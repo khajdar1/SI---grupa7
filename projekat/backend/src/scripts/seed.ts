@@ -167,7 +167,7 @@ function buildDemoCategorySeeds(): SeedCategoryInput[] {
 function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
   return [
     {
-      priority: Priority.URGENT,
+      priority: Priority.CRITICAL,
       deadlineHours: 4,
     },
     {
@@ -175,7 +175,7 @@ function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
       deadlineHours: 8,
     },
     {
-      priority: Priority.NORMAL,
+      priority: Priority.MEDIUM,
       deadlineHours: 24,
     },
     {
@@ -296,7 +296,7 @@ function buildDemoInterventionSeed(
     description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
     location: 'Glavni ulaz, objekat A',
     priority: Priority.HIGH,
-    status: InterventionStatus.OPEN,
+    status: InterventionStatus.NEW,
     type: InterventionType.ISSUE,
     archived: false,
     categoryId,

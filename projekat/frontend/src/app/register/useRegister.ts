@@ -1,22 +1,27 @@
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
-import { clearFieldError, getApiFieldErrors } from "../../lib/form-validation";
-import { validateRegisterForm } from "./register.validation";
-import type { RegisterFormData, RegisterFormErrors} from "./register.types";
- 
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+import { ROUTES, UI } from '@/constants';
+import { clearFieldError, getApiFieldErrors } from '@/lib/form-validation';
+import { register } from '@/services/auth.service';
+
+import type { RegisterFormData, RegisterFormErrors } from './register.types';
+import { validateRegisterForm } from './register.validation';
+
 const INITIAL_FORM: RegisterFormData = {
-  firstName: "",
-  lastName: "",
-  username: "",
-  email: "",
-  password: "",
-  confirmPassword: ""
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
 };
- 
+
 export function useRegister() {
   const router = useRouter();
- 
+
   const [formData, setFormData] = useState<RegisterFormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<RegisterFormErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -27,49 +32,57 @@ export function useRegister() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setServerError(null);
- 
+
     if (errors[name as keyof RegisterFormData]) {
       setErrors((prev) => clearFieldError(prev, name));
     }
   }
- 
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setServerError(null);
- 
+
     const validationErrors = validateRegisterForm(formData);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
- 
+
     setSubmitting(true);
- 
+    setErrors({});
+
     try {
-      await api.post("/auth/register", {
+      await register({
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username,
         email: formData.email,
         password: formData.password,
       });
- 
+
       setSuccess(true);
-      setTimeout(() => router.push("/login"), 2500);
-    } catch (err: any) {
-      const backendFieldErrors = getApiFieldErrors(err);
+      setTimeout(() => router.push(ROUTES.LOGIN), UI.REGISTER_REDIRECT_DELAY_MS);
+    } catch (error: unknown) {
+      const serviceDetails =
+        typeof error === 'object' && error !== null
+          ? (error as { details?: unknown }).details
+          : undefined;
+      const backendFieldErrors = getApiFieldErrors(
+        serviceDetails ? { response: (serviceDetails as { response?: unknown }).response } : error,
+      );
+
       if (Object.keys(backendFieldErrors).length > 0) {
         setErrors((prev) => ({ ...prev, ...backendFieldErrors }));
       }
 
       setServerError(
-        err?.response?.data?.message ?? "Registration failed. Please try again"
+        error instanceof Error ? error.message : 'Registration failed. Please try again.',
       );
     } finally {
       setSubmitting(false);
     }
   }
- 
+
   return {
     formData,
     errors,

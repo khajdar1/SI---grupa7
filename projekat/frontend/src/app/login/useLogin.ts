@@ -1,12 +1,20 @@
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
-import { clearFieldError, getApiFieldErrors, validateRequired } from "../../lib/form-validation";
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+
+import { ROUTES, UI } from '@/constants';
+import {
+  clearFieldError,
+  getApiFieldErrors,
+  validateRequired,
+} from '@/lib/form-validation';
+import { login, logout } from '@/services/auth.service';
 
 export function useLogin() {
   const router = useRouter();
-  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -20,9 +28,10 @@ export function useLogin() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
     const nextErrors = {
-      username: validateRequired(formData.username, "Username is required."),
-      password: validateRequired(formData.password, "Password is required."),
+      username: validateRequired(formData.username, 'Username is required.'),
+      password: validateRequired(formData.password, 'Password is required.'),
     };
 
     const filteredErrors = Object.fromEntries(
@@ -31,28 +40,43 @@ export function useLogin() {
 
     if (Object.keys(filteredErrors).length > 0) {
       setErrors(filteredErrors);
-      setServerError("Please correct the highlighted fields.");
+      setServerError('Please correct the highlighted fields.');
       return;
     }
 
     setSubmitting(true);
-    try {
-      const response = await api.post("/auth/login", formData);
-      
-      Cookies.set("token", response.data.accessToken, { expires: 1, path: '/' }); //1 dan
-      localStorage.setItem("token", response.data.accessToken);
-      localStorage.setItem("refreshToken", response.data.refreshToken);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+    setErrors({});
+    setServerError(null);
 
-      router.push("/dashboard"); // zamijeniti s odgovarajućim redirectom prema ulozi
-    } catch (err: any) {
-      const backendFieldErrors = getApiFieldErrors(err);
+    try {
+      const response = await login(formData);
+
+      Cookies.set('token', response.accessToken, {
+        expires: UI.SESSION_COOKIE_DAYS,
+        path: '/',
+      });
+      localStorage.setItem('token', response.accessToken);
+      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      router.push(ROUTES.DASHBOARD);
+    } catch (error: unknown) {
+      const serviceDetails =
+        typeof error === 'object' && error !== null
+          ? (error as { details?: unknown }).details
+          : undefined;
+      const backendFieldErrors = getApiFieldErrors(
+        serviceDetails ? { response: (serviceDetails as { response?: unknown }).response } : error,
+      );
+
       if (Object.keys(backendFieldErrors).length > 0) {
         setErrors(backendFieldErrors);
       }
 
       setServerError(
-        err?.response?.data?.message ?? "Login failed. Please check your credentials."
+        error instanceof Error
+          ? error.message
+          : 'Login failed. Please check your credentials.',
       );
     } finally {
       setSubmitting(false);
@@ -61,22 +85,18 @@ export function useLogin() {
 
   async function handleLogout() {
     try {
-      const token = localStorage.getItem("token");
-      const refreshToken = localStorage.getItem("refreshToken");
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
 
       if (token) {
-        await api.post(
-          "/auth/logout",
-          { refreshToken },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await logout({ token, refreshToken });
       }
     } catch {
-
+      // Intentionally swallow network logout errors and clear local session.
     } finally {
-      Cookies.remove("token", { path: '/' }); 
-      localStorage.clear()
-      router.replace("/login");
+      Cookies.remove('token', { path: '/' });
+      localStorage.clear();
+      router.replace(ROUTES.LOGIN);
     }
   }
 

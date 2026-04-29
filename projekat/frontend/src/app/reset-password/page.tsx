@@ -1,69 +1,69 @@
-"use client";
+'use client';
+export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useResetPassword } from './useResetPassword'; 
+
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ROUTES } from '@/constants';
+
+import { useResetPassword } from './useResetPassword';
 
 export default function ResetPasswordPage() {
   const { email, setEmail, errors, submitting, message, handleSubmit } = useResetPassword();
 
   return (
-    <section className="auth-layout">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Authentication</span>
-          <h1 className="section-title">Reset password</h1>
-          <p className="section-copy">
-            Enter your email and we'll send you a secure link to reset your password.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Reset Password"
+        subtitle="Submit your email to receive a reset link."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Reset Password' }]}
+      />
 
-        {message && (
-          <div style={{ color: message.type === 'error' ? 'red' : 'green', marginBottom: '1rem', fontSize: '0.9rem' }}>
-            {message.text}
-          </div>
-        )}
+      <Card className="max-w-xl">
+        <CardContent className="space-y-5 pt-6">
+          {message ? (
+            <p className={message.type === 'error' ? 'text-sm text-destructive' : 'text-sm text-emerald-600'}>
+              {message.text}
+            </p>
+          ) : null}
 
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label className="field">
-            <span className="field-label">Email <span className="field-required">*</span></span>
-            <input 
-              className={errors.email ? "field-input--error" : undefined}
-              type="email" 
-              name="email" 
-              autoComplete="email" 
-              placeholder="user@example.com" 
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "reset-email-error" : undefined}
-            />
-            {errors.email && <span id="reset-email-error" className="field-error">{errors.email}</span>}
-          </label>
+          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                autoComplete="email"
+                placeholder="user@example.com"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'reset-email-error' : undefined}
+              />
+              {errors.email ? (
+                <p id="reset-email-error" className="text-xs text-destructive">
+                  {errors.email}
+                </p>
+              ) : null}
+            </div>
 
-          <div className="form-actions">
-            <button className="button button--solid" type="submit" disabled={submitting}>
-              {submitting ? 'Sending...' : 'Send reset link'}
-            </button>
-            <Link className="button button--ghost" href="/login">
-              Back to login
-            </Link>
-          </div>
-        </form>
-      </article>
-
-      <aside className="panel panel--soft stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Security flow</span>
-          <h2 className="section-title">Account protection</h2>
-        </div>
-
-        <ul className="quick-facts">
-          <li>Links expire shortly after generation.</li>
-          <li>For security, we cannot confirm if an email exists in our system.</li>
-          <li>You will be required to log in again after rotating your password.</li>
-        </ul>
-      </aside>
-    </section>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Sending...' : 'Send reset link'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.LOGIN}>Back to login</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

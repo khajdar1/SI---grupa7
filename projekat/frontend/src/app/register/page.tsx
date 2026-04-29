@@ -1,8 +1,17 @@
-"use client";
+'use client';
+export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useRegister } from './useRegister';
+
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ROUTES } from '@/constants';
+
 import { getPasswordStrength } from './register.validation';
+import { useRegister } from './useRegister';
 
 export default function RegisterPage() {
   const {
@@ -16,121 +25,159 @@ export default function RegisterPage() {
   } = useRegister();
 
   const strength = getPasswordStrength(formData.password);
+  const strengthColorClass =
+    strength.level <= 1
+      ? 'text-destructive'
+      : strength.level === 2
+        ? 'text-amber-600'
+        : strength.level === 3
+          ? 'text-blue-600'
+          : 'text-emerald-600';
 
   return (
-    <section className="auth-layout auth-layout--wide">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Onboarding</span>
-          <h1 className="section-title">Create Account</h1>
-          <p className="section-copy">
-            Register to access the platform.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Create Account"
+        subtitle="Register to access the service intervention platform."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Register' }]}
+      />
 
-        {serverError && <div className="form-error">{serverError}</div>}
-        {success && <div className="form-success">Registration successful! Redirecting...</div>}
+      <Card className="max-w-3xl">
+        <CardContent className="space-y-5 pt-6">
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {success ? <p className="text-sm text-emerald-600">Registration successful. Redirecting...</p> : null}
 
-        <form className="form-grid form-grid--two-columns" onSubmit={handleSubmit}>
-          <label className="field">
-            <span className="field-label">First name <span className="field-required">*</span></span>
-            <input
-              className={errors.firstName ? "field-input--error" : undefined}
-              type="text"
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.firstName)}
-              aria-describedby={errors.firstName ? "register-firstName-error" : undefined}
-            />
-            {errors.firstName && <span id="register-firstName-error" className="field-error">{errors.firstName}</span>}
-          </label>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.firstName)}
+                aria-describedby={errors.firstName ? 'register-firstName-error' : undefined}
+              />
+              {errors.firstName ? (
+                <p id="register-firstName-error" className="text-xs text-destructive">
+                  {errors.firstName}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Last name <span className="field-required">*</span></span>
-            <input
-              className={errors.lastName ? "field-input--error" : undefined}
-              type="text"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.lastName)}
-              aria-describedby={errors.lastName ? "register-lastName-error" : undefined}
-            />
-            {errors.lastName && <span id="register-lastName-error" className="field-error">{errors.lastName}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.lastName)}
+                aria-describedby={errors.lastName ? 'register-lastName-error' : undefined}
+              />
+              {errors.lastName ? (
+                <p id="register-lastName-error" className="text-xs text-destructive">
+                  {errors.lastName}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Username <span className="field-required">*</span></span>
-            <input
-              className={errors.username ? "field-input--error" : undefined}
-              type="text"
-              name="username"
-              value={formData.username}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.username)}
-              aria-describedby={errors.username ? "register-username-error" : undefined}
-            />
-            {errors.username && <span id="register-username-error" className="field-error">{errors.username}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.username)}
+                aria-describedby={errors.username ? 'register-username-error' : undefined}
+              />
+              {errors.username ? (
+                <p id="register-username-error" className="text-xs text-destructive">
+                  {errors.username}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Email <span className="field-required">*</span></span>
-            <input
-              className={errors.email ? "field-input--error" : undefined}
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.email)}
-              aria-describedby={errors.email ? "register-email-error" : undefined}
-            />
-            {errors.email && <span id="register-email-error" className="field-error">{errors.email}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'register-email-error' : undefined}
+              />
+              {errors.email ? (
+                <p id="register-email-error" className="text-xs text-destructive">
+                  {errors.email}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Password <span className="field-required">*</span></span>
-            <input
-              className={errors.password ? "field-input--error" : undefined}
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.password)}
-              aria-describedby={errors.password ? "register-password-error" : "register-password-help"}
-            />
-            {formData.password && (
-              <span id="register-password-help" className="field-help" style={{ color: strength.color }}>
-                Password strength: {strength.label}
-              </span>
-            )}
-            {errors.password && <span id="register-password-error" className="field-error">{errors.password}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={
+                  errors.password
+                    ? 'register-password-error'
+                    : formData.password
+                      ? 'register-password-help'
+                      : undefined
+                }
+              />
+              {formData.password ? (
+                <p id="register-password-help" className={`text-xs ${strengthColorClass}`}>
+                  Password strength: {strength.label}
+                </p>
+              ) : null}
+              {errors.password ? (
+                <p id="register-password-error" className="text-xs text-destructive">
+                  {errors.password}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span className="field-label">Confirm password <span className="field-required">*</span></span>
-            <input
-              className={errors.confirmPassword ? "field-input--error" : undefined}
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              aria-invalid={Boolean(errors.confirmPassword)}
-              aria-describedby={errors.confirmPassword ? "register-confirmPassword-error" : undefined}
-            />
-            {errors.confirmPassword && <span id="register-confirmPassword-error" className="field-error">{errors.confirmPassword}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.confirmPassword)}
+                aria-describedby={errors.confirmPassword ? 'register-confirmPassword-error' : undefined}
+              />
+              {errors.confirmPassword ? (
+                <p id="register-confirmPassword-error" className="text-xs text-destructive">
+                  {errors.confirmPassword}
+                </p>
+              ) : null}
+            </div>
 
-          <div className="form-actions field--full">
-            <button className="button button--solid" type="submit" disabled={submitting || success}>
-              {submitting ? 'Creating...' : 'Create account'}
-            </button>
-            <Link className="button button--ghost" href="/login">
-              Back to login
-            </Link>
-          </div>
-        </form>
-      </article>
-    </section>
+            <div className="col-span-full flex flex-wrap gap-2">
+              <Button type="submit" disabled={submitting || success}>
+                {submitting ? 'Creating...' : 'Create account'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.LOGIN}>Back to login</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

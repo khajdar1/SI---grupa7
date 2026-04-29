@@ -170,7 +170,7 @@ test('should seed the demo dataset with local profiles and external identities',
   assert.equal(intervention.categoryId, electricalCategory.id);
   assert.equal(intervention.faultReportId, faultReport.id);
   assert.equal(intervention.creatorId, coordinator.id);
-  assert.equal(intervention.status, InterventionStatus.OPEN);
+  assert.equal(intervention.status, InterventionStatus.NEW);
   assert.equal(intervention.type, InterventionType.ISSUE);
   assert.equal(assignment.interventionId, intervention.id);
   assert.equal(assignment.userId, servicer.id);
@@ -189,7 +189,7 @@ test('should seed the demo dataset with local profiles and external identities',
     Array.from(state.slaConfigurations.values())
       .map((configuration) => configuration.priority)
       .sort(),
-    [Priority.URGENT, Priority.HIGH, Priority.NORMAL, Priority.LOW].sort(),
+    [Priority.CRITICAL, Priority.HIGH, Priority.MEDIUM, Priority.LOW].sort(),
   );
 });
 

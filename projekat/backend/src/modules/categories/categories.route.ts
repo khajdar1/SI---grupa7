@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { prisma } from "../../config/database";
+import { HTTP_STATUS } from "../../constants";
 import { validate } from "../../middleware/validate.middleware";
 import {
   createCategorySchema,
@@ -33,22 +34,22 @@ categoriesRouter.get("/", async (_req, res) => {
   try {
     const categories = await categoryService.getAllCategories();
     res.json(categories);
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch categories" });
+  } catch {
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to fetch categories" });
   }
 });
 
 categoriesRouter.post("/", validate(createCategorySchema), async (req, res) => {
   try {
     const category = await categoryService.createCategory(req.body);
-    res.status(201).json(category);
+    res.status(HTTP_STATUS.CREATED).json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(400).json({ message: error.message });
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
       return;
     }
 
-    res.status(500).json({ message: "Failed to create category" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to create category" });
   }
 });
 
@@ -56,7 +57,7 @@ categoriesRouter.patch("/:id", validate(updateCategorySchema), async (req, res) 
   try {
     const id = parseCategoryId(req.params.id);
     if (!id) {
-      res.status(400).json({
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
         message: "Validation failed",
         errors: { id: "Category id must be a positive integer." },
       });
@@ -67,11 +68,11 @@ categoriesRouter.patch("/:id", validate(updateCategorySchema), async (req, res) 
     res.json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(400).json({ message: error.message });
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
       return;
     }
 
-    res.status(500).json({ message: "Failed to update category" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to update category" });
   }
 });
 
@@ -82,7 +83,7 @@ categoriesRouter.patch(
     try {
       const id = parseCategoryId(req.params.id);
       if (!id) {
-        res.status(400).json({
+        res.status(HTTP_STATUS.BAD_REQUEST).json({
           message: "Validation failed",
           errors: { id: "Category id must be a positive integer." },
         });
@@ -91,8 +92,8 @@ categoriesRouter.patch(
 
       const category = await categoryService.updateStatus(id, req.body.active);
       res.json(category);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to update category status" });
+    } catch {
+      res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to update category status" });
     }
   },
 );

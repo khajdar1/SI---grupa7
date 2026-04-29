@@ -1,36 +1,57 @@
-"use client";
+'use client';
+export const runtime = 'edge';
 
-import { useEffect, useState } from "react";
 import Link from 'next/link';
-import { api } from "../../lib/api";
-import { clearFieldError, validateRequiredSelection } from "../../lib/form-validation";
-import { Category } from "../../models/Category";
+import { useEffect, useMemo, useState } from 'react';
 
-export default function Page() {
+import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ROUTES } from '@/constants';
+import { clearFieldError, validateRequiredSelection } from '@/lib/form-validation';
+import type { Category } from '@/models/Category';
+import { getCategories } from '@/services/categories.service';
+
+export default function FaultReportsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [error, setError] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchCategories = async () => {
+    try {
+      setIsLoading(true);
+      const categoryList = await getCategories();
+      setCategories(categoryList.filter((category: Category) => category.active));
+      setError('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load categories.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await api.get("/categories");
-        // Only show active categories
-        setCategories(res.data.filter((c: Category) => c.active));
-      } catch (err) {
-         setError("Failed to load categories.");
-      }
-    };
-    fetchCategories();
+    void fetchCategories();
   }, []);
+
+  const hasCategories = useMemo(() => categories.length > 0, [categories]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
 
     const categoryError = validateRequiredSelection(
       selectedCategory,
-      "Please select a category before continuing.",
+      'Please select a category before continuing.',
     );
 
     if (categoryError) {
@@ -42,59 +63,78 @@ export default function Page() {
   };
 
   return (
-    <section className="page stack">
-      <article className="panel stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Core intake</span>
-          <h1 className="section-title">Fault report shell</h1>
-          <p className="section-copy">
-            Select a category from the dropdown to continue with your fault report.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Fault Reports"
+        subtitle="Start fault intake by selecting a malfunction category."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Fault Reports' }]}
+      />
 
-        {error && <div style={{color: 'red', marginBottom: '10px'}}>{error}</div>}
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          ) : error ? (
+            <EmptyState
+              title="Categories unavailable"
+              description={error}
+              action={{ label: 'Retry', onClick: () => void fetchCategories() }}
+            />
+          ) : (
+            <>
+              {!hasCategories ? (
+                <EmptyState
+                  title="No active categories"
+                  description="Fault intake cannot proceed until at least one category is active."
+                />
+              ) : (
+                <form className="space-y-5" onSubmit={handleSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="fault-category">Category of malfunction</Label>
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={(value) => {
+                        setSelectedCategory(value ?? '');
+                        setFieldErrors((prev) => clearFieldError(prev, 'category'));
+                      }}
+                    >
+                      <SelectTrigger
+                        id="fault-category"
+                        className="w-full sm:max-w-md"
+                        aria-invalid={Boolean(fieldErrors.category)}
+                        aria-describedby={fieldErrors.category ? 'fault-report-category-error' : undefined}
+                      >
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={String(category.id)}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {fieldErrors.category ? (
+                      <p id="fault-report-category-error" className="text-xs text-destructive">
+                        {fieldErrors.category}
+                      </p>
+                    ) : null}
+                  </div>
 
-        <form className="stack-tight" onSubmit={handleSubmit}>
-          <div style={{display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '20px'}}>
-             <label htmlFor="category" style={{fontWeight: 'bold'}}>Category of Malfunction *</label>
-             {categories.length === 0 ? (
-                <div style={{color: 'red'}}>Error: No active categories available. Cannot submit form.</div>
-             ) : (
-                <select 
-                   id="category"
-                   required
-                   value={selectedCategory} 
-                   onChange={(e) => {
-                     setSelectedCategory(e.target.value);
-                     setFieldErrors((prev) => clearFieldError(prev, "category"));
-                   }}
-                   style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '16px' }}
-                   aria-invalid={Boolean(fieldErrors.category)}
-                   aria-describedby={fieldErrors.category ? "fault-report-category-error" : undefined}
-                >
-                   <option value="" disabled>-- Select a Category --</option>
-                   {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                   ))}
-                </select>
-             )}
-             {fieldErrors.category && (
-               <span id="fault-report-category-error" className="field-error">
-                 {fieldErrors.category}
-               </span>
-             )}
-          </div>
-
-          <div className="button-row">
-            <button type="submit" className="button button--solid" disabled={!categories.length}>
-               Submit Report (Stub)
-            </button>
-            <Link className="button button--ghost" href="/dashboard">
-              Back to dashboard
-            </Link>
-          </div>
-        </form>
-      </article>
-    </section>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="submit" disabled={!selectedCategory}>
+                      Submit Report (Stub)
+                    </Button>
+                    <Button asChild type="button" variant="outline">
+                      <Link href={ROUTES.DASHBOARD}>Back to Dashboard</Link>
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

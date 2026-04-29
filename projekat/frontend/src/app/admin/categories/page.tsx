@@ -1,50 +1,67 @@
-"use client";
+'use client';
+export const runtime = 'edge';
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { api } from "../../../lib/api";
+import { useEffect, useState } from 'react';
+
+import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ROUTES, UI } from '@/constants';
 import {
   clearFieldError,
   getApiFieldErrors,
   validateRequired,
   validateSafeText,
-} from "../../../lib/form-validation";
-import { Category } from "../../../models/Category";
+} from '@/lib/form-validation';
+import type { Category } from '@/models/Category';
+import {
+  createCategory,
+  getCategories,
+  updateCategory,
+  updateCategoryStatus,
+} from '@/services/categories.service';
+
+const NEW_CATEGORY_ID = 0;
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  
-  const [formData, setFormData] = useState({ id: 0, name: "", description: "" });
+  const [error, setError] = useState('');
+  const [formData, setFormData] = useState({ id: NEW_CATEGORY_ID, name: '', description: '' });
   const [isEditing, setIsEditing] = useState(false);
-  const [formError, setFormError] = useState("");
+  const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [pendingStatusCategory, setPendingStatusCategory] = useState<Category | null>(null);
 
   const fetchCategories = async () => {
     try {
-      const res = await api.get("/categories");
-      setCategories(res.data);
-      setError("");
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to load categories.");
+      const categoryList = await getCategories();
+      setCategories(categoryList);
+      setError('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load categories.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchCategories();
+    void fetchCategories();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError("");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFormError('');
+
     const nextFieldErrors: Record<string, string> = {};
-    const nameError = validateRequired(formData.name, "Category name is required.");
+    const nameError = validateRequired(formData.name, 'Category name is required.');
     const descriptionError = validateSafeText(formData.description, {
       maxLength: 500,
-      maxLengthMessage: "Description must be at most 500 characters.",
+      maxLengthMessage: 'Description must be at most 500 characters.',
     });
 
     if (nameError) {
@@ -57,176 +74,230 @@ export default function AdminCategoriesPage() {
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setFormError("Please correct the highlighted fields.");
+      setFormError('Please correct the highlighted fields.');
       return;
     }
 
     setFieldErrors({});
+
     try {
       if (isEditing) {
-        await api.patch(`/categories/${formData.id}`, {
+        await updateCategory(formData.id, {
           name: formData.name,
           description: formData.description,
         });
       } else {
-        await api.post("/categories", {
+        await createCategory({
           name: formData.name,
           description: formData.description,
         });
       }
-      setFormData({ id: 0, name: "", description: "" });
+
+      setFormData({ id: NEW_CATEGORY_ID, name: '', description: '' });
       setIsEditing(false);
-      fetchCategories();
-    } catch (err: any) {
-      const backendFieldErrors = getApiFieldErrors(err);
+      await fetchCategories();
+    } catch (requestError: unknown) {
+      const serviceDetails =
+        typeof requestError === 'object' && requestError !== null
+          ? (requestError as { details?: unknown }).details
+          : undefined;
+      const backendFieldErrors = getApiFieldErrors(
+        serviceDetails ? { response: (serviceDetails as { response?: unknown }).response } : requestError,
+      );
+
       if (Object.keys(backendFieldErrors).length > 0) {
         setFieldErrors(backendFieldErrors);
       }
 
-      setFormError(err?.response?.data?.message || "An error occurred.");
+      setFormError(requestError instanceof Error ? requestError.message : 'An error occurred.');
     }
   };
 
   const handleEdit = (category: Category) => {
     setIsEditing(true);
-    setFormData({ id: category.id, name: category.name, description: category.description || "" });
-    setFormError("");
+    setFormData({
+      id: category.id,
+      name: category.name,
+      description: category.description || '',
+    });
+    setFormError('');
     setFieldErrors({});
   };
 
-  const handleToggleStatus = async (id: number, currentStatus: boolean) => {
+  const handleToggleStatus = async () => {
+    if (!pendingStatusCategory) {
+      return;
+    }
+
     try {
-      await api.patch(`/categories/${id}/status`, { active: !currentStatus });
-      fetchCategories();
-    } catch (err: any) {
-       setError(err?.response?.data?.message || "Failed to update status.");
+      await updateCategoryStatus(pendingStatusCategory.id, !pendingStatusCategory.active);
+      await fetchCategories();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update status.');
+    } finally {
+      setPendingStatusCategory(null);
     }
   };
 
   const handleCancel = () => {
-    setFormData({ id: 0, name: "", description: "" });
+    setFormData({ id: NEW_CATEGORY_ID, name: '', description: '' });
     setIsEditing(false);
-    setFormError("");
+    setFormError('');
     setFieldErrors({});
   };
 
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Administration</span>
-        <h1 className="section-title">Manage Categories</h1>
-        <p className="section-copy">
-          Create, edit, and toggle categories for fault reports.
-        </p>
-      </section>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Manage Categories"
+        subtitle="Create, edit, and activate/deactivate fault report categories."
+        breadcrumbs={[{ label: 'Admin', href: ROUTES.ADMIN }, { label: 'Categories' }]}
+      />
 
-      {error && <div style={{color: 'red', padding: '10px', backgroundColor: '#ffe6e6', borderRadius: '4px'}}>{error}</div>}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
-      <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <h2 className="section-title">{isEditing ? "Edit Category" : "New Category"}</h2>
-          </div>
-          
-          <form onSubmit={handleSubmit} className="stack-tight">
-            {formError && <div className="form-error">{formError}</div>}
-            <div className="field">
-              <label className="field-label">Name (unique) <span className="field-required">*</span></label>
-              <input
-                type="text"
-                value={formData.name}
-                className={fieldErrors.name ? "field-input--error" : undefined}
-                onChange={(e) => {
-                  setFormData({ ...formData, name: e.target.value });
-                  setFieldErrors((prev) => clearFieldError(prev, "name"));
-                }}
-                aria-invalid={Boolean(fieldErrors.name)}
-                aria-describedby={fieldErrors.name ? "category-name-error" : undefined}
-              />
-              {fieldErrors.name && <span id="category-name-error" className="field-error">{fieldErrors.name}</span>}
-            </div>
-            <div className="field">
-              <label className="field-label">Description</label>
-              <textarea
-                value={formData.description}
-                className={fieldErrors.description ? "field-input--error" : undefined}
-                onChange={(e) => {
-                  setFormData({ ...formData, description: e.target.value });
-                  setFieldErrors((prev) => clearFieldError(prev, "description"));
-                }}
-                aria-invalid={Boolean(fieldErrors.description)}
-                aria-describedby={fieldErrors.description ? "category-description-error" : undefined}
-              />
-              {fieldErrors.description && (
-                <span id="category-description-error" className="field-error">
-                  {fieldErrors.description}
-                </span>
-              )}
-            </div>
-            <div className="button-row">
-              <button type="submit" className="button button--solid">
-                {isEditing ? "Update" : "Create"}
-              </button>
-              {isEditing && (
-                <button type="button" onClick={handleCancel} className="button button--ghost">
-                  Cancel
-                </button>
-              )}
-            </div>
-          </form>
-        </article>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{isEditing ? 'Edit Category' : 'New Category'}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+              {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <h2 className="section-title">All Categories</h2>
-          </div>
-          
-          {loading ? (
-            <p>Loading...</p>
-          ) : categories.length === 0 ? (
-            <p style={{color: 'orange'}}>Warning: System has no active categories. Users won&apos;t be able to report faults.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {categories.map((c) => (
-                <div key={c.id} style={{ border: '1px solid #eee', padding: '12px', borderRadius: '6px' }}>
-                  <h3 style={{margin: '0 0 8px 0'}}>
-                     {c.name} 
-                     {c.active ? <span style={{color: "green", fontSize: '14px', marginLeft: '8px'}}>(Active)</span> : <span style={{color: "darkred", fontSize: '14px', marginLeft: '8px'}}>(Inactive)</span>}
-                  </h3>
-                  {c.description && <p style={{ fontSize: '0.9em', color: '#555', margin: '0 0 8px 0' }}>{c.description}</p>}
-                  <p style={{ fontSize: '0.8em', color: '#888', margin: '0 0 12px 0' }}>
-                     Created: {new Date(c.createdAt).toLocaleDateString()}
+              <div className="space-y-2">
+                <Label htmlFor="category-name">Name (unique)</Label>
+                <Input
+                  id="category-name"
+                  required
+                  value={formData.name}
+                  onChange={(event) => {
+                    setFormData((previous) => ({ ...previous, name: event.target.value }));
+                    setFieldErrors((previous) => clearFieldError(previous, 'name'));
+                  }}
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  aria-describedby={fieldErrors.name ? 'category-name-error' : undefined}
+                />
+                {fieldErrors.name ? (
+                  <p id="category-name-error" className="text-xs text-destructive">
+                    {fieldErrors.name}
                   </p>
-                  <div className="button-row">
-                    <button 
-                       type="button" 
-                       className="button button--ghost" 
-                       onClick={() => handleEdit(c)}
-                       disabled={!c.active}
-                       style={{opacity: c.active ? 1 : 0.5}}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                       type="button" 
-                       className={c.active ? "button button--ghost" : "button button--solid"}
-                       onClick={() => handleToggleStatus(c.id, c.active)}
-                    >
-                      {c.active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </article>
-      </section>
-      
-      <div className="button-row" style={{marginTop: '20px'}}>
-        <Link className="button button--ghost" href="/admin">
-           Back to Admin Shell
-        </Link>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="category-description">Description</Label>
+                <Textarea
+                  id="category-description"
+                  value={formData.description}
+                  onChange={(event) => {
+                    setFormData((previous) => ({ ...previous, description: event.target.value }));
+                    setFieldErrors((previous) => clearFieldError(previous, 'description'));
+                  }}
+                  aria-invalid={Boolean(fieldErrors.description)}
+                  aria-describedby={fieldErrors.description ? 'category-description-error' : undefined}
+                />
+                {fieldErrors.description ? (
+                  <p id="category-description-error" className="text-xs text-destructive">
+                    {fieldErrors.description}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit">{isEditing ? 'Update' : 'Create'}</Button>
+                {isEditing ? (
+                  <Button type="button" variant="outline" onClick={handleCancel}>
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>All Categories</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable<Category>
+              columns={[
+                { key: 'name', header: 'Name' },
+                {
+                  key: 'description',
+                  header: 'Description',
+                  render: (value) => (value ? String(value) : '-'),
+                },
+                {
+                  key: 'active',
+                  header: 'Status',
+                  width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_STATUS,
+                  render: (value) =>
+                    value ? (
+                      <Badge variant="secondary">Active</Badge>
+                    ) : (
+                      <Badge variant="destructive">Inactive</Badge>
+                    ),
+                },
+                {
+                  key: 'createdAt',
+                  header: 'Created',
+                  width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_CREATED,
+                  render: (value) => new Date(String(value)).toLocaleDateString(),
+                },
+                {
+                  key: 'id',
+                  header: 'Actions',
+                  width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_ACTIONS,
+                  render: (_, row) => (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEdit(row)}
+                        disabled={!row.active}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={row.active ? 'destructive' : 'default'}
+                        size="sm"
+                        onClick={() => setPendingStatusCategory(row)}
+                      >
+                        {row.active ? 'Deactivate' : 'Reactivate'}
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+              data={categories}
+              keyExtractor={(row) => String(row.id)}
+              isLoading={loading}
+              error={error || null}
+              onRetry={fetchCategories}
+              emptyTitle="No categories found"
+              emptyDescription="Create the first category to enable fault intake routing."
+            />
+          </CardContent>
+        </Card>
       </div>
-    </div>
+
+      <ConfirmDialog
+        isOpen={pendingStatusCategory !== null}
+        onClose={() => setPendingStatusCategory(null)}
+        onConfirm={handleToggleStatus}
+        title={pendingStatusCategory?.active ? 'Deactivate category?' : 'Reactivate category?'}
+        description={
+          pendingStatusCategory?.active
+            ? 'This category will no longer be available in the intake flow.'
+            : 'This category will become available in the intake flow again.'
+        }
+        confirmLabel={pendingStatusCategory?.active ? 'Deactivate' : 'Reactivate'}
+        variant={pendingStatusCategory?.active ? 'warning' : 'default'}
+      />
+    </PageLayout>
   );
 }

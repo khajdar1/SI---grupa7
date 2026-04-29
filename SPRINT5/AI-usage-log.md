@@ -1,5 +1,22 @@
 # AI Usage Log
 
+- **Datum:** 29.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.2-Codex
+- **Svrha korištenja:** Implementacija PBI-040 (CI/CD pipeline za automatsku provjeru i isporuku) i azuriranje CI/CD dokumentacije.
+- **Kratak opis zadatka ili upita:** Postavljanje GitHub Actions workflowa za PR provjere na `develop`, release workflow za `release/1.0` i `master`, izrada verzionisanih artefakata, deploy frontenda na Cloudflare Pages i uskladjivanje dokumentacije sa novim targetima.
+- **Šta je AI predložio ili generisao:**
+    - `ci.yml` workflow za build i typecheck (root, backend, frontend) na PR prema `develop`.
+    - `release.yml` workflow za build, typecheck, verzionisane artefakte i Cloudflare Pages deploy.
+    - Dokumentacijsko azuriranje CI/CD, deploy topologije i otvorenih pitanja u tehničkom setup dokumentu.
+- **Šta je tim prihvatio:** Workflow fajlove i dokumentacijske izmjene za CI/CD i deploy.
+- **Šta je tim izmijenio:** Prihvacen je fallback verzije na `build-<shortsha>` kada commit nema git tag.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Produkcijske vrijednosti za `NEXT_PUBLIC_API_BASE_URL` i `NEXT_PUBLIC_SOCKET_URL` moraju biti postavljene u Cloudflare/Railway okruzenju da frontend ne ostane vezan za lokalni host.
+- **Ko je koristio alat:** Razvojni tim //fixxxxx
+
+---
+
 - **Datum:** 26.04.2026.
 - **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** Google Gemini (LLM)
@@ -185,3 +202,149 @@
 
 ---
 
+**Datum:** 29.04.2026.  
+**Sprint broj:** Sprint 5  
+**Alat koji je korišten:** GPT-4 / Codex  
+**Svrha korištenja:** Implementacija PBI-044 (Centralizovano logovanje i health nadzor) i PBI-045 (Globalni exception handler i standardizacija API grešaka).  
+**Kratak opis zadatka ili upita:**  
+Implementacija sistema za centralizovano logovanje, health nadzor, te globalni handler za greške sa standardizovanim API odgovorima u backend aplikaciji.  
+- Implementacija health endpointa za provjeru aplikacije i baze podataka.  
+- Dodavanje middlewarea za logovanje svakog HTTP zahtjeva.  
+- Postavljanje globalnog handlera za greške sa standardizovanim odgovorima na greške.  
+- Konfiguracija logova za startup i greške u aplikaciji.
+
+**Šta je AI predložio ili generisao:**
+- Generisao je logger za aplikaciju (`src/shared/logger.ts`) koji koristi strukturirani format logova sa timestamp-om, levelom, i porukama.  
+- Predložio je middleware za logovanje svakog HTTP zahtjeva (`src/middleware/request-logger.middleware.ts`).  
+- Predložio implementaciju health endpointa (`src/routes/health.route.ts`) koji provjerava aplikaciju i status baze.  
+- Predložio rješenje za globalni exception handler sa standardizovanim formatom odgovora u slučaju greške.  
+
+**Šta je tim prihvatio:**
+- Prihvaćene su sve implementacije vezane za logging i health provjeru, uključujući kod za logovanje HTTP zahtjeva i implementaciju health endpointa.  
+- Prihvaćen je globalni error handler za sve greške koje se mogu desiti u aplikaciji.  
+- Tim je prihvatio predloženi način za logovanje startup događaja i grešaka prilikom povezivanja sa bazom.
+
+**Šta je tim izmijenio:**
+- Promijenjeni su logovi tako da uključuju više informacija o greškama koje se javljaju tokom startovanja aplikacije i povezivanja sa bazom.  
+
+**Šta je tim odbacio:**
+- Odbacili smo implementaciju naprednog health provjera (sposobnost praćenja svih servisa), jer su bili fokusirani na provjeru samo aplikacije i baze podataka za ovu fazu.  
+- Odbačeno je logovanje svih uspješnih HTTP odgovora, jer je odlučeno da logujemo samo greške ili ključne događaje (kao što je start aplikacije).
+
+**Rizici, problemi ili greške koje su uočene:**
+- Moguće dupliciranje logova u nekim slučajevima pri bržem pokretanju aplikacije (koje uključuje bazu) gdje health endpoint može izazvati brzo timeout ka bazi.  
+- Postoji rizik da neki logovi sadrže osjetljive podatke ako ne bude pravilno podešen **logging level** za produkciju.
+
+**Ko je koristio alat:** Lejla Gičević
+
+---
+
+**Datum:** 27.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI), Codex (VS Code)
+
+**Svrha korištenja:**
+Implementacija reusable authentication i authorization middleware-a, debugging TypeScript grešaka i konfiguracije backend okruženja.
+
+**Kratak opis zadatka ili upita:**
+Razvoj middleware-a za provjeru autentifikacije i role-based pristupa (RBAC) u Express backendu. Zadatak je obuhvatio kreiranje authenticate i authorizeRoles funkcija, povezivanje middleware-a sa rutama (auth i users), te testiranje različitih scenarija pristupa (401, 403, 200).
+
+**Šta je AI predložio ili generisao:**
+- Strukturu Express middleware-a za autentifikaciju i autorizaciju
+- Implementaciju authorizeRoles funkcije sa podrškom za više uloga
+- Rješenja za TypeScript greške (RequestHandler, tipovi za req.user)
+- Upute za testiranje ruta putem Postman-a (401/403/200 scenariji)
+- Pomoć pri konfiguraciji .env i Prisma okruženja
+
+**Šta je tim prihvatio:**
+- Osnovnu strukturu middleware-a (authenticate, authorizeRoles)
+- Način integracije middleware-a u backend rute
+- Predložene test scenarije za validaciju funkcionalnosti
+
+**Šta je tim izmijenio:**
+- Prilagođena authorizeRoles funkcija za provjeru više uloga
+- Integracija middleware-a u više modula (auth, users) radi reusability
+- Dodan mock korisnik za potrebe testiranja (privremeno rješenje)
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Problemi sa env konfiguracijom (DATABASE_URL nije bio prepoznat)
+- TypeScript greške vezane za tipove (req, res, next)
+- Potencijalni rizik jer autentifikacija trenutno koristi mock podatke umjesto stvarnog JWT mehanizma
+
+**Ko je koristio alat:** Dalila Tanković
+
+---
+**Datum:** 28.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI)
+
+**Svrha korištenja:**
+Implementacija centralizovanog validation middleware-a i DTO/schema sloja koristeći Zod.
+
+**Kratak opis zadatka ili upita:**
+Razvoj reusable middleware-a za validaciju ulaznih zahtjeva u Express backendu. Zadatak je obuhvatio definisanje Zod schema za validaciju (register, login), integraciju middleware-a u rute, te standardizaciju formata grešaka za neispravne requeste.
+
+**Šta je AI predložio ili generisao:**
+- Strukturu `validate` middleware-a koristeći Zod `safeParse`
+- Korištenje `flatten().fieldErrors` za frontend-friendly error format
+- Primjere Zod schema za register i login
+- Način integracije middleware-a u rute bez dupliciranja logike
+
+**Šta je tim prihvatio:**
+- Centralizovani pristup validaciji putem middleware-a
+- Korištenje Zod biblioteke za schema definicije
+- Standardizovan format grešaka za sve validacione slučajeve
+
+**Šta je tim izmijenio:**
+- Prilagođen format error response-a (dodano `statusCode`)
+- Integracija middleware-a u postojeće auth rute umjesto test handlera
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Moguće da neki postojeći endpointi još nisu migrirani na novi validation sloj
+- Potreba da frontend pravilno mapira field-level greške
+
+**Ko je koristio alat:** Dalila Tanković
+
+---
+**Datum:** 28.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI)
+
+**Svrha korištenja:**
+Implementacija autentifikacije i autorizacije koristeći Keycloak kao eksterni identity provider.
+
+**Kratak opis zadatka ili upita:**
+Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koristeći Keycloak access token. Zadatak je obuhvatio dekodiranje JWT tokena, ekstrakciju korisničkih rola, integraciju middleware-a u rute, te rješavanje merge konflikata sa postojećim kodom.
+
+**Šta je AI predložio ili generisao:**
+- Strukturu auth middleware-a za parsiranje JWT tokena
+- Način ekstrakcije rola iz Keycloak access tokena
+
+**Šta je tim prihvatio:**
+- Korištenje Keycloak-a kao eksternog identity provider-a
+- Middleware za autentifikaciju i role-based autorizaciju
+- Integraciju middleware-a u postojeće rute
+
+**Šta je tim izmijenio:**
+- Promijenjen pristup autentifikaciji sa lokalnog (mock) na Keycloak-based
+- Prilagođeno dekodiranje JWT payload-a (base64 padding fix)
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Problemi sa Keycloak konfiguracijom mogu uticati na testiranje
+
+**Ko je koristio alat:** Dalila Tanković

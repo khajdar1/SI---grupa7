@@ -1,5 +1,6 @@
-import { Priority } from "@prisma/client";
 import { AuditService } from "../../shared/audit.service";
+import { Priority } from "@prisma/client";
+export { Priority } 
 
 export interface SlaConfiguration {
   id: number;

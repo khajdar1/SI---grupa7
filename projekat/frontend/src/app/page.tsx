@@ -1,148 +1,70 @@
+export const runtime = 'edge';
+
 import Link from 'next/link';
 
-export default function Page() {
-  const capabilityCards = [
-    {
-      title: 'Fault intake',
-      description: 'Anonymous or logged-in fault reporting with categories, attachments, and auto location capture.',
-    },
-    {
-      title: 'Dispatch',
-      description: 'Coordinator workflow for priority ranking, team assignment, and workload balancing.',
-    },
-    {
-      title: 'Operations',
-      description: 'Status tracking, intervention history, reports, and a clear audit trail for every change.',
-    },
-    {
-      title: 'Control plane',
-      description: 'User management, company segregation, SLA rules, and notification flow from one place.',
-    },
-  ];
+import { ROUTES } from '@/constants';
+import { HOME_CAPABILITY_CARDS, HOME_STACK_PILLS } from '@/constants/content';
+import { PageHeader, PageLayout, StatCard } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-  const stackPills = ['Next.js', 'React', 'Express', 'TypeScript', 'MySQL', 'Socket.IO'];
-
+export default function HomePage() {
   return (
-    <div className="page stack">
-      <section className="hero panel">
-        <div className="hero-copy">
-          <span className="pill pill--teal">Sprint 4 skeleton</span>
-          <h1 className="hero-title">A structured launchpad for service intervention management.</h1>
-          <p className="lead">
-            The repository is now split into a Next.js frontend and a modular Express backend so the team can move from
-            documentation to implementation without reshaping the repo again.
-          </p>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Service Intervention Platform"
+        subtitle="A structured launchpad for service intervention management implementation."
+        breadcrumbs={[{ label: 'Home' }]}
+        primaryAction={{ label: 'Open login', href: ROUTES.LOGIN }}
+        secondaryActions={[
+          { label: 'Fault reports', href: ROUTES.FAULT_REPORTS, variant: 'outline' },
+          { label: 'Dashboard', href: ROUTES.DASHBOARD, variant: 'outline' },
+        ]}
+      />
 
-          <div className="button-row">
-            <Link className="button button--solid" href="/login">
-              Open login shell
-            </Link>
-            <Link className="button button--ghost" href="/fault-reports">
-              Open fault report shell
-            </Link>
-            <Link className="button button--ghost" href="/dashboard">
-              Inspect the dashboard shell
-            </Link>
-          </div>
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard title="Core MVP streams" value="05" />
+        <StatCard title="Backend module routes" value="21" />
+        <StatCard title="Workspaces in monorepo" value="02" />
+        <StatCard title="Shared runtime setup" value="01" />
+      </section>
 
-          <ul className="quick-facts">
-            <li>Project scope follows the backlog, use-case model, and architecture overview.</li>
-            <li>Backend modules mirror the core MVP and near-term extensions.</li>
-            <li>MySQL is wired through Docker Compose for local development.</li>
-          </ul>
-        </div>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Core Modules</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3">
+            {HOME_CAPABILITY_CARDS.map((card) => (
+              <div key={card.title} className="rounded-lg border p-3">
+                <p className="font-medium">{card.title}</p>
+                <p className="text-sm text-muted-foreground">{card.description}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
-        <aside className="hero-panel">
-          <div className="metric-grid metric-grid--compact">
-            <article className="metric-card">
-              <strong>05</strong>
-              <span>core MVP streams</span>
-            </article>
-            <article className="metric-card">
-              <strong>21</strong>
-              <span>backend module routes</span>
-            </article>
-            <article className="metric-card">
-              <strong>02</strong>
-              <span>workspaces in the monorepo</span>
-            </article>
-            <article className="metric-card">
-              <strong>01</strong>
-              <span>shared DB and runtime setup</span>
-            </article>
-          </div>
-
-          <div className="panel panel--soft stack-tight">
-            <div className="section-heading section-heading--compact">
-              <span className="section-kicker">Project signal</span>
-              <h2 className="section-title">Built around the roles from the documentation</h2>
-            </div>
-            <div className="tag-row">
-              {['Citizen', 'Legal entity', 'Technician', 'Coordinator', 'Admin', 'Management'].map((role) => (
-                <span key={role} className="tag">
-                  {role}
+        <Card>
+          <CardHeader>
+            <CardTitle>Technical Setup</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              {HOME_STACK_PILLS.map((item) => (
+                <span key={item} className="rounded-full border px-3 py-1">
+                  {item}
                 </span>
               ))}
             </div>
-          </div>
-        </aside>
+            <p className="text-sm text-muted-foreground">
+              Frontend uses Next.js App Router and backend exposes modular typed Express services.
+            </p>
+            <Button asChild variant="outline">
+              <Link href={ROUTES.REPORTS}>Explore reports shell</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </section>
-
-      <section className="section">
-        <div className="section-heading">
-          <span className="section-kicker">Core modules</span>
-          <h2 className="section-title">The skeleton already reflects the real system boundaries.</h2>
-          <p className="section-copy">
-            Every card below corresponds to a block already described in the sprint documents, so the code base stays
-            aligned with the analysis and planning work.
-          </p>
-        </div>
-
-        <div className="card-grid">
-          {capabilityCards.map((card) => (
-            <article key={card.title} className="info-card">
-              <h3>{card.title}</h3>
-              <p>{card.description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Technical setup</span>
-            <h2 className="section-title">A clean base for the next sprint.</h2>
-          </div>
-
-          <div className="tag-row">
-            {stackPills.map((item) => (
-              <span key={item} className="pill pill--warm">
-                {item}
-              </span>
-            ))}
-          </div>
-
-          <p className="section-copy">
-            The frontend uses Next.js App Router and React, while the backend exposes a typed Express setup, MySQL
-            connection pool, and a Socket.IO entry point for real-time notification work.
-          </p>
-        </article>
-
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Next implementation slices</span>
-            <h2 className="section-title">The repo is ready for feature work.</h2>
-          </div>
-
-          <ol className="ordered-list">
-            <li>Authentication and registration flows</li>
-            <li>Fault reporting and intervention creation</li>
-            <li>Dispatch, status updates, and reporting</li>
-            <li>User administration, SLA rules, and audit history</li>
-          </ol>
-        </article>
-      </section>
-    </div>
+    </PageLayout>
   );
 }

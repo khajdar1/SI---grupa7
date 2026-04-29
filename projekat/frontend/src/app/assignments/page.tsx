@@ -1,49 +1,84 @@
-export default function Page() {
-  const ranking = [
-    'Technician 01 - 2 active interventions',
-    'Technician 02 - 4 active interventions',
-    'Technician 03 - 6 active interventions',
-  ];
+'use client';
+export const runtime = 'edge';
+
+import { useEffect, useState } from 'react';
+
+import { API_ENDPOINTS, ROUTES } from '@/constants';
+import { ASSIGNMENT_TOOLS } from '@/constants/content';
+import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { getModuleShell } from '@/services/module-shell.service';
+
+export default function AssignmentsPage() {
+  const [endpoints, setEndpoints] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadModule = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await getModuleShell(API_ENDPOINTS.ASSIGNMENTS.BASE);
+      setEndpoints(data?.endpoints ?? []);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load assignments module.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadModule();
+  }, []);
 
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Dispatch planning</span>
-        <h1 className="section-title">Assignments shell</h1>
-        <p className="section-copy">
-          The future screen will balance available technicians, manual overrides, and automated assignment rules.
-        </p>
-      </section>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Assignments"
+        subtitle="Dispatch planning for technicians and coordinators."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Assignments' }]}
+      />
 
-      <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Technician load</span>
-            <h2 className="section-title">Lower workload appears first.</h2>
-          </div>
+      {error ? (
+        <EmptyState title="Assignments unavailable" description={error} action={{ label: 'Retry', onClick: loadModule }} />
+      ) : null}
 
-          <ul className="ordered-list ordered-list--compact">
-            {ranking.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
+      <section className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Technician Load</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : endpoints.length > 0 ? (
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                {endpoints.map((endpoint) => (
+                  <li key={endpoint}>{endpoint}</li>
+                ))}
+              </ul>
+            ) : (
+              <EmptyState
+                title="No assignment data"
+                description="Assignment module endpoint metadata is not available."
+              />
+            )}
+          </CardContent>
+        </Card>
 
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Assignment tools</span>
-            <h2 className="section-title">Manual and automatic dispatch will live here.</h2>
-          </div>
-
-          <div className="tag-row">
-            {['Manual override', 'Auto assign', 'Multi-assignee', 'Load-aware'].map((item) => (
-              <span key={item} className="tag tag--muted">
+        <Card>
+          <CardHeader>
+            <CardTitle>Assignment Tools</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            {ASSIGNMENT_TOOLS.map((item) => (
+              <span key={item} className="rounded-full border px-3 py-1">
                 {item}
               </span>
             ))}
-          </div>
-        </article>
+          </CardContent>
+        </Card>
       </section>
-    </div>
+    </PageLayout>
   );
 }
