@@ -37,8 +37,8 @@ export function createApp() {
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cors({ origin: allowedOrigins, credentials: true }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
   app.use(requestLoggerMiddleware);
 
   app.use(BACKEND_ROUTES.HEALTH, healthRouter);
@@ -65,8 +65,6 @@ export function createApp() {
   app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
-
-
 
   return app;
 }
