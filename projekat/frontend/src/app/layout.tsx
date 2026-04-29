@@ -6,7 +6,7 @@ import { Inter } from 'next/font/google';
 
 import { ROUTES } from '@/constants';
 import { AUTH_NAV_ITEMS, MAIN_NAV_ITEMS, SUPPORT_NAV_ITEMS } from '@/constants/content';
-import '../styles/global.css';
+import '@/styles/global.css';
 
 const inter = Inter({
   subsets: ['latin'],
