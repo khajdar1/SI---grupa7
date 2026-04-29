@@ -480,6 +480,221 @@ li {
   grid-column: 1 / -1;
 }
 
+.field--grow {
+  flex: 1 1 0;
+}
+
+.field-note {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+.field-error {
+  color: #9f1d1d;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.location-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.button--inline {
+  align-self: end;
+}
+
+.button--compact {
+  min-height: 38px;
+  padding-inline: 14px;
+}
+
+.form-grid--intake {
+  gap: 18px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.template-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.74);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.template-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(16, 32, 51, 0.08);
+}
+
+.template-card--selected {
+  border-color: rgba(15, 118, 110, 0.38);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.12), rgba(255, 255, 255, 0.94));
+}
+
+.template-card__label {
+  font-weight: 700;
+}
+
+.template-card__copy {
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 0.9rem;
+}
+
+.summary-card,
+.confirmation-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.summary-card strong,
+.confirmation-card strong {
+  font-size: 1.05rem;
+}
+
+.summary-card p,
+.confirmation-card p {
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.attachment-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.attachment-item div {
+  display: grid;
+  gap: 4px;
+}
+
+.attachment-item span,
+.intervention-feed__item span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.notice {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+}
+
+.notice--error {
+  border-color: rgba(159, 29, 29, 0.18);
+  background: rgba(159, 29, 29, 0.08);
+  color: #8d1f1f;
+}
+
+.notice--success {
+  border-color: rgba(15, 118, 110, 0.18);
+  background: rgba(15, 118, 110, 0.09);
+  color: var(--accent-strong);
+}
+
+.intervention-feed {
+  display: grid;
+  gap: 12px;
+}
+
+.intervention-feed__item,
+.intervention-feed__empty {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.intervention-feed__item {
+  display: grid;
+  gap: 10px;
+}
+
+.intervention-feed__item strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.intervention-feed__empty {
+  color: var(--muted);
+}
+
+.status-pill--urgent {
+  color: #9e2b00;
+  background: rgba(184, 0, 0, 0.11);
+}
+
+.status-pill--high,
+.status-pill--visok {
+  color: #9a4b00;
+  background: rgba(184, 92, 0, 0.11);
+}
+
+.status-pill--normal,
+.status-pill--normalan {
+  color: #1b4d3e;
+  background: rgba(15, 118, 110, 0.11);
+}
+
+.status-pill--low {
+  color: #1d4ed8;
+  background: rgba(53, 86, 201, 0.11);
+}
+
+/* Custom file input styling */
+input[type="file"] {
+  padding: 12px 14px;
+  border: 2px dashed var(--line);
+  border-radius: 16px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(15, 118, 110, 0.03));
+  transition: all 160ms ease;
+  font-size: 0.95rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+input[type="file"]:hover {
+  border-color: rgba(15, 118, 110, 0.4);
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 1), rgba(15, 118, 110, 0.08));
+}
+
+input[type="file"]:focus {
+  outline: 2px solid rgba(15, 118, 110, 0.5);
+  outline-offset: 2px;
+}
+
 .table-shell {
   overflow-x: auto;
   border: 1px solid var(--line);

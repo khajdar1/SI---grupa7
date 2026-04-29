@@ -5,31 +5,50 @@ import Link from 'next/link';
 import { api } from "../../lib/api";
 import { Category } from "../../models/Category";
 
+type Intervention = {
+  id: number;
+  name: string;
+  description: string;
+  priority: string;
+  status: string;
+  category: {
+    id: number;
+    name: string;
+  };
+  company: {
+    id: number;
+    name: string;
+  };
+  createdAt: string;
+};
+
 export default function Page() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const [interventions, setInterventions] = useState<Intervention[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get("/categories");
-        setCategories(res.data);
+        const [categoriesRes, interventionsRes] = await Promise.all([
+          api.get("/categories"),
+          api.get("/interventions"),
+        ]);
+        setCategories(categoriesRes.data);
+        setInterventions(interventionsRes.data);
       } catch (err) {
-        console.error("Failed to load categories.");
+        console.error("Failed to load data.");
+      } finally {
+        setLoading(false);
       }
     };
-    fetchCategories();
+    fetchData();
   }, []);
 
-  const allRows = [
-    { id: 'INV-1042', title: 'Water leak at downtown branch', priority: 'Hitan', status: 'Open', owner: 'Coordinator A', categoryName: 'Vodovodni kvar' },
-    { id: 'INV-1041', title: 'Power outage in office block', priority: 'Visok', status: 'In progress', owner: 'Coordinator B', categoryName: 'Elektricni kvar' },
-    { id: 'INV-1039', title: 'Scheduled pump maintenance', priority: 'Normalan', status: 'Open', owner: 'Coordinator A', categoryName: 'Opste odrzavanje' },
-  ];
-
   const rows = selectedCategory === "ALL" 
-      ? allRows 
-      : allRows.filter((r) => r.categoryName === categories.find(c => c.id.toString() === selectedCategory)?.name);
+      ? interventions
+      : interventions.filter((i) => i.category.id.toString() === selectedCategory);
 
   return (
     <div className="page stack">
@@ -77,26 +96,31 @@ export default function Page() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td>{row.title}</td>
-                  <td>{row.categoryName}</td>
-                  <td>
-                    <span className={`status-pill status-pill--${row.priority.toLowerCase()}`}>{row.priority}</span>
-                  </td>
-                  <td>
-                    <span className={`status-pill status-pill--${row.status.toLowerCase().replace(' ', '-')}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td>{row.owner}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
+              {loading ? (
                 <tr>
-                   <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>No interventions match the selected category.</td>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Učitavanje intervencija...</td>
                 </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>Nema intervencija.</td>
+                </tr>
+              ) : (
+                rows.map((row) => (
+                  <tr key={row.id}>
+                    <td>INT-{String(row.id).padStart(5, '0')}</td>
+                    <td>{row.name}</td>
+                    <td>{row.category.name}</td>
+                    <td>
+                      <span className={`status-pill status-pill--${row.priority.toLowerCase()}`}>{row.priority}</span>
+                    </td>
+                    <td>
+                      <span className={`status-pill status-pill--${row.status.toLowerCase().replace(' ', '-')}`}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td>{row.company.name}</td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
@@ -110,4 +134,4 @@ export default function Page() {
       </div>
     </div>
   );
-}
+}
