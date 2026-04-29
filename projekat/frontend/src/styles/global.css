@@ -1,7 +1,12 @@
 @import "tailwindcss";
+
+@source "../app";
+@source "../components";
+@source "../constants";
+@source "../lib";
+
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap');
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -12,9 +17,9 @@
   --surface-strong: #ffffff;
   --surface-soft: rgba(255, 255, 255, 0.5);
   --text: #102033;
-  --muted: oklch(0.97 0 0);
+  --muted: #5f6b7a;
   --line: rgba(16, 32, 51, 0.12);
-  --accent: oklch(0.97 0 0);
+  --accent: #0b5b55;
   --accent-strong: #0b5b55;
   --accent-warm: #b85c00;
   --accent-cool: #3556c9;
@@ -836,7 +841,7 @@ tbody tr:hover {
 .page-layout {
   max-width: var(--content-max-width);
   padding: var(--page-padding-y) var(--page-padding-x);
-  background: hsl(var(--background));
+  background: var(--background);
 }
 
 .status-token-new {
