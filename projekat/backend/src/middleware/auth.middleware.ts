@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { HTTP_STATUS } from '../constants';
 
 type AuthenticatedUser = {
   id?: string;
@@ -70,13 +71,13 @@ export const authenticate: RequestHandler = (req, res, next) => {
   const token = getTokenFromRequest(req);
 
   if (!token) {
-    return res.status(401).json({ message: 'Authentication token missing' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token missing' });
   }
 
   const payload = decodeJwtPayload(token);
 
   if (!payload) {
-    return res.status(401).json({ message: 'Invalid authentication token' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Invalid authentication token' });
   }
 
   const roles = extractRoles(payload);
@@ -93,13 +94,13 @@ export const authenticate: RequestHandler = (req, res, next) => {
 export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: 'Unauthorized' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Unauthorized' });
     }
 
     const hasRequiredRole = allowedRoles.some((role) => req.user?.roles.includes(role));
 
     if (!hasRequiredRole) {
-      return res.status(403).json({ message: 'Forbidden' });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Forbidden' });
     }
 
     return next();

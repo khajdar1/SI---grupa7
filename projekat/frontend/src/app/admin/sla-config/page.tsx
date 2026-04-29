@@ -1,33 +1,34 @@
+﻿'use client';
 export const runtime = 'edge';
-"use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { api } from "../../../lib/api";
+import { useEffect, useState } from 'react';
 
-interface SlaConfig {
-  priority: "URGENT" | "HIGH" | "NORMAL" | "LOW";
-  deadlineHours: number;
-  updatedAt: string;
-}
+import { ROUTES, UI } from '@/constants';
+import { DataTable, PageHeader, PageLayout, PriorityBadge } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { PRIORITY_OPTIONS, type Priority } from '@shared/enums';
+import {
+  getSlaConfigurations,
+  updateSlaConfigurations,
+  type SlaConfiguration,
+} from '@/services/sla.service';
 
-const PRIORITY_LABELS: Record<string, { label: string; color: string }> = {
-  URGENT: { label: "Hitan", color: "#d32f2f" },
-  HIGH: { label: "Visok", color: "#f57c00" },
-  NORMAL: { label: "Normalan", color: "#388e3c" },
-  LOW: { label: "Nizak", color: "#1976d2" },
-};
+const PRIORITY_FIELD_KEYS = new Set(PRIORITY_OPTIONS.map((priority) => `${priority}_hours`));
 
-function mapBackendErrors(
-  backendErrors: Record<string, string>,
-): Record<string, string> {
+function mapBackendErrors(backendErrors: Record<string, string>): Record<string, string> {
   const mappedErrors: Record<string, string> = {};
 
   for (const [key, message] of Object.entries(backendErrors)) {
-    if (key.match(/^(URGENT|HIGH|NORMAL|LOW)_hours$/)) {
+    if (PRIORITY_FIELD_KEYS.has(key)) {
       mappedErrors[key] = message;
-    } else if (key.startsWith("config_")) {
-      for (const priority of ["URGENT", "HIGH", "NORMAL", "LOW"]) {
+      continue;
+    }
+
+    if (key.startsWith('config_')) {
+      for (const priority of PRIORITY_OPTIONS) {
         if (String(message).includes(priority)) {
           mappedErrors[`${priority}_hours`] = message;
           break;
@@ -40,267 +41,225 @@ function mapBackendErrors(
 }
 
 export default function AdminSlaConfigPage() {
-  const [configs, setConfigs] = useState<SlaConfig[]>([]);
+  const [configs, setConfigs] = useState<SlaConfiguration[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const [formData, setFormData] = useState<Record<string, string>>({
-    URGENT: "",
-    HIGH: "",
-    NORMAL: "",
-    LOW: "",
-  });
+  const [formData, setFormData] = useState<Record<Priority, string>>(() =>
+    PRIORITY_OPTIONS.reduce(
+      (accumulator, priority) => ({ ...accumulator, [priority]: '' }),
+      {} as Record<Priority, string>,
+    ),
+  );
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const formatDate = (date?: string) => {
-    if (!date) return "—";
-    const d = new Date(date);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("bs-BA");
+    if (!date) {
+      return '-';
+    }
+
+    const parsedDate = new Date(date);
+    return Number.isNaN(parsedDate.getTime()) ? '-' : parsedDate.toLocaleDateString('bs-BA');
   };
 
   const fetchSlaConfigs = async () => {
     try {
       setLoading(true);
-      const res = await api.get("/sla");
-      setConfigs(res.data);
+      const configurations = await getSlaConfigurations();
+      setConfigs(configurations);
 
-      const data: Record<string, string> = {};
-      res.data.forEach((c: SlaConfig) => {
-        data[c.priority] = String(c.deadlineHours);
+      const nextFormData = PRIORITY_OPTIONS.reduce(
+        (accumulator, priority) => ({ ...accumulator, [priority]: '' }),
+        {} as Record<Priority, string>,
+      );
+
+      configurations.forEach((config) => {
+        nextFormData[config.priority] = String(config.deadlineHours);
       });
 
-      setFormData(data);
+      setFormData(nextFormData);
       setFieldErrors({});
-      setError("");
-    } catch (err: any) {
-      setError(
-        err?.response?.data?.message || "Failed to load SLA configurations",
-      );
+      setError('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load SLA configurations');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSlaConfigs();
+    void fetchSlaConfigs();
   }, []);
 
-  const validateField = (priority: string, value: string): string => {
-    const label = PRIORITY_LABELS[priority].label;
+  const validateField = (_priority: Priority, value: string): string => {
+    if (value === '') {
+      return 'Value cannot be empty';
+    }
 
-    if (value === "") return `${label}: value cannot be empty`;
+    const numericValue = Number(value);
 
-    const num = Number(value);
+    if (!Number.isInteger(numericValue)) {
+      return 'Must be a whole number';
+    }
 
-    if (!Number.isInteger(num)) return `${label}: must be whole number`;
-    if (num <= 0) return `${label}: must be > 0`;
-    if (num > 8760) return `${label}: max 8760h`;
+    if (numericValue <= 0) {
+      return 'Must be greater than 0';
+    }
 
-    return "";
+    if (numericValue > 8760) {
+      return 'Maximum is 8760 hours';
+    }
+
+    return '';
   };
 
-  const handleInputChange = (priority: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [priority]: value }));
+  const handleInputChange = (priority: Priority, value: string) => {
+    setFormData((previous) => ({ ...previous, [priority]: value }));
 
-    const error = validateField(priority, value);
+    const validationError = validateField(priority, value);
+    const fieldKey = `${priority}_hours`;
 
-    setFieldErrors((prev) => {
-      const updated = { ...prev };
-      if (error) updated[`${priority}_hours`] = error;
-      else delete updated[`${priority}_hours`];
-      return updated;
+    setFieldErrors((previous) => {
+      const next = { ...previous };
+
+      if (validationError) {
+        next[fieldKey] = validationError;
+      } else {
+        delete next[fieldKey];
+      }
+
+      return next;
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setSuccessMessage("");
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccessMessage('');
 
-    const priorityOrder = ["URGENT", "HIGH", "NORMAL", "LOW"];
+    const validationErrors: Record<string, string> = {};
 
-    const newErrors: Record<string, string> = {};
-    for (const p of priorityOrder) {
-      const err = validateField(p, formData[p]);
-      if (err) newErrors[`${p}_hours`] = err;
+    for (const priority of PRIORITY_OPTIONS) {
+      const validationError = validateField(priority, formData[priority]);
+      if (validationError) {
+        validationErrors[`${priority}_hours`] = validationError;
+      }
     }
 
-    if (Object.keys(newErrors).length > 0) {
-      setFieldErrors(newErrors);
+    if (Object.keys(validationErrors).length > 0) {
+      setFieldErrors(validationErrors);
       return;
     }
 
     try {
       setSaving(true);
 
-      const configurations = priorityOrder.map((p) => ({
-        priority: p,
-        deadlineHours: parseInt(formData[p], 10),
+      const configurations = PRIORITY_OPTIONS.map((priority) => ({
+        priority,
+        deadlineHours: Number.parseInt(formData[priority], 10),
       }));
 
-      await api.put("/sla", { configurations });
-
+      await updateSlaConfigurations({ configurations });
       await fetchSlaConfigs();
-      setSuccessMessage("SLA configuration updated successfully!");
-    } catch (err: any) {
-      const backendErrors = err?.response?.data?.errors || {};
-      setFieldErrors(mapBackendErrors(backendErrors));
+      setSuccessMessage('SLA configuration updated successfully.');
+    } catch (requestError) {
+      const maybeErrors =
+        typeof requestError === 'object' && requestError !== null
+          ? (requestError as { details?: { response?: { data?: { errors?: Record<string, string> } } } }).details
+              ?.response?.data?.errors ?? {}
+          : {};
 
-      setError(
-        err?.response?.data?.message || "Failed to update SLA configuration",
-      );
+      setFieldErrors(mapBackendErrors(maybeErrors));
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update SLA configuration');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: 1000, margin: "0 auto", padding: "20px" }}>
-      <h1 style={{ fontSize: 28, marginBottom: 20 }}>SLA Configuration</h1>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="SLA Configuration"
+        subtitle="Define deadline hours for each intervention priority."
+        breadcrumbs={[{ label: 'Admin', href: ROUTES.ADMIN }, { label: 'SLA Configuration' }]}
+      />
 
-      {error && (
-        <div style={{ background: "#fee2e2", padding: 10, marginBottom: 10 }}>
-          {error}
-        </div>
-      )}
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
 
-      {successMessage && (
-        <div style={{ background: "#dcfce7", padding: 10, marginBottom: 10 }}>
-          {successMessage}
-        </div>
-      )}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Update SLA</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {PRIORITY_OPTIONS.map((priority) => {
+                  const key = `${priority}_hours`;
+                  const hasError = key in fieldErrors;
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {/* FORM */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            padding: 20,
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ marginBottom: 15 }}>Update SLA</h2>
+                  return (
+                    <div key={priority} className="space-y-2">
+                      <Label htmlFor={key}>{priority}</Label>
+                      <Input
+                        id={key}
+                        type="number"
+                        value={formData[priority]}
+                        onChange={(event) => handleInputChange(priority, event.target.value)}
+                        aria-invalid={hasError}
+                      />
+                      {hasError ? <p className="text-xs text-destructive">{fieldErrors[key]}</p> : null}
+                    </div>
+                  );
+                })}
 
-          {loading ? (
-            <p>Loading...</p>
-          ) : (
-            <form onSubmit={handleSubmit}>
-              {(["URGENT", "HIGH", "NORMAL", "LOW"] as const).map((p) => {
-                const key = `${p}_hours`;
-                const hasError = key in fieldErrors;
+                <Button
+                  type="submit"
+                  disabled={saving || Object.keys(fieldErrors).length > 0}
+                  className="w-full"
+                >
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
 
-                return (
-                  <div key={p} style={{ marginBottom: 15 }}>
-                    <label style={{ display: "block", marginBottom: 5 }}>
-                      <span
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <span
-                          style={{
-                            width: 10,
-                            height: 10,
-                            background: PRIORITY_LABELS[p].color,
-                            borderRadius: 2,
-                          }}
-                        />
-                        {PRIORITY_LABELS[p].label}
-                      </span>
-                    </label>
-
-                    <input
-                      type="number"
-                      value={formData[p]}
-                      onChange={(e) => handleInputChange(p, e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px",
-                        borderRadius: 6,
-                        border: hasError
-                          ? "2px solid #dc2626"
-                          : "1px solid #ccc",
-                      }}
-                    />
-
-                    {hasError && (
-                      <p style={{ color: "#dc2626", fontSize: 12 }}>
-                        {fieldErrors[key]}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-
-              <button
-                type="submit"
-                disabled={saving || Object.keys(fieldErrors).length > 0}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  background: "#111827",
-                  color: "white",
-                  borderRadius: 6,
-                  cursor: "pointer",
-                  opacity:
-                    saving || Object.keys(fieldErrors).length > 0 ? 0.6 : 1,
-                }}
-              >
-                {saving ? "Saving..." : "Save Configuration"}
-              </button>
-            </form>
-          )}
-        </div>
-
-        {/* DISPLAY */}
-        <div
-          style={{
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            padding: 20,
-            background: "#fff",
-          }}
-        >
-          <h2 style={{ marginBottom: 15 }}>Current</h2>
-
-          {loading ? (
-            <p>Loading...</p>
-          ) : configs.length > 0 ? (
-            configs.map((c) => (
-              <div
-                key={c.priority}
-                style={{
-                  borderLeft: `4px solid ${PRIORITY_LABELS[c.priority].color}`,
-                  padding: 10,
-                  marginBottom: 10,
-                  background: "#f9fafb",
-                  borderRadius: 6,
-                }}
-              >
-                <strong>{PRIORITY_LABELS[c.priority].label}</strong>
-                <div style={{ fontSize: 18, fontWeight: "bold" }}>
-                  {c.deadlineHours}h
-                </div>
-                <div style={{ fontSize: 12, color: "#666" }}>
-                  Updated: {formatDate(c.updatedAt)}
-                </div>
-              </div>
-            ))
-          ) : (
-            <p>No data</p>
-          )}
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Current</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <DataTable<SlaConfiguration>
+              columns={[
+                {
+                  key: 'priority',
+                  header: 'Priority',
+                  render: (value) => <PriorityBadge priority={value as Priority} />,
+                },
+                { key: 'deadlineHours', header: 'Hours', width: UI.TABLE_COLUMN_WIDTHS.SLA_HOURS },
+                {
+                  key: 'updatedAt',
+                  header: 'Updated',
+                  render: (value) => formatDate(String(value)),
+                },
+              ]}
+              data={configs}
+              keyExtractor={(row) => row.priority}
+              isLoading={loading}
+              emptyTitle="No SLA data"
+              emptyDescription="Seed or configure SLA values to continue."
+              error={null}
+            />
+          </CardContent>
+        </Card>
       </div>
-
-      <div style={{ marginTop: 20 }}>
-        <Link href="/admin">← Back to Admin</Link>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

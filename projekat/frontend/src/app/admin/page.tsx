@@ -1,64 +1,60 @@
 export const runtime = 'edge';
-import Link from "next/link";
 
-export default function Page() {
+import Link from 'next/link';
+
+import { ROUTES } from '@/constants';
+import { ADMIN_SYSTEM_TAGS } from '@/constants/content';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export default function AdminPage() {
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Administration</span>
-        <h1 className="section-title">Admin shell</h1>
-        <p className="section-copy">
-          The admin workspace will eventually cover user accounts, categories,
-          SLA values, and audit visibility.
-        </p>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Admin"
+        subtitle="User governance, category maintenance, and SLA tuning surface."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Admin' }]}
+      />
+
+      <section className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>User Governance</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li>Create or deactivate user accounts.</li>
+              <li>Bind accounts to a company or organization.</li>
+              <li>Adjust access according to documented roles.</li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>System Tuning</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+              {ADMIN_SYSTEM_TAGS.map((item) => (
+                <span key={item} className="rounded-full border px-3 py-1">
+                  {item}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Button asChild>
+                <Link href={ROUTES.ADMIN_CATEGORY}>Manage Categories</Link>
+              </Button>
+              <Button asChild>
+                <Link href={ROUTES.ADMIN_SLA_CONFIG}>Configure SLA</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </section>
-
-      <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">User governance</span>
-            <h2 className="section-title">Accounts and role control.</h2>
-          </div>
-
-          <ul className="quick-facts quick-facts--stacked">
-            <li>Create or deactivate user accounts.</li>
-            <li>Bind accounts to a company or organization.</li>
-            <li>Adjust access according to the documented roles.</li>
-          </ul>
-        </article>
-
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">System tuning</span>
-            <h2 className="section-title">Categories, SLA, and audit trail.</h2>
-          </div>
-
-          <div className="tag-row">
-            {["SLA limits", "Audit log", "Disabled states"].map((item) => (
-              <span key={item} className="tag tag--muted">
-                {item}
-              </span>
-            ))}
-          </div>
-
-          <div
-            className="button-row"
-            style={{
-              marginTop: "16px",
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-            }}
-          >
-            <Link href="/admin/categories" className="button button--solid">
-              Manage Categories
-            </Link>
-            <Link href="/admin/sla-config" className="button button--solid">
-              Configure SLA
-            </Link>
-          </div>
-        </article>
-      </section>
-    </div>
+    </PageLayout>
   );
 }

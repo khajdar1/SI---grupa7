@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaClientKnownRequestError, PrismaClientInitializationError } from '@prisma/client/runtime/library';
 import { ZodError } from 'zod';
 
+import { HTTP_STATUS } from '../constants';
 import { env } from '../config/env';
 import { AppError } from '../shared/errors';
 import { logger } from '../shared/logger';
@@ -14,7 +15,7 @@ function getRequestId(req: Request) {
 function mapPrismaError(error: PrismaClientKnownRequestError) {
   if (error.code === 'P2002') {
     return {
-      statusCode: 400,
+      statusCode: HTTP_STATUS.BAD_REQUEST,
       code: 'DATABASE_CONSTRAINT_ERROR',
       message: 'Request violates a database constraint.',
     };
@@ -22,21 +23,21 @@ function mapPrismaError(error: PrismaClientKnownRequestError) {
 
   if (error.code === 'P2025') {
     return {
-      statusCode: 404,
+      statusCode: HTTP_STATUS.NOT_FOUND,
       code: 'RESOURCE_NOT_FOUND',
       message: 'Requested resource was not found.',
     };
   }
 
   return {
-    statusCode: 500,
+    statusCode: HTTP_STATUS.INTERNAL,
     code: 'DATABASE_ERROR',
     message: 'Database operation failed.',
   };
 }
 
 export const notFoundMiddleware: RequestHandler = (req, res) => {
-  res.status(404).json({
+  res.status(HTTP_STATUS.NOT_FOUND).json({
     success: false,
     error: {
       code: 'ROUTE_NOT_FOUND',
@@ -47,7 +48,7 @@ export const notFoundMiddleware: RequestHandler = (req, res) => {
 };
 
 export const errorMiddleware: ErrorRequestHandler = (error, req, res, _next) => {
-  let statusCode = 500;
+  let statusCode: number = HTTP_STATUS.INTERNAL;
   let code = 'INTERNAL_SERVER_ERROR';
   let message = 'An unexpected server error occurred.';
   let fields: unknown;
@@ -58,7 +59,7 @@ export const errorMiddleware: ErrorRequestHandler = (error, req, res, _next) => 
     message = error.message;
     fields = error.fields;
   } else if (error instanceof ZodError) {
-    statusCode = 400;
+    statusCode = HTTP_STATUS.BAD_REQUEST;
     code = 'VALIDATION_ERROR';
     message = 'Validation failed.';
     fields = error.issues.map((issue) => ({
@@ -71,7 +72,7 @@ export const errorMiddleware: ErrorRequestHandler = (error, req, res, _next) => 
     code = mappedError.code;
     message = mappedError.message;
   } else if (error instanceof PrismaClientInitializationError) {
-    statusCode = 503;
+    statusCode = HTTP_STATUS.SERVICE_UNAVAILABLE;
     code = 'DATABASE_UNAVAILABLE';
     message = 'Database is currently unavailable.';
   }

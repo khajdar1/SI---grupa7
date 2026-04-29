@@ -1,11 +1,13 @@
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { api } from "../../lib/api";
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
+
+import { ROUTES, UI } from '@/constants';
+import { login, logout } from '@/services/auth.service';
 
 export function useLogin() {
   const router = useRouter();
-  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [formData, setFormData] = useState({ username: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -18,24 +20,22 @@ export function useLogin() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formData.username || !formData.password) {
-      setServerError("Please fill in both fields.");
+      setServerError('Please fill in both fields.');
       return;
     }
 
     setSubmitting(true);
     try {
-      const response = await api.post("/auth/login", formData);
-      
-      Cookies.set("token", response.data.accessToken, { expires: 1, path: '/' }); //1 dan
-      localStorage.setItem("token", response.data.accessToken);
-      localStorage.setItem("refreshToken", response.data.refreshToken);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
+      const response = await login(formData);
 
-      router.push("/dashboard"); // zamijeniti s odgovarajućim redirectom prema ulozi
-    } catch (err: any) {
-      setServerError(
-        err?.response?.data?.message ?? "Login failed. Please check your credentials."
-      );
+      Cookies.set('token', response.accessToken, { expires: UI.SESSION_COOKIE_DAYS, path: '/' });
+      localStorage.setItem('token', response.accessToken);
+      localStorage.setItem('refreshToken', response.refreshToken);
+      localStorage.setItem('user', JSON.stringify(response.user));
+
+      router.push(ROUTES.DASHBOARD);
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : 'Login failed. Please check your credentials.');
     } finally {
       setSubmitting(false);
     }
@@ -43,22 +43,18 @@ export function useLogin() {
 
   async function handleLogout() {
     try {
-      const token = localStorage.getItem("token");
-      const refreshToken = localStorage.getItem("refreshToken");
+      const token = localStorage.getItem('token');
+      const refreshToken = localStorage.getItem('refreshToken');
 
       if (token) {
-        await api.post(
-          "/auth/logout",
-          { refreshToken },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        await logout({ token, refreshToken });
       }
     } catch {
-
+      // Intentionally swallow network logout errors and clear local session.
     } finally {
-      Cookies.remove("token", { path: '/' }); 
-      localStorage.clear()
-      router.replace("/login");
+      Cookies.remove('token', { path: '/' });
+      localStorage.clear();
+      router.replace(ROUTES.LOGIN);
     }
   }
 

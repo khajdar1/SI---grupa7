@@ -1,76 +1,73 @@
+'use client';
 export const runtime = 'edge';
-"use client";
 
 import Link from 'next/link';
+
+import { ROUTES } from '@/constants';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 import { useLogin } from './useLogin';
 
 export default function LoginPage() {
   const { formData, submitting, serverError, handleChange, handleSubmit } = useLogin();
 
   return (
-    <section className="auth-layout">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Authentication</span>
-          <h1 className="section-title">Login shell</h1>
-          <p className="section-copy">
-            Enter your credentials to securely access the platform.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Login"
+        subtitle="Enter your credentials to access the platform."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Login' }]}
+      />
 
-        {serverError && <div style={{ color: 'red', marginBottom: '1rem', fontSize: '0.9rem' }}>{serverError}</div>}
+      <Card className="max-w-xl">
+        <CardContent className="space-y-5 pt-6">
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
 
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Username</span>
-            <input 
-              type="text" 
-              name="username" 
-              autoComplete="username" 
-              placeholder="jdoe" 
-              value={formData.username}
-              onChange={handleChange}
-            />
-          </label>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                name="username"
+                autoComplete="username"
+                placeholder="jdoe"
+                value={formData.username}
+                onChange={handleChange}
+              />
+            </div>
 
-          <label className="field">
-            <span>Password</span>
-            <input 
-              type="password" 
-              name="password" 
-              autoComplete="current-password" 
-              placeholder="********" 
-              value={formData.password}
-              onChange={handleChange}
-            />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                autoComplete="current-password"
+                placeholder="********"
+                value={formData.password}
+                onChange={handleChange}
+              />
+            </div>
 
-          <div className="form-actions">
-            <button className="button button--solid" type="submit" disabled={submitting}>
-              {submitting ? 'Signing in...' : 'Sign in'}
-            </button>
-            <Link className="button button--ghost" href="/reset-password">
-              Reset password
-            </Link>
-            <Link className="button button--ghost" href="/register">
-              Create account
-            </Link>
-          </div>
-        </form>
-      </article>
-
-      <aside className="panel panel--soft stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Security</span>
-          <h2 className="section-title">Protected Access</h2>
-        </div>
-
-        <ul className="quick-facts">
-          <li>Sessions are securely managed via Keycloak.</li>
-          <li>Role-based access limits functionality based on your account level.</li>
-          <li>Ensure you log out when using public devices.</li>
-        </ul>
-      </aside>
-    </section>
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Signing in...' : 'Sign in'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.RESET_PASSWORD}>Reset password</Link>
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.REGISTER}>Create account</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

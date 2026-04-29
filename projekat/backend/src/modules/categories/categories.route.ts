@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../../config/database';
+import { HTTP_STATUS } from '../../constants';
 import { CategoryService, ICategoryRepository, ValidationError } from './categories.service';
 
 const categoriesRouter = Router();
@@ -18,20 +19,20 @@ categoriesRouter.get('/', async (_req, res) => {
     const categories = await categoryService.getAllCategories();
     res.json(categories);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch categories' });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to fetch categories' });
   }
 });
 
 categoriesRouter.post('/', async (req, res) => {
   try {
     const category = await categoryService.createCategory(req.body);
-    res.status(201).json(category);
+    res.status(HTTP_STATUS.CREATED).json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
-       res.status(400).json({ message: error.message });
+       res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
        return;
     }
-    res.status(500).json({ message: 'Failed to create category' });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to create category' });
   }
 });
 
@@ -42,10 +43,10 @@ categoriesRouter.patch('/:id', async (req, res) => {
     res.json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(400).json({ message: error.message });
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
       return;
     }
-    res.status(500).json({ message: 'Failed to update category' });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to update category' });
   }
 });
 
@@ -56,8 +57,8 @@ categoriesRouter.patch('/:id/status', async (req, res) => {
     const category = await categoryService.updateStatus(id, active);
     res.json(category);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update category status' });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to update category status' });
   }
 });
 
-export default categoriesRouter;
+export default categoriesRouter;

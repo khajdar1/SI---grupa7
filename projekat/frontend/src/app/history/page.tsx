@@ -1,34 +1,45 @@
-export const runtime = 'edge';
+import { ROUTES } from '@/constants';
+import { HISTORY_TAGS } from '@/constants/content';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import Link from 'next/link';
 
-export default function Page() {
+export const runtime = 'edge';
+
+export default function HistoryPage() {
   return (
-    <section className="page stack">
-      <article className="panel stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Audit trail</span>
-          <h1 className="section-title">History shell</h1>
-          <p className="section-copy">
-            This screen will present status changes, ownership changes, and the timeline of each intervention or
-            ticket.
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="History"
+        subtitle="Timeline and audit-trail view of intervention lifecycle changes."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'History' }]}
+      />
+
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <p className="text-sm text-muted-foreground">
+            This screen will present status changes, ownership updates, and event timeline context.
           </p>
-        </div>
 
-        <div className="tag-row">
-          <span className="tag">PBI-011</span>
-          <span className="tag">Status history</span>
-          <span className="tag">Timeline</span>
-        </div>
+          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            {HISTORY_TAGS.map((item) => (
+              <span key={item} className="rounded-full border px-3 py-1">
+                {item}
+              </span>
+            ))}
+          </div>
 
-        <div className="button-row">
-          <Link className="button button--solid" href="/reports">
-            View reports
-          </Link>
-          <Link className="button button--ghost" href="/dashboard">
-            Back to dashboard
-          </Link>
-        </div>
-      </article>
-    </section>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={ROUTES.REPORTS}>View reports</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={ROUTES.DASHBOARD}>Back to dashboard</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }
