@@ -1,7 +1,12 @@
 import axios from 'axios';
 import { NETWORK } from '@/constants';
 
+const isProduction = process.env.NODE_ENV === 'production';
+const apiBaseUrl =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  (isProduction ? '' : NETWORK.API_BASE_URL_FALLBACK);
+
 export const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL ?? NETWORK.API_BASE_URL_FALLBACK,
+  baseURL: apiBaseUrl,
   withCredentials: true,
 });
