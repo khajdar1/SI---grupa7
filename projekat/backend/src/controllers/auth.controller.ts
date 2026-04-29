@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
+import { HTTP_STATUS } from "../constants";
 import { registerSchema } from "../modules/auth/auth.schema";
 import { ZodError } from "zod";
 import { loginKeycloakUser, logoutKeycloakUser } from "../clients/keycloak.client";
@@ -19,26 +20,26 @@ export const registerController = async (
     const input = registerSchema.parse(req.body);
     const user = await authService.register(input);
 
-    res.status(201).json(user);
+    res.status(HTTP_STATUS.CREATED).json(user);
   } catch (error: unknown) {
     if (error instanceof ZodError) {
-      res.status(400).json({ message: "Validation error.", errors: error.errors });
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Validation error.", errors: error.errors });
       return;
     }
 
     if (error instanceof ConflictError) {
-      res.status(409).json({ message: error.message });
+      res.status(HTTP_STATUS.CONFLICT).json({ message: error.message });
       return;
     }
 
     if (error instanceof KeycloakError) {
-      res.status(502).json({ message: "An external service error occurred. Please try again." });
+      res.status(HTTP_STATUS.EXTERNAL_SERVICE_ERROR).json({ message: "An external service error occurred. Please try again." });
       return;
     }
 
     console.error("[RegisterController] Unexpected error:", error);
 
-    res.status(500).json({ message: "An internal server error occurred. Please try again." });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "An internal server error occurred. Please try again." });
   }
 };
 
@@ -50,7 +51,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
 
     if (!username || !password) {
       console.warn("[LoginController] Login rejected — missing username or password.");
-      res.status(400).json({ message: "Username and password are required." });
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Username and password are required." });
       return;
     }
 
@@ -63,7 +64,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
       console.warn(
         `[LoginController] Keycloak authentication failed — errorType: ${errorName}`
       );
-      res.status(401).json({ message: "Invalid username or password." });
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Invalid username or password." });
       return;
     }
 
@@ -73,7 +74,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
       console.warn(
         `[LoginController] Login failed — user authenticated in Keycloak but not found in local DB — username: ${username}`
       );
-      res.status(404).json({ message: "User could not be found." });
+      res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User could not be found." });
       return;
     }
 
@@ -81,7 +82,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
       `[LoginController] Login successful — username: ${username}, id: ${userInDb.id}`
     );
 
-    res.status(200).json({
+    res.status(HTTP_STATUS.OK).json({
       message: "Login successful",
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token,
@@ -92,7 +93,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
     console.error(
       `[LoginController] Unexpected error during login — message: ${errorMessage}`
     );
-    res.status(500).json({ message: "An internal server error occurred. Please try again." });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "An internal server error occurred. Please try again." });
   }
 };
 
@@ -103,7 +104,7 @@ export const logoutController = async (req: Request, res: Response): Promise<voi
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       console.warn("[LogoutController] Logout attempted without a valid Authorization header.");
-      res.status(401).json({ message: "No active session found." });
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "No active session found." });
       return;
     }
 
@@ -115,13 +116,13 @@ export const logoutController = async (req: Request, res: Response): Promise<voi
 
     console.log("[LogoutController] Logout request received — client must clear stored token.");
 
-    res.status(200).json({ message: "Logged out successfully." });
+    res.status(HTTP_STATUS.OK).json({ message: "Logged out successfully." });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error(
       `[LogoutController] Unexpected error during logout — message: ${errorMessage}`
     );
-    res.status(500).json({ message: "An internal server error occurred. Please try again." });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "An internal server error occurred. Please try again." });
   }
 };
 
@@ -130,16 +131,16 @@ export const resetPasswordController = async (req: Request, res: Response): Prom
     const { email } = req.body;
     
     if (!email) {
-       res.status(400).json({ message: "Email is required." });
+       res.status(HTTP_STATUS.BAD_REQUEST).json({ message: "Email is required." });
        return;
     }
 
     console.log(`[ResetPasswordController] Reset request received for: ${email}`);
     await authService.triggerPasswordReset(email);
 
-    res.status(200).json({ message: "If the email exists, a reset link has been sent." });
+    res.status(HTTP_STATUS.OK).json({ message: "If the email exists, a reset link has been sent." });
   } catch (error: unknown) {
     console.error("[ResetPasswordController] Unexpected error:", error);
-    res.status(500).json({ message: "An internal server error occurred." });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "An internal server error occurred." });
   }
 };

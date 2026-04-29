@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../../config/database";
+import { HTTP_STATUS } from "../../constants";
 import { SlaService, ISlaRepository } from "./sla.service";
 import { validateUpdateSlaRequest } from "./sla.request-validators";
 
@@ -29,7 +30,7 @@ slaRouter.get("/", async (_req, res) => {
     const slaConfigs = await slaService.getAllSlaConfigurations();
     res.json(slaConfigs);
   } catch (error) {
-    res.status(500).json({ message: "Failed to fetch SLA configurations" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to fetch SLA configurations" });
   }
 });
 
@@ -45,7 +46,7 @@ slaRouter.put("/", validateUpdateSlaRequest, async (req, res) => {
 
     res.json(updated);
   } catch (error) {
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL).json({
       message: "Failed to update SLA configurations",
       errors: {},
     });

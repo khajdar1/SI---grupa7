@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { HTTP_STATUS } from "../../constants";
 import {
   validateConfigurationsArray,
   validateNoDuplicatePriorities,
@@ -20,7 +21,7 @@ export function validateUpdateSlaRequest(
 
   const arrayValidation = validateConfigurationsArray(configurations);
   if (!arrayValidation.valid) {
-    res.status(400).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       message: arrayValidation.error,
       errors: {},
     });
@@ -39,7 +40,7 @@ export function validateUpdateSlaRequest(
   // Check for duplicate priorities
   const duplicateValidation = validateNoDuplicatePriorities(configurations);
   if (!duplicateValidation.valid) {
-    res.status(400).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       message: duplicateValidation.error,
       errors: {},
     });
@@ -48,7 +49,7 @@ export function validateUpdateSlaRequest(
 
   // If any individual config validation failed, return all errors
   if (Object.keys(fieldErrors).length > 0) {
-    res.status(400).json({
+    res.status(HTTP_STATUS.BAD_REQUEST).json({
       message: "SLA configuration validation failed",
       errors: fieldErrors,
     });

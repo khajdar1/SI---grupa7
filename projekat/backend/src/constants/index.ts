@@ -1,0 +1,73 @@
+export const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  UNPROCESSABLE: 422,
+  EXTERNAL_SERVICE_ERROR: 502,
+  SERVICE_UNAVAILABLE: 503,
+  INTERNAL: 500,
+} as const;
+
+export const ERROR_CODES = {
+  NOT_FOUND: 'NOT_FOUND',
+  VALIDATION: 'VALIDATION_ERROR',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  CONFLICT: 'CONFLICT',
+  INTERNAL: 'INTERNAL_ERROR',
+} as const;
+
+export const PAGINATION = {
+  DEFAULT_PAGE: 1,
+  DEFAULT_PAGE_SIZE: 20,
+  MAX_PAGE_SIZE: 100,
+} as const;
+
+export const VALIDATION = {
+  TITLE_MIN: 3,
+  TITLE_MAX: 150,
+  DESCRIPTION_MIN: 10,
+  DESCRIPTION_MAX: 2000,
+  EMAIL_MAX: 255,
+  PASSWORD_MIN: 8,
+  PASSWORD_MAX: 128,
+  PHONE_MAX: 20,
+} as const;
+
+export const TIMING = {
+  JWT_EXPIRY_SECONDS: 3600,
+  REFRESH_TOKEN_EXPIRY_DAYS: 30,
+  REQUEST_TIMEOUT_MS: 8000,
+} as const;
+
+export const API_PREFIX = '/api/v1' as const;
+
+export const BACKEND_ROUTES = {
+  HEALTH: `${API_PREFIX}/health`,
+  FAULT_REPORTS: `${API_PREFIX}/fault-reports`,
+  AUTH: `${API_PREFIX}/auth`,
+  USERS: `${API_PREFIX}/users`,
+  COMPANIES: `${API_PREFIX}/companies`,
+  CATEGORIES: `${API_PREFIX}/categories`,
+  INTERVENTIONS: `${API_PREFIX}/interventions`,
+  ASSIGNMENTS: `${API_PREFIX}/assignments`,
+  REPORTS: `${API_PREFIX}/reports`,
+  ATTACHMENTS: `${API_PREFIX}/attachments`,
+  NOTIFICATIONS: `${API_PREFIX}/notifications`,
+  SLA: `${API_PREFIX}/sla`,
+  AUDIT: `${API_PREFIX}/audit`,
+  COMMENTS: `${API_PREFIX}/comments`,
+  FEEDBACK: `${API_PREFIX}/feedback`,
+  HISTORY: `${API_PREFIX}/history`,
+  TICKETS: `${API_PREFIX}/tickets`,
+  MESSAGES: `${API_PREFIX}/messages`,
+  PROFILE: `${API_PREFIX}/profile`,
+  BLOCKING: `${API_PREFIX}/blocking`,
+  SYSTEM_CONFIG: `${API_PREFIX}/system-config`,
+  MAPS: `${API_PREFIX}/maps`,
+} as const;

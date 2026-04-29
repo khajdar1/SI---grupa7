@@ -1,5 +1,6 @@
 import type { RequestHandler } from 'express';
 
+import { HTTP_STATUS } from '../constants';
 import { logger } from '../shared/logger';
 
 export const requestLoggerMiddleware: RequestHandler = (req, res, next) => {
@@ -8,7 +9,7 @@ export const requestLoggerMiddleware: RequestHandler = (req, res, next) => {
   res.on('finish', () => {
     const durationMs = Date.now() - startedAt;
 
-    if (res.statusCode >= 400) {
+    if (res.statusCode >= HTTP_STATUS.BAD_REQUEST) {
       logger.warn('HTTP request completed with error status', {
         method: req.method,
         path: req.originalUrl,

@@ -1,34 +1,46 @@
 export const runtime = 'edge';
+
 import Link from 'next/link';
 
-export default function Page() {
+import { ROUTES } from '@/constants';
+import { TICKETS_TAGS } from '@/constants/content';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+
+export default function TicketsPage() {
   return (
-    <section className="page stack">
-      <article className="panel stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Support operations</span>
-          <h1 className="section-title">Tickets shell</h1>
-          <p className="section-copy">
-            This route covers support tickets, message threads, and the handoff between users and coordinators.
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Tickets"
+        subtitle="Support ticket flow and messaging handoff workspace."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Tickets' }]}
+      />
+
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <p className="text-sm text-muted-foreground">
+            This route covers ticket handling, message threads, and support-coordination workflows.
           </p>
-        </div>
 
-        <div className="tag-row">
-          <span className="tag">Ticketing</span>
-          <span className="tag">Messages</span>
-          <span className="tag">PBI-027</span>
-          <span className="tag">PBI-028</span>
-        </div>
+          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+            {TICKETS_TAGS.map((item) => (
+              <span key={item} className="rounded-full border px-3 py-1">
+                {item}
+              </span>
+            ))}
+          </div>
 
-        <div className="button-row">
-          <Link className="button button--solid" href="/fault-reports">
-            Open fault intake
-          </Link>
-          <Link className="button button--ghost" href="/dashboard">
-            Back to dashboard
-          </Link>
-        </div>
-      </article>
-    </section>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href={ROUTES.FAULT_REPORTS}>Open fault intake</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href={ROUTES.DASHBOARD}>Back to dashboard</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

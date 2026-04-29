@@ -26,7 +26,7 @@ export interface AuditLogEntry {
 export interface SlaConfigurationChangeEvent extends AuditLogEntry {
   action: "SLA_CONFIGURATION_UPDATED";
   entity: "SlaConfiguration";
-  entityId: string; // Priority name (URGENT, HIGH, NORMAL, LOW)
+  entityId: string; // Priority name (LOW, MEDIUM, HIGH, CRITICAL)
   oldValues: {
     deadlineHours: number;
   };

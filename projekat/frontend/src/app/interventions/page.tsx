@@ -1,114 +1,133 @@
-"use client";
+'use client';
 export const runtime = 'edge';
 
-import { useEffect, useState } from "react";
-import Link from 'next/link';
-import { api } from "../../lib/api";
-import { Category } from "../../models/Category";
+import { useEffect, useMemo, useState } from 'react';
 
-export default function Page() {
+import { ROUTES, UI } from '@/constants';
+import {
+  DataTable,
+  FilterBar,
+  PageHeader,
+  PageLayout,
+  PriorityBadge,
+  InterventionStatusBadge,
+} from '@/components/shared';
+import type { Category } from '@/models/Category';
+import {
+  getInterventions,
+  type InterventionListItem,
+} from '@/services/interventions.service';
+import { getCategories } from '@/services/categories.service';
+import type { ModuleShellResponse } from '@/services/types';
+
+const ALL_CATEGORY = 'ALL';
+
+export default function InterventionsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [rows, setRows] = useState<InterventionListItem[]>([]);
+  const [moduleInfo, setModuleInfo] = useState<ModuleShellResponse | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const [categoryList, interventionsResult] = await Promise.all([
+        getCategories(),
+        getInterventions(),
+      ]);
+
+      setCategories(categoryList);
+      setRows(interventionsResult.items);
+      setModuleInfo(interventionsResult.moduleInfo);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load interventions data.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await api.get("/categories");
-        setCategories(res.data);
-      } catch (err) {
-        console.error("Failed to load categories.");
-      }
-    };
-    fetchCategories();
+    void loadData();
   }, []);
 
-  const allRows = [
-    { id: 'INV-1042', title: 'Water leak at downtown branch', priority: 'Hitan', status: 'Open', owner: 'Coordinator A', categoryName: 'Vodovodni kvar' },
-    { id: 'INV-1041', title: 'Power outage in office block', priority: 'Visok', status: 'In progress', owner: 'Coordinator B', categoryName: 'Elektricni kvar' },
-    { id: 'INV-1039', title: 'Scheduled pump maintenance', priority: 'Normalan', status: 'Open', owner: 'Coordinator A', categoryName: 'Opste odrzavanje' },
+  const filteredRows = useMemo(() => {
+    if (selectedCategory === ALL_CATEGORY) {
+      return rows;
+    }
+
+    const category = categories.find((item) => String(item.id) === selectedCategory);
+    if (!category) {
+      return [];
+    }
+
+    return rows.filter((row) => row.categoryName === category.name);
+  }, [categories, rows, selectedCategory]);
+
+  const filterOptions = [
+    { value: ALL_CATEGORY, label: 'All categories' },
+    ...categories.map((category) => ({
+      value: String(category.id),
+      label: category.name,
+    })),
   ];
 
-  const rows = selectedCategory === "ALL" 
-      ? allRows 
-      : allRows.filter((r) => r.categoryName === categories.find(c => c.id.toString() === selectedCategory)?.name);
+  const emptyDescription = moduleInfo
+    ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(', ')}`
+    : 'No intervention records available yet.';
 
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Core workflow</span>
-        <h1 className="section-title">Interventions shell</h1>
-        <p className="section-copy">
-          This route will eventually provide prioritised lists, filters, and a direct entry point into status updates
-          and assignment actions.
-        </p>
-      </section>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Interventions"
+        subtitle="Prioritized list for operational follow-up and ownership tracking."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Interventions' }]}
+      />
 
-      <article className="panel stack-tight">
-        <div className="table-toolbar" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <span className="pill pill--teal">Priority ranking</span>
-          <span className="pill pill--warm">Coordinator view</span>
-          <span className="pill pill--blue">Filter-ready layout</span>
-          
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
-             <label htmlFor="categoryFilter" style={{ fontWeight: 'bold' }}>Filter by Category:</label>
-             <select 
-               id="categoryFilter"
-               value={selectedCategory} 
-               onChange={(e) => setSelectedCategory(e.target.value)}
-               style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}
-             >
-               <option value="ALL">All Categories</option>
-               {categories.map((c) => (
-                 <option key={c.id} value={c.id}>{c.name}</option>
-               ))}
-             </select>
-          </div>
-        </div>
+      <FilterBar
+        filters={[
+          {
+            key: 'category',
+            label: 'Category',
+            options: filterOptions,
+            value: selectedCategory,
+            onChange: setSelectedCategory,
+          },
+        ]}
+        isFiltered={selectedCategory !== ALL_CATEGORY}
+        onClear={() => setSelectedCategory(ALL_CATEGORY)}
+      />
 
-        <div className="table-shell">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Owner</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <td>{row.id}</td>
-                  <td>{row.title}</td>
-                  <td>{row.categoryName}</td>
-                  <td>
-                    <span className={`status-pill status-pill--${row.priority.toLowerCase()}`}>{row.priority}</span>
-                  </td>
-                  <td>
-                    <span className={`status-pill status-pill--${row.status.toLowerCase().replace(' ', '-')}`}>
-                      {row.status}
-                    </span>
-                  </td>
-                  <td>{row.owner}</td>
-                </tr>
-              ))}
-              {rows.length === 0 && (
-                <tr>
-                   <td colSpan={6} style={{ textAlign: 'center', padding: '20px' }}>No interventions match the selected category.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </article>
-      
-      <div className="button-row" style={{marginTop: '20px'}}>
-        <Link className="button button--ghost" href="/dashboard">
-          Back to dashboard
-        </Link>
-      </div>
-    </div>
+      <DataTable<InterventionListItem>
+        columns={[
+          { key: 'id', header: 'ID', width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_ID },
+          { key: 'title', header: 'Title' },
+          { key: 'categoryName', header: 'Category' },
+          {
+            key: 'priority',
+            header: 'Priority',
+            width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_PRIORITY,
+            render: (value) => <PriorityBadge priority={value as InterventionListItem['priority']} />,
+          },
+          {
+            key: 'status',
+            header: 'Status',
+            width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_STATUS,
+            render: (value) => <InterventionStatusBadge status={value as InterventionListItem['status']} />,
+          },
+          { key: 'owner', header: 'Owner', width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER },
+        ]}
+        data={filteredRows}
+        keyExtractor={(row) => row.id}
+        isLoading={isLoading}
+        error={error}
+        onRetry={loadData}
+        emptyTitle="No interventions in this category"
+        emptyDescription={emptyDescription}
+      />
+    </PageLayout>
   );
 }
