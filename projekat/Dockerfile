@@ -7,10 +7,11 @@ ENV DATABASE_URL=mysql://service_app:service_app@localhost:3306/service_interven
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends openssl ca-certificates \
 	&& rm -rf /var/lib/apt/lists/*
-
+	
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
+COPY shared/ shared/
 COPY backend/prisma backend/prisma
 COPY backend/prisma.config.ts backend/prisma.config.ts
 COPY backend/src/config/database-url.ts backend/src/config/database-url.ts
