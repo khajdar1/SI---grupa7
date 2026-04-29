@@ -17,6 +17,42 @@
 
 ---
 
+- **Datum:** 29.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot
+- **Svrha korištenja:** Implementacija PBI-003 (Prijava kvara) i priprema prateće AI usage evidencije.
+- **Kratak opis zadatka ili upita:** Zadatak je obuhvatio razvoj backend i frontend podrške za prijavu kvara, prilagodbu validacije i autorizacije, te evidentiranje izvršenih izmjena i verifikacija u skladu s definicijom AI usage loga.
+- **Šta je AI predložio ili generisao:**
+    - Izmjenu validacije i payload buildera za prijavu kvara.
+    - Ažuriranje poslovnih pravila za regularne i emergency prijave.
+    - Frontend prilagodbe za goste i autentifikovane korisnike.
+    - Prijedlog testova i komandi za verifikaciju backend i frontend promjena.
+- **Šta je tim prihvatio:** Sve izmjene koje su direktno podržale PBI-003 i prateću verifikaciju.
+- **Šta je tim izmijenio:** Fajl sa zasebnim PBI logom je sadržajno uklopljen u glavni AI usage log.
+- **Šta je tim odbacio:** Razvojne i testne improvizacije koje nisu bile dio produkcijskog ponašanja.
+- **Rizici, problemi ili greške koje su uočene:** Potreba za naknadnim usklađivanjem QA skripti i integracija koje su zavisile od starog oblika payloada; preporuka za dodatni E2E test sa stvarnim auth providerom prije produkcije.
+- **Ko je koristio alat:** Ismail Mujanović
+
+---
+
+- **Datum:** 29.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot
+- **Svrha korištenja:** Implementacija PBI-032 (Admin upravljanje kategorijama kvarova) i fina UI prilagodba admin panela.
+- **Kratak opis zadatka ili upita:** Zadatak je obuhvatio admin pregled i upravljanje kategorijama kvarova, uključujući kreiranje, uređivanje, deaktivaciju i reaktivaciju kategorija, prikaz audit podataka, te dodatne UI prilagodbe za scrollable listu i kompaktniji create panel.
+- **Šta je AI predložio ili generisao:**
+    - Backend proširenje kategorija s audit poljima i validacijom aktivnog stanja.
+    - Slanje admin identiteta kroz zahtjeve radi evidencije izmjena.
+    - Frontend prikaz statusa, datuma kreiranja i ko je posljednji mijenjao kategoriju.
+    - UI smanjenje visine novog category panela i scrollable lista svih kategorija.
+- **Šta je tim prihvatio:** Sve izmjene koje direktno podržavaju PBI-032 i traženo ponašanje admin panela.
+- **Šta je tim izmijenio:** Dodatno je ograničeno horizontalno razvlačenje description textarea polja kako ne bi izlazilo iz panela.
+- **Šta je tim odbacio:** Preširoke layout izmjene i bilo kakvo rastavljanje postojeće strukture admin stranice koje nisu bile potrebne za ovaj PBI.
+- **Rizici, problemi ili greške koje su uočene:** Client-side prenos admin imena je privremeno rješenje dok backend ne dobije server-side user context; zbog toga je označen kao sigurnosni rizik za budući hardening.
+- **Ko je koristio alat:** Ismail Mujanović
+
+---
+
 - **Datum:** 26.04.2026.
 - **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** Claude (Anthropic)
