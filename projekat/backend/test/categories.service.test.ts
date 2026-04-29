@@ -5,7 +5,7 @@ import {
   ICategoryRepository,
   ValidationError,
   CategoryData,
-} from "./categories.service";
+} from "../src/modules/categories/categories.service";
 
 class MockCategoryRepository implements ICategoryRepository {
   private categories: any[] = [];
@@ -56,10 +56,8 @@ test("CategoryService - createCategory (Validation Error: missing name)", async 
   const service = new CategoryService(repo);
 
   await assert.rejects(
-    async () =>
-      service.createCategory({ name: "   ", description: "Empty name" }),
-    (err: any) =>
-      err instanceof ValidationError && err.message === "Name is required",
+    async () => service.createCategory({ name: "   ", description: "Empty name" }),
+    (err: any) => err instanceof ValidationError && err.message === "Name is required",
   );
 });
 
@@ -122,3 +120,4 @@ test("CategoryService - updateStatus", async () => {
 
   assert.equal(result.active, false);
 });
+

@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert";
-import { Priority, SlaService, ISlaRepository } from "./sla.service";
+import { Priority, SlaService, ISlaRepository } from "../src/modules/sla/sla.service";
 
 const mockRepository: ISlaRepository = {
   findAll: async () => [
@@ -140,8 +140,8 @@ describe("SlaService", () => {
     await assert.rejects(
       () => slaService.updateSlaConfigurations(updates, 123),
       (err: Error) =>
-        err.message.includes("Duplicate priority") &&
-        err.message.includes("CRITICAL"),
+        err.message.includes("Duplicate priority") && err.message.includes("CRITICAL"),
     );
   });
 });
+

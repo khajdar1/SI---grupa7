@@ -1,5 +1,5 @@
-import assert from 'node:assert/strict';
-import test from 'node:test';
+import assert from "node:assert/strict";
+import test from "node:test";
 
 import {
   AssignmentMethod,
@@ -16,7 +16,7 @@ import {
   type SeedUserInput,
   Priority,
   seedDatabase,
-} from './seed';
+} from "../src/scripts/seed";
 
 type PriorityValue = (typeof Priority)[keyof typeof Priority];
 
@@ -66,16 +66,20 @@ function createMemorySeedClient(): { client: SeedClient; state: MemoryState } {
 
   const client: SeedClient = {
     company: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.companies, where.name, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.companies, where.name, create, update),
     },
     category: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.categories, where.name, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.categories, where.name, create, update),
     },
     slaConfiguration: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.slaConfigurations, where.priority, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.slaConfigurations, where.priority, create, update),
     },
     user: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.users, where.email, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.users, where.email, create, update),
     },
     externalIdentity: {
       upsert: async ({ where, create, update }) => {
@@ -84,25 +88,28 @@ function createMemorySeedClient(): { client: SeedClient; state: MemoryState } {
       },
     },
     faultReport: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.faultReports, where.id, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.faultReports, where.id, create, update),
     },
     intervention: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.interventions, where.id, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.interventions, where.id, create, update),
     },
     assignment: {
-      upsert: async ({ where, create, update }) => upsertByKey(state.assignments, where.id, create, update),
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.assignments, where.id, create, update),
     },
   };
 
   return { client, state };
 }
 
-test('should seed the demo dataset with local profiles and external identities', async () => {
+test("should seed the demo dataset with local profiles and external identities", async () => {
   const { client, state } = createMemorySeedClient();
 
   const summary = await seedDatabase(client);
 
-  assert.equal(summary.companyName, 'Servis Alfa d.o.o.');
+  assert.equal(summary.companyName, "Servis Alfa d.o.o.");
   assert.equal(summary.categoryCount, 4);
   assert.equal(summary.slaConfigurationCount, 4);
   assert.equal(summary.userCount, 5);
@@ -119,17 +126,17 @@ test('should seed the demo dataset with local profiles and external identities',
   assert.equal(state.interventions.size, 1);
   assert.equal(state.assignments.size, 1);
 
-  const company = state.companies.get('Servis Alfa d.o.o.');
+  const company = state.companies.get("Servis Alfa d.o.o.");
   assert.ok(company);
 
-  const electricalCategory = state.categories.get('Elektricni kvar');
+  const electricalCategory = state.categories.get("Elektricni kvar");
   assert.ok(electricalCategory);
 
-  const admin = state.users.get('ana.admin@demo.local');
-  const coordinator = state.users.get('milan.koordinator@demo.local');
-  const servicer = state.users.get('marko.serviser@demo.local');
-  const management = state.users.get('lejla.menadzment@demo.local');
-  const customer = state.users.get('jelena.korisnik@demo.local');
+  const admin = state.users.get("ana.admin@demo.local");
+  const coordinator = state.users.get("milan.koordinator@demo.local");
+  const servicer = state.users.get("marko.serviser@demo.local");
+  const management = state.users.get("lejla.menadzment@demo.local");
+  const customer = state.users.get("jelena.korisnik@demo.local");
   assert.ok(admin);
   assert.ok(coordinator);
   assert.ok(servicer);
@@ -139,20 +146,25 @@ test('should seed the demo dataset with local profiles and external identities',
   const externalIdentityProviders = Array.from(state.externalIdentities.values())
     .map((identity) => identity.provider)
     .sort();
-  assert.deepEqual(externalIdentityProviders, ['entra', 'entra', 'entra', 'entra', 'entra']);
+  assert.deepEqual(externalIdentityProviders, ["entra", "entra", "entra", "entra", "entra"]);
 
   const externalIdentitySubjects = Array.from(state.externalIdentities.values())
     .map((identity) => identity.providerSubject)
     .sort();
-  assert.deepEqual(externalIdentitySubjects, [
-    'entra-admin-001',
-    'entra-coordinator-001',
-    'entra-management-001',
-    'entra-servicer-001',
-    'entra-user-001',
-  ].sort());
+  assert.deepEqual(
+    externalIdentitySubjects,
+    [
+      "entra-admin-001",
+      "entra-coordinator-001",
+      "entra-management-001",
+      "entra-servicer-001",
+      "entra-user-001",
+    ].sort(),
+  );
 
-  const externalIdentityUserIds = new Set(Array.from(state.externalIdentities.values()).map((identity) => identity.userId));
+  const externalIdentityUserIds = new Set(
+    Array.from(state.externalIdentities.values()).map((identity) => identity.userId),
+  );
   for (const user of state.users.values()) {
     assert.equal(externalIdentityUserIds.has(user.id), true);
   }
@@ -182,7 +194,9 @@ test('should seed the demo dataset with local profiles and external identities',
   assert.equal(management.companyId, company.id);
   assert.equal(customer.companyId, company.id);
 
-  const externalIdentityLinks = Array.from(state.externalIdentities.values()).map((identity) => `${identity.userId}:${identity.provider}`);
+  const externalIdentityLinks = Array.from(state.externalIdentities.values()).map(
+    (identity) => `${identity.userId}:${identity.provider}`,
+  );
   assert.equal(new Set(externalIdentityLinks).size, 5);
 
   assert.deepEqual(
@@ -193,14 +207,14 @@ test('should seed the demo dataset with local profiles and external identities',
   );
 });
 
-test('should remain idempotent when the seed runs twice', async () => {
+test("should remain idempotent when the seed runs twice", async () => {
   const { client, state } = createMemorySeedClient();
 
   const firstSummary = await seedDatabase(client);
-  const firstCompanyId = state.companies.get('Servis Alfa d.o.o.')?.id;
+  const firstCompanyId = state.companies.get("Servis Alfa d.o.o.")?.id;
 
   const secondSummary = await seedDatabase(client);
-  const secondCompanyId = state.companies.get('Servis Alfa d.o.o.')?.id;
+  const secondCompanyId = state.companies.get("Servis Alfa d.o.o.")?.id;
 
   assert.equal(firstSummary.companyName, secondSummary.companyName);
   assert.equal(firstSummary.categoryCount, secondSummary.categoryCount);
@@ -216,3 +230,4 @@ test('should remain idempotent when the seed runs twice', async () => {
   assert.equal(state.assignments.size, 1);
   assert.equal(firstCompanyId, secondCompanyId);
 });
+
