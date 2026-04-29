@@ -237,3 +237,114 @@ Implementacija sistema za centralizovano logovanje, health nadzor, te globalni h
 
 **Ko je koristio alat:** Lejla Gičević
 
+---
+
+**Datum:** 27.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI), Codex (VS Code)
+
+**Svrha korištenja:**
+Implementacija reusable authentication i authorization middleware-a, debugging TypeScript grešaka i konfiguracije backend okruženja.
+
+**Kratak opis zadatka ili upita:**
+Razvoj middleware-a za provjeru autentifikacije i role-based pristupa (RBAC) u Express backendu. Zadatak je obuhvatio kreiranje authenticate i authorizeRoles funkcija, povezivanje middleware-a sa rutama (auth i users), te testiranje različitih scenarija pristupa (401, 403, 200).
+
+**Šta je AI predložio ili generisao:**
+- Strukturu Express middleware-a za autentifikaciju i autorizaciju
+- Implementaciju authorizeRoles funkcije sa podrškom za više uloga
+- Rješenja za TypeScript greške (RequestHandler, tipovi za req.user)
+- Upute za testiranje ruta putem Postman-a (401/403/200 scenariji)
+- Pomoć pri konfiguraciji .env i Prisma okruženja
+
+**Šta je tim prihvatio:**
+- Osnovnu strukturu middleware-a (authenticate, authorizeRoles)
+- Način integracije middleware-a u backend rute
+- Predložene test scenarije za validaciju funkcionalnosti
+
+**Šta je tim izmijenio:**
+- Prilagođena authorizeRoles funkcija za provjeru više uloga
+- Integracija middleware-a u više modula (auth, users) radi reusability
+- Dodan mock korisnik za potrebe testiranja (privremeno rješenje)
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Problemi sa env konfiguracijom (DATABASE_URL nije bio prepoznat)
+- TypeScript greške vezane za tipove (req, res, next)
+- Potencijalni rizik jer autentifikacija trenutno koristi mock podatke umjesto stvarnog JWT mehanizma
+
+**Ko je koristio alat:** Dalila Tanković
+
+---
+**Datum:** 28.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI)
+
+**Svrha korištenja:**
+Implementacija centralizovanog validation middleware-a i DTO/schema sloja koristeći Zod.
+
+**Kratak opis zadatka ili upita:**
+Razvoj reusable middleware-a za validaciju ulaznih zahtjeva u Express backendu. Zadatak je obuhvatio definisanje Zod schema za validaciju (register, login), integraciju middleware-a u rute, te standardizaciju formata grešaka za neispravne requeste.
+
+**Šta je AI predložio ili generisao:**
+- Strukturu `validate` middleware-a koristeći Zod `safeParse`
+- Korištenje `flatten().fieldErrors` za frontend-friendly error format
+- Primjere Zod schema za register i login
+- Način integracije middleware-a u rute bez dupliciranja logike
+
+**Šta je tim prihvatio:**
+- Centralizovani pristup validaciji putem middleware-a
+- Korištenje Zod biblioteke za schema definicije
+- Standardizovan format grešaka za sve validacione slučajeve
+
+**Šta je tim izmijenio:**
+- Prilagođen format error response-a (dodano `statusCode`)
+- Integracija middleware-a u postojeće auth rute umjesto test handlera
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Moguće da neki postojeći endpointi još nisu migrirani na novi validation sloj
+- Potreba da frontend pravilno mapira field-level greške
+
+**Ko je koristio alat:** Dalila Tanković
+
+---
+**Datum:** 28.04.2026.
+
+**Sprint broj:** Sprint 5
+
+**Alat koji je korišten:** ChatGPT (OpenAI)
+
+**Svrha korištenja:**
+Implementacija autentifikacije i autorizacije koristeći Keycloak kao eksterni identity provider.
+
+**Kratak opis zadatka ili upita:**
+Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koristeći Keycloak access token. Zadatak je obuhvatio dekodiranje JWT tokena, ekstrakciju korisničkih rola, integraciju middleware-a u rute, te rješavanje merge konflikata sa postojećim kodom.
+
+**Šta je AI predložio ili generisao:**
+- Strukturu auth middleware-a za parsiranje JWT tokena
+- Način ekstrakcije rola iz Keycloak access tokena
+
+**Šta je tim prihvatio:**
+- Korištenje Keycloak-a kao eksternog identity provider-a
+- Middleware za autentifikaciju i role-based autorizaciju
+- Integraciju middleware-a u postojeće rute
+
+**Šta je tim izmijenio:**
+- Promijenjen pristup autentifikaciji sa lokalnog (mock) na Keycloak-based
+- Prilagođeno dekodiranje JWT payload-a (base64 padding fix)
+
+**Šta je tim odbacio:**
+/
+
+**Rizici, problemi ili greške koje su uočene:**
+- Problemi sa Keycloak konfiguracijom mogu uticati na testiranje
+
+**Ko je koristio alat:** Dalila Tanković
