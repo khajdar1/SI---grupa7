@@ -4,19 +4,36 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-  "dev": "next dev",
-  "build": "next build",
-  "build:cf": "npx @cloudflare/next-on-pages",
-  "typecheck": "tsc -p tsconfig.json --noEmit",
-  "start": "next start -H 0.0.0.0 -p 3000"
+    "dev": "next dev",
+    "build": "next build",
+    "build:cf": "npx @cloudflare/next-on-pages",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "next start -H 0.0.0.0 -p 3000"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
+    "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-avatar": "^1.1.11",
+    "@radix-ui/react-dropdown-menu": "^2.1.16",
+    "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-slot": "^1.2.4",
+    "@radix-ui/react-tabs": "^1.1.13",
     "axios": "^1.8.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "js-cookie": "^3.0.5",
+    "lucide-react": "^1.14.0",
     "next": "^15.3.0",
+    "next-themes": "^0.4.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "socket.io-client": "^4.8.1"
+    "react-hook-form": "^7.74.0",
+    "shadcn": "^4.6.0",
+    "socket.io-client": "^4.8.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.5.0",
+    "tw-animate-css": "^1.4.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
@@ -24,6 +41,9 @@
     "@types/node": "^22.13.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.12",
+    "tailwindcss": "^4.2.4",
     "typescript": "^5.7.3"
   }
 }

@@ -2,8 +2,17 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 import Link from 'next/link';
+import { Inter } from 'next/font/google';
 
+import { ROUTES } from '@/constants';
+import { AUTH_NAV_ITEMS, MAIN_NAV_ITEMS, SUPPORT_NAV_ITEMS } from '@/constants/content';
 import '../styles/global.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Sistem za upravljanje servisnim intervencijama',
@@ -14,38 +23,13 @@ type RootLayoutProps = {
   children: ReactNode;
 };
 
-const mainNavItems = [
-  { label: 'Home', to: '/' },
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Fault Reports', to: '/fault-reports' },
-  { label: 'Interventions', to: '/interventions' },
-  { label: 'Assignments', to: '/assignments' },
-  { label: 'Reports', to: '/reports' },
-];
-
-const supportNavItems = [
-  { label: 'History', to: '/history' },
-  { label: 'Tickets', to: '/tickets' },
-  { label: 'Map', to: '/map' },
-  { label: 'Profile', to: '/profile' },
-  { label: 'Settings', to: '/settings' },
-  { label: 'Admin', to: '/admin' },
-];
-
-const authNavItems = [
-  { label: 'Login', to: '/login' },
-  { label: 'Register', to: '/register' },
-  { label: 'Reset Password', to: '/reset-password' },
-  { label: 'Logout', to: '/logout' },
-];
-
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="bs">
+    <html lang="bs" className={inter.variable}>
       <body>
         <div className="app-shell">
           <header className="shell-topbar">
-            <Link className="brand" href="/">
+            <Link className="brand" href={ROUTES.HOME}>
               <span className="brand-mark">SI</span>
               <span className="brand-copy">
                 <strong>Service Interventions</strong>
@@ -55,7 +39,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
 
             <nav className="shell-nav" aria-label="Primary navigation">
               <div className="nav-group">
-                {mainNavItems.map((item) => (
+                {MAIN_NAV_ITEMS.map((item) => (
                   <Link key={item.to} href={item.to} className="nav-link">
                     {item.label}
                   </Link>
@@ -63,7 +47,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               </div>
 
               <div className="nav-group nav-group--support">
-                {supportNavItems.map((item) => (
+                {SUPPORT_NAV_ITEMS.map((item) => (
                   <Link key={item.to} href={item.to} className="nav-link">
                     {item.label}
                   </Link>
@@ -71,7 +55,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
               </div>
 
               <div className="nav-group nav-group--auth">
-                {authNavItems.map((item) => (
+                {AUTH_NAV_ITEMS.map((item) => (
                   <Link key={item.to} href={item.to} className="nav-link">
                     {item.label}
                   </Link>

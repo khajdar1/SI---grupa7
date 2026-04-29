@@ -1,4 +1,5 @@
 import type { RegisterInput } from "../modules/auth/auth.schema";
+import { HTTP_STATUS } from "../constants";
 
 
 function getKeycloakConfig() {
@@ -72,7 +73,7 @@ export async function createKeycloakUser(
     }),
   });
 
-  if (res.status === 409) {
+  if (res.status === HTTP_STATUS.CONFLICT) {
     throw new Error("KEYCLOAK_CONFLICT");
   }
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { HTTP_STATUS } from '../constants';
 import { prisma } from '../config/database';
 import { asyncHandler } from '../shared/async-handler';
 import { logger } from '../shared/logger';
@@ -29,7 +30,7 @@ healthRouter.get(
       });
     }
 
-    res.status(status === 'ok' ? 200 : 503).json({
+    res.status(status === 'ok' ? HTTP_STATUS.OK : HTTP_STATUS.SERVICE_UNAVAILABLE).json({
       service: 'si-grupa7-backend',
       status,
       timestamp: new Date().toISOString(),

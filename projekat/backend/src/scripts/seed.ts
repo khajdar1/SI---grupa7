@@ -1,35 +1,13 @@
 import {
+  AssignmentMethod,
+  InterventionStatus,
+  InterventionType,
   PrismaClient,
+  Priority,
 } from '@prisma/client';
 import { requireDatabaseUrl } from '../config/database-url';
 
-export const Priority = {
-  URGENT: 'URGENT',
-  HIGH: 'HIGH',
-  NORMAL: 'NORMAL',
-  LOW: 'LOW',
-} as const;
-export type PriorityValue = (typeof Priority)[keyof typeof Priority];
-
-export const InterventionStatus = {
-  OPEN: 'OPEN',
-  IN_PROGRESS: 'IN_PROGRESS',
-  DONE: 'DONE',
-  CANCELED: 'CANCELED',
-} as const;
-export type InterventionStatusValue = (typeof InterventionStatus)[keyof typeof InterventionStatus];
-
-export const InterventionType = {
-  ISSUE: 'ISSUE',
-  PREVENTIVE: 'PREVENTIVE',
-} as const;
-export type InterventionTypeValue = (typeof InterventionType)[keyof typeof InterventionType];
-
-export const AssignmentMethod = {
-  MANUAL: 'MANUAL',
-  AUTOMATIC: 'AUTOMATIC',
-} as const;
-export type AssignmentMethodValue = (typeof AssignmentMethod)[keyof typeof AssignmentMethod];
+export { AssignmentMethod, InterventionStatus, InterventionType, Priority };
 
 export const DemoUserPersona = {
   GUEST: 'GUEST',
@@ -54,7 +32,7 @@ export interface SeedCategoryInput {
 }
 
 export interface SeedSlaConfigurationInput {
-  readonly priority: PriorityValue;
+  readonly priority: Priority;
   readonly deadlineHours: number;
 }
 
@@ -91,9 +69,9 @@ export interface SeedInterventionInput {
   readonly name: string;
   readonly description: string;
   readonly location: string;
-  readonly priority: PriorityValue;
-  readonly status: InterventionStatusValue;
-  readonly type: InterventionTypeValue;
+  readonly priority: Priority;
+  readonly status: InterventionStatus;
+  readonly type: InterventionType;
   readonly archived: boolean;
   readonly categoryId: number;
   readonly creatorId: number;
@@ -105,7 +83,7 @@ export interface SeedAssignmentInput {
   readonly id: number;
   readonly interventionId: number;
   readonly userId: number;
-  readonly method: AssignmentMethodValue;
+  readonly method: AssignmentMethod;
 }
 
 export interface SeedSummary {
@@ -145,7 +123,7 @@ interface IdUpsertModel<TData extends SeedRecord> {
 export interface SeedClient {
   company: UpsertModel<{ name: string }, SeedCompanyInput, SeedRecord & SeedCompanyInput>;
   category: UpsertModel<{ name: string }, SeedCategoryInput, SeedRecord & SeedCategoryInput>;
-  slaConfiguration: UpsertModel<{ priority: PriorityValue }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
+  slaConfiguration: UpsertModel<{ priority: Priority }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
   user: UpsertModel<{ email: string }, SeedUserInput, SeedRecord & SeedUserInput>;
   externalIdentity: UpsertModel<ExternalIdentityWhereUniqueInput, SeedExternalIdentityInput, SeedRecord & SeedExternalIdentityInput>;
   faultReport: IdUpsertModel<SeedFaultReportInput>;
@@ -189,7 +167,7 @@ function buildDemoCategorySeeds(): SeedCategoryInput[] {
 function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
   return [
     {
-      priority: Priority.URGENT,
+      priority: Priority.CRITICAL,
       deadlineHours: 4,
     },
     {
@@ -197,7 +175,7 @@ function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
       deadlineHours: 8,
     },
     {
-      priority: Priority.NORMAL,
+      priority: Priority.MEDIUM,
       deadlineHours: 24,
     },
     {
@@ -318,7 +296,7 @@ function buildDemoInterventionSeed(
     description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
     location: 'Glavni ulaz, objekat A',
     priority: Priority.HIGH,
-    status: InterventionStatus.OPEN,
+    status: InterventionStatus.NEW,
     type: InterventionType.ISSUE,
     archived: false,
     categoryId,

@@ -6,24 +6,24 @@ const mockRepository: ISlaRepository = {
   findAll: async () => [
     {
       id: 1,
-      priority: Priority.URGENT,
+      priority: Priority.CRITICAL,
       deadlineHours: 2,
       updatedAt: new Date(),
     },
     { id: 2, priority: Priority.HIGH, deadlineHours: 8, updatedAt: new Date() },
     {
       id: 3,
-      priority: Priority.NORMAL,
+      priority: Priority.MEDIUM,
       deadlineHours: 24,
       updatedAt: new Date(),
     },
     { id: 4, priority: Priority.LOW, deadlineHours: 72, updatedAt: new Date() },
   ],
   findByPriority: async (priority: Priority) => {
-    const configs: Record<Priority, any> = {
-      [Priority.URGENT]: {
+    const configurations: Record<Priority, any> = {
+      [Priority.CRITICAL]: {
         id: 1,
-        priority: Priority.URGENT,
+        priority: Priority.CRITICAL,
         deadlineHours: 2,
         updatedAt: new Date(),
       },
@@ -33,9 +33,9 @@ const mockRepository: ISlaRepository = {
         deadlineHours: 8,
         updatedAt: new Date(),
       },
-      [Priority.NORMAL]: {
+      [Priority.MEDIUM]: {
         id: 3,
-        priority: Priority.NORMAL,
+        priority: Priority.MEDIUM,
         deadlineHours: 24,
         updatedAt: new Date(),
       },
@@ -46,7 +46,8 @@ const mockRepository: ISlaRepository = {
         updatedAt: new Date(),
       },
     };
-    return configs[priority] || null;
+
+    return configurations[priority] || null;
   },
   update: async (priority: Priority, deadlineHours: number) => ({
     id: 1,
@@ -63,37 +64,33 @@ describe("SlaService", () => {
     slaService = new SlaService(mockRepository);
   });
 
-  // Retrieval Tests
   it("should retrieve all SLA configurations", async () => {
-    const configs = await slaService.getAllSlaConfigurations();
-    assert.strictEqual(configs.length, 4);
-    assert.strictEqual(configs[0].priority, Priority.URGENT);
-    assert.strictEqual(configs[0].deadlineHours, 2);
+    const configurations = await slaService.getAllSlaConfigurations();
+    assert.strictEqual(configurations.length, 4);
+    assert.strictEqual(configurations[0].priority, Priority.CRITICAL);
+    assert.strictEqual(configurations[0].deadlineHours, 2);
   });
 
   it("should retrieve SLA configuration by priority", async () => {
-    const config = await slaService.getSlaByPriority(Priority.URGENT);
-    assert(config !== null, "Config should not be null");
-    assert.strictEqual(config.priority, Priority.URGENT);
-    assert.strictEqual(config.deadlineHours, 2);
+    const configuration = await slaService.getSlaByPriority(Priority.CRITICAL);
+    assert(configuration !== null, "Config should not be null");
+    assert.strictEqual(configuration.priority, Priority.CRITICAL);
+    assert.strictEqual(configuration.deadlineHours, 2);
   });
 
-  // Business Logic - Update Tests
-  // NOTE: Input validation (null, type, positive, integer, max hours) is performed at request layer.
-  // The service trusts pre-validated input and focuses purely on business logic and data updates.
   it("should successfully update single SLA configuration", async () => {
-    const updates = [{ priority: Priority.URGENT, deadlineHours: 3 }];
+    const updates = [{ priority: Priority.CRITICAL, deadlineHours: 3 }];
     const result = await slaService.updateSlaConfigurations(updates, 123);
     assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].priority, Priority.URGENT);
+    assert.strictEqual(result[0].priority, Priority.CRITICAL);
     assert.strictEqual(result[0].deadlineHours, 3);
   });
 
   it("should successfully update multiple SLA configurations in batch", async () => {
     const updates = [
-      { priority: Priority.URGENT, deadlineHours: 3 },
+      { priority: Priority.CRITICAL, deadlineHours: 3 },
       { priority: Priority.HIGH, deadlineHours: 10 },
-      { priority: Priority.NORMAL, deadlineHours: 30 },
+      { priority: Priority.MEDIUM, deadlineHours: 30 },
     ];
     const result = await slaService.updateSlaConfigurations(updates, 123);
     assert.strictEqual(result.length, 3);
@@ -103,7 +100,7 @@ describe("SlaService", () => {
   });
 
   it("should accept update with minimum valid value (1 hour)", async () => {
-    const updates = [{ priority: Priority.URGENT, deadlineHours: 1 }];
+    const updates = [{ priority: Priority.CRITICAL, deadlineHours: 1 }];
     const result = await slaService.updateSlaConfigurations(updates, 123);
     assert.strictEqual(result[0].deadlineHours, 1);
   });
@@ -116,36 +113,35 @@ describe("SlaService", () => {
 
   it("should handle updates across all priority levels", async () => {
     const updates = [
-      { priority: Priority.URGENT, deadlineHours: 1 },
+      { priority: Priority.CRITICAL, deadlineHours: 1 },
       { priority: Priority.HIGH, deadlineHours: 8 },
-      { priority: Priority.NORMAL, deadlineHours: 24 },
+      { priority: Priority.MEDIUM, deadlineHours: 24 },
       { priority: Priority.LOW, deadlineHours: 72 },
     ];
     const result = await slaService.updateSlaConfigurations(updates, 123);
     assert.strictEqual(result.length, 4);
-    assert.strictEqual(result[0].priority, Priority.URGENT);
+    assert.strictEqual(result[0].priority, Priority.CRITICAL);
     assert.strictEqual(result[1].priority, Priority.HIGH);
-    assert.strictEqual(result[2].priority, Priority.NORMAL);
+    assert.strictEqual(result[2].priority, Priority.MEDIUM);
     assert.strictEqual(result[3].priority, Priority.LOW);
   });
 
   it("should accept update without userId (anonymous changes)", async () => {
-    const updates = [{ priority: Priority.URGENT, deadlineHours: 5 }];
+    const updates = [{ priority: Priority.CRITICAL, deadlineHours: 5 }];
     const result = await slaService.updateSlaConfigurations(updates);
     assert.strictEqual(result[0].deadlineHours, 5);
   });
 
-  // Business Invariant Tests
   it("should reject duplicate priorities within batch update", async () => {
     const updates = [
-      { priority: Priority.URGENT, deadlineHours: 3 },
-      { priority: Priority.URGENT, deadlineHours: 5 }, // Duplicate
+      { priority: Priority.CRITICAL, deadlineHours: 3 },
+      { priority: Priority.CRITICAL, deadlineHours: 5 },
     ];
     await assert.rejects(
       () => slaService.updateSlaConfigurations(updates, 123),
       (err: Error) =>
         err.message.includes("Duplicate priority") &&
-        err.message.includes("URGENT"),
+        err.message.includes("CRITICAL"),
     );
   });
 });

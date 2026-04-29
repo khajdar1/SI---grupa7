@@ -1,3 +1,5 @@
+import { HTTP_STATUS } from '../constants';
+
 export type FieldError = {
   field: string;
   message: string;
@@ -17,28 +19,28 @@ export class AppError extends Error {
 
 export class BadRequestError extends AppError {
   constructor(message = 'Invalid request.', fields?: FieldError[]) {
-    super(400, message, 'BAD_REQUEST', fields);
+    super(HTTP_STATUS.BAD_REQUEST, message, 'BAD_REQUEST', fields);
     this.name = 'BadRequestError';
   }
 }
 
 export class UnauthorizedError extends AppError {
   constructor(message = 'Authentication is required.') {
-    super(401, message, 'UNAUTHORIZED');
+    super(HTTP_STATUS.UNAUTHORIZED, message, 'UNAUTHORIZED');
     this.name = 'UnauthorizedError';
   }
 }
 
 export class ForbiddenError extends AppError {
   constructor(message = 'You do not have permission to access this resource.') {
-    super(403, message, 'FORBIDDEN');
+    super(HTTP_STATUS.FORBIDDEN, message, 'FORBIDDEN');
     this.name = 'ForbiddenError';
   }
 }
 
 export class NotFoundError extends AppError {
   constructor(message = 'Resource not found.') {
-    super(404, message, 'NOT_FOUND');
+    super(HTTP_STATUS.NOT_FOUND, message, 'NOT_FOUND');
     this.name = 'NotFoundError';
   }
 }

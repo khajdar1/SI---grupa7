@@ -1,9 +1,17 @@
-"use client";
+'use client';
 export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useRegister } from './useRegister';
+
+import { ROUTES } from '@/constants';
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
 import { getPasswordStrength } from './register.validation';
+import { useRegister } from './useRegister';
 
 export default function RegisterPage() {
   const {
@@ -17,71 +25,87 @@ export default function RegisterPage() {
   } = useRegister();
 
   const strength = getPasswordStrength(formData.password);
+  const strengthColorClass =
+    strength.level <= 1
+      ? 'text-destructive'
+      : strength.level === 2
+        ? 'text-amber-600'
+        : strength.level === 3
+          ? 'text-blue-600'
+          : 'text-emerald-600';
 
   return (
-    <section className="auth-layout auth-layout--wide">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Onboarding</span>
-          <h1 className="section-title">Create Account</h1>
-          <p className="section-copy">
-            Register to access the platform.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Create Account"
+        subtitle="Register to access the service intervention platform."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Register' }]}
+      />
 
-        {serverError && <div style={{ color: 'red', marginBottom: '1rem' }}>{serverError}</div>}
-        {success && <div style={{ color: 'green', marginBottom: '1rem' }}>Registration successful! Redirecting...</div>}
+      <Card className="max-w-3xl">
+        <CardContent className="space-y-5 pt-6">
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {success ? <p className="text-sm text-emerald-600">Registration successful. Redirecting...</p> : null}
 
-        <form className="form-grid form-grid--two-columns" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>First name</span>
-            <input type="text" name="firstName" value={formData.firstName} onChange={handleChange} />
-            {errors.firstName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.firstName}</span>}
-          </label>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First name</Label>
+              <Input id="firstName" type="text" name="firstName" value={formData.firstName} onChange={handleChange} />
+              {errors.firstName ? <p className="text-xs text-destructive">{errors.firstName}</p> : null}
+            </div>
 
-          <label className="field">
-            <span>Last name</span>
-            <input type="text" name="lastName" value={formData.lastName} onChange={handleChange} />
-            {errors.lastName && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.lastName}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name</Label>
+              <Input id="lastName" type="text" name="lastName" value={formData.lastName} onChange={handleChange} />
+              {errors.lastName ? <p className="text-xs text-destructive">{errors.lastName}</p> : null}
+            </div>
 
-          <label className="field">
-            <span>Username</span>
-            <input type="text" name="username" value={formData.username} onChange={handleChange} />
-            {errors.username && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.username}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" type="text" name="username" value={formData.username} onChange={handleChange} />
+              {errors.username ? <p className="text-xs text-destructive">{errors.username}</p> : null}
+            </div>
 
-          <label className="field">
-            <span>Email</span>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} />
-            {errors.email && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.email}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" name="email" value={formData.email} onChange={handleChange} />
+              {errors.email ? <p className="text-xs text-destructive">{errors.email}</p> : null}
+            </div>
 
-          <label className="field">
-            <span>Password</span>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} />
-            {formData.password && (
-              <span style={{ color: strength.color, fontSize: '0.8rem' }}>Password strength: {strength.label}</span>
-            )}
-            {errors.password && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.password}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" name="password" value={formData.password} onChange={handleChange} />
+              {formData.password ? (
+                <p className={`text-xs ${strengthColorClass}`}>
+                  Password strength: {strength.label}
+                </p>
+              ) : null}
+              {errors.password ? <p className="text-xs text-destructive">{errors.password}</p> : null}
+            </div>
 
-          <label className="field">
-            <span>Confirm password</span>
-            <input type="password" name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} />
-            {errors.confirmPassword && <span style={{ color: 'red', fontSize: '0.8rem' }}>{errors.confirmPassword}</span>}
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+              />
+              {errors.confirmPassword ? <p className="text-xs text-destructive">{errors.confirmPassword}</p> : null}
+            </div>
 
-          <div className="form-actions field--full">
-            <button className="button button--solid" type="submit" disabled={submitting || success}>
-              {submitting ? 'Creating...' : 'Create account'}
-            </button>
-            <Link className="button button--ghost" href="/login">
-              Back to login
-            </Link>
-          </div>
-        </form>
-      </article>
-    </section>
+            <div className="col-span-full flex flex-wrap gap-2">
+              <Button type="submit" disabled={submitting || success}>
+                {submitting ? 'Creating...' : 'Create account'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.LOGIN}>Back to login</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }
