@@ -202,3 +202,38 @@
 
 ---
 
+**Datum:** 29.04.2026.  
+**Sprint broj:** Sprint 5  
+**Alat koji je korišten:** GPT-4 / Codex  
+**Svrha korištenja:** Implementacija PBI-044 (Centralizovano logovanje i health nadzor) i PBI-045 (Globalni exception handler i standardizacija API grešaka).  
+**Kratak opis zadatka ili upita:**  
+Implementacija sistema za centralizovano logovanje, health nadzor, te globalni handler za greške sa standardizovanim API odgovorima u backend aplikaciji.  
+- Implementacija health endpointa za provjeru aplikacije i baze podataka.  
+- Dodavanje middlewarea za logovanje svakog HTTP zahtjeva.  
+- Postavljanje globalnog handlera za greške sa standardizovanim odgovorima na greške.  
+- Konfiguracija logova za startup i greške u aplikaciji.
+
+**Šta je AI predložio ili generisao:**
+- Generisao je logger za aplikaciju (`src/shared/logger.ts`) koji koristi strukturirani format logova sa timestamp-om, levelom, i porukama.  
+- Predložio je middleware za logovanje svakog HTTP zahtjeva (`src/middleware/request-logger.middleware.ts`).  
+- Predložio implementaciju health endpointa (`src/routes/health.route.ts`) koji provjerava aplikaciju i status baze.  
+- Predložio rješenje za globalni exception handler sa standardizovanim formatom odgovora u slučaju greške.  
+
+**Šta je tim prihvatio:**
+- Prihvaćene su sve implementacije vezane za logging i health provjeru, uključujući kod za logovanje HTTP zahtjeva i implementaciju health endpointa.  
+- Prihvaćen je globalni error handler za sve greške koje se mogu desiti u aplikaciji.  
+- Tim je prihvatio predloženi način za logovanje startup događaja i grešaka prilikom povezivanja sa bazom.
+
+**Šta je tim izmijenio:**
+- Promijenjeni su logovi tako da uključuju više informacija o greškama koje se javljaju tokom startovanja aplikacije i povezivanja sa bazom.  
+
+**Šta je tim odbacio:**
+- Odbacili smo implementaciju naprednog health provjera (sposobnost praćenja svih servisa), jer su bili fokusirani na provjeru samo aplikacije i baze podataka za ovu fazu.  
+- Odbačeno je logovanje svih uspješnih HTTP odgovora, jer je odlučeno da logujemo samo greške ili ključne događaje (kao što je start aplikacije).
+
+**Rizici, problemi ili greške koje su uočene:**
+- Moguće dupliciranje logova u nekim slučajevima pri bržem pokretanju aplikacije (koje uključuje bazu) gdje health endpoint može izazvati brzo timeout ka bazi.  
+- Postoji rizik da neki logovi sadrže osjetljive podatke ako ne bude pravilno podešen **logging level** za produkciju.
+
+**Ko je koristio alat:** Lejla Gičević
+
