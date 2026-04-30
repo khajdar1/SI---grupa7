@@ -30,7 +30,7 @@ jobs:
 
       - name: Generate Prisma client
         run: |
-          DATABASE_URL="${DATABASE_URL:-mysql://service_app:service_app@localhost:3306/service_interventions}" \
+          DATABASE_URL="${DATABASE_URL:-mysql://placeholder:placeholder@example.invalid:3306/placeholder}" \
           npm run prisma:generate --workspace backend
 
       - name: Build (root)
