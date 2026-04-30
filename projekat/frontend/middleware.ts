@@ -10,22 +10,30 @@ const PUBLIC_ROUTES: string[] = [
   ROUTES.FAULT_REPORTS,
 ];
 
-function isPublicRoute(pathname: string): boolean {
-  if (pathname === ROUTES.HOME) {
-    return true;
-  }
+const GUEST_ONLY_ROUTES: string[] = [ROUTES.LOGIN, ROUTES.REGISTER, ROUTES.RESET_PASSWORD];
 
-  return PUBLIC_ROUTES.some((route) => route !== ROUTES.HOME && pathname.startsWith(route));
+function matchesRoute(pathname: string, route: string): boolean {
+  return pathname === route || pathname.startsWith(`${route}/`);
+}
+
+function isPublicRoute(pathname: string): boolean {
+  return PUBLIC_ROUTES.some((route) => matchesRoute(pathname, route));
 }
 
 export function middleware(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get("token")?.value;
+
+  if (token && GUEST_ONLY_ROUTES.some((route) => matchesRoute(pathname, route))) {
+    const response = NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
 
   if (isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("token")?.value;
   if (!token) {
     const loginUrl = new URL(ROUTES.LOGIN, request.url);
     loginUrl.searchParams.set("redirected", "1");

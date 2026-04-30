@@ -12,6 +12,10 @@ export const registerSchema = z
     lastName: safeTextField("Last name", { max: 100 }),
     username: safeTextField("Username", { min: 2, max: 50 }),
     email: emailField(),
+    companyId: z.coerce
+      .number()
+      .int("Company is required.")
+      .positive("Company is required."),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters.")

@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { prisma } from "../../config/database";
 import { HTTP_STATUS } from "../../constants";
+import { authenticate } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import {
   createCategorySchema,
@@ -39,7 +40,7 @@ categoriesRouter.get("/", async (_req, res) => {
   }
 });
 
-categoriesRouter.post("/", validate(createCategorySchema), async (req, res) => {
+categoriesRouter.post("/", authenticate, validate(createCategorySchema), async (req, res) => {
   try {
     const category = await categoryService.createCategory(req.body);
     res.status(HTTP_STATUS.CREATED).json(category);
@@ -53,7 +54,7 @@ categoriesRouter.post("/", validate(createCategorySchema), async (req, res) => {
   }
 });
 
-categoriesRouter.patch("/:id", validate(updateCategorySchema), async (req, res) => {
+categoriesRouter.patch("/:id", authenticate, validate(updateCategorySchema), async (req, res) => {
   try {
     const id = parseCategoryId(req.params.id);
     if (!id) {
@@ -78,6 +79,7 @@ categoriesRouter.patch("/:id", validate(updateCategorySchema), async (req, res) 
 
 categoriesRouter.patch(
   "/:id/status",
+  authenticate,
   validate(updateCategoryStatusSchema),
   async (req, res) => {
     try {
