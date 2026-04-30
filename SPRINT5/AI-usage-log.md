@@ -13,7 +13,7 @@
 - **Šta je tim izmijenio:** Prihvacen je fallback verzije na `build-<shortsha>` kada commit nema git tag.
 - **Šta je tim odbacio:** /
 - **Rizici, problemi ili greške koje su uočene:** Produkcijske vrijednosti za `NEXT_PUBLIC_API_BASE_URL` i `NEXT_PUBLIC_SOCKET_URL` moraju biti postavljene u Cloudflare/Railway okruzenju da frontend ne ostane vezan za lokalni host.
-- **Ko je koristio alat:** Razvojni tim //fixxxxx
+- **Ko je koristio alat:** Kerim Hajdar
 
 ---
 

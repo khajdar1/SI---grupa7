@@ -10,6 +10,8 @@ type AuthenticatedUser = {
 type KeycloakTokenPayload = {
   sub?: string;
   preferred_username?: string;
+  exp?: number;
+  nbf?: number;
   realm_access?: {
     roles?: string[];
   };
@@ -80,6 +82,15 @@ export const authenticate: RequestHandler = (req, res, next) => {
     return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Invalid authentication token' });
   }
 
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  if (typeof payload.nbf === 'number' && payload.nbf > nowInSeconds) {
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token is not active yet' });
+  }
+
+  if (typeof payload.exp === 'number' && payload.exp <= nowInSeconds) {
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token has expired' });
+  }
+
   const roles = extractRoles(payload);
 
   req.user = {
@@ -92,12 +103,17 @@ export const authenticate: RequestHandler = (req, res, next) => {
 };
 
 export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
+  const normalizedAllowedRoles = allowedRoles.map((role) => role.toLowerCase());
+
   return (req, res, next) => {
     if (!req.user) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Unauthorized' });
     }
 
-    const hasRequiredRole = allowedRoles.some((role) => req.user?.roles.includes(role));
+    const normalizedUserRoles = req.user.roles.map((role) => role.toLowerCase());
+    const hasRequiredRole = normalizedAllowedRoles.some((role) =>
+      normalizedUserRoles.includes(role),
+    );
 
     if (!hasRequiredRole) {
       return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Forbidden' });
@@ -106,5 +122,3 @@ export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
     return next();
   };
 };
-
-//test commit

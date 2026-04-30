@@ -3,6 +3,7 @@ import { InterventionStatus, InterventionType, Priority } from '@prisma/client';
 import { z } from 'zod';
 
 import { prisma } from '../../config/database';
+import { authRateLimiter } from '../../middleware/rateLimit.middleware';
 import { asyncHandler } from '../../shared/async-handler';
 import { BadRequestError, NotFoundError } from '../../shared/errors';
 import {
@@ -264,6 +265,7 @@ faultReportsRouter.get(
 
 faultReportsRouter.post(
   '/',
+  authRateLimiter,
   asyncHandler(async (req, res) => {
     const parsed = faultReportSubmissionSchema.parse(req.body);
 

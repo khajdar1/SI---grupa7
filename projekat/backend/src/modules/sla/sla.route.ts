@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { prisma } from "../../config/database";
 import { HTTP_STATUS } from "../../constants";
+import { authorizeRoles } from "../../middleware/auth.middleware";
 import { SlaService, ISlaRepository } from "./sla.service";
 import { validateUpdateSlaRequest } from "./sla.request-validators";
 
 const slaRouter = Router();
+const ADMIN_ROLES = ["admin", "administrator"];
 
 const prismaSlaRepository: ISlaRepository = {
   findAll: () =>
@@ -25,7 +27,7 @@ const prismaSlaRepository: ISlaRepository = {
 
 const slaService = new SlaService(prismaSlaRepository);
 
-slaRouter.get("/", async (_req, res) => {
+slaRouter.get("/", authorizeRoles(ADMIN_ROLES), async (_req, res) => {
   try {
     const slaConfigs = await slaService.getAllSlaConfigurations();
     res.json(slaConfigs);
@@ -34,10 +36,11 @@ slaRouter.get("/", async (_req, res) => {
   }
 });
 
-slaRouter.put("/", validateUpdateSlaRequest, async (req, res) => {
+slaRouter.put("/", authorizeRoles(ADMIN_ROLES), validateUpdateSlaRequest, async (req, res) => {
   try {
     const { configurations } = req.body;
-    const userId = (req as any).user?.id;
+    const rawUserId = (req as any).user?.id;
+    const userId = typeof rawUserId === "number" ? rawUserId : undefined;
 
     const updated = await slaService.updateSlaConfigurations(
       configurations,

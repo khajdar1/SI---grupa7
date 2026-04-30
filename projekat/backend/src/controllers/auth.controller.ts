@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { loginKeycloakUser, logoutKeycloakUser } from "../clients/keycloak.client";
 import { HTTP_STATUS } from "../constants";
 import { registerSchema } from "../modules/auth/auth.schema";
-import { AuthService, ConflictError, KeycloakError, NotFoundError } from "../services/auth.service";
+import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
 
 const authService = new AuthService();
 
@@ -27,11 +27,6 @@ export const registerController = async (
 
     if (error instanceof ConflictError) {
       res.status(HTTP_STATUS.CONFLICT).json({ message: error.message });
-      return;
-    }
-
-    if (error instanceof NotFoundError) {
-      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
       return;
     }
 

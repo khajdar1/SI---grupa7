@@ -3,7 +3,7 @@ import { Router } from 'express';
 
 import { prisma } from '../../config/database';
 import { HTTP_STATUS } from '../../constants';
-import { authenticate } from '../../middleware/auth.middleware';
+import { authenticate, authorizeRoles } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
 import { AuditService } from '../../shared/audit.service';
 import {
@@ -19,6 +19,7 @@ import {
 } from './categories.service';
 
 const categoriesRouter = Router();
+const ADMIN_ROLES = ['admin', 'administrator'];
 
 const prismaCategoryRepository: ICategoryRepository = {
   findMany: async () => (await prisma.category.findMany({ orderBy: { createdAt: 'desc' } })) as unknown as CategoryRecord[],
@@ -74,7 +75,12 @@ categoriesRouter.get('/', async (_req, res) => {
   }
 });
 
-categoriesRouter.post('/', authenticate, validate(createCategorySchema), async (req, res) => {
+categoriesRouter.post(
+  '/',
+  authenticate,
+  authorizeRoles(ADMIN_ROLES),
+  validate(createCategorySchema),
+  async (req, res) => {
   try {
     const actorName = getActorName(req);
     if (!actorName) {
@@ -93,9 +99,15 @@ categoriesRouter.post('/', authenticate, validate(createCategorySchema), async (
 
     res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to create category' });
   }
-});
+  },
+);
 
-categoriesRouter.patch('/:id', authenticate, validate(updateCategorySchema), async (req, res) => {
+categoriesRouter.patch(
+  '/:id',
+  authenticate,
+  authorizeRoles(ADMIN_ROLES),
+  validate(updateCategorySchema),
+  async (req, res) => {
   try {
     const id = parseCategoryId(req.params.id);
     if (!id) {
@@ -123,11 +135,13 @@ categoriesRouter.patch('/:id', authenticate, validate(updateCategorySchema), asy
 
     res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to update category' });
   }
-});
+  },
+);
 
 categoriesRouter.patch(
   '/:id/status',
   authenticate,
+  authorizeRoles(ADMIN_ROLES),
   validate(updateCategoryStatusSchema),
   async (req, res) => {
     try {

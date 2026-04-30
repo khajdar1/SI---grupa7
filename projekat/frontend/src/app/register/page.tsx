@@ -2,18 +2,13 @@
 export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ROUTES } from '@/constants';
-import type { Company } from '@/models/Company';
-import { getCompanies } from '@/services/companies.service';
 
 import { getPasswordStrength } from './register.validation';
 import { useRegister } from './useRegister';
@@ -26,29 +21,8 @@ export default function RegisterPage() {
     serverError,
     success,
     handleChange,
-    setField,
     handleSubmit,
   } = useRegister();
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [companiesLoading, setCompaniesLoading] = useState(true);
-  const [companiesError, setCompaniesError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchCompanies = async () => {
-      try {
-        setCompaniesLoading(true);
-        const companyList = await getCompanies();
-        setCompanies(companyList);
-        setCompaniesError(null);
-      } catch (error) {
-        setCompaniesError(error instanceof Error ? error.message : 'Failed to load companies.');
-      } finally {
-        setCompaniesLoading(false);
-      }
-    };
-
-    void fetchCompanies();
-  }, []);
 
   const strength = getPasswordStrength(formData.password);
   const strengthColorClass =
@@ -151,41 +125,6 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="companyId">Company</Label>
-              {companiesLoading ? (
-                <Skeleton className="h-10 w-full" />
-              ) : (
-                <Select
-                  value={formData.companyId}
-                  onValueChange={(value) => {
-                    setField('companyId', value ?? '');
-                  }}
-                >
-                  <SelectTrigger
-                    id="companyId"
-                    aria-invalid={Boolean(errors.companyId)}
-                    aria-describedby={errors.companyId ? 'register-companyId-error' : undefined}
-                  >
-                    <SelectValue placeholder="Select a company" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companies.map((company) => (
-                      <SelectItem key={company.id} value={String(company.id)}>
-                        {company.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {companiesError ? <p className="text-xs text-destructive">{companiesError}</p> : null}
-              {errors.companyId ? (
-                <p id="register-companyId-error" className="text-xs text-destructive">
-                  {errors.companyId}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 id="password"
@@ -235,7 +174,7 @@ export default function RegisterPage() {
             <div className="col-span-full flex flex-wrap gap-2">
               <Button
                 type="submit"
-                disabled={submitting || success || companiesLoading || companies.length === 0}
+                disabled={submitting || success}
               >
                 {submitting ? 'Creating...' : 'Create account'}
               </Button>

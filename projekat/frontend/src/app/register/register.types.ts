@@ -3,7 +3,6 @@ export type RegisterFormData = {
   lastName: string;
   username: string;
   email: string;
-  companyId: string;
   password: string;
   confirmPassword: string;
 };
