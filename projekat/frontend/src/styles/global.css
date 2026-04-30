@@ -150,7 +150,6 @@ ol {
 li {
   list-style: none;
 }
-`r`n
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: var(--font-sans);
