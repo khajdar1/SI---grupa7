@@ -15,6 +15,7 @@ const INITIAL_FORM: RegisterFormData = {
   lastName: '',
   username: '',
   email: '',
+  companyId: '',
   password: '',
   confirmPassword: '',
 };
@@ -28,14 +29,18 @@ export function useRegister() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
-    const { name, value } = e.target;
+  function setField(name: keyof RegisterFormData, value: string) {
     setFormData((prev) => ({ ...prev, [name]: value }));
     setServerError(null);
 
-    if (errors[name as keyof RegisterFormData]) {
+    if (errors[name]) {
       setErrors((prev) => clearFieldError(prev, name));
     }
+  }
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    setField(name as keyof RegisterFormData, value);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -57,6 +62,7 @@ export function useRegister() {
         lastName: formData.lastName,
         username: formData.username,
         email: formData.email,
+        companyId: Number(formData.companyId),
         password: formData.password,
       });
 
@@ -90,6 +96,7 @@ export function useRegister() {
     serverError,
     success,
     handleChange,
+    setField,
     handleSubmit,
   };
 }

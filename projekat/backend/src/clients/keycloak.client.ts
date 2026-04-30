@@ -1,6 +1,12 @@
 import type { RegisterInput } from "../modules/auth/auth.schema";
 import { HTTP_STATUS } from "../constants";
 
+const DEFAULT_BUSINESS_ROLES = ["Korisnik", "korisnik"] as const;
+
+type KeycloakRealmRole = {
+  id: string;
+  name: string;
+};
 
 function getKeycloakConfig() {
   const url = process.env.KEYCLOAK_URL;
@@ -16,6 +22,75 @@ function getKeycloakConfig() {
   }
 
   return { url, realm, clientId, clientSecret };
+}
+
+async function getRealmRoleByName(
+  token: string,
+  roleName: string
+): Promise<KeycloakRealmRole | null> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/roles/${encodeURIComponent(roleName)}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (response.status === HTTP_STATUS.NOT_FOUND) {
+    return null;
+  }
+
+  if (!response.ok) {
+    throw new KeycloakError(`Failed to load Keycloak role "${roleName}".`);
+  }
+
+  const role = (await response.json()) as KeycloakRealmRole;
+  return role;
+}
+
+async function assignRealmRoleToUser(
+  token: string,
+  userId: string,
+  role: KeycloakRealmRole
+): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/users/${userId}/role-mappings/realm`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify([{ id: role.id, name: role.name }]),
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError(`Failed to assign Keycloak role "${role.name}" to user.`);
+  }
+}
+
+async function assignDefaultBusinessRole(token: string, userId: string): Promise<void> {
+  for (const roleName of DEFAULT_BUSINESS_ROLES) {
+    const role = await getRealmRoleByName(token, roleName);
+    if (role) {
+      await assignRealmRoleToUser(token, userId, role);
+      return;
+    }
+  }
+
+  throw new KeycloakError(
+    `Default business role is missing in Keycloak. Create one of: ${DEFAULT_BUSINESS_ROLES.join(", ")}.`
+  );
+}
+
+async function deleteKeycloakUserByAdminToken(token: string, sub: string): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+  await fetch(`${url}/admin/realms/${realm}/users/${sub}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export class KeycloakError extends Error {
@@ -91,6 +166,13 @@ export async function createKeycloakUser(
   const sub = location.split("/").pop();
   if (!sub) {
     throw new KeycloakError("Could not parse Keycloak user ID from Location header.");
+  }
+
+  try {
+    await assignDefaultBusinessRole(token, sub);
+  } catch (error) {
+    await deleteKeycloakUserByAdminToken(token, sub);
+    throw error;
   }
 
   return sub;

@@ -37,6 +37,9 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number | string) => `/api/v1/categories/${id}`,
     STATUS: (id: number | string) => `/api/v1/categories/${id}/status`,
   },
+  COMPANIES: {
+    BASE: '/api/v1/companies',
+  },
   SLA: {
     BASE: '/api/v1/sla',
   },
