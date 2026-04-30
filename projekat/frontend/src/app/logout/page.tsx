@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 
 import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { useLogin } from '../login/useLogin';
 
@@ -24,7 +24,11 @@ export default function LogoutPage() {
         breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Logout' }]}
       />
       <Card>
-        <CardContent className="pt-6 text-sm text-muted-foreground">Logging out...</CardContent>
+        <CardHeader className="space-y-1">
+          <CardTitle>Session end</CardTitle>
+          <CardDescription>Your active session is being closed.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">Logging out...</CardContent>
       </Card>
     </PageLayout>
   );
