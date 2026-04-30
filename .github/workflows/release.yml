@@ -31,7 +31,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Generate Prisma client
-        run: npm run prisma:generate --workspace backend
+        run: |
+          DATABASE_URL="${DATABASE_URL:-mysql://placeholder:placeholder@example.invalid:3306/placeholder}" \
+          npm run prisma:generate --workspace backend
       - name: Resolve release version
         id: version
         run: |
