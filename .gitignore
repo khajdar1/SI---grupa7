@@ -23,4 +23,3 @@ projekat/.env.production
 .tsbuildinfo
 *.tsbuildinfo
 .DS_Store
-.github/*

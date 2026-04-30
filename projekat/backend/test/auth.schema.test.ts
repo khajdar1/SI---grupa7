@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { loginSchema, registerSchema, resetPasswordSchema } from "./auth.schema";
+import { loginSchema, registerSchema, resetPasswordSchema } from "../src/modules/auth/auth.schema";
 
 test("registerSchema accepts valid input and normalizes email", () => {
   const result = registerSchema.parse({

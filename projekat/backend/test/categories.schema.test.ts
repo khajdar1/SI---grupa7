@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import {
   createCategorySchema,
   updateCategorySchema,
   updateCategoryStatusSchema,
-} from "./categories.schema";
+} from "../src/modules/categories/categories.schema";
 
 test("createCategorySchema trims text input", () => {
   const result = createCategorySchema.parse({

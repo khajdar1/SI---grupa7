@@ -1,0 +1,89 @@
+name: Release - build, package, deploy
+
+on:
+  push:
+    branches:
+      - "release/*"
+      - "master"
+
+permissions:
+  contents: read
+
+jobs:
+  build_package_deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: projekat
+    env:
+      NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+      NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: projekat/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace backend
+      - name: Resolve release version
+        id: version
+        run: |
+          TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+          if [ -n "$TAG" ]; then
+            VERSION="$TAG"
+          else
+            SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            VERSION="build-$SHORT_SHA"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+      - name: Build (root)
+        run: npm run build
+      - name: Typecheck (root)
+        run: npm run typecheck
+      - name: Build (backend)
+        run: npm run build --workspace backend
+      - name: Typecheck (backend)
+        run: npm run typecheck --workspace backend
+      - name: Build (frontend)
+        run: npm run build --workspace frontend
+      - name: Typecheck (frontend)
+        run: npm run typecheck --workspace frontend
+      - name: Build Cloudflare Pages output
+        run: npx @cloudflare/next-on-pages
+        working-directory: projekat/frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
+      - name: Package backend build
+        run: |
+          tar -czf backend-dist-${{ steps.version.outputs.version }}.tgz -C backend dist
+      - name: Package frontend build
+        run: |
+          tar -czf frontend-pages-${{ steps.version.outputs.version }}.tgz -C frontend .vercel/output
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist-${{ steps.version.outputs.version }}
+          path: projekat/backend-dist-${{ steps.version.outputs.version }}.tgz
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-pages-${{ steps.version.outputs.version }}
+          path: projekat/frontend-pages-${{ steps.version.outputs.version }}.tgz
+      - name: Deploy frontend to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME }}
+        run: |
+          npx wrangler@3 pages deploy ./frontend/.vercel/output/static \
+            --project-name "$CLOUDFLARE_PROJECT_NAME" \
+            --branch "${{ github.ref_name }}" \
+            --commit-hash "${{ github.sha }}"
