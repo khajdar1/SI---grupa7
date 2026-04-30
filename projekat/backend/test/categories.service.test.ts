@@ -1,10 +1,10 @@
-import assert from "node:assert";
-import { describe, it } from "node:test";
+import assert from "node:assert/strict";
+import test from "node:test";
 
 import {
-  CategoryRecord,
   CategoryService,
-  ICategoryRepository,
+  type CategoryRecord,
+  type ICategoryRepository,
   ValidationError,
 } from "../src/modules/categories/categories.service";
 
@@ -85,124 +85,125 @@ class MockCategoryRepository implements ICategoryRepository {
   }
 }
 
-describe("CategoryService", () => {
-  it("creates a category with admin audit metadata", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
+test("CategoryService - createCategory (happy path)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
 
-    const result = await service.createCategory(
-      {
-        name: "Plumbing",
-        description: "Water pipes",
-      },
-      "Ana Admin",
-    );
+  const result = await service.createCategory(
+    {
+      name: "Plumbing",
+      description: "Water pipes",
+    },
+    "Ana Admin",
+  );
 
-    assert.strictEqual(result.name, "Plumbing");
-    assert.strictEqual(result.description, "Water pipes");
-    assert.strictEqual(result.active, true);
-    assert.strictEqual(result.createdByName, "Ana Admin");
-    assert.strictEqual(result.updatedByName, "Ana Admin");
-  });
+  assert.equal(result.name, "Plumbing");
+  assert.equal(result.description, "Water pipes");
+  assert.equal(result.active, true);
+  assert.equal(result.createdByName, "Ana Admin");
+  assert.equal(result.updatedByName, "Ana Admin");
+});
 
-  it("rejects category creation when name is missing", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
+test("CategoryService - createCategory (Validation Error: missing name)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
 
-    await assert.rejects(
-      async () => service.createCategory({ name: "   ", description: "Empty name" }, "Ana Admin"),
-      (error: unknown) =>
-        error instanceof ValidationError && error.message === "Name is required",
-    );
-  });
+  await assert.rejects(
+    async () => service.createCategory({ name: "   ", description: "Empty name" }, "Ana Admin"),
+    (err: unknown) => err instanceof ValidationError && err.message === "Name is required",
+  );
+});
 
-  it("rejects category creation when name already exists", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "Electrical", active: true });
+test("CategoryService - createCategory (Business Rule: unique name)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "Electrical", active: true });
 
-    await assert.rejects(
-      async () => service.createCategory({ name: "Electrical" }, "Ana Admin"),
-      (error: unknown) =>
-        error instanceof ValidationError &&
-        error.message === "Category with this name already exists",
-    );
-  });
+  await assert.rejects(
+    async () => service.createCategory({ name: "Electrical" }, "Ana Admin"),
+    (err: unknown) =>
+      err instanceof ValidationError &&
+      err.message === "Category with this name already exists",
+  );
+});
 
-  it("updates an active category and records the admin name", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", description: "Heating", active: true });
+test("CategoryService - updateCategory (Happy Path)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", description: "Heating", active: true });
 
-    const result = await service.updateCategory(1, { name: "HVAC Updated" }, "Lejla Manager");
+  const result = await service.updateCategory(
+    1,
+    { name: "HVAC Updated" },
+    "Lejla Manager",
+  );
 
-    assert.strictEqual(result.name, "HVAC Updated");
-    assert.strictEqual(result.updatedByName, "Lejla Manager");
-  });
+  assert.equal(result.name, "HVAC Updated");
+  assert.equal(result.updatedByName, "Lejla Manager");
+});
 
-  it("keeps the same category name when updating the same record", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", description: "Heating", active: true });
+test("CategoryService - updateCategory (Business Rule: unique name check ignores self)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", description: "Heating", active: true });
 
-    const result = await service.updateCategory(
-      1,
-      {
-        name: "HVAC",
-        description: "Cooling",
-      },
-      "Lejla Manager",
-    );
+  const result = await service.updateCategory(
+    1,
+    {
+      name: "HVAC",
+      description: "Cooling",
+    },
+    "Lejla Manager",
+  );
 
-    assert.strictEqual(result.description, "Cooling");
-  });
+  assert.equal(result.description, "Cooling");
+});
 
-  it("rejects name collisions with other categories", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", active: true });
-    repo.seed({ name: "Plumbing", active: true });
+test("CategoryService - updateCategory (Business Rule: reject name collision)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", active: true });
+  repo.seed({ name: "Plumbing", active: true });
 
-    await assert.rejects(
-      async () => service.updateCategory(2, { name: "HVAC" }, "Lejla Manager"),
-      (error: unknown) =>
-        error instanceof ValidationError &&
-        error.message === "Another category with this name already exists",
-    );
-  });
+  await assert.rejects(
+    async () => service.updateCategory(2, { name: "HVAC" }, "Lejla Manager"),
+    (err: unknown) =>
+      err instanceof ValidationError &&
+      err.message === "Another category with this name already exists",
+  );
+});
 
-  it("rejects editing inactive categories", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", active: false });
+test("CategoryService - updateCategory (Business Rule: reject inactive categories)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", active: false });
 
-    await assert.rejects(
-      async () => service.updateCategory(1, { name: "HVAC Updated" }, "Lejla Manager"),
-      (error: unknown) =>
-        error instanceof ValidationError &&
-        error.message === "Inactive categories cannot be edited",
-    );
-  });
+  await assert.rejects(
+    async () => service.updateCategory(1, { name: "HVAC Updated" }, "Lejla Manager"),
+    (err: unknown) =>
+      err instanceof ValidationError &&
+      err.message === "Inactive categories cannot be edited",
+  );
+});
 
-  it("deactivates a category and records the admin name", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", active: true });
+test("CategoryService - updateStatus (deactivate category)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", active: true });
 
-    const result = await service.updateStatus(1, false, "Lejla Manager");
+  const result = await service.updateStatus(1, false, "Lejla Manager");
 
-    assert.strictEqual(result.active, false);
-    assert.strictEqual(result.updatedByName, "Lejla Manager");
-  });
+  assert.equal(result.active, false);
+  assert.equal(result.updatedByName, "Lejla Manager");
+});
 
-  it("reactivates a category and records the admin name", async () => {
-    const repo = new MockCategoryRepository();
-    const service = new CategoryService(repo);
-    repo.seed({ name: "HVAC", active: false });
+test("CategoryService - updateStatus (reactivate category)", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+  repo.seed({ name: "HVAC", active: false });
 
-    const result = await service.updateStatus(1, true, "Lejla Manager");
+  const result = await service.updateStatus(1, true, "Lejla Manager");
 
-    assert.strictEqual(result.active, true);
-    assert.strictEqual(result.updatedByName, "Lejla Manager");
-  });
+  assert.equal(result.active, true);
+  assert.equal(result.updatedByName, "Lejla Manager");
 });
