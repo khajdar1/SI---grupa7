@@ -8,6 +8,7 @@ import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
@@ -73,7 +74,14 @@ export default function FaultReportsPage() {
       <Card>
         <CardContent className="space-y-4 pt-6">
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-56" />
+              <Skeleton className="h-10 w-full sm:max-w-md" />
+              <div className="flex gap-2">
+                <Skeleton className="h-10 w-36" />
+                <Skeleton className="h-10 w-40" />
+              </div>
+            </div>
           ) : error ? (
             <EmptyState
               title="Categories unavailable"

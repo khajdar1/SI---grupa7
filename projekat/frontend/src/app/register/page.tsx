@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROUTES } from '@/constants';
@@ -43,7 +43,11 @@ export default function RegisterPage() {
       />
 
       <Card className="max-w-3xl">
-        <CardContent className="space-y-5 pt-6">
+        <CardHeader className="space-y-1">
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>Enter user details and set secure credentials.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
           {success ? <p className="text-sm text-emerald-600">Registration successful. Redirecting...</p> : null}
 
