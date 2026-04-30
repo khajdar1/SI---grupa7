@@ -22,4 +22,4 @@ projekat/.env.production
 *.log
 .tsbuildinfo
 *.tsbuildinfo
-.DS_Store
+.DS_Store.DS_Store
