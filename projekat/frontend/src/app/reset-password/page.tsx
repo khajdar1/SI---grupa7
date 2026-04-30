@@ -3,17 +3,17 @@ export const runtime = 'edge';
 
 import Link from 'next/link';
 
-import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ROUTES } from '@/constants';
 
 import { useResetPassword } from './useResetPassword';
 
 export default function ResetPasswordPage() {
-  const { email, setEmail, submitting, message, handleSubmit } = useResetPassword();
+  const { email, setEmail, errors, submitting, message, handleSubmit } = useResetPassword();
 
   return (
     <PageLayout className="space-y-6">
@@ -31,7 +31,7 @@ export default function ResetPasswordPage() {
             </p>
           ) : null}
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
+          <form className="space-y-4" onSubmit={handleSubmit} noValidate>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -43,7 +43,14 @@ export default function ResetPasswordPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'reset-email-error' : undefined}
               />
+              {errors.email ? (
+                <p id="reset-email-error" className="text-xs text-destructive">
+                  {errors.email}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-2">

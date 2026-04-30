@@ -1,7 +1,10 @@
+'use client';
+
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ROUTES, UI } from '@/constants';
+import { clearFieldError, getApiFieldErrors } from '@/lib/form-validation';
 import { register } from '@/services/auth.service';
 
 import type { RegisterFormData, RegisterFormErrors } from './register.types';
@@ -28,9 +31,10 @@ export function useRegister() {
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    setServerError(null);
 
     if (errors[name as keyof RegisterFormData]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
+      setErrors((prev) => clearFieldError(prev, name));
     }
   }
 
@@ -45,6 +49,7 @@ export function useRegister() {
     }
 
     setSubmitting(true);
+    setErrors({});
 
     try {
       await register({
@@ -57,8 +62,22 @@ export function useRegister() {
 
       setSuccess(true);
       setTimeout(() => router.push(ROUTES.LOGIN), UI.REGISTER_REDIRECT_DELAY_MS);
-    } catch (error) {
-      setServerError(error instanceof Error ? error.message : 'Registration failed. Please try again.');
+    } catch (error: unknown) {
+      const serviceDetails =
+        typeof error === 'object' && error !== null
+          ? (error as { details?: unknown }).details
+          : undefined;
+      const backendFieldErrors = getApiFieldErrors(
+        serviceDetails ? { response: (serviceDetails as { response?: unknown }).response } : error,
+      );
+
+      if (Object.keys(backendFieldErrors).length > 0) {
+        setErrors((prev) => ({ ...prev, ...backendFieldErrors }));
+      }
+
+      setServerError(
+        error instanceof Error ? error.message : 'Registration failed. Please try again.',
+      );
     } finally {
       setSubmitting(false);
     }

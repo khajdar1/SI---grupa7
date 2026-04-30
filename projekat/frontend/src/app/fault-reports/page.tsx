@@ -1,10 +1,9 @@
 'use client';
 export const runtime = 'edge';
 
-import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 
-import { ROUTES } from '@/constants';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +15,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { ROUTES } from '@/constants';
+import { clearFieldError, validateRequiredSelection } from '@/lib/form-validation';
 import type { Category } from '@/models/Category';
 import { getCategories } from '@/services/categories.service';
 
@@ -23,6 +24,7 @@ export default function FaultReportsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchCategories = async () => {
@@ -43,6 +45,22 @@ export default function FaultReportsPage() {
   }, []);
 
   const hasCategories = useMemo(() => categories.length > 0, [categories]);
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const categoryError = validateRequiredSelection(
+      selectedCategory,
+      'Please select a category before continuing.',
+    );
+
+    if (categoryError) {
+      setFieldErrors({ category: categoryError });
+      return;
+    }
+
+    setFieldErrors({});
+  };
 
   return (
     <PageLayout className="space-y-6">
@@ -70,11 +88,22 @@ export default function FaultReportsPage() {
                   description="Fault intake cannot proceed until at least one category is active."
                 />
               ) : (
-                <div className="space-y-5">
+                <form className="space-y-5" onSubmit={handleSubmit}>
                   <div className="space-y-2">
                     <Label htmlFor="fault-category">Category of malfunction</Label>
-                    <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value ?? '')}>
-                      <SelectTrigger id="fault-category" className="w-full sm:max-w-md">
+                    <Select
+                      value={selectedCategory}
+                      onValueChange={(value) => {
+                        setSelectedCategory(value ?? '');
+                        setFieldErrors((prev) => clearFieldError(prev, 'category'));
+                      }}
+                    >
+                      <SelectTrigger
+                        id="fault-category"
+                        className="w-full sm:max-w-md"
+                        aria-invalid={Boolean(fieldErrors.category)}
+                        aria-describedby={fieldErrors.category ? 'fault-report-category-error' : undefined}
+                      >
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -85,17 +114,22 @@ export default function FaultReportsPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    {fieldErrors.category ? (
+                      <p id="fault-report-category-error" className="text-xs text-destructive">
+                        {fieldErrors.category}
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" disabled={!selectedCategory}>
+                    <Button type="submit" disabled={!selectedCategory}>
                       Submit Report (Stub)
                     </Button>
                     <Button asChild type="button" variant="outline">
                       <Link href={ROUTES.DASHBOARD}>Back to Dashboard</Link>
                     </Button>
                   </div>
-                </div>
+                </form>
               )}
             </>
           )}
