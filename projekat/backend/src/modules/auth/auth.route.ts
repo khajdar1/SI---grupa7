@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate, authorizeRoles } from '../../middleware/auth.middleware';
+import { authenticate } from '../../middleware/auth.middleware';
 import {
   registerController,
   loginController,
@@ -23,7 +23,6 @@ authRouter.get('/', authenticate, (req, res) => {
 authRouter.get(
   '/admin',
   authenticate,
-  authorizeRoles(['admin']),
   (req, res) => {
     res.json({ message: 'Admin ruta radi' });
   }

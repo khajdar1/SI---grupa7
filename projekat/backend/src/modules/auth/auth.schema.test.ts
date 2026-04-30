@@ -9,6 +9,7 @@ test("registerSchema accepts valid input and normalizes email", () => {
     lastName: "Hadzic",
     username: "ahadzic",
     email: "ANA@Example.com ",
+    companyId: 1,
     password: "Password1",
   });
 
@@ -23,6 +24,7 @@ test("registerSchema rejects HTML content in text fields", () => {
         lastName: "Hadzic",
         username: "ahadzic",
         email: "ana@example.com",
+        companyId: 1,
         password: "Password1",
       }),
     /must not contain HTML or script content/i,
@@ -33,6 +35,21 @@ test("loginSchema requires both username and password", () => {
   assert.throws(
     () => loginSchema.parse({ username: "", password: "" }),
     /required/i,
+  );
+});
+
+test("registerSchema requires a valid company identifier", () => {
+  assert.throws(
+    () =>
+      registerSchema.parse({
+        firstName: "Ana",
+        lastName: "Hadzic",
+        username: "ahadzic",
+        email: "ana@example.com",
+        companyId: 0,
+        password: "Password1",
+      }),
+    /company is required/i,
   );
 });
 

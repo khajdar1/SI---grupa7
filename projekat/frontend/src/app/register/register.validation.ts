@@ -1,6 +1,6 @@
 import type { RegisterFormData, RegisterFormErrors } from './register.types';
 
-import { validateEmail, validateSafeText } from '@/lib/form-validation';
+import { validateEmail, validateRequiredSelection, validateSafeText } from '@/lib/form-validation';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_STRONG_LENGTH = 12;
@@ -37,6 +37,7 @@ export function validateRegisterForm(data: RegisterFormData): RegisterFormErrors
     'Email address is required.',
     'Invalid email format.',
   );
+  errors.companyId = validateRequiredSelection(data.companyId, 'Company is required.');
 
   if (!data.password) {
     errors.password = 'Password is required.';

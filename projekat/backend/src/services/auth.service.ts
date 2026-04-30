@@ -49,6 +49,7 @@ async function persistUser(
     lastName: string;
     username: string;
     email: string;
+    companyId: number;
   },
   keycloakSub: string
 ): Promise<RegisteredUser> {
@@ -58,6 +59,7 @@ async function persistUser(
       lastName: data.lastName,
       username: data.username,
       email: data.email,
+      companyId: data.companyId,
       externalIdentities: {
         create: {
           provider: "keycloak",
@@ -77,20 +79,32 @@ async function persistUser(
   });
 }
 
+async function assertCompanyExists(companyId: number): Promise<void> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { id: true },
+  });
+
+  if (!company) {
+    throw new NotFoundError("Selected company does not exist.");
+  }
+}
+
 export class AuthService {
   async register(input: RegisterInput): Promise<RegisteredUser> {
-    const { firstName, lastName, username, email } = input;
+    const { firstName, lastName, username, email, companyId } = input;
 
     console.log(
       `[AuthService] Self-registration attempt — username: ${username}, email: ${email}`
     );
 
     await assertNoDuplicateUser(username, email);
+    await assertCompanyExists(companyId);
 
     const keycloakSub = await this.createKeycloakUserSafe(input);
 
     try {
-      const user = await persistUser({ firstName, lastName, username, email }, keycloakSub);
+      const user = await persistUser({ firstName, lastName, username, email, companyId }, keycloakSub);
       console.log(`[AuthService] User registered successfully (id: ${user.id})`);
       return user;
     } catch (err) {
