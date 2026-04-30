@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROUTES, UI } from '@/constants';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PRIORITY_OPTIONS, type Priority } from '@shared/enums';
 import {
   getSlaConfigurations,
@@ -195,7 +196,14 @@ export default function AdminSlaConfigPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <div className="space-y-3">
+                {PRIORITY_OPTIONS.map((priority) => (
+                  <div key={`skeleton-${priority}`} className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 {PRIORITY_OPTIONS.map((priority) => {

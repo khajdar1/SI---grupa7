@@ -7,6 +7,7 @@ import { API_ENDPOINTS, ROUTES } from '@/constants';
 import { ASSIGNMENT_TOOLS } from '@/constants/content';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getModuleShell } from '@/services/module-shell.service';
 
 export default function AssignmentsPage() {
@@ -50,7 +51,11 @@ export default function AssignmentsPage() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
+                <Skeleton className="h-4 w-2/3" />
+              </div>
             ) : endpoints.length > 0 ? (
               <ul className="space-y-2 text-sm text-muted-foreground">
                 {endpoints.map((endpoint) => (

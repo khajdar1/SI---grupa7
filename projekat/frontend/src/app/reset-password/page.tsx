@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROUTES } from '@/constants';
@@ -18,13 +18,17 @@ export default function ResetPasswordPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Reset Password"
-        subtitle="Submit your email to receive a reset link."
-        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Reset Password' }]}
+        title="Forgot Password"
+        subtitle="If you forgot your password, submit your email to receive a reset link."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Forgot Password' }]}
       />
 
       <Card className="max-w-xl">
-        <CardContent className="space-y-5 pt-6">
+        <CardHeader className="space-y-1">
+          <CardTitle>Password reset</CardTitle>
+          <CardDescription>We will send a reset link to the provided email.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
           {message ? (
             <p className={message.type === 'error' ? 'text-sm text-destructive' : 'text-sm text-emerald-600'}>
               {message.text}

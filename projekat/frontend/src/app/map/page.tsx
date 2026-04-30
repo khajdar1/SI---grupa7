@@ -1,12 +1,8 @@
 export const runtime = 'edge';
 
-import Link from 'next/link';
-
 import { ROUTES } from '@/constants';
 import { MAP_TAGS } from '@/constants/content';
-import { PageHeader, PageLayout } from '@/components/shared';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { ModuleSummaryCard, PageHeader, PageLayout } from '@/components/shared';
 
 export default function MapPage() {
   return (
@@ -17,30 +13,13 @@ export default function MapPage() {
         breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Map' }]}
       />
 
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <p className="text-sm text-muted-foreground">
-            This screen will visualize fault and intervention locations to support dispatch planning.
-          </p>
-
-          <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-            {MAP_TAGS.map((item) => (
-              <span key={item} className="rounded-full border px-3 py-1">
-                {item}
-              </span>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link href={ROUTES.ASSIGNMENTS}>View assignments</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href={ROUTES.DASHBOARD}>Back to dashboard</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <ModuleSummaryCard
+        title="Geo Dispatch View"
+        description="This screen visualizes fault and intervention locations to support dispatch planning."
+        tags={MAP_TAGS}
+        primaryAction={{ label: 'View assignments', href: ROUTES.ASSIGNMENTS }}
+        secondaryAction={{ label: 'Back to dashboard', href: ROUTES.DASHBOARD }}
+      />
     </PageLayout>
   );
 }

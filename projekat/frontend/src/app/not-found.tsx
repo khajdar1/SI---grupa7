@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function NotFound() {
   return (
@@ -15,7 +15,11 @@ export default function NotFound() {
       />
 
       <Card className="max-w-xl">
-        <CardContent className="space-y-4 pt-6">
+        <CardHeader className="space-y-1">
+          <CardTitle>Route not available</CardTitle>
+          <CardDescription>This URL is not part of the currently deployed app surface.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
             Navigation currently includes future routes so the application shell can grow without structural churn.
           </p>
