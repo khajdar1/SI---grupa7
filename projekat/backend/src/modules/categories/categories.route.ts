@@ -1,29 +1,40 @@
-import { Router } from "express";
+import type { Request } from 'express';
+import { Router } from 'express';
 
-import { prisma } from "../../config/database";
-import { HTTP_STATUS } from "../../constants";
-import { authenticate } from "../../middleware/auth.middleware";
-import { validate } from "../../middleware/validate.middleware";
+import { prisma } from '../../config/database';
+import { HTTP_STATUS } from '../../constants';
+import { authenticate } from '../../middleware/auth.middleware';
+import { validate } from '../../middleware/validate.middleware';
+import { AuditService } from '../../shared/audit.service';
 import {
   createCategorySchema,
   updateCategorySchema,
   updateCategoryStatusSchema,
-} from "./categories.schema";
-import { CategoryService, ICategoryRepository, ValidationError } from "./categories.service";
+} from './categories.schema';
+import {
+  CategoryService,
+  type CategoryRecord,
+  type ICategoryRepository,
+  ValidationError,
+} from './categories.service';
 
 const categoriesRouter = Router();
 
 const prismaCategoryRepository: ICategoryRepository = {
-  findMany: () => prisma.category.findMany({ orderBy: { createdAt: "desc" } }),
-  findByName: (name: string) => prisma.category.findUnique({ where: { name } }),
-  create: (data) => prisma.category.create({ data }),
-  update: (id: number, data) => prisma.category.update({ where: { id }, data }),
+  findMany: async () => (await prisma.category.findMany({ orderBy: { createdAt: 'desc' } })) as unknown as CategoryRecord[],
+  findById: async (id: number) =>
+    (await prisma.category.findUnique({ where: { id } })) as unknown as CategoryRecord | null,
+  findByName: async (name: string) =>
+    (await prisma.category.findUnique({ where: { name } })) as unknown as CategoryRecord | null,
+  create: async (data) => (await prisma.category.create({ data })) as unknown as CategoryRecord,
+  update: async (id: number, data) =>
+    (await prisma.category.update({ where: { id }, data })) as unknown as CategoryRecord,
 };
 
 const categoryService = new CategoryService(prismaCategoryRepository);
 
-function parseCategoryId(rawId: string | string[] | undefined) {
-  if (typeof rawId !== "string") {
+function parseCategoryId(rawId: string | string[] | undefined): number | null {
+  if (typeof rawId !== 'string') {
     return null;
   }
 
@@ -31,18 +42,48 @@ function parseCategoryId(rawId: string | string[] | undefined) {
   return Number.isInteger(id) && id > 0 ? id : null;
 }
 
-categoriesRouter.get("/", async (_req, res) => {
+function getActorName(req: Request): string | null {
+  const fromAuthContext = req.user?.username?.trim();
+  if (fromAuthContext) {
+    return fromAuthContext;
+  }
+
+  const fromHeader = req.header('x-admin-name')?.trim();
+  if (fromHeader) {
+    return fromHeader;
+  }
+
+  return null;
+}
+
+function logCategoryChange(action: string, category: { id: number; name: string }, actorName: string): void {
+  AuditService.log({
+    action,
+    entity: 'Category',
+    entityId: category.id,
+    details: `${action} for category '${category.name}' by ${actorName}`,
+  });
+}
+
+categoriesRouter.get('/', async (_req, res) => {
   try {
     const categories = await categoryService.getAllCategories();
     res.json(categories);
   } catch {
-    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to fetch categories" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to fetch categories' });
   }
 });
 
-categoriesRouter.post("/", authenticate, validate(createCategorySchema), async (req, res) => {
+categoriesRouter.post('/', authenticate, validate(createCategorySchema), async (req, res) => {
   try {
-    const category = await categoryService.createCategory(req.body);
+    const actorName = getActorName(req);
+    if (!actorName) {
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authenticated user context is missing.' });
+      return;
+    }
+
+    const category = await categoryService.createCategory(req.body, actorName);
+    logCategoryChange('CATEGORY_CREATED', category, actorName);
     res.status(HTTP_STATUS.CREATED).json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
@@ -50,22 +91,29 @@ categoriesRouter.post("/", authenticate, validate(createCategorySchema), async (
       return;
     }
 
-    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to create category" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to create category' });
   }
 });
 
-categoriesRouter.patch("/:id", authenticate, validate(updateCategorySchema), async (req, res) => {
+categoriesRouter.patch('/:id', authenticate, validate(updateCategorySchema), async (req, res) => {
   try {
     const id = parseCategoryId(req.params.id);
     if (!id) {
       res.status(HTTP_STATUS.BAD_REQUEST).json({
-        message: "Validation failed",
-        errors: { id: "Category id must be a positive integer." },
+        message: 'Validation failed',
+        errors: { id: 'Category id must be a positive integer.' },
       });
       return;
     }
 
-    const category = await categoryService.updateCategory(id, req.body);
+    const actorName = getActorName(req);
+    if (!actorName) {
+      res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authenticated user context is missing.' });
+      return;
+    }
+
+    const category = await categoryService.updateCategory(id, req.body, actorName);
+    logCategoryChange('CATEGORY_UPDATED', category, actorName);
     res.json(category);
   } catch (error) {
     if (error instanceof ValidationError) {
@@ -73,12 +121,12 @@ categoriesRouter.patch("/:id", authenticate, validate(updateCategorySchema), asy
       return;
     }
 
-    res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to update category" });
+    res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to update category' });
   }
 });
 
 categoriesRouter.patch(
-  "/:id/status",
+  '/:id/status',
   authenticate,
   validate(updateCategoryStatusSchema),
   async (req, res) => {
@@ -86,16 +134,32 @@ categoriesRouter.patch(
       const id = parseCategoryId(req.params.id);
       if (!id) {
         res.status(HTTP_STATUS.BAD_REQUEST).json({
-          message: "Validation failed",
-          errors: { id: "Category id must be a positive integer." },
+          message: 'Validation failed',
+          errors: { id: 'Category id must be a positive integer.' },
         });
         return;
       }
 
-      const category = await categoryService.updateStatus(id, req.body.active);
+      const actorName = getActorName(req);
+      if (!actorName) {
+        res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authenticated user context is missing.' });
+        return;
+      }
+
+      const category = await categoryService.updateStatus(id, req.body.active, actorName);
+      logCategoryChange(
+        req.body.active ? 'CATEGORY_REACTIVATED' : 'CATEGORY_DEACTIVATED',
+        category,
+        actorName,
+      );
       res.json(category);
-    } catch {
-      res.status(HTTP_STATUS.INTERNAL).json({ message: "Failed to update category status" });
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
+        return;
+      }
+
+      res.status(HTTP_STATUS.INTERNAL).json({ message: 'Failed to update category status' });
     }
   },
 );
