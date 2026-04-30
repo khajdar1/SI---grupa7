@@ -20,6 +20,22 @@ interface InterventionsResult {
   moduleInfo: ModuleShellResponse | null;
 }
 
+function isInterventionListItem(payload: unknown): payload is InterventionListItem {
+  if (typeof payload !== 'object' || payload === null) {
+    return false;
+  }
+
+  const maybe = payload as Record<string, unknown>;
+  return (
+    typeof maybe.id === 'string' &&
+    typeof maybe.title === 'string' &&
+    typeof maybe.categoryName === 'string' &&
+    typeof maybe.priority === 'string' &&
+    typeof maybe.status === 'string' &&
+    typeof maybe.owner === 'string'
+  );
+}
+
 function isModuleInfo(payload: unknown): payload is ModuleShellResponse {
   if (typeof payload !== 'object' || payload === null) {
     return false;
@@ -34,8 +50,9 @@ export async function getInterventions(): Promise<InterventionsResult> {
     const response = await api.get<unknown>(API_ENDPOINTS.INTERVENTIONS.BASE);
 
     if (Array.isArray(response.data)) {
+      const items = response.data.filter(isInterventionListItem);
       return {
-        items: [],
+        items,
         moduleInfo: null,
       };
     }
