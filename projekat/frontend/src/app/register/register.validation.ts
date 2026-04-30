@@ -1,6 +1,10 @@
 import type { RegisterFormData, RegisterFormErrors } from './register.types';
 
-import { validateEmail, validateRequiredSelection, validateSafeText } from '@/lib/form-validation';
+import {
+  validateEmail,
+  validatePersonName,
+  validateSafeText,
+} from '@/lib/form-validation';
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_STRONG_LENGTH = 12;
@@ -15,15 +19,17 @@ const STRENGTH_STRONG_LEVEL = 4;
 export function validateRegisterForm(data: RegisterFormData): RegisterFormErrors {
   const errors: RegisterFormErrors = {};
 
-  errors.firstName = validateSafeText(data.firstName, {
+  errors.firstName = validatePersonName(data.firstName, {
     requiredMessage: 'First name is required.',
     maxLength: 100,
     maxLengthMessage: 'First name must be at most 100 characters long.',
+    invalidMessage: 'First name can only contain letters, spaces, apostrophes, and hyphens.',
   });
-  errors.lastName = validateSafeText(data.lastName, {
+  errors.lastName = validatePersonName(data.lastName, {
     requiredMessage: 'Last name is required.',
     maxLength: 100,
     maxLengthMessage: 'Last name must be at most 100 characters long.',
+    invalidMessage: 'Last name can only contain letters, spaces, apostrophes, and hyphens.',
   });
   errors.username = validateSafeText(data.username, {
     requiredMessage: 'Username is required.',
@@ -37,7 +43,6 @@ export function validateRegisterForm(data: RegisterFormData): RegisterFormErrors
     'Email address is required.',
     'Invalid email format.',
   );
-  errors.companyId = validateRequiredSelection(data.companyId, 'Company is required.');
 
   if (!data.password) {
     errors.password = 'Password is required.';

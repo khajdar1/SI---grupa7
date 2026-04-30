@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { loginSchema, registerSchema, resetPasswordSchema } from "./auth.schema";
+import { loginSchema, registerSchema, resetPasswordSchema } from "../src/modules/auth/auth.schema";
 
 test("registerSchema accepts valid input and normalizes email", () => {
   const result = registerSchema.parse({
@@ -9,7 +9,6 @@ test("registerSchema accepts valid input and normalizes email", () => {
     lastName: "Hadzic",
     username: "ahadzic",
     email: "ANA@Example.com ",
-    companyId: 1,
     password: "Password1",
   });
 
@@ -24,11 +23,37 @@ test("registerSchema rejects HTML content in text fields", () => {
         lastName: "Hadzic",
         username: "ahadzic",
         email: "ana@example.com",
-        companyId: 1,
         password: "Password1",
       }),
     /must not contain HTML or script content/i,
   );
+});
+
+test("registerSchema rejects numbers in first and last name", () => {
+  assert.throws(
+    () =>
+      registerSchema.parse({
+        firstName: "Ana123",
+        lastName: "Hadzic9",
+        username: "ahadzic",
+        email: "ana@example.com",
+        password: "Password1",
+      }),
+    /can only contain letters, spaces, apostrophes, and hyphens/i,
+  );
+});
+
+test("registerSchema accepts names with diacritics and hyphen", () => {
+  const result = registerSchema.parse({
+    firstName: "Željka",
+    lastName: "Hadžić-Kovač",
+    username: "zhadzic",
+    email: "zeljka@example.com",
+    password: "Password1",
+  });
+
+  assert.equal(result.firstName, "Željka");
+  assert.equal(result.lastName, "Hadžić-Kovač");
 });
 
 test("loginSchema requires both username and password", () => {
@@ -38,7 +63,7 @@ test("loginSchema requires both username and password", () => {
   );
 });
 
-test("registerSchema requires a valid company identifier", () => {
+test("registerSchema rejects unknown fields like companyId", () => {
   assert.throws(
     () =>
       registerSchema.parse({
@@ -46,10 +71,10 @@ test("registerSchema requires a valid company identifier", () => {
         lastName: "Hadzic",
         username: "ahadzic",
         email: "ana@example.com",
-        companyId: 0,
+        companyId: 1,
         password: "Password1",
       }),
-    /company is required/i,
+    /unrecognized key/i,
   );
 });
 

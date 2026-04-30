@@ -28,7 +28,6 @@ interface RegisterInput {
   lastName: string;
   username: string;
   email: string;
-  companyId: number;
   password: string;
 }
 

@@ -2,6 +2,7 @@ export type FieldErrors = Record<string, string>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const HTML_LIKE_PATTERN = /<[^>]+>/;
+const PERSON_NAME_REGEX = /^[\p{L}]+(?:[ '\-][\p{L}]+)*$/u;
 
 export function getTrimmedValue(value: string) {
   return value.trim();
@@ -63,6 +64,36 @@ export function validateSafeText(
 
 export function validateRequiredSelection(value: string, message: string) {
   return getTrimmedValue(value) ? "" : message;
+}
+
+export function validatePersonName(
+  value: string,
+  options: {
+    requiredMessage: string;
+    maxLength?: number;
+    maxLengthMessage?: string;
+    invalidMessage?: string;
+  },
+) {
+  const baseError = validateSafeText(value, {
+    requiredMessage: options.requiredMessage,
+    maxLength: options.maxLength,
+    maxLengthMessage: options.maxLengthMessage,
+  });
+
+  if (baseError) {
+    return baseError;
+  }
+
+  const trimmed = getTrimmedValue(value);
+  if (!trimmed) {
+    return "";
+  }
+
+  return PERSON_NAME_REGEX.test(trimmed)
+    ? ""
+    : options.invalidMessage ??
+        "Only letters, spaces, apostrophes, and hyphens are allowed.";
 }
 
 export function clearFieldError<T extends FieldErrors>(errors: T, field: string) {

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema } from 'zod';
-import { HTTP_STATUS } from '../constants';
+import { BadRequestError, type FieldError } from '../shared/errors';
 
 export const validate =
   (schema: ZodSchema) =>
@@ -8,10 +8,11 @@ export const validate =
     const result = schema.safeParse(req.body);
 
     if (!result.success) {
-      return res.status(HTTP_STATUS.BAD_REQUEST).json({
-        message: 'Validation failed',
-        errors: result.error.flatten().fieldErrors,
-      });
+      const fields: FieldError[] = result.error.issues.map((issue) => ({
+        field: issue.path.join('.') || 'request',
+        message: issue.message,
+      }));
+      return next(new BadRequestError('Validation failed.', fields));
     }
 
     req.body = result.data;

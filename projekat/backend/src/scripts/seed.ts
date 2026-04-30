@@ -1,11 +1,14 @@
 import {
+  PrismaClient,
+} from '@prisma/client';
+import { requireDatabaseUrl } from '../config/database-url';
+
+import {
   AssignmentMethod,
   InterventionStatus,
   InterventionType,
-  PrismaClient,
   Priority,
-} from '@prisma/client';
-import { requireDatabaseUrl } from '../config/database-url';
+} from '../shared/prisma-enums';
 
 export { AssignmentMethod, InterventionStatus, InterventionType, Priority };
 

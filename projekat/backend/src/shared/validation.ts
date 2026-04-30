@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const htmlPattern = /<[^>]+>/;
+const personNamePattern = /^[\p{L}]+(?:[ '\-][\p{L}]+)*$/u;
 
 export function safeTextField(fieldLabel: string, options?: { min?: number; max?: number }) {
   const min = options?.min ?? 1;
@@ -33,6 +34,12 @@ export function optionalSafeTextField(fieldLabel: string, max = 1000) {
     })
     .optional()
     .transform((value) => (value === "" ? undefined : value));
+}
+
+export function personNameField(fieldLabel: string, options?: { min?: number; max?: number }) {
+  return safeTextField(fieldLabel, options).refine((value) => personNamePattern.test(value), {
+    message: `${fieldLabel} can only contain letters, spaces, apostrophes, and hyphens.`,
+  });
 }
 
 export function emailField() {

@@ -27,13 +27,6 @@ export class ConflictError extends Error {
   }
 }
 
-export class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
-
 async function assertNoDuplicateUser(username: string, email: string): Promise<void> {
   const existing = await prisma.user.findFirst({
     where: { OR: [{ username }, { email }] },
@@ -49,7 +42,6 @@ async function persistUser(
     lastName: string;
     username: string;
     email: string;
-    companyId: number;
   },
   keycloakSub: string
 ): Promise<RegisteredUser> {
@@ -59,7 +51,7 @@ async function persistUser(
       lastName: data.lastName,
       username: data.username,
       email: data.email,
-      companyId: data.companyId,
+      companyId: null,
       externalIdentities: {
         create: {
           provider: "keycloak",
@@ -79,32 +71,20 @@ async function persistUser(
   });
 }
 
-async function assertCompanyExists(companyId: number): Promise<void> {
-  const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { id: true },
-  });
-
-  if (!company) {
-    throw new NotFoundError("Selected company does not exist.");
-  }
-}
-
 export class AuthService {
   async register(input: RegisterInput): Promise<RegisteredUser> {
-    const { firstName, lastName, username, email, companyId } = input;
+    const { firstName, lastName, username, email } = input;
 
     console.log(
       `[AuthService] Self-registration attempt — username: ${username}, email: ${email}`
     );
 
     await assertNoDuplicateUser(username, email);
-    await assertCompanyExists(companyId);
 
     const keycloakSub = await this.createKeycloakUserSafe(input);
 
     try {
-      const user = await persistUser({ firstName, lastName, username, email, companyId }, keycloakSub);
+      const user = await persistUser({ firstName, lastName, username, email }, keycloakSub);
       console.log(`[AuthService] User registered successfully (id: ${user.id})`);
       return user;
     } catch (err) {
@@ -159,8 +139,21 @@ export class AuthService {
 
   async triggerPasswordReset(email: string): Promise<void> {
     try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const user = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+        select: { id: true, active: true },
+      });
+
+      if (user && !user.active) {
+        console.warn(
+          `[AuthService] Password reset blocked for deactivated user id=${user.id}`,
+        );
+        return;
+      }
+
       const adminToken = await getKeycloakAdminToken();
-      await sendKeycloakResetEmail(adminToken, email);
+      await sendKeycloakResetEmail(adminToken, normalizedEmail);
     } catch (err) {
       console.error("[AuthService] Error during password reset request:", err);
       throw err;
