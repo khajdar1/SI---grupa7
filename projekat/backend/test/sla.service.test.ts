@@ -1,6 +1,5 @@
-import { describe, it, beforeEach } from "node:test";
-import assert from "node:assert";
-import { Priority, SlaService, ISlaRepository } from "../src/modules/sla/sla.service";
+import { beforeEach, describe, expect, it } from "vitest";
+import { Priority, SlaService, type ISlaRepository } from "../src/modules/sla/sla.service";
 
 const mockRepository: ISlaRepository = {
   findAll: async () => [
@@ -66,24 +65,24 @@ describe("SlaService", () => {
 
   it("should retrieve all SLA configurations", async () => {
     const configurations = await slaService.getAllSlaConfigurations();
-    assert.strictEqual(configurations.length, 4);
-    assert.strictEqual(configurations[0].priority, Priority.CRITICAL);
-    assert.strictEqual(configurations[0].deadlineHours, 2);
+    expect(configurations).toHaveLength(4);
+    expect(configurations[0].priority).toBe(Priority.CRITICAL);
+    expect(configurations[0].deadlineHours).toBe(2);
   });
 
   it("should retrieve SLA configuration by priority", async () => {
     const configuration = await slaService.getSlaByPriority(Priority.CRITICAL);
-    assert(configuration !== null, "Config should not be null");
-    assert.strictEqual(configuration.priority, Priority.CRITICAL);
-    assert.strictEqual(configuration.deadlineHours, 2);
+    expect(configuration).not.toBeNull();
+    expect(configuration?.priority).toBe(Priority.CRITICAL);
+    expect(configuration?.deadlineHours).toBe(2);
   });
 
   it("should successfully update single SLA configuration", async () => {
     const updates = [{ priority: Priority.CRITICAL, deadlineHours: 3 }];
     const result = await slaService.updateSlaConfigurations(updates, 123);
-    assert.strictEqual(result.length, 1);
-    assert.strictEqual(result[0].priority, Priority.CRITICAL);
-    assert.strictEqual(result[0].deadlineHours, 3);
+    expect(result).toHaveLength(1);
+    expect(result[0].priority).toBe(Priority.CRITICAL);
+    expect(result[0].deadlineHours).toBe(3);
   });
 
   it("should successfully update multiple SLA configurations in batch", async () => {
@@ -93,22 +92,22 @@ describe("SlaService", () => {
       { priority: Priority.MEDIUM, deadlineHours: 30 },
     ];
     const result = await slaService.updateSlaConfigurations(updates, 123);
-    assert.strictEqual(result.length, 3);
-    assert.strictEqual(result[0].deadlineHours, 3);
-    assert.strictEqual(result[1].deadlineHours, 10);
-    assert.strictEqual(result[2].deadlineHours, 30);
+    expect(result).toHaveLength(3);
+    expect(result[0].deadlineHours).toBe(3);
+    expect(result[1].deadlineHours).toBe(10);
+    expect(result[2].deadlineHours).toBe(30);
   });
 
   it("should accept update with minimum valid value (1 hour)", async () => {
     const updates = [{ priority: Priority.CRITICAL, deadlineHours: 1 }];
     const result = await slaService.updateSlaConfigurations(updates, 123);
-    assert.strictEqual(result[0].deadlineHours, 1);
+    expect(result[0].deadlineHours).toBe(1);
   });
 
   it("should accept update with maximum valid value (8760 hours = 365 days)", async () => {
     const updates = [{ priority: Priority.LOW, deadlineHours: 8760 }];
     const result = await slaService.updateSlaConfigurations(updates, 123);
-    assert.strictEqual(result[0].deadlineHours, 8760);
+    expect(result[0].deadlineHours).toBe(8760);
   });
 
   it("should handle updates across all priority levels", async () => {
@@ -119,17 +118,17 @@ describe("SlaService", () => {
       { priority: Priority.LOW, deadlineHours: 72 },
     ];
     const result = await slaService.updateSlaConfigurations(updates, 123);
-    assert.strictEqual(result.length, 4);
-    assert.strictEqual(result[0].priority, Priority.CRITICAL);
-    assert.strictEqual(result[1].priority, Priority.HIGH);
-    assert.strictEqual(result[2].priority, Priority.MEDIUM);
-    assert.strictEqual(result[3].priority, Priority.LOW);
+    expect(result).toHaveLength(4);
+    expect(result[0].priority).toBe(Priority.CRITICAL);
+    expect(result[1].priority).toBe(Priority.HIGH);
+    expect(result[2].priority).toBe(Priority.MEDIUM);
+    expect(result[3].priority).toBe(Priority.LOW);
   });
 
   it("should accept update without userId (anonymous changes)", async () => {
     const updates = [{ priority: Priority.CRITICAL, deadlineHours: 5 }];
     const result = await slaService.updateSlaConfigurations(updates);
-    assert.strictEqual(result[0].deadlineHours, 5);
+    expect(result[0].deadlineHours).toBe(5);
   });
 
   it("should reject duplicate priorities within batch update", async () => {
@@ -137,10 +136,8 @@ describe("SlaService", () => {
       { priority: Priority.CRITICAL, deadlineHours: 3 },
       { priority: Priority.CRITICAL, deadlineHours: 5 },
     ];
-    await assert.rejects(
-      () => slaService.updateSlaConfigurations(updates, 123),
-      (err: Error) =>
-        err.message.includes("Duplicate priority") && err.message.includes("CRITICAL"),
+    await expect(slaService.updateSlaConfigurations(updates, 123)).rejects.toThrow(
+      /Duplicate priority.*CRITICAL/i,
     );
   });
 });

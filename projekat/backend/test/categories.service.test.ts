@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import test from "node:test";
+import { expect, test } from "vitest";
 
 import {
   CategoryService,
@@ -97,21 +96,20 @@ test("CategoryService - createCategory (happy path)", async () => {
     "Ana Admin",
   );
 
-  assert.equal(result.name, "Plumbing");
-  assert.equal(result.description, "Water pipes");
-  assert.equal(result.active, true);
-  assert.equal(result.createdByName, "Ana Admin");
-  assert.equal(result.updatedByName, "Ana Admin");
+  expect(result.name).toBe("Plumbing");
+  expect(result.description).toBe("Water pipes");
+  expect(result.active).toBe(true);
+  expect(result.createdByName).toBe("Ana Admin");
+  expect(result.updatedByName).toBe("Ana Admin");
 });
 
 test("CategoryService - createCategory (Validation Error: missing name)", async () => {
   const repo = new MockCategoryRepository();
   const service = new CategoryService(repo);
 
-  await assert.rejects(
-    async () => service.createCategory({ name: "   ", description: "Empty name" }, "Ana Admin"),
-    (err: unknown) => err instanceof ValidationError && err.message === "Name is required",
-  );
+  await expect(
+    service.createCategory({ name: "   ", description: "Empty name" }, "Ana Admin"),
+  ).rejects.toThrow("Name is required");
 });
 
 test("CategoryService - createCategory (Business Rule: unique name)", async () => {
@@ -119,11 +117,8 @@ test("CategoryService - createCategory (Business Rule: unique name)", async () =
   const service = new CategoryService(repo);
   repo.seed({ name: "Electrical", active: true });
 
-  await assert.rejects(
-    async () => service.createCategory({ name: "Electrical" }, "Ana Admin"),
-    (err: unknown) =>
-      err instanceof ValidationError &&
-      err.message === "Category with this name already exists",
+  await expect(service.createCategory({ name: "Electrical" }, "Ana Admin")).rejects.toThrow(
+    "Category with this name already exists",
   );
 });
 
@@ -138,8 +133,8 @@ test("CategoryService - updateCategory (Happy Path)", async () => {
     "Lejla Manager",
   );
 
-  assert.equal(result.name, "HVAC Updated");
-  assert.equal(result.updatedByName, "Lejla Manager");
+  expect(result.name).toBe("HVAC Updated");
+  expect(result.updatedByName).toBe("Lejla Manager");
 });
 
 test("CategoryService - updateCategory (Business Rule: unique name check ignores self)", async () => {
@@ -156,7 +151,7 @@ test("CategoryService - updateCategory (Business Rule: unique name check ignores
     "Lejla Manager",
   );
 
-  assert.equal(result.description, "Cooling");
+  expect(result.description).toBe("Cooling");
 });
 
 test("CategoryService - updateCategory (Business Rule: reject name collision)", async () => {
@@ -165,11 +160,8 @@ test("CategoryService - updateCategory (Business Rule: reject name collision)", 
   repo.seed({ name: "HVAC", active: true });
   repo.seed({ name: "Plumbing", active: true });
 
-  await assert.rejects(
-    async () => service.updateCategory(2, { name: "HVAC" }, "Lejla Manager"),
-    (err: unknown) =>
-      err instanceof ValidationError &&
-      err.message === "Another category with this name already exists",
+  await expect(service.updateCategory(2, { name: "HVAC" }, "Lejla Manager")).rejects.toThrow(
+    "Another category with this name already exists",
   );
 });
 
@@ -178,12 +170,9 @@ test("CategoryService - updateCategory (Business Rule: reject inactive categorie
   const service = new CategoryService(repo);
   repo.seed({ name: "HVAC", active: false });
 
-  await assert.rejects(
-    async () => service.updateCategory(1, { name: "HVAC Updated" }, "Lejla Manager"),
-    (err: unknown) =>
-      err instanceof ValidationError &&
-      err.message === "Inactive categories cannot be edited",
-  );
+  await expect(
+    service.updateCategory(1, { name: "HVAC Updated" }, "Lejla Manager"),
+  ).rejects.toThrow("Inactive categories cannot be edited");
 });
 
 test("CategoryService - updateStatus (deactivate category)", async () => {
@@ -193,8 +182,8 @@ test("CategoryService - updateStatus (deactivate category)", async () => {
 
   const result = await service.updateStatus(1, false, "Lejla Manager");
 
-  assert.equal(result.active, false);
-  assert.equal(result.updatedByName, "Lejla Manager");
+  expect(result.active).toBe(false);
+  expect(result.updatedByName).toBe("Lejla Manager");
 });
 
 test("CategoryService - updateStatus (reactivate category)", async () => {
@@ -204,6 +193,15 @@ test("CategoryService - updateStatus (reactivate category)", async () => {
 
   const result = await service.updateStatus(1, true, "Lejla Manager");
 
-  assert.equal(result.active, true);
-  assert.equal(result.updatedByName, "Lejla Manager");
+  expect(result.active).toBe(true);
+  expect(result.updatedByName).toBe("Lejla Manager");
+});
+
+test("CategoryService - errors are ValidationError instances", async () => {
+  const repo = new MockCategoryRepository();
+  const service = new CategoryService(repo);
+
+  await expect(service.createCategory({ name: "" }, "Admin")).rejects.toBeInstanceOf(
+    ValidationError,
+  );
 });

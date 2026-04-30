@@ -25,15 +25,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: |
-            projekat/package-lock.json
-            projekat/backend/package-lock.json
-            projekat/frontend/package-lock.json
+          cache-dependency-path: projekat/package-lock.json
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run backend tests with coverage
+      - name: Run backend unit tests with coverage
         run: npm run test:coverage --workspace backend
 
       - name: Upload coverage artifact
