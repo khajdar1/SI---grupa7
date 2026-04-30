@@ -56,7 +56,6 @@ export const loginController = async (req: Request, res: Response): Promise<void
     }
 
     let tokens: { access_token: string; refresh_token: string };
-
     try {
       tokens = await loginKeycloakUser(username, password);
     } catch {
@@ -67,7 +66,6 @@ export const loginController = async (req: Request, res: Response): Promise<void
     }
 
     const userInDb = await authService.getUserByUsername(username);
-
     if (!userInDb) {
       res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User could not be found." });
       return;
