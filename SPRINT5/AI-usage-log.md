@@ -132,67 +132,40 @@
 
 ---
 
-**Sprint broj:** Sprint 5
+- **Datum:** 27.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** Claude (Anthropic)
+- **Svrha korištenja:** Arhitekturalna analiza i refaktorisanje SLA konfiguracijskog modula na osnovu code review povratne informacije.
+- **Kratak opis zadatka ili upita:** Tim je radio na poboljšanju kvalitete SLA modula kroz separaciju odgovornosti i standardizaciju grešaka. Zadatak je obuhvatio premještanje input validacije iz servisa u request layer, kreiranje tipiziranih audit event modela umjesto generičkog logiranja, simplifikaciju frontend state managementa, strožu validaciju u validator funkcijama i mapiranje error fieldova između backenda i frontenda.
+- **Šta je AI predložio ili generisao:**
+    - Refaktorisanje `sla.service.ts` uklanjanjem duplog validiranja iz servisa i zadržavanjem samo business invarianti.
+    - Uvođenje tipiziranih audit event modela u `audit.service.ts` umjesto generičkih `Record<string, any>` struktura.
+    - Pojednostavljenje frontend state managementa u `page.tsx` korištenjem string vrijednosti i mapiranja backend grešaka na frontend polja.
+    - Strožiju validaciju u `sla.validators.ts`, uključujući ispravno odbijanje non-array inputa.
+- **Šta je tim prihvatio:** Separaciju validacije u request layer, tipizirane audit evente, pojednostavljen frontend state management i strožu validaciju u validator funkcijama.
+- **Šta je tim izmijenio:** Poništene su izmjene u `route.ts` jer kompletan refactor u tom trenutku nije bio spreman; dodat je prikaz priority labela u frontend error porukama i test za duplicate priority business invariant u `sla.service.test.ts`.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Uočen je git merge konflikt između lokalne refaktorisane verzije i remote verzije sa starijim kodom; poništavanje `route.ts` izmjena ostavilo je logiku za `ValidationError` kao tehnički dug; frontend error mapping koristi heuristiku koja može biti fragilna ako se poruke promijene.
+- **Ko je koristio alat:** Lamija Bojić
 
-**Alat koji je korišten:** Claude (Anthropic)
-
-**Svrha korištenja:** Arhitekturalna analiza i refaktorisanje SLA konfiguracijskog modula na osnovu code review povratne informacije.
-
-**Kratak opis zadatka ili upita:** Tim je radio na poboljšanju kvalitete SLA modula kroz separaciju odgovornosti i standardizaciju grešaka. Zadaci su obuhvatili:
-
-- Premještanje input validacije iz servisa u request layer
-- Kreiranja tipiziranih audit event modela umjesto generičkog logiranja
-- Simplifikaciju frontend state managementa
-- Stroga validacija u validator funkcijama
-- Error field mapping između backendu i frontendu
-
-**Šta je AI predložio ili generisao:**
-
-1. **Backend refaktorisanje (sla.service.ts):**
-   - Uklanjanje duplog validiranja iz servisa (array format, field types, priority enums, value ranges)
-   - Zadržavanje samo business invarianti (duplicate priority detection)
-   - Uklanjanje `ValidationError` klase (prebačeno u request layer)
-   - Fokus na core business logic: audit logging, data operations
-
-2. **Audit Service typing (audit.service.ts):**
-   - Kreiranja `SlaConfigurationChangeEvent` interfejsa koji ekstenduje `AuditLogEntry`
-   - Uklanjanje `Record<string, any>` tipova u favour specifičnih struktura
-   - Dokumentacija pattern-a za buduće event tipove
-
-3. **Frontend state management (page.tsx):**
-   - Promjena `formData` tipa sa `Record<string, string | number>` na `Record<string, string>`
-   - Konverzija brojeva u stringove samo na submit vremenu
-   - `mapBackendErrors()` helper funkcija za mapiranje backend error ključeva na frontend polja
-
-4. **Validator striktnost (sla.validators.ts):**
-   - `validateNoDuplicatePriorities()` sada vraća `valid: false` za non-array input umjesto молчећег success
-
-**Šta je tim prihvatio:**
-
-- Kompletna refaktorisanja separacije validacije u request layer
-- Tipiziranje audit events umjesto generičkog logiranja
-- Frontend state management sa stringovima umjesto mješovitih tipova
-- Strika validacija u validator funkcijama
-
-**Šta je tim izmijenio:**
-
-- User je undid route.ts izmjene jer nije bilo spreman za kompletan refactor u tom momentu
-- Frontend validator dodano prikazivanje priority labela u error porukama (npr. "Hitan: value cannot be empty")
-- Dodan test za duplicate priority business invariant u sla.service.test.ts
-
-**Šta je tim odbacio:**
-
-- N/A
-
-**Rizici, problemi ili greške koje su uočene:**
-
-- Git merge konflikt između lokalne refaktorisane verzije i remote verzije sa starim kodom — riješeno prihvatanjem lokalne verzije
-- Undoing route.ts izmjena ostavilo je logiku za `ValidationError` koja više nije potrebna — evidentirana kao tehnički dug
-- Frontend error mapping koristi heuristiku (traži priority u error poruci) što može biti fragilan ako se poruke promijene
+---
 
 
-**Ko je koristio alat:** Lamija Bojić
-
+- **Datum:** 29.04.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** GitHub Copilot (LLM)
+- **Svrha korištenja:** Testiranje i provjera PBI-024 (Validacija unosa podataka).
+- **Kratak opis zadatka ili upita:** Provjera ispravnosti klijentske i serverske validacije unosa, testiranje ponašanja obaveznih polja, prikaza poruka greške i reakcije sistema na neispravne unose.
+- **Šta je AI predložio ili generisao:**
+    - Prijedloge test scenarija za obavezna i neispravna polja.
+    - Primjere unosa za provjeru validacije na klijentskoj i serverskoj strani.
+    - Smjernice za provjeru da se greške pravilno mapiraju i prikazuju korisniku.
+- **Šta je tim prihvatio:** Predložene test scenarije i provjere validacije kroz frontend i backend tokove.
+- **Šta je tim izmijenio:** Test slučajevi su prilagođeni konkretnim formama i pravilima unosa unutar aplikacije.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Postoji rizik da dio validacije ostane nedovoljno pokriven ako se promjene na backendu ili frontendu ne testiraju zajedno; potrebno je održavati usklađenost poruka greške i validacionih pravila.
+- **Ko je koristio alat:** Lamija Bojić
+  
 ---
 
 - **Datum:** 27.04.2026.
