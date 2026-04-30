@@ -29,7 +29,9 @@ jobs:
         run: npm ci
 
       - name: Generate Prisma client
-        run: npm run prisma:generate --workspace backend
+        run: |
+          DATABASE_URL="${DATABASE_URL:-mysql://service_app:service_app@localhost:3306/service_interventions}" \
+          npm run prisma:generate --workspace backend
 
       - name: Build (root)
         run: npm run build
