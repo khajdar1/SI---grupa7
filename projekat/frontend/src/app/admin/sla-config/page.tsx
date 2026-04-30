@@ -1,14 +1,15 @@
-﻿'use client';
+'use client';
 export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 
-import { ROUTES, UI } from '@/constants';
 import { DataTable, PageHeader, PageLayout, PriorityBadge } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ROUTES, UI } from '@/constants';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PRIORITY_OPTIONS, type Priority } from '@shared/enums';
 import {
   getSlaConfigurations,
@@ -46,14 +47,12 @@ export default function AdminSlaConfigPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-
   const [formData, setFormData] = useState<Record<Priority, string>>(() =>
     PRIORITY_OPTIONS.reduce(
       (accumulator, priority) => ({ ...accumulator, [priority]: '' }),
       {} as Record<Priority, string>,
     ),
   );
-
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const formatDate = (date?: string) => {
@@ -94,23 +93,23 @@ export default function AdminSlaConfigPage() {
     void fetchSlaConfigs();
   }, []);
 
-  const validateField = (_priority: Priority, value: string): string => {
+  const validateField = (priority: Priority, value: string): string => {
     if (value === '') {
-      return 'Value cannot be empty';
+      return `${priority}: value is required.`;
     }
 
     const numericValue = Number(value);
 
     if (!Number.isInteger(numericValue)) {
-      return 'Must be a whole number';
+      return `${priority}: enter a whole number of hours.`;
     }
 
     if (numericValue <= 0) {
-      return 'Must be greater than 0';
+      return `${priority}: value must be greater than 0.`;
     }
 
     if (numericValue > 8760) {
-      return 'Maximum is 8760 hours';
+      return `${priority}: maximum value is 8760 hours.`;
     }
 
     return '';
@@ -165,7 +164,7 @@ export default function AdminSlaConfigPage() {
       await updateSlaConfigurations({ configurations });
       await fetchSlaConfigs();
       setSuccessMessage('SLA configuration updated successfully.');
-    } catch (requestError) {
+    } catch (requestError: unknown) {
       const maybeErrors =
         typeof requestError === 'object' && requestError !== null
           ? (requestError as { details?: { response?: { data?: { errors?: Record<string, string> } } } }).details
@@ -197,7 +196,14 @@ export default function AdminSlaConfigPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <div className="space-y-3">
+                {PRIORITY_OPTIONS.map((priority) => (
+                  <div key={`skeleton-${priority}`} className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-10 w-full" />
+                  </div>
+                ))}
+              </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 {PRIORITY_OPTIONS.map((priority) => {
@@ -210,11 +216,19 @@ export default function AdminSlaConfigPage() {
                       <Input
                         id={key}
                         type="number"
+                        min={1}
+                        max={8760}
+                        step={1}
                         value={formData[priority]}
                         onChange={(event) => handleInputChange(priority, event.target.value)}
                         aria-invalid={hasError}
+                        aria-describedby={hasError ? `${key}-error` : undefined}
                       />
-                      {hasError ? <p className="text-xs text-destructive">{fieldErrors[key]}</p> : null}
+                      {hasError ? (
+                        <p id={`${key}-error`} className="text-xs text-destructive">
+                          {fieldErrors[key]}
+                        </p>
+                      ) : null}
                     </div>
                   );
                 })}

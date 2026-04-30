@@ -1,12 +1,9 @@
 export const runtime = 'edge';
 
-import Link from 'next/link';
-
 import { ROUTES } from '@/constants';
 import { ADMIN_SYSTEM_TAGS } from '@/constants/content';
-import { PageHeader, PageLayout } from '@/components/shared';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ModuleSummaryCard, PageHeader, PageLayout } from '@/components/shared';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function AdminPage() {
   return (
@@ -19,8 +16,9 @@ export default function AdminPage() {
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="space-y-2">
             <CardTitle>User Governance</CardTitle>
+            <CardDescription>Access, lifecycle, and organization mapping for platform users.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm text-muted-foreground">
@@ -31,29 +29,13 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Tuning</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-              {ADMIN_SYSTEM_TAGS.map((item) => (
-                <span key={item} className="rounded-full border px-3 py-1">
-                  {item}
-                </span>
-              ))}
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <Link href={ROUTES.ADMIN_CATEGORY}>Manage Categories</Link>
-              </Button>
-              <Button asChild>
-                <Link href={ROUTES.ADMIN_SLA_CONFIG}>Configure SLA</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <ModuleSummaryCard
+          title="System Tuning"
+          description="Operational controls for taxonomy and SLA rule maintenance."
+          tags={ADMIN_SYSTEM_TAGS}
+          primaryAction={{ label: 'Manage Categories', href: ROUTES.ADMIN_CATEGORY }}
+          secondaryAction={{ label: 'Configure SLA', href: ROUTES.ADMIN_SLA_CONFIG }}
+        />
       </section>
     </PageLayout>
   );

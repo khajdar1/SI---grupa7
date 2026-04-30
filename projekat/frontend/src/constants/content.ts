@@ -1,6 +1,11 @@
 import { ROUTES } from './index';
 
-export const MAIN_NAV_ITEMS = [
+export interface NavItem {
+  label: string;
+  to: string;
+}
+
+export const PRIMARY_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Home', to: ROUTES.HOME },
   { label: 'Dashboard', to: ROUTES.DASHBOARD },
   { label: 'Fault Reports', to: ROUTES.FAULT_REPORTS },
@@ -9,20 +14,28 @@ export const MAIN_NAV_ITEMS = [
   { label: 'Reports', to: ROUTES.REPORTS },
 ] as const;
 
-export const SUPPORT_NAV_ITEMS = [
+export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
   { label: 'History', to: ROUTES.HISTORY },
   { label: 'Tickets', to: ROUTES.TICKETS },
   { label: 'Map', to: ROUTES.MAP },
+];
+
+export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
+  { label: 'Admin Home', to: ROUTES.ADMIN },
+  { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
+  { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },
+];
+
+export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Profile', to: ROUTES.PROFILE },
   { label: 'Settings', to: ROUTES.SETTINGS },
-  { label: 'Admin', to: ROUTES.ADMIN },
+  { label: 'Logout', to: ROUTES.LOGOUT },
 ] as const;
 
-export const AUTH_NAV_ITEMS = [
+export const AUTH_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Login', to: ROUTES.LOGIN },
   { label: 'Register', to: ROUTES.REGISTER },
-  { label: 'Reset Password', to: ROUTES.RESET_PASSWORD },
-  { label: 'Logout', to: ROUTES.LOGOUT },
+  { label: 'Forgot Password', to: ROUTES.RESET_PASSWORD },
 ] as const;
 
 export const HOME_CAPABILITY_CARDS = [

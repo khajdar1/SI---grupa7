@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { API_ENDPOINTS, ROUTES } from '@/constants';
 import { EmptyState, PageHeader, PageLayout, StatCard } from '@/components/shared';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { getModuleShell } from '@/services/module-shell.service';
 
 export default function ReportsPage() {
@@ -55,7 +56,11 @@ export default function ReportsPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+              <Skeleton className="h-4 w-3/5" />
+            </div>
           ) : endpoints.length > 0 ? (
             <ul className="space-y-2 text-sm text-muted-foreground">
               {endpoints.map((endpoint) => (
