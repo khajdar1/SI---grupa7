@@ -8,24 +8,49 @@ export class ValidationError extends Error {
 export interface CategoryData {
   name: string;
   description?: string;
+}
+
+export interface CategoryRecord {
+  id: number;
+  name: string;
+  description: string | null;
+  active: boolean;
+  createdByName: string | null;
+  updatedByName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CategoryCreateData {
+  name: string;
+  description?: string;
+  createdByName: string;
+  updatedByName: string;
+}
+
+export interface CategoryUpdateData {
+  name?: string;
+  description?: string;
   active?: boolean;
+  updatedByName: string;
 }
 
 export interface ICategoryRepository {
-  findMany(): Promise<any[]>;
-  findByName(name: string): Promise<any | null>;
-  create(data: CategoryData): Promise<any>;
-  update(id: number, data: Partial<CategoryData>): Promise<any>;
+  findMany(): Promise<CategoryRecord[]>;
+  findById(id: number): Promise<CategoryRecord | null>;
+  findByName(name: string): Promise<CategoryRecord | null>;
+  create(data: CategoryCreateData): Promise<CategoryRecord>;
+  update(id: number, data: Partial<CategoryUpdateData>): Promise<CategoryRecord>;
 }
 
 export class CategoryService {
   constructor(private readonly repository: ICategoryRepository) {}
 
-  async getAllCategories() {
+  async getAllCategories(): Promise<CategoryRecord[]> {
     return this.repository.findMany();
   }
 
-  async createCategory(data: CategoryData) {
+  async createCategory(data: CategoryData, adminName: string): Promise<CategoryRecord> {
     if (!data.name || data.name.trim() === '') {
       throw new ValidationError('Name is required');
     }
@@ -40,11 +65,25 @@ export class CategoryService {
     return this.repository.create({
       name,
       description: data.description?.trim(),
+      createdByName: adminName,
+      updatedByName: adminName,
     });
   }
 
-  async updateCategory(id: number, data: Partial<CategoryData>) {
-    const updateData: Partial<CategoryData> = { ...data };
+  async updateCategory(id: number, data: Partial<CategoryData>, adminName: string): Promise<CategoryRecord> {
+    const currentCategory = await this.repository.findById(id);
+
+    if (!currentCategory) {
+      throw new ValidationError('Category not found');
+    }
+
+    if (!currentCategory.active) {
+      throw new ValidationError('Inactive categories cannot be edited');
+    }
+
+    const updateData: Partial<CategoryUpdateData> = {
+      updatedByName: adminName,
+    };
 
     if (data.name !== undefined) {
       if (data.name.trim() === '') {
@@ -65,7 +104,16 @@ export class CategoryService {
     return this.repository.update(id, updateData);
   }
 
-  async updateStatus(id: number, active: boolean) {
-    return this.repository.update(id, { active });
+  async updateStatus(id: number, active: boolean, adminName: string): Promise<CategoryRecord> {
+    const category = await this.repository.findById(id);
+
+    if (!category) {
+      throw new ValidationError('Category not found');
+    }
+
+    return this.repository.update(id, {
+      active,
+      updatedByName: adminName,
+    });
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,11 @@ export default function AdminCategoriesPage() {
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [pendingStatusCategory, setPendingStatusCategory] = useState<Category | null>(null);
+
+  const activeCategoriesCount = useMemo(
+    () => categories.filter((category) => category.active).length,
+    [categories],
+  );
 
   const fetchCategories = async () => {
     try {
@@ -155,6 +160,11 @@ export default function AdminCategoriesPage() {
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {!loading && activeCategoriesCount === 0 ? (
+        <p className="text-sm text-amber-600">
+          No active categories. Users will not be able to submit regular fault reports.
+        </p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -239,6 +249,16 @@ export default function AdminCategoriesPage() {
                     ) : (
                       <Badge variant="destructive">Inactive</Badge>
                     ),
+                },
+                {
+                  key: 'createdByName',
+                  header: 'Created By',
+                  render: (value) => (value ? String(value) : 'System'),
+                },
+                {
+                  key: 'updatedByName',
+                  header: 'Updated By',
+                  render: (value, row) => (value ? String(value) : row.createdByName || 'System'),
                 },
                 {
                   key: 'createdAt',
