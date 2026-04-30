@@ -15,7 +15,6 @@ const INITIAL_FORM: RegisterFormData = {
   lastName: '',
   username: '',
   email: '',
-  companyId: '',
   password: '',
   confirmPassword: '',
 };
@@ -38,7 +37,7 @@ export function useRegister() {
     }
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value } = e.target;
     setField(name as keyof RegisterFormData, value);
   }
@@ -62,7 +61,6 @@ export function useRegister() {
         lastName: formData.lastName,
         username: formData.username,
         email: formData.email,
-        companyId: Number(formData.companyId),
         password: formData.password,
       });
 
@@ -96,7 +94,6 @@ export function useRegister() {
     serverError,
     success,
     handleChange,
-    setField,
     handleSubmit,
   };
 }

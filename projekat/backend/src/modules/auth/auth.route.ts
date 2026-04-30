@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticate } from '../../middleware/auth.middleware';
+import { authenticate, authorizeRoles } from '../../middleware/auth.middleware';
 import {
   registerController,
   loginController,
@@ -11,6 +11,7 @@ import { registerSchema, loginSchema, resetPasswordSchema } from './auth.schema'
 import { authRateLimiter } from '../../middleware/rateLimit.middleware';
 
 const authRouter = Router();
+const ADMIN_ROLES = ['admin', 'administrator'];
 
 authRouter.get('/', authenticate, (req, res) => {
   res.json({
@@ -23,6 +24,7 @@ authRouter.get('/', authenticate, (req, res) => {
 authRouter.get(
   '/admin',
   authenticate,
+  authorizeRoles(ADMIN_ROLES),
   (req, res) => {
     res.json({ message: 'Admin ruta radi' });
   }
