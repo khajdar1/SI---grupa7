@@ -37,6 +37,10 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number | string) => `/api/v1/categories/${id}`,
     STATUS: (id: number | string) => `/api/v1/categories/${id}/status`,
   },
+  FAULT_REPORTS: {
+    BASE: '/api/v1/fault-reports',
+    OPTIONS: '/api/v1/fault-reports/options',
+  },
   COMPANIES: {
     BASE: '/api/v1/companies',
   },
