@@ -28,6 +28,7 @@ type AuthState = 'unknown' | 'authenticated' | 'guest';
 type SessionUser = {
   username?: string;
 };
+const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 
 function isRouteActive(pathname: string, href: string): boolean {
   if (href === ROUTES.HOME) {
@@ -90,10 +91,48 @@ function NavigationMenu({
   );
 }
 
+function decodeJwtPayload(token: string): {
+  realm_access?: { roles?: string[] };
+  resource_access?: Record<string, { roles?: string[] }>;
+} | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return null;
+    }
+
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(window.atob(normalizedPayload));
+  } catch {
+    return null;
+  }
+}
+
+function hasAdminRole(token: string | null): boolean {
+  if (!token) {
+    return false;
+  }
+
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return false;
+  }
+
+  const realmRoles = payload.realm_access?.roles ?? [];
+  const clientRoles = Object.values(payload.resource_access ?? {}).flatMap(
+    (clientAccess) => clientAccess.roles ?? [],
+  );
+
+  return [...realmRoles, ...clientRoles].some((role) =>
+    ADMIN_ROLE_NAMES.has(role.toLowerCase()),
+  );
+}
+
 export function AppNavigation() {
   const pathname = usePathname();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const readAuthState = () => {
@@ -103,9 +142,11 @@ export function AppNavigation() {
         const parsedUser = rawUser ? (JSON.parse(rawUser) as SessionUser) : null;
 
         setSessionUser(parsedUser);
+        setIsAdmin(hasAdminRole(token));
         setAuthState(token ? 'authenticated' : 'guest');
       } catch {
         setSessionUser(null);
+        setIsAdmin(false);
         setAuthState('guest');
       }
     };
@@ -145,7 +186,7 @@ export function AppNavigation() {
             {isAuthenticated ? (
               <>
                 <NavigationMenu label="Operations" items={OPERATIONS_NAV_ITEMS} pathname={pathname} />
-                <NavigationMenu label="Admin" items={ADMIN_NAV_ITEMS} pathname={pathname} />
+                {isAdmin ? <NavigationMenu label="Admin" items={ADMIN_NAV_ITEMS} pathname={pathname} /> : null}
               </>
             ) : null}
           </nav>
@@ -194,13 +235,17 @@ export function AppNavigation() {
                     </DropdownMenuItem>
                   ))}
 
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Admin</DropdownMenuLabel>
-                  {ADMIN_NAV_ITEMS.map((item) => (
-                    <DropdownMenuItem asChild key={item.to}>
-                      <Link href={item.to}>{item.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
+                  {isAdmin ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Admin</DropdownMenuLabel>
+                      {ADMIN_NAV_ITEMS.map((item) => (
+                        <DropdownMenuItem asChild key={item.to}>
+                          <Link href={item.to}>{item.label}</Link>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  ) : null}
 
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>Account</DropdownMenuLabel>

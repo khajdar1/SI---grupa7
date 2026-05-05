@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 /**
  * Audit Service
  * Responsible for logging significant system events
@@ -15,7 +17,11 @@ export interface AuditLogEntry {
   entity: string;
   entityId?: number | string;
   userId?: number;
+  actorId?: number;
+  actorUsername?: string;
   details?: string;
+  oldValues?: Prisma.InputJsonValue;
+  newValues?: Prisma.InputJsonValue;
   timestamp?: Date;
 }
 
@@ -61,6 +67,25 @@ export class AuditService {
     //     createdAt: timestamp,
     //   },
     // });
+  }
+
+  static async record(entry: AuditLogEntry): Promise<void> {
+    this.log(entry);
+    const { prisma } = await import("../config/database.js");
+
+    await prisma.auditLog.create({
+      data: {
+        action: entry.action,
+        entity: entry.entity,
+        entityId: entry.entityId === undefined ? null : String(entry.entityId),
+        actorId: entry.actorId ?? entry.userId ?? null,
+        actorUsername: entry.actorUsername ?? null,
+        details: entry.details ?? null,
+        oldValues: entry.oldValues ?? undefined,
+        newValues: entry.newValues ?? undefined,
+        createdAt: entry.timestamp ?? new Date(),
+      },
+    });
   }
 
   /**

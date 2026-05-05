@@ -1,5 +1,33 @@
 import assert from "node:assert/strict";
-import { test } from "vitest";
+import { beforeEach, test, vi } from "vitest";
+
+const {
+  externalIdentityFindFirstMock,
+  userFindUniqueMock,
+  getKeycloakAdminTokenMock,
+  getKeycloakUserRoleNamesMock,
+} = vi.hoisted(() => ({
+  externalIdentityFindFirstMock: vi.fn(),
+  userFindUniqueMock: vi.fn(),
+  getKeycloakAdminTokenMock: vi.fn(),
+  getKeycloakUserRoleNamesMock: vi.fn(),
+}));
+
+vi.mock("../src/config/database", () => ({
+  prisma: {
+    externalIdentity: {
+      findFirst: externalIdentityFindFirstMock,
+    },
+    user: {
+      findUnique: userFindUniqueMock,
+    },
+  },
+}));
+
+vi.mock("../src/clients/keycloak.client", () => ({
+  getKeycloakAdminToken: getKeycloakAdminTokenMock,
+  getKeycloakUserRoleNames: getKeycloakUserRoleNamesMock,
+}));
 
 import { authenticate, authorizeRoles } from "../src/middleware/auth.middleware";
 
@@ -44,7 +72,15 @@ function createToken(payload: Record<string, unknown>): string {
   return `${header}.${body}.signature`;
 }
 
-test("authenticate rejects expired tokens", () => {
+beforeEach(() => {
+  vi.clearAllMocks();
+  externalIdentityFindFirstMock.mockResolvedValue(null);
+  userFindUniqueMock.mockResolvedValue(null);
+  getKeycloakAdminTokenMock.mockResolvedValue("admin-token");
+  getKeycloakUserRoleNamesMock.mockResolvedValue(["Admin"]);
+});
+
+test("authenticate rejects expired tokens", async () => {
   const expiredToken = createToken({
     sub: "123",
     preferred_username: "ana",
@@ -60,7 +96,7 @@ test("authenticate rejects expired tokens", () => {
   const res = createMockResponse();
 
   let nextCalled = false;
-  authenticate(
+  await authenticate(
     req as never,
     res as never,
     () => {
@@ -73,7 +109,7 @@ test("authenticate rejects expired tokens", () => {
   assert.deepEqual(res.body, { message: "Authentication token has expired" });
 });
 
-test("authorizeRoles matches roles case-insensitively", () => {
+test("authorizeRoles matches roles case-insensitively", async () => {
   const req: MockRequest = {
     header() {
       return undefined;
@@ -87,7 +123,7 @@ test("authorizeRoles matches roles case-insensitively", () => {
   const res = createMockResponse();
 
   let nextCalled = false;
-  authorizeRoles(["administrator", "admin"])(
+  await authorizeRoles(["administrator", "admin"])(
     req as never,
     res as never,
     () => {
@@ -97,4 +133,40 @@ test("authorizeRoles matches roles case-insensitively", () => {
 
   assert.equal(nextCalled, true);
   assert.equal(res.statusCode, undefined);
+});
+
+test("authenticate rejects deactivated local users", async () => {
+  const token = createToken({
+    sub: "kc-123",
+    preferred_username: "ana",
+    exp: Math.floor(Date.now() / 1000) + 300,
+    realm_access: { roles: ["Admin"] },
+  });
+  externalIdentityFindFirstMock.mockResolvedValueOnce({
+    user: {
+      id: 1,
+      username: "ana",
+      active: false,
+    },
+  });
+
+  const req: MockRequest = {
+    header(name: string) {
+      return name.toLowerCase() === "authorization" ? `Bearer ${token}` : undefined;
+    },
+  };
+  const res = createMockResponse();
+
+  let nextCalled = false;
+  await authenticate(
+    req as never,
+    res as never,
+    () => {
+      nextCalled = true;
+    },
+  );
+
+  assert.equal(nextCalled, false);
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { message: "User account is deactivated" });
 });

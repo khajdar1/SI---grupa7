@@ -102,6 +102,23 @@ model User {
   blocksMade           UserBlock[]             @relation("BlockCreatedBy")
 }
 
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  action        String
+  entity        String
+  entityId      String?
+  actorId       Int?
+  actorUsername String?
+  details       String?  @db.LongText
+  oldValues     Json?
+  newValues     Json?
+  createdAt     DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
 model ExternalIdentity {
   id              Int      @id @default(autoincrement())
   userId          Int

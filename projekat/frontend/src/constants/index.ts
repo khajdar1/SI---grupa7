@@ -44,6 +44,12 @@ export const API_ENDPOINTS = {
   COMPANIES: {
     BASE: '/api/v1/companies',
   },
+  USERS: {
+    BASE: '/api/v1/users',
+    BY_ID: (id: number | string) => `/api/v1/users/${id}`,
+    ACTIVATE: (id: number | string) => `/api/v1/users/${id}/activate`,
+    DEACTIVATE: (id: number | string) => `/api/v1/users/${id}/deactivate`,
+  },
   SLA: {
     BASE: '/api/v1/sla',
   },
@@ -80,6 +86,10 @@ export const UI = {
     CATEGORY_STATUS: '110px',
     CATEGORY_CREATED: '120px',
     CATEGORY_ACTIONS: '220px',
+    USER_STATUS: '110px',
+    USER_ROLE: '150px',
+    USER_COMPANY: '180px',
+    USER_ACTIONS: '260px',
     SLA_HOURS: '90px',
   },
 } as const;
