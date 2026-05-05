@@ -1,18 +1,23 @@
 import { Router } from 'express';
-import { InterventionStatus, InterventionType, Priority } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 import { prisma } from '../../config/database';
 import { authRateLimiter } from '../../middleware/rateLimit.middleware';
 import { asyncHandler } from '../../shared/async-handler';
 import { BadRequestError, NotFoundError } from '../../shared/errors';
+import { InterventionStatus, InterventionType, Priority } from '../../shared/prisma-enums';
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   FaultReportService,
   type FaultReportRepository,
-  type FaultReportSubmissionInput,
 } from './fault-reports.service';
 import { buildFaultReportSubmissionPayload } from './fault-reports.payload';
+import {
+  ATTACHMENT_CONFIG_KEY,
+  DEFAULT_ATTACHMENT_CONFIG,
+  type AttachmentConfig,
+} from '../attachments/attachments.service';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
@@ -65,6 +70,25 @@ const faultReportSubmissionSchema = z.object({
     .default([]),
   // Note: no devTest helper — regular reports require authenticated users
 });
+
+async function readAttachmentConfig(): Promise<AttachmentConfig> {
+  const row = await prisma.systemConfig.findUnique({ where: { key: ATTACHMENT_CONFIG_KEY } });
+  if (!row) return { ...DEFAULT_ATTACHMENT_CONFIG, allowedMimeTypes: [...DEFAULT_ATTACHMENT_CONFIG.allowedMimeTypes] };
+  try {
+    const parsed = JSON.parse(row.value) as unknown;
+    if (
+      typeof parsed === 'object' &&
+      parsed !== null &&
+      Array.isArray((parsed as Record<string, unknown>).allowedMimeTypes) &&
+      typeof (parsed as Record<string, unknown>).maxFileSizeMb === 'number'
+    ) {
+      return parsed as AttachmentConfig;
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return { ...DEFAULT_ATTACHMENT_CONFIG, allowedMimeTypes: [...DEFAULT_ATTACHMENT_CONFIG.allowedMimeTypes] };
+}
 
 function sanitizeAttachmentName(fileName: string): string {
   return (
@@ -143,7 +167,7 @@ const faultReportsRepository: FaultReportRepository = {
       select: { id: true },
     }),
   createSubmission: async (input) =>
-    prisma.$transaction(async (transaction) => {
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
       const faultReport = await transaction.faultReport.create({
         data: {
           description: input.description ?? '',
@@ -268,6 +292,30 @@ faultReportsRouter.post(
   authRateLimiter,
   asyncHandler(async (req, res) => {
     const parsed = faultReportSubmissionSchema.parse(req.body);
+
+    // Enforce admin-configured attachment policy (type and size limits)
+    if (parsed.attachments.length > 0) {
+      const config = await readAttachmentConfig();
+      const maxSizeBytes = config.maxFileSizeMb * 1024 * 1024;
+      const allowedSet = new Set(config.allowedMimeTypes);
+      const configErrors: Array<{ field: string; message: string }> = [];
+
+      for (const att of parsed.attachments) {
+        if (!allowedSet.has(att.mimeType)) {
+          configErrors.push({ field: 'attachments', message: `File type '${att.mimeType}' is not allowed.` });
+        }
+        if (att.fileSize > maxSizeBytes) {
+          configErrors.push({
+            field: 'attachments',
+            message: `File '${att.fileName}' exceeds the maximum allowed size of ${config.maxFileSizeMb} MB.`,
+          });
+        }
+      }
+
+      if (configErrors.length > 0) {
+        throw new BadRequestError('Upload validation failed.', configErrors);
+      }
+    }
 
     const payload = buildFaultReportSubmissionPayload(parsed, req.body as Record<string, unknown>);
     const result = await faultReportService.submitFaultReport(payload);

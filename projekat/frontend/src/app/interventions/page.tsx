@@ -1,7 +1,7 @@
 'use client';
-export const runtime = 'edge';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { ROUTES, UI } from '@/constants';
 import {
@@ -23,6 +23,7 @@ import type { ModuleShellResponse } from '@/services/types';
 const ALL_CATEGORY = 'ALL';
 
 export default function InterventionsPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [rows, setRows] = useState<InterventionListItem[]>([]);
   const [moduleInfo, setModuleInfo] = useState<ModuleShellResponse | null>(null);
@@ -125,6 +126,7 @@ export default function InterventionsPage() {
         isLoading={isLoading}
         error={error}
         onRetry={loadData}
+        onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
         emptyTitle="No interventions in this category"
         emptyDescription={emptyDescription}
       />

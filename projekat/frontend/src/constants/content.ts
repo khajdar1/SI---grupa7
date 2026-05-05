@@ -25,6 +25,7 @@ export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Users', to: ROUTES.ADMIN },
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
   { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },
+  { label: 'Attachment Config', to: ROUTES.ADMIN_ATTACHMENT_CONFIG },
 ];
 
 export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [

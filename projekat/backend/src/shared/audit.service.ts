@@ -41,6 +41,17 @@ export interface SlaConfigurationChangeEvent extends AuditLogEntry {
   };
 }
 
+/**
+ * Attachment deleted event
+ * Logged when an admin or coordinator deletes a file attachment
+ */
+export interface AttachmentDeletedEvent extends AuditLogEntry {
+  action: "ATTACHMENT_DELETED";
+  entity: "Attachment";
+  entityId: number;
+  details: string;
+}
+
 export class AuditService {
   /**
    * Log a generic audit entry
@@ -86,6 +97,25 @@ export class AuditService {
         createdAt: entry.timestamp ?? new Date(),
       },
     });
+  }
+
+  /**
+   * Log attachment deletion
+   * Records who deleted which file and when
+   */
+  static logAttachmentDeleted(
+    attachmentId: number,
+    fileName: string,
+    actorUsername: string,
+  ): void {
+    const event: AttachmentDeletedEvent = {
+      action: "ATTACHMENT_DELETED",
+      entity: "Attachment",
+      entityId: attachmentId,
+      details: `Attachment '${fileName}' (id=${attachmentId}) deleted by ${actorUsername}`,
+    };
+
+    this.log(event);
   }
 
   /**
