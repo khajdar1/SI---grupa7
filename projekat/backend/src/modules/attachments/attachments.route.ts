@@ -132,9 +132,10 @@ const updateConfigSchema = z.object({
 });
 
 function resolveUploadPath(storageKey: string): string | null {
-  const uploadsRoot = path.resolve(process.cwd(), 'uploads');
+  const uploadsRoot = path.resolve(__dirname, '../../../uploads');
   const resolved = path.resolve(uploadsRoot, storageKey);
   const relative = path.relative(uploadsRoot, resolved);
+
 
   if (relative.startsWith('..') || path.isAbsolute(relative)) {
     return null;

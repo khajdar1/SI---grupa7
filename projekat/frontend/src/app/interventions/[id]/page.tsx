@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   getInterventionAttachments,
   deleteAttachment,
-  buildDownloadUrl,
+  downloadAttachment,
   formatFileSize,
   type AttachmentListItem,
 } from '@/services/attachments.service';
@@ -64,13 +64,9 @@ export default function InterventionDetailPage() {
   }, [interventionId]);
 
   const handleDownload = (attachment: AttachmentListItem) => {
-    const url = buildDownloadUrl(attachment.id);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = attachment.fileName;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadAttachment(attachment.id, attachment.fileName).catch((err: unknown) => {
+      setError(err instanceof Error ? err.message : 'Failed to download attachment.');
+    });
   };
 
   const openDeleteDialog = (attachment: AttachmentListItem) => {

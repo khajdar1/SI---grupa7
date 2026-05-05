@@ -27,8 +27,22 @@ export async function getInterventionAttachments(interventionId: number): Promis
   }
 }
 
-export function buildDownloadUrl(attachmentId: number): string {
-  return API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId);
+export async function downloadAttachment(attachmentId: number, fileName: string): Promise<void> {
+  try {
+    const response = await api.get<Blob>(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    throw new ServiceError(getErrorMessage(error, 'Failed to download attachment.'), error);
+  }
 }
 
 export async function deleteAttachment(attachmentId: number): Promise<void> {
