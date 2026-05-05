@@ -14,32 +14,32 @@ type StatusConfig = {
 
 const STATUS_CONFIG = {
   [INTERVENTION_STATUS.NEW]: {
-    label: 'New',
+    label: 'Otvoreno',
     bg: 'var(--status-new-bg)',
     color: 'var(--status-new)',
   },
   [INTERVENTION_STATUS.ASSIGNED]: {
-    label: 'Assigned',
+    label: 'Dodijeljeno',
     bg: 'var(--status-assigned-bg)',
     color: 'var(--status-assigned)',
   },
   [INTERVENTION_STATUS.IN_PROGRESS]: {
-    label: 'In Progress',
+    label: 'U procesu',
     bg: 'var(--status-in-progress-bg)',
     color: 'var(--status-in-progress)',
   },
   [INTERVENTION_STATUS.RESOLVED]: {
-    label: 'Resolved',
+    label: 'Završeno',
     bg: 'var(--status-resolved-bg)',
     color: 'var(--status-resolved)',
   },
   [INTERVENTION_STATUS.CANCELLED]: {
-    label: 'Cancelled',
+    label: 'Otkazano',
     bg: 'var(--status-cancelled-bg)',
     color: 'var(--status-cancelled)',
   },
   [INTERVENTION_STATUS.REJECTED]: {
-    label: 'Rejected',
+    label: 'Odbijeno',
     bg: 'var(--status-rejected-bg)',
     color: 'var(--status-rejected)',
   },

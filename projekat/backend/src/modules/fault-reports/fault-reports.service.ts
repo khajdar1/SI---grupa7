@@ -1,18 +1,18 @@
-import { BadRequestError } from '../../shared/errors';
+import { BadRequestError } from "../../shared/errors";
 
 export const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-  'image/svg+xml',
-  'application/pdf',
-  'text/plain',
-  'text/csv',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ]);
 
 export interface FaultReportCompanyOption {
@@ -81,7 +81,10 @@ export interface FaultReportSubmissionResult {
   receivedAt: Date;
 }
 
-export interface FaultReportSubmissionPayload extends Omit<FaultReportSubmissionInput, 'description' | 'reporterEmail'> {
+export interface FaultReportSubmissionPayload extends Omit<
+  FaultReportSubmissionInput,
+  "description" | "reporterEmail"
+> {
   description: string;
   reporterEmail: string;
   creatorId: number;
@@ -91,10 +94,16 @@ export interface FaultReportRepository {
   listCompanies(): Promise<FaultReportCompanyOption[]>;
   listActiveCategories(): Promise<FaultReportCategoryOption[]>;
   listActiveInterventions(): Promise<FaultReportInterventionListItem[]>;
-  findCompanyById(companyId: number): Promise<{ id: number; name: string } | null>;
-  findCategoryById(categoryId: number): Promise<{ id: number; name: string; active: boolean } | null>;
+  findCompanyById(
+    companyId: number,
+  ): Promise<{ id: number; name: string } | null>;
+  findCategoryById(
+    categoryId: number,
+  ): Promise<{ id: number; name: string; active: boolean } | null>;
   findSystemUser(): Promise<{ id: number }>;
-  createSubmission(input: FaultReportSubmissionPayload): Promise<FaultReportSubmissionResult>;
+  createSubmission(
+    input: FaultReportSubmissionPayload,
+  ): Promise<FaultReportSubmissionResult>;
 }
 
 export class FaultReportService {
@@ -112,43 +121,70 @@ export class FaultReportService {
     return this.repository.listActiveInterventions();
   }
 
-  async submitFaultReport(input: FaultReportSubmissionInput): Promise<FaultReportSubmissionResult> {
-    const isRegular = input.templateId === 'regular-report';
-    const attachmentErrors = this.validateAttachments(input.attachments, Boolean(input.isAuthenticated), isRegular);
+  async submitFaultReport(
+    input: FaultReportSubmissionInput,
+  ): Promise<FaultReportSubmissionResult> {
+    const isRegular = input.templateId === "regular-report";
+    const attachmentErrors = this.validateAttachments(
+      input.attachments,
+      Boolean(input.isAuthenticated),
+      isRegular,
+    );
     if (attachmentErrors.length > 0) {
-      throw new BadRequestError('Invalid attachment data.', attachmentErrors);
+      throw new BadRequestError("Invalid attachment data.", attachmentErrors);
     }
 
     // For regular reports we require authenticated user and core fields
     if (isRegular) {
       if (!input.isAuthenticated) {
-        throw new BadRequestError('Regular reports are allowed only for authenticated users.', [
-          { field: 'isAuthenticated', message: 'Authentication required for regular report.' },
-        ]);
+        throw new BadRequestError(
+          "Regular reports are allowed only for authenticated users.",
+          [
+            {
+              field: "isAuthenticated",
+              message: "Authentication required for regular report.",
+            },
+          ],
+        );
       }
 
       if (!input.companyId) {
-        throw new BadRequestError('Company is required for regular reports.', [
-          { field: 'companyId', message: 'Company is required for regular reports.' },
+        throw new BadRequestError("Company is required for regular reports.", [
+          {
+            field: "companyId",
+            message: "Company is required for regular reports.",
+          },
         ]);
       }
 
       if (!input.categoryId) {
-        throw new BadRequestError('Category is required for regular reports.', [
-          { field: 'categoryId', message: 'Category is required for regular reports.' },
+        throw new BadRequestError("Category is required for regular reports.", [
+          {
+            field: "categoryId",
+            message: "Category is required for regular reports.",
+          },
         ]);
       }
 
       if (!input.location || input.location.trim().length < 3) {
-        throw new BadRequestError('Location is required for regular reports.', [
-          { field: 'location', message: 'Location is required for regular reports.' },
+        throw new BadRequestError("Location is required for regular reports.", [
+          {
+            field: "location",
+            message: "Location is required for regular reports.",
+          },
         ]);
       }
 
       if (!input.description || input.description.trim().length === 0) {
-        throw new BadRequestError('Description is required for regular reports.', [
-          { field: 'description', message: 'Description is required for regular reports.' },
-        ]);
+        throw new BadRequestError(
+          "Description is required for regular reports.",
+          [
+            {
+              field: "description",
+              message: "Description is required for regular reports.",
+            },
+          ],
+        );
       }
 
       // Attachments are optional for regular reports now. If provided, they will be validated above.
@@ -161,20 +197,23 @@ export class FaultReportService {
       ]);
 
       if (!company) {
-        throw new BadRequestError('Selected company is not available.', [
-          { field: 'companyId', message: 'Selected company is not available.' },
+        throw new BadRequestError("Selected company is not available.", [
+          { field: "companyId", message: "Selected company is not available." },
         ]);
       }
 
       if (!category) {
-        throw new BadRequestError('Selected category is not available.', [
-          { field: 'categoryId', message: 'Selected category is not available.' },
+        throw new BadRequestError("Selected category is not available.", [
+          {
+            field: "categoryId",
+            message: "Selected category is not available.",
+          },
         ]);
       }
 
       if (!category.active) {
-        throw new BadRequestError('Selected category is inactive.', [
-          { field: 'categoryId', message: 'Selected category is inactive.' },
+        throw new BadRequestError("Selected category is inactive.", [
+          { field: "categoryId", message: "Selected category is inactive." },
         ]);
       }
 
@@ -184,9 +223,9 @@ export class FaultReportService {
         categoryId: category.id,
         location: input.location!.trim(),
         description: input.description!.trim(),
-        reporterName: input.reporterName?.trim() ?? '',
-        reporterEmail: input.reporterEmail?.trim() ?? '',
-        reporterPhone: input.reporterPhone?.trim() ?? '',
+        reporterName: input.reporterName?.trim() ?? "",
+        reporterEmail: input.reporterEmail?.trim() ?? "",
+        reporterPhone: input.reporterPhone?.trim() ?? "",
         templateId: input.templateId.trim(),
         templateName: input.templateName.trim(),
         isAuthenticated: Boolean(input.isAuthenticated),
@@ -203,31 +242,37 @@ export class FaultReportService {
     // Emergency flow: only template + reporter details required for guests; for authenticated users reporter details are optional
     // If company/category were provided use them; otherwise pick sensible defaults
     const systemUser = await this.repository.findSystemUser();
-
     let companyIdToUse: number | undefined = input.companyId;
     let categoryIdToUse: number | undefined = input.categoryId;
 
     if (input.companyId) {
-      const providedCompany = await this.repository.findCompanyById(input.companyId);
+      const providedCompany = await this.repository.findCompanyById(
+        input.companyId,
+      );
       if (!providedCompany) {
-        throw new BadRequestError('Selected company is not available.', [
-          { field: 'companyId', message: 'Selected company is not available.' },
+        throw new BadRequestError("Selected company is not available.", [
+          { field: "companyId", message: "Selected company is not available." },
         ]);
       }
       companyIdToUse = providedCompany.id;
     }
 
     if (input.categoryId) {
-      const providedCategory = await this.repository.findCategoryById(input.categoryId);
+      const providedCategory = await this.repository.findCategoryById(
+        input.categoryId,
+      );
       if (!providedCategory) {
-        throw new BadRequestError('Selected category is not available.', [
-          { field: 'categoryId', message: 'Selected category is not available.' },
+        throw new BadRequestError("Selected category is not available.", [
+          {
+            field: "categoryId",
+            message: "Selected category is not available.",
+          },
         ]);
       }
 
       if (!providedCategory.active) {
-        throw new BadRequestError('Selected category is inactive.', [
-          { field: 'categoryId', message: 'Selected category is inactive.' },
+        throw new BadRequestError("Selected category is inactive.", [
+          { field: "categoryId", message: "Selected category is inactive." },
         ]);
       }
 
@@ -244,15 +289,17 @@ export class FaultReportService {
       const defaultCategory = categories[0];
 
       if (!defaultCompany) {
-        throw new BadRequestError('No company available to associate with emergency report.', [
-          { field: 'companyId', message: 'No company available.' },
-        ]);
+        throw new BadRequestError(
+          "No company available to associate with emergency report.",
+          [{ field: "companyId", message: "No company available." }],
+        );
       }
 
       if (!defaultCategory) {
-        throw new BadRequestError('No active category available to associate with emergency report.', [
-          { field: 'categoryId', message: 'No active category available.' },
-        ]);
+        throw new BadRequestError(
+          "No active category available to associate with emergency report.",
+          [{ field: "categoryId", message: "No active category available." }],
+        );
       }
 
       companyIdToUse = companyIdToUse ?? defaultCompany.id;
@@ -262,15 +309,17 @@ export class FaultReportService {
     // For guests, require reporter name and phone
     if (!input.isAuthenticated) {
       if (!input.reporterName || input.reporterName.trim().length < 2) {
-        throw new BadRequestError('Reporter name is required for emergency reports from guests.', [
-          { field: 'reporterName', message: 'Reporter name is required.' },
-        ]);
+        throw new BadRequestError(
+          "Reporter name is required for emergency reports from guests.",
+          [{ field: "reporterName", message: "Reporter name is required." }],
+        );
       }
 
       if (!input.reporterPhone || input.reporterPhone.trim().length < 5) {
-        throw new BadRequestError('Reporter phone is required for emergency reports from guests.', [
-          { field: 'reporterPhone', message: 'Reporter phone is required.' },
-        ]);
+        throw new BadRequestError(
+          "Reporter phone is required for emergency reports from guests.",
+          [{ field: "reporterPhone", message: "Reporter phone is required." }],
+        );
       }
     }
 
@@ -278,11 +327,11 @@ export class FaultReportService {
       ...input,
       companyId: companyIdToUse!,
       categoryId: categoryIdToUse!,
-      location: input.location?.trim() ?? '',
-      description: input.description?.trim() ?? '',
-      reporterName: input.reporterName?.trim() ?? '',
-      reporterEmail: input.reporterEmail?.trim() ?? '',
-      reporterPhone: input.reporterPhone?.trim() ?? '',
+      location: input.location?.trim() ?? "",
+      description: input.description?.trim() ?? "",
+      reporterName: input.reporterName?.trim() ?? "",
+      reporterEmail: input.reporterEmail?.trim() ?? "",
+      reporterPhone: input.reporterPhone?.trim() ?? "",
       templateId: input.templateId.trim(),
       templateName: input.templateName.trim(),
       isAuthenticated: Boolean(input.isAuthenticated),
@@ -302,7 +351,12 @@ export class FaultReportService {
     isRegular: boolean,
   ): Array<{ field: string; message: string }> {
     if (!isAuthenticated && !isRegular && attachments.length > 0) {
-      return [{ field: 'attachments', message: 'Attachments are allowed only for logged-in users.' }];
+      return [
+        {
+          field: "attachments",
+          message: "Attachments are allowed only for logged-in users.",
+        },
+      ];
     }
 
     const errors: Array<{ field: string; message: string }> = [];
@@ -310,7 +364,7 @@ export class FaultReportService {
     for (const attachment of attachments) {
       if (!ALLOWED_ATTACHMENT_MIME_TYPES.has(attachment.mimeType)) {
         errors.push({
-          field: 'attachments',
+          field: "attachments",
           message: `Unsupported attachment type: ${attachment.mimeType}`,
         });
       }
