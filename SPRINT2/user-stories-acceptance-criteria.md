@@ -539,6 +539,49 @@ Personalizovana lista zadataka osigurava fokus, smanjuje greške i pruža terens
 
 ---
 
+### PBI-013 – Upravljanje korisničkim računima (Admin)
+
+**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 8 SP | **Sprint:** 6
+
+#### User Storiji
+
+> **Story 1 –** Kao **administrator sistema**, želim **kreirati nove korisničke račune i izmijeniti postojeće podatke (ime, email, uloga, firma)**, kako bih **osigurao da sistem uvijek odražava stvarno stanje organizacije**.
+
+> **Story 2 –** Kao **administrator sistema**, želim **deaktivirati korisnički račun bez brisanja i naknadno ga reaktivirati**, kako bih **osigurao da bivši zaposlenici odmah izgube pristup, ali historijat njihovog rada ostane sačuvan u sistemu**.
+
+> **Story 3 –** Kao **sistem**, moram **spriječiti brisanje korisnika koji ima vezane aktivne intervencije i spriječiti admina da deaktivira vlastiti račun**, kako bih **zaštitio integritet podataka i spriječio slučajno zaključavanje sistema**.
+
+#### Poslovna vrijednost
+
+Admin panel je osnova sigurnosti i organizacione kontrole. Kad zaposlenik napusti organizaciju, admin mora moći odmah deaktivirati njegov račun.
+
+#### Pretpostavke i otvorena pitanja
+
+- RBAC (Role-Based Access Control) je uključen u ovaj PBI.
+- Otvoreno pitanje: Da li admin može resetovati lozinku korisniku direktno ili samo korisnik putem email linka (PBI-015)?
+- Otvoreno pitanje: Da li postoji log aktivnosti po korisniku za audit?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-001 (Registracija), PBI-002 (Login)
+- **Veza s:** PBI-015 (Profil i reset lozinke)
+
+---
+
+#### Acceptance Kriteriji
+
+- Admin mora imati pristup **listi svih korisničkih računa** s informacijama: ime, korisničko ime, email, uloga, status.
+- Admin mora moći **izmijeniti podatke postojećeg korisnika**: ime, email, ulogu.
+- Admin mora moći **deaktivirati korisnički račun** bez brisanja – deaktiviran korisnik ne smije se moći prijaviti.
+- Admin mora moći **reaktivirati prethodno deaktiviran račun**.
+- Admin mora moći **promijeniti ulogu korisnika** i ta promjena mora biti odmah aktivna.
+- Sistem ne smije dozvoliti **brisanje korisnika koji ima vezane aktivne intervencije**.
+- Admin ne smije moći **deaktivirati vlastiti račun**.
+- Svaka izmjena u korisničkim računima mora biti **zabilježena u audit logu**.
+- Admin pri kreiranju ili uređivanju korisnika **dodjeljuje firmu** kojoj korisnik pripada.
+
+---
+
 ### PBI-015 – Upravljanje korisničkim profilom i reset lozinke
 
 **Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 4 SP | **Sprint:** 6
@@ -803,49 +846,6 @@ Notifikacije pretvaraju pasivni sistem u aktivan – direktno skraćuju vrijeme 
 - Korisnik treba moći **kliknuti na notifikaciju i biti direktno preusmjeren** na relevantnu intervenciju.
 - Sistem mora prikazati **broj nepročitanih notifikacija** vidljivo u navigaciji (badge/brojač).
 - Automatski podsjetnici za redovne preglede **ne smiju biti implementirani** u MVP-u.
-
----
-
-### PBI-013 – Upravljanje korisničkim računima (Admin)
-
-**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 8 SP | **Sprint:** 8
-
-#### User Storiji
-
-> **Story 1 –** Kao **administrator sistema**, želim **kreirati nove korisničke račune i izmijeniti postojeće podatke (ime, email, uloga, firma)**, kako bih **osigurao da sistem uvijek odražava stvarno stanje organizacije**.
-
-> **Story 2 –** Kao **administrator sistema**, želim **deaktivirati korisnički račun bez brisanja i naknadno ga reaktivirati**, kako bih **osigurao da bivši zaposlenici odmah izgube pristup, ali historijat njihovog rada ostane sačuvan u sistemu**.
-
-> **Story 3 –** Kao **sistem**, moram **spriječiti brisanje korisnika koji ima vezane aktivne intervencije i spriječiti admina da deaktivira vlastiti račun**, kako bih **zaštitio integritet podataka i spriječio slučajno zaključavanje sistema**.
-
-#### Poslovna vrijednost
-
-Admin panel je osnova sigurnosti i organizacione kontrole. Kad zaposlenik napusti organizaciju, admin mora moći odmah deaktivirati njegov račun.
-
-#### Pretpostavke i otvorena pitanja
-
-- RBAC (Role-Based Access Control) je uključen u ovaj PBI.
-- Otvoreno pitanje: Da li admin može resetovati lozinku korisniku direktno ili samo korisnik putem email linka (PBI-015)?
-- Otvoreno pitanje: Da li postoji log aktivnosti po korisniku za audit?
-
-#### Veze i zavisnosti
-
-- **Zavisi od:** PBI-001 (Registracija), PBI-002 (Login)
-- **Veza s:** PBI-015 (Profil i reset lozinke)
-
----
-
-#### Acceptance Kriteriji
-
-- Admin mora imati pristup **listi svih korisničkih računa** s informacijama: ime, korisničko ime, email, uloga, status.
-- Admin mora moći **izmijeniti podatke postojećeg korisnika**: ime, email, ulogu.
-- Admin mora moći **deaktivirati korisnički račun** bez brisanja – deaktiviran korisnik ne smije se moći prijaviti.
-- Admin mora moći **reaktivirati prethodno deaktiviran račun**.
-- Admin mora moći **promijeniti ulogu korisnika** i ta promjena mora biti odmah aktivna.
-- Sistem ne smije dozvoliti **brisanje korisnika koji ima vezane aktivne intervencije**.
-- Admin ne smije moći **deaktivirati vlastiti račun**.
-- Svaka izmjena u korisničkim računima mora biti **zabilježena u audit logu**.
-- Admin pri kreiranju ili uređivanju korisnika **dodjeljuje firmu** kojoj korisnik pripada.
 
 ---
 

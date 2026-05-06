@@ -224,7 +224,7 @@ File storage je predviđen kroz attachments modul u backendu.
 | --- | --- | --- |
 | `attachments` modul | početni file-storage stub | da postoji jasno mjesto za upload logiku i metapodatke |
 | Cloud storage | Cloudflare R2 free tier | da se binarni fajlovi drže van aplikacijskog servera i da storage ostane besplatan u okviru projekta |
-| Upload način | backend izdaje upload URL, frontend šalje fajl direktno u storage | da backend ne prenosi teške fajlove kroz vlastiti proces |
+| Upload | Fajlovi se čuvaju lokalno u `backend/uploads/` | - |
 | Metapodaci u bazi | MySQL | da fajlovi ostanu pretraživi i povezani s aplikacijskim entitetima |
 | Pristup bucketu | privatni bucket sa kontrolisanim pristupom | da fajlovi ne budu javni po defaultu |
 
@@ -235,8 +235,8 @@ GitHub Actions se koristi za automatske provjere i release isporuku.
 | Stavka | Vrijednost | Zašto |
 | --- | --- | --- |
 | CI alat | GitHub Actions | automatizovane provjere prije merge-a |
-| PR provjere | PR prema `develop` | centralna integraciona grana |
-| Release grane | `release/1.0`, `master` | release validacija i produkcija |
+| CI workflow (`ci.yml`) | Pokreće se na svim PR granama prema `develop` | build i typecheck provjera za svaki PR |
+| Release workflow (`release.yml`) | Pokreće se na push prema `release/*` i  `master` | release validacija i deploy u ciljana okruženja |
 | Verzija builda | git tag ili `build-<shortsha>` | svaki release ima jasnu oznaku |
 | Frontend deploy | Cloudflare Pages | besplatan hosting za Next.js |
 | Backend deploy | Railway (GitHub integracija) | jednostavan Node deploy |
@@ -253,7 +253,7 @@ Produkcija koristi managed hosting umjesto VPS-a kako bi se smanjilo operativno 
 | Frontend hosting | Cloudflare Pages | free tier i jednostavan Next.js deploy |
 | Backend hosting | Railway | brzi Node runtime bez VPS održavanja |
 | Baza podataka | Railway MySQL ili eksterni MySQL | standardni `DATABASE_URL` bez lokalnih docker kontenera |
-| File storage | Cloudflare R2 free tier | binarni fajlovi van aplikacijskog servera |
+| File storage | Lokalno - Cloudfare R2 (planirano)| binarni fajlovi van aplikacijskog servera |
 | Infra model | Managed cloud | manje ops posla i brze isporuke |
 
 U ovoj postavci frontend i backend su na odvojenim servisima, a komunikacija ide preko javnog API hosta definisanog kroz environment varijable.
@@ -264,8 +264,8 @@ Deploy je podijeljen na CI provjere i release isporuku kroz Cloudflare Pages i R
 
 | Korak | Opis | Zašto |
 | --- | --- | --- |
-| 1 | PR prema `develop` pokreće build i typecheck | da se greške uhvate prije merge-a |
-| 2 | Push na `release/1.0` ili `master` pokreće release workflow | verzionisani build i release provjere |
+| 1 | PR prema `develop` pokreće `ci.yml` - build i typecheck | da se greške uhvate prije merge-a |
+| 2 | Push na `release/*` ili `master` pokreće release.yml | verzionisani build i release provjere |
 | 3 | Cloudflare Pages preuzima frontend output | automatski deploy UI-a |
 | 4 | Railway GitHub integracija deploya backend | backend se isporučuje bez ručnog builda |
 | 5 | Postavljaju se env varijable (API host, JWT, DB, Keycloak) | da frontend i backend budu povezani |
@@ -275,27 +275,29 @@ Deploy je podijeljen na CI provjere i release isporuku kroz Cloudflare Pages i R
 
 ```mermaid
 flowchart TB
-	dev["Developer / GitHub repo"] --> gha["GitHub Actions\nbuild + typecheck"]
-	dev --> rail["Railway\nGitHub deploy"]
-	gha --> cf["Cloudflare Pages\nFrontend deploy"]
+    dev["Developer / GitHub repo"] --> gha["GitHub Actions\nci.yml + release.yml (release/* + master)"]
+    gha --> cf["Cloudflare Pages\nFrontend deploy"]
+    gha --> rail["Railway\nGitHub deploy"]
 
-	rail --> be["Backend service\nNode.js 20 + Express"]
-	be --> db["MySQL\nRailway managed"]
+    rail --> be["Backend service\nNode.js 20 + Express + Keycloak client"]
+    be --> db["MySQL\nRailway managed"]
+    be --> kc["Keycloak\nExterni identity provider"]
 
-	browser["Browser / end user"] --> cf
-	cf -->|API /api/v1| be
-	cf -->|Socket.IO| be
-	be -->|SQL| db
-	be -->|signed upload URL| r2["Cloudflare R2\nfree tier object storage"]
-	cf -->|direct upload| r2
+    browser["Browser / end user"] --> cf
+    cf -->|API /api/v1| be
+    cf -->|Socket.IO| be
+    be -->|SQL| db
+    be -->|lokalni upload (privremeno)| uploads["backend/uploads/\n(lokalni fajlovi)"]
 ```
 
 ## 4. Šta je trenutno otvoreno za dalji razvoj
 
 | Otvoreno pitanje | Trenutno stanje | Šta još treba uraditi |
 | --- | --- | --- |
-| CI/CD workflow | implementiran | odrzavati i prilagodavati CI i deploy targete |
-| Migracije i seed | nisu formalizovane | opisati i standardizovati početne skripte za bazu |
-| Auth model | još nije zaključen | precizirati konačni tok autentikacije i autorizacije |
+| CI/CD workflow | Implementiran | održavati i prilagođavati CI i deploy targete |
+| Migracije i seed | Implementirane | održavati seed sinhronizovan s promjenama schema.prisma |
+| Auth model | Zaključen i implementiran (Keycloak, JWT, HTTP kolačići) | Implementirati kriptografsku validaciju JWT potpisa |
+| Reset lozinke (SMTP) | Implementirano u kodu, ali SMTP nije dostupan na Railway free planu | Riješiti SMTP konfiguraciju u Sprint 6 |
 | Cloud storage detalji | nisu implementirani | definisati bucket politiku i testno okruženje za free-tier storage |
+| File storage | Lokalno čuvanje u `backend/uploads/` | definisati bucket politiku i testno okruženje |
 | Dokumentacija scaffolda | prati trenutno stanje | dopunjavati kako se otvaraju ili zatvaraju tehnički detalji |
