@@ -17,7 +17,15 @@ import {
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
+const SERVICER_ROLES = ["Serviser"];
+
 const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES];
+
+const INTERVENTION_HISTORY_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...SERVICER_ROLES,
+];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.NEW,
   InterventionStatus.IN_PROGRESS,
@@ -60,6 +68,11 @@ const interventionPayloadSchema = z
     path: ["dueAt"],
     message: "Due date must be after or equal to the planned start date.",
   });
+
+const interventionHistoryQuerySchema = z.object({
+  location: z.string().trim().min(3).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+});
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
   if (typeof rawId !== "string") {
@@ -314,6 +327,98 @@ interventionsRouter.get(
     });
 
     res.json(interventions.map(mapIntervention));
+  }),
+);
+
+interventionsRouter.get(
+  "/history",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const query = interventionHistoryQuerySchema.parse(req.query);
+
+    if (!query.location && !query.categoryId) {
+      throw new BadRequestError("Location or category is required.", [
+        {
+          field: "location",
+          message: "Provide location or categoryId to search history.",
+        },
+      ]);
+    }
+
+    const history = await prisma.intervention.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { status: InterventionStatus.RESOLVED },
+              { archived: true },
+            ],
+          },
+          query.location
+            ? {
+                location: {
+                  contains: query.location,
+                },
+              }
+            : {},
+          query.categoryId ? { categoryId: query.categoryId } : {},
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        id: true,
+        description: true,
+        location: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        assignments: {
+          select: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.json({
+      message:
+        history.length === 0
+          ? "Nema prethodnih intervencija za odabranu lokaciju ili kategoriju."
+          : "Historija intervencija je uspješno dohvaćena.",
+      data: history.map((intervention) => ({
+        id: String(intervention.id),
+        date: intervention.createdAt.toISOString(),
+        status: intervention.status,
+        priority: intervention.priority,
+        location: intervention.location,
+        categoryId: intervention.category.id,
+        categoryName: intervention.category.name,
+        summary:
+          intervention.description.length > 120
+            ? `${intervention.description.slice(0, 120)}...`
+            : intervention.description,
+        servicer:
+          intervention.assignments.length > 0
+            ? intervention.assignments
+                .map(
+                  (assignment) =>
+                    `${assignment.user.firstName} ${assignment.user.lastName}`,
+                )
+                .join(", ")
+            : "Nije dodijeljen",
+      })),
+    });
   }),
 );
 
