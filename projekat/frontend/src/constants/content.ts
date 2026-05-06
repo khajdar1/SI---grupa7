@@ -21,7 +21,6 @@ export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
 ];
 
 export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
-  { label: 'Admin Home', to: ROUTES.ADMIN },
   { label: 'Users', to: ROUTES.ADMIN },
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
   { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },

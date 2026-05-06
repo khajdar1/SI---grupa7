@@ -29,6 +29,7 @@ export interface InterventionListItem {
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
+  isOverdue?: boolean;
   faultReport: InterventionFaultReportLink | null;
 }
 
@@ -36,11 +37,12 @@ export interface InterventionFormPayload {
   name: string;
   description: string;
   location: string;
-  startedAt: string;
-  dueAt: string;
+  startedAt?: string;
+  dueAt?: string;
   faultReportId?: number | null;
   companyId?: number;
   categoryId?: number;
+  priority: Priority;
 }
 
 export interface InterventionOption {
@@ -87,7 +89,8 @@ function isInterventionListItem(payload: unknown): payload is InterventionListIt
     typeof maybe.priority === 'string' &&
     typeof maybe.status === 'string' &&
     typeof maybe.type === 'string' &&
-    typeof maybe.owner === 'string'
+    typeof maybe.owner === 'string' &&
+    (maybe.isOverdue === undefined || typeof maybe.isOverdue === 'boolean')
   );
 }
 

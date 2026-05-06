@@ -52,6 +52,22 @@ export interface AttachmentDeletedEvent extends AuditLogEntry {
   details: string;
 }
 
+/**
+ * Intervention Priority change event
+ * Logged when a coordinator or admin modifies an intervention's priority
+ */
+export interface InterventionPriorityChangeEvent extends AuditLogEntry {
+  action: "INTERVENTION_PRIORITY_CHANGED";
+  entity: "Intervention";
+  entityId: number;
+  oldValues: {
+    priority: string;
+  };
+  newValues: {
+    priority: string;
+  };
+}
+
 export class AuditService {
   /**
    * Log a generic audit entry
@@ -139,5 +155,30 @@ export class AuditService {
     };
 
     this.log(event);
+  }
+
+  /**
+   * Log intervention priority change
+   */
+  static logInterventionPriorityChange(
+    interventionId: number,
+    oldPriority: string,
+    newPriority: string,
+    actorId?: number,
+    actorUsername?: string,
+  ): void {
+    const event: InterventionPriorityChangeEvent = {
+      action: "INTERVENTION_PRIORITY_CHANGED",
+      entity: "Intervention",
+      entityId: interventionId,
+      actorId,
+      actorUsername,
+      oldValues: { priority: oldPriority },
+      newValues: { priority: newPriority },
+      details: `Priority for intervention #${interventionId} changed from ${oldPriority} to ${newPriority}`,
+    };
+
+    this.log(event);
+    void this.record(event);
   }
 }
