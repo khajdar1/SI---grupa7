@@ -8,6 +8,7 @@ export const ROUTES = {
   INTERVENTIONS: '/interventions',
   INTERVENTION: (id: string) => `/interventions/${id}`,
   INTERVENTION_NEW: '/interventions/new',
+  INTERVENTION_EDIT: (id: string) => `/interventions/${id}/edit`,
   ASSIGNMENTS: '/assignments',
   REPORTS: '/reports',
   HISTORY: '/history',

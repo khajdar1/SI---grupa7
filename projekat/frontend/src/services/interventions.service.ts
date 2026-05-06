@@ -103,6 +103,32 @@ function isModuleInfo(payload: unknown): payload is ModuleShellResponse {
   return typeof maybe.module === 'string' && Array.isArray(maybe.endpoints);
 }
 
+export interface InterventionDetail {
+  id: number;
+  name: string;
+  description: string;
+  location: string;
+  priority: Priority;
+  status: InterventionStatus;
+  type: string;
+  createdAt: string;
+  startedAt: string | null;
+  dueAt: string | null;
+  category: { id: number; name: string };
+  creator: { id: number; username: string };
+  company: { id: number; name: string };
+  faultReport: { id: number } | null;
+}
+
+export async function getInterventionById(id: number): Promise<InterventionDetail> {
+  try {
+    const response = await api.get<InterventionDetail>(API_ENDPOINTS.INTERVENTIONS.BY_ID(id));
+    return response.data;
+  } catch (error) {
+    throw new ServiceError(getErrorMessage(error, 'Failed to load intervention.'), error);
+  }
+}
+
 export async function getInterventions(): Promise<InterventionsResult> {
   try {
     const response = await api.get<unknown>(API_ENDPOINTS.INTERVENTIONS.BASE);
