@@ -104,6 +104,7 @@ export interface FaultReportRepository {
   createSubmission(
     input: FaultReportSubmissionPayload,
   ): Promise<FaultReportSubmissionResult>;
+  getConfig(): Promise<{ allowedMimeTypes: string[]; maxFileSizeMb: number }>;
 }
 
 export class FaultReportService {
@@ -125,10 +126,12 @@ export class FaultReportService {
     input: FaultReportSubmissionInput,
   ): Promise<FaultReportSubmissionResult> {
     const isRegular = input.templateId === "regular-report";
+    const config = await this.repository.getConfig();
     const attachmentErrors = this.validateAttachments(
       input.attachments,
       Boolean(input.isAuthenticated),
       isRegular,
+      config,
     );
     if (attachmentErrors.length > 0) {
       throw new BadRequestError("Invalid attachment data.", attachmentErrors);
@@ -349,6 +352,7 @@ export class FaultReportService {
     attachments: FaultReportAttachmentInput[],
     isAuthenticated: boolean,
     isRegular: boolean,
+    config: { allowedMimeTypes: string[]; maxFileSizeMb: number },
   ): Array<{ field: string; message: string }> {
     if (!isAuthenticated && !isRegular && attachments.length > 0) {
       return [
@@ -360,12 +364,21 @@ export class FaultReportService {
     }
 
     const errors: Array<{ field: string; message: string }> = [];
+    const allowedSet = new Set(config.allowedMimeTypes);
+    const maxFileSizeBytes = config.maxFileSizeMb * 1024 * 1024;
 
     for (const attachment of attachments) {
-      if (!ALLOWED_ATTACHMENT_MIME_TYPES.has(attachment.mimeType)) {
+      if (!allowedSet.has(attachment.mimeType)) {
         errors.push({
           field: "attachments",
-          message: `Unsupported attachment type: ${attachment.mimeType}`,
+          message: `Unsupported attachment type: ${attachment.mimeType}. Allowed: ${config.allowedMimeTypes.join(', ')}`,
+        });
+      }
+
+      if (attachment.fileSize > maxFileSizeBytes) {
+        errors.push({
+          field: "attachments",
+          message: `File '${attachment.fileName}' exceeds the maximum allowed size of ${config.maxFileSizeMb} MB.`,
         });
       }
     }
