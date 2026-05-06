@@ -65,6 +65,7 @@ export function createApp() {
   app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
+  
 
   return app;
 }

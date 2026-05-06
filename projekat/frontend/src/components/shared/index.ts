@@ -1,4 +1,5 @@
 export { AppNavigation } from './AppNavigation';
+export { CommentsSection } from './CommentsSection';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable } from './DataTable';
 export { EmptyState } from './EmptyState';
@@ -18,3 +19,6 @@ export type { ModuleSummaryCardAction, ModuleSummaryCardProps } from './ModuleSu
 export type { Breadcrumb, PageHeaderAction, PageHeaderProps } from './PageHeader';
 export type { PageLayoutProps } from './PageLayout';
 export type { StatCardProps } from './StatCard';
+
+
+
