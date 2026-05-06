@@ -1,4 +1,5 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { api } from '@/lib/api';
+import { ServiceError, getErrorMessage } from './errors';
 
 export interface Comment {
   id: number;
@@ -11,16 +12,13 @@ export interface Comment {
   };
 }
 
-export const getComments = async (interventionId: string) => {
-  const response = await fetch(
-    `${API_URL}/comments/intervention/${interventionId}`,
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch comments');
+export const getComments = async (interventionId: string): Promise<Comment[]> => {
+  try {
+    const response = await api.get<Comment[]>(`/api/v1/comments/intervention/${interventionId}`);
+    return response.data;
+  } catch (error) {
+    throw new ServiceError(getErrorMessage(error, 'Greška pri učitavanju komentara.'), error);
   }
-
-  return response.json();
 };
 
 export const createComment = async (
@@ -30,21 +28,14 @@ export const createComment = async (
     authorId: number;
     role: string;
   },
-) => {
-  const response = await fetch(
-    `${API_URL}/comments/intervention/${interventionId}`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    throw new Error('Failed to create comment');
+): Promise<Comment> => {
+  try {
+    const response = await api.post<Comment>(
+      `/api/v1/comments/intervention/${interventionId}`,
+      payload,
+    );
+    return response.data;
+  } catch (error) {
+    throw new ServiceError(getErrorMessage(error, 'Greška pri slanju komentara.'), error);
   }
-
-  return response.json();
 };

@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation';
 
 import { ROUTES } from '@/constants';
 import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
+import { CommentsSection } from '@/components/shared/CommentsSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -109,11 +110,11 @@ export default function InterventionDetailPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title={`Intervention #${interventionId}`}
-        subtitle="File attachments linked to this intervention."
+        title={`Intervencija #${interventionId}`}
+        subtitle="Detalji intervencije, priloženi fajlovi i komentari."
         breadcrumbs={[
           { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
+          { label: 'Intervencije', href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}` },
         ]}
       />
@@ -123,7 +124,7 @@ export default function InterventionDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Attachments</CardTitle>
+          <CardTitle>Priloženi fajlovi</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -135,23 +136,23 @@ export default function InterventionDetailPage() {
           ) : (
             <DataTable<AttachmentListItem>
               columns={[
-                { key: 'fileName', header: 'File Name' },
-                { key: 'mimeType', header: 'Type', width: '200px' },
+                { key: 'fileName', header: 'Naziv fajla' },
+                { key: 'mimeType', header: 'Tip', width: '200px' },
                 {
                   key: 'fileSize',
-                  header: 'Size',
+                  header: 'Veličina',
                   width: '100px',
                   render: (value) => formatFileSize(Number(value)),
                 },
                 {
                   key: 'createdAt',
-                  header: 'Uploaded',
+                  header: 'Dodano',
                   width: '120px',
                   render: (value) => formatDate(String(value)),
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: 'Akcije',
                   width: '200px',
                   render: (_value, row) => (
                     <div className="flex gap-2">
@@ -161,7 +162,7 @@ export default function InterventionDetailPage() {
                         size="sm"
                         onClick={() => handleDownload(row)}
                       >
-                        Download
+                        Preuzmi
                       </Button>
                       <Button
                         type="button"
@@ -169,7 +170,7 @@ export default function InterventionDetailPage() {
                         size="sm"
                         onClick={() => openDeleteDialog(row)}
                       >
-                        Delete
+                        Obriši
                       </Button>
                     </div>
                   ),
@@ -180,21 +181,26 @@ export default function InterventionDetailPage() {
               isLoading={false}
               error={error}
               onRetry={loadAttachments}
-              emptyTitle="No attachments"
-              emptyDescription="This intervention has no attached files."
+              emptyTitle="Nema fajlova"
+              emptyDescription="Ova intervencija nema priloženih fajlova."
             />
           )}
         </CardContent>
       </Card>
 
+      {/* ── PBI-016: Komentari intervencije ── */}
+      {Number.isInteger(interventionId) && interventionId > 0 && (
+        <CommentsSection interventionId={interventionId} />
+      )}
+
       <ConfirmDialog
         isOpen={deleteState.isOpen}
         onClose={closeDeleteDialog}
         onConfirm={() => { void handleConfirmDelete(); }}
-        title="Delete attachment"
-        description={`Are you sure you want to delete '${deleteState.fileName}'? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title="Obriši fajl"
+        description={`Da li ste sigurni da želite obrisati '${deleteState.fileName}'? Ova akcija se ne može poništiti.`}
+        confirmLabel="Obriši"
+        cancelLabel="Otkaži"
         variant="danger"
         isLoading={deleteState.isLoading}
       />
