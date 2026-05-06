@@ -562,7 +562,7 @@ export default function InterventionsPage() {
                 href={ROUTES.INTERVENTION(String(value))}
                 className="font-medium text-primary hover:underline"
               >
-                #{value}
+                #{value as string | number}
               </Link>
             ),
           },
@@ -818,7 +818,7 @@ export default function InterventionsPage() {
                 <Label htmlFor="priority">Prioritet</Label>
                 <Select
                   value={formState.priority}
-                  onValueChange={(value) => updateField("priority", value)}
+                  onValueChange={(value) => updateField("priority", value ?? "")}
                 >
                   <SelectTrigger
                     id="priority"

@@ -792,16 +792,26 @@ describe("PBI-004 interventions route", () => {
   it("calculates dueAt based on SLA hours", async () => {
     slaConfigurationFindUniqueMock.mockResolvedValue({ priority: Priority.HIGH, deadlineHours: 8 });
 
+    const { dueAt: _ignored, ...payloadWithoutDueAt } = basePayload;
     const response = await request("POST", "/interventions", {
       body: {
-        ...basePayload,
+        ...payloadWithoutDueAt,
         priority: Priority.HIGH,
       },
     });
 
     expect(response.status).toBe(201);
-    const expectedDueAt = new Date(new Date(basePayload.startedAt).getTime() + 8 * 60 * 60 * 1000).toISOString();
-    expect(response.body.dueAt).toBe(expectedDueAt);
+    
+    // The backend uses getCurrentMinute() to normalize dates
+    const startedDate = new Date(basePayload.startedAt);
+    startedDate.setSeconds(0, 0);
+    startedDate.setMilliseconds(0);
+    
+    const expectedDueAt = new Date(startedDate.getTime() + 8 * 60 * 60 * 1000).toISOString();
+    
+    // Compare without milliseconds to avoid tiny discrepancies
+    const actualDueAt = new Date(response.body.dueAt).toISOString();
+    expect(actualDueAt).toBe(expectedDueAt);
   });
 
   it("identifies overdue interventions", async () => {

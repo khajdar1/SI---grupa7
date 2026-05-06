@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 import {
   getSlaConfigurations,
   updateSlaConfigurations,
@@ -21,7 +21,7 @@ export default function SlaConfigPage() {
   const [configs, setConfigs] = useState<SlaConfiguration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
+  // No hook needed for sonner toast
 
   const loadConfigs = async () => {
     try {
@@ -29,10 +29,8 @@ export default function SlaConfigPage() {
       const data = await getSlaConfigurations();
       setConfigs(data);
     } catch (error) {
-      toast({
-        title: "Greška",
+      toast.error("Greška", {
         description: "Neuspješno učitavanje SLA konfiguracije.",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -60,15 +58,12 @@ export default function SlaConfigPage() {
         deadlineHours: c.deadlineHours,
       }));
       await updateSlaConfigurations(updates);
-      toast({
-        title: "Uspjeh",
+      toast.success("Uspjeh", {
         description: "SLA konfiguracija je sačuvana.",
       });
     } catch (error) {
-      toast({
-        title: "Greška",
+      toast.error("Greška", {
         description: "Neuspješno spašavanje konfiguracije.",
-        variant: "destructive",
       });
     } finally {
       setIsSaving(false);
@@ -88,7 +83,7 @@ export default function SlaConfigPage() {
           label: "Spasi promjene",
           onClick: handleSave,
           icon: <Save className="mr-2 h-4 w-4" />,
-          disabled: isSaving || isLoading,
+          isLoading: isSaving || isLoading,
         }}
       />
 

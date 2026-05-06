@@ -434,7 +434,7 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, priority: true },
+      select: { id: true, status: true, priority: true, startedAt: true, dueAt: true },
     });
 
     if (!existing) {

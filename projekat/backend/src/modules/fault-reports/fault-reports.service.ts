@@ -104,6 +104,7 @@ export interface FaultReportRepository {
   createSubmission(
     input: FaultReportSubmissionPayload,
   ): Promise<FaultReportSubmissionResult>;
+  getConfig(): Promise<{ allowedMimeTypes: string[]; maxFileSizeMb: number }>;
 }
 
 export class FaultReportService {

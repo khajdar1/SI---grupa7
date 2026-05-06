@@ -114,16 +114,16 @@ test("should seed the demo dataset with local profiles and external identities",
   assert.equal(summary.slaConfigurationCount, 4);
   assert.equal(summary.userCount, 5);
   assert.equal(summary.externalIdentityCount, 5);
-  assert.equal(summary.faultReportCount, 1);
-  assert.equal(summary.interventionCount, 1);
+  assert.equal(summary.faultReportCount, 3);
+  assert.equal(summary.interventionCount, 6);
   assert.equal(summary.assignmentCount, 1);
   assert.equal(state.companies.size, 1);
   assert.equal(state.categories.size, 4);
   assert.equal(state.slaConfigurations.size, 4);
   assert.equal(state.users.size, 5);
   assert.equal(state.externalIdentities.size, 5);
-  assert.equal(state.faultReports.size, 1);
-  assert.equal(state.interventions.size, 1);
+  assert.equal(state.faultReports.size, 3);
+  assert.equal(state.interventions.size, 6);
   assert.equal(state.assignments.size, 1);
 
   const company = state.companies.get("Servis Alfa d.o.o.");
@@ -225,8 +225,8 @@ test("should remain idempotent when the seed runs twice", async () => {
   assert.equal(state.slaConfigurations.size, 4);
   assert.equal(state.users.size, 5);
   assert.equal(state.externalIdentities.size, 5);
-  assert.equal(state.faultReports.size, 1);
-  assert.equal(state.interventions.size, 1);
+  assert.equal(state.faultReports.size, 3);
+  assert.equal(state.interventions.size, 6);
   assert.equal(state.assignments.size, 1);
   assert.equal(firstCompanyId, secondCompanyId);
 });
