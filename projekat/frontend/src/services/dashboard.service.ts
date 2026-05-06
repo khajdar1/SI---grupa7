@@ -20,11 +20,30 @@ interface DashboardSnapshot {
   activity: string[];
 }
 
+function isForbiddenError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const details = (error as { details?: unknown }).details;
+  if (typeof details !== 'object' || details === null) {
+    return false;
+  }
+
+  return (details as { response?: { status?: number } }).response?.status === 403;
+}
+
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
   try {
-    const [categories, slaConfigs, health, interventionsModule] = await Promise.all([
+    const [categories, slaConfigsResult, health, interventionsModule] = await Promise.all([
       getCategories(),
-      getSlaConfigurations(),
+      getSlaConfigurations().catch((error) => {
+        if (isForbiddenError(error)) {
+          return null;
+        }
+
+        throw error;
+      }),
       api.get<HealthResponse>(API_ENDPOINTS.HEALTH.BASE),
       getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE),
     ]);
@@ -35,7 +54,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
     const stats: DashboardStat[] = [
       { title: 'Active categories', value: activeCategories },
       { title: 'Inactive categories', value: inactiveCategories },
-      { title: 'SLA profiles', value: slaConfigs.length },
+      { title: 'SLA profiles', value: slaConfigsResult?.length ?? 'Admin only' },
       { title: 'API status', value: health.data.status.toUpperCase() },
     ];
 
