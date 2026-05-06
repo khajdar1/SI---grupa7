@@ -14,22 +14,22 @@ type PriorityConfig = {
 
 const PRIORITY_CONFIG = {
   [PRIORITY.LOW]: {
-    label: 'Low',
+    label: 'Nizak',
     bg: 'var(--priority-low-bg)',
     color: 'var(--priority-low)',
   },
   [PRIORITY.MEDIUM]: {
-    label: 'Medium',
+    label: 'Normalan',
     bg: 'var(--priority-medium-bg)',
     color: 'var(--priority-medium)',
   },
   [PRIORITY.HIGH]: {
-    label: 'High',
+    label: 'Visok',
     bg: 'var(--priority-high-bg)',
     color: 'var(--priority-high)',
   },
   [PRIORITY.CRITICAL]: {
-    label: 'Critical',
+    label: 'Hitan',
     bg: 'var(--priority-critical-bg)',
     color: 'var(--priority-critical)',
   },

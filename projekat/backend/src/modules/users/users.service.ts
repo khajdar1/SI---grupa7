@@ -182,7 +182,14 @@ export class UserManagementService {
     return Promise.all(
       users.map(async (user) => {
         const keycloakSub = getPrimaryKeycloakSubject(user);
-        const roleNames = keycloakSub ? await this.identityProvider.getUserRoles(keycloakSub) : [];
+        let roleNames: string[] = [];
+        if (keycloakSub) {
+          try {
+            roleNames = await this.identityProvider.getUserRoles(keycloakSub);
+          } catch (error) {
+            console.warn(`[UserManagement] Failed to fetch roles for orphaned Keycloak user ${keycloakSub}.`, error);
+          }
+        }
         return sanitizeUser(user, deriveManagedRoleFromKeycloakRoles(roleNames));
       }),
     );
@@ -232,7 +239,7 @@ export class UserManagementService {
   async updateUser(id: number, input: UpdateUserInput, actor: UserAuditActor): Promise<UserResponse> {
     const existing = await this.requireUser(id);
     const keycloakSub = this.requireKeycloakSubject(existing);
-    const currentRole = deriveManagedRoleFromKeycloakRoles(await this.identityProvider.getUserRoles(keycloakSub));
+    const currentRole = await this.getCurrentManagedRole(keycloakSub);
     const oldResponse = sanitizeUser(existing, currentRole);
 
     if (actor.id === id && input.role && input.role !== 'ADMIN') {
@@ -284,7 +291,7 @@ export class UserManagementService {
 
     const existing = await this.requireUser(id);
     const keycloakSub = this.requireKeycloakSubject(existing);
-    const currentRole = deriveManagedRoleFromKeycloakRoles(await this.identityProvider.getUserRoles(keycloakSub));
+    const currentRole = await this.getCurrentManagedRole(keycloakSub);
     const oldResponse = sanitizeUser(existing, currentRole);
 
     await this.identityProvider.updateUser(keycloakSub, { enabled: active });
@@ -357,6 +364,15 @@ export class UserManagementService {
     }
 
     return keycloakSub;
+  }
+
+  private async getCurrentManagedRole(keycloakSub: string): Promise<ManagedUserRole | null> {
+    try {
+      const roles = await this.identityProvider.getUserRoles(keycloakSub);
+      return deriveManagedRoleFromKeycloakRoles(roles);
+    } catch (error) {
+      throw new UserValidationError('The Keycloak account for this user is missing. This user is orphaned and can only be deleted.');
+    }
   }
 
   private async assertCompanyCanBeAssigned(

@@ -48,8 +48,8 @@ services:
     environment:
       NODE_ENV: production
       PORT: 4000
-      CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000
-      SOCKET_CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000
+      CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000,http://localhost:3001
+      SOCKET_CORS_ORIGIN: ${PUBLIC_HOST:-http://localhost}:3000,http://localhost:3001
       JWT_SECRET: ${JWT_SECRET:-change-me}
       DATABASE_URL: "mysql://${MYSQL_USER:-service_app}:${MYSQL_PASSWORD:-service_app}@mysql:3306/${MYSQL_DATABASE:-service_interventions}"
       KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}

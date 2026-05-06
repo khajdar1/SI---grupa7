@@ -8,6 +8,7 @@ export const ROUTES = {
   INTERVENTIONS: '/interventions',
   INTERVENTION: (id: string) => `/interventions/${id}`,
   INTERVENTION_NEW: '/interventions/new',
+  INTERVENTION_EDIT: (id: string) => `/interventions/${id}/edit`,
   ASSIGNMENTS: '/assignments',
   REPORTS: '/reports',
   HISTORY: '/history',
@@ -19,6 +20,7 @@ export const ROUTES = {
   ADMIN: '/admin',
   ADMIN_CATEGORY: '/admin/categories',
   ADMIN_SLA_CONFIG: '/admin/sla-config',
+  ADMIN_ATTACHMENT_CONFIG: '/admin/attachment-config',
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
 } as const;
 
@@ -55,6 +57,13 @@ export const API_ENDPOINTS = {
   },
   INTERVENTIONS: {
     BASE: '/api/v1/interventions',
+    BY_ID: (id: number | string) => `/api/v1/interventions/${id}`,
+    ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
+  },
+  ATTACHMENTS: {
+    DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,
+    BY_ID: (id: number | string) => `/api/v1/attachments/${id}`,
+    CONFIG: '/api/v1/attachments/config',
   },
   ASSIGNMENTS: {
     BASE: '/api/v1/assignments',

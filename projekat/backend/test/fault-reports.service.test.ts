@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { FaultReportService, type FaultReportRepository } from "../src/modules/fault-reports/fault-reports.service";
+import {
+  FaultReportService,
+  type FaultReportRepository,
+} from "../src/modules/fault-reports/fault-reports.service";
 
 const baseInput = {
   companyId: 7,
@@ -24,19 +27,29 @@ const baseInput = {
   ],
 };
 
-function createRepository(overrides: Partial<FaultReportRepository> = {}): FaultReportRepository {
+function createRepository(
+  overrides: Partial<FaultReportRepository> = {},
+): FaultReportRepository {
   return {
     listCompanies: async () => [],
     listActiveCategories: async () => [],
     listActiveInterventions: async () => [],
     findCompanyById: async () => ({ id: 7, name: "Servis Alfa d.o.o." }),
-    findCategoryById: async () => ({ id: 4, name: "Elektricni kvar", active: true }),
+    findCategoryById: async () => ({
+      id: 4,
+      name: "Elektricni kvar",
+      active: true,
+    }),
     findSystemUser: async () => ({ id: 99 }),
     createSubmission: async () => ({
       faultReportId: 12,
       interventionId: 34,
       referenceNumber: "INT-00034",
       receivedAt: new Date("2026-04-28T10:00:00.000Z"),
+    }),
+    getConfig: async () => ({
+      allowedMimeTypes: ["image/jpeg", "image/png", "application/pdf"],
+      maxFileSizeMb: 10,
     }),
     ...overrides,
   };
@@ -58,14 +71,22 @@ describe("FaultReportService", () => {
     const repository = createRepository();
     const service = new FaultReportService(repository);
 
-    const result = await service.submitFaultReport({ ...baseInput, attachments: [] });
+    const result = await service.submitFaultReport({
+      ...baseInput,
+      attachments: [],
+    });
     expect(result.interventionId).toBe(34);
+    expect(result.referenceNumber).toBe("INT-00034");
   });
 
   it("should reject regular report submission from guests", async () => {
     const repository = createRepository({
       findCompanyById: async () => ({ id: 7, name: "Servis Alfa d.o.o." }),
-      findCategoryById: async () => ({ id: 4, name: "Elektricni kvar", active: true }),
+      findCategoryById: async () => ({
+        id: 4,
+        name: "Elektricni kvar",
+        active: true,
+      }),
     });
     const service = new FaultReportService(repository);
 
@@ -83,16 +104,18 @@ describe("FaultReportService", () => {
           },
         ],
       }),
-    ).rejects.toThrow("Regular reports are allowed only for authenticated users.");
+    ).rejects.toThrow(
+      "Regular reports are allowed only for authenticated users.",
+    );
   });
 
   it("should reject attachments for unauthenticated submissions", async () => {
     const repository = createRepository();
     const service = new FaultReportService(repository);
 
-    await expect(service.submitFaultReport({ ...baseInput, isAuthenticated: false })).rejects.toThrow(
-      "Invalid attachment data.",
-    );
+    await expect(
+      service.submitFaultReport({ ...baseInput, isAuthenticated: false }),
+    ).rejects.toThrow("Invalid attachment data.");
   });
 
   it("should reject submission when the selected company does not exist", async () => {
@@ -101,16 +124,24 @@ describe("FaultReportService", () => {
     });
     const service = new FaultReportService(repository);
 
-    await expect(service.submitFaultReport(baseInput)).rejects.toThrow("Selected company is not available.");
+    await expect(service.submitFaultReport(baseInput)).rejects.toThrow(
+      "Selected company is not available.",
+    );
   });
 
   it("should reject submission when the selected category is inactive", async () => {
     const repository = createRepository({
-      findCategoryById: async () => ({ id: 4, name: "Elektricni kvar", active: false }),
+      findCategoryById: async () => ({
+        id: 4,
+        name: "Elektricni kvar",
+        active: false,
+      }),
     });
     const service = new FaultReportService(repository);
 
-    await expect(service.submitFaultReport(baseInput)).rejects.toThrow("Selected category is inactive.");
+    await expect(service.submitFaultReport(baseInput)).rejects.toThrow(
+      "Selected category is inactive.",
+    );
   });
 
   it("should assign the dedicated system user as intervention creator", async () => {
