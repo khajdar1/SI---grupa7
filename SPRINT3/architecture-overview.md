@@ -41,7 +41,7 @@ Glavne komponente sistema mogu se podijeliti na sljedeće cjeline:
 - Sloj za buduće povezivanje sa eksternim sistemima, kao što su SMS/email servisi.
 
 11. File Storage Modul
-- Omogućava upload, čuvanje i pristup datotekama vezanim za prijave kvarova i intervencije. Sistem čuva metapodatke o fajlovima (naziv, tip, veličina, putanja, povezanost sa prijavom) u bazi podataka, dok se sami fajlovi čuvaju u cloud storage sistemu (Cloudflare R2 free tier). Ovakav pristup omogućava efikasno upravljanje većim količinama podataka, bolju skalabilnost i veću pouzdanost u odnosu na lokalno čuvanje datoteka.
+- Omogućava upload, čuvanje i pristup datotekama vezanim za prijave kvarova i intervencije. Sistem čuva metapodatke o fajlovima (naziv, tip, veličina, putanja, povezanost sa prijavom) u bazi podataka, dok se sami fajlovi čuvaju u cloud storage sistemu (Cloudflare R2 free tier). Ovakav pristup omogućava efikasno upravljanje većim količinama podataka, bolju skalabilnost i veću pouzdanost u odnosu na lokalno čuvanje datoteka. Trenutno fajlovi se čuvaju lokalno u direktoriju backend/uploads/ na aplikacijskom serveru.
 
 ## Odgovornosti komponenti
 1. Next.js Web Client
@@ -165,6 +165,7 @@ Tip interakcije između komponenti:
 
 - Frontend ↔ Backend: komunikacija putem HTTP/HTTPS REST API poziva, razmjena podataka u JSON formatu.
 - Backend ↔ MySQL: komunikacija putem Prisma Client-a koji generiše SQL upite.
+- Backend ↔ Keycloak: validacija JWT tokena i dohvat korisničkih rola putem OIDC protokola.
 - Backend ↔ Notification Service: asinhrona ili polu-sinhrona komunikacija za slanje obavještenja.
 - Backend ↔ File Storage (Cloudflare R2): komunikacija putem HTTPS protokola korištenjem S3-kompatibilnog API-ja za upload i pristup datotekama. Datoteke se šalju kao binarni sadržaj, dok se u bazi čuvaju reference (URL ili key).
 - Frontend ↔ File Storage (Cloudflare R2): indirektna komunikacija putem signed URL-ova, koji omogućavaju direktan i siguran pristup datotekama bez prolaska kroz backend.
@@ -270,9 +271,9 @@ Razlozi:
 - Kompatibilnost sa frontend tehnologijama kao što je Next.js, koji prirodno koristi HTTP zahtjeve.
 - Lako testiranje i dokumentovanje API-ja korištenjem alata kao što je Postman.
 
-7. JWT i OAuth/OIDC
+7. JWT, OAuth/OIDC i Keycloak kao identity provider
 
-Odlučeno je da se koristi JWT (JSON Web Token) za aplikacijske sesije, dok OAuth 2.0/OIDC služi kao most prema eksternim identitetskim sistemima.
+Sistem koristi Keycloak kao eksterni identity provider. Odlučeno je da se koristi JWT (JSON Web Token) za aplikacijske sesije, dok OAuth 2.0/OIDC služi kao most prema eksternim identitetskim sistemima.
 
 Razlozi:
 
@@ -281,6 +282,7 @@ Razlozi:
 - Efikasno upravljanje autentikacijom i autorizacijom jer token može sadržavati identitet i role/claimove korisnika, što omogućava backendu da brzo provjeri prava pristupa bez dodatnih upita prema bazi podataka u svakom zahtjevu.
 - Fleksibilnost i proširivost sistema jer se uvođenjem OAuth-a omogućava lakše povezivanje sa drugim sistemima bez potrebe za kreiranjem novih korisničkih naloga unutar aplikacije.
 - JWT tokeni imaju ograničeno vrijeme trajanja, čime se dodatno povećava sigurnost sistema.
+- Centralizovano upravljanje korisnicima bez lokalnog čuvanja lozinki.
 
 8. Role-based access control
 
@@ -369,6 +371,14 @@ Rizici:
 
 - pristup datotekama može biti ograničen ili onemogućen,
 - korištenje eksternog servisa uvodi dodatne troškove vezane za skladištenje i prijenos podataka.
+
+8. Zavisnost od Keycloak dostupnosti
+
+U slučaju nedostupnosti Keycloak distance.
+
+Rizici:
+- Login i registracija može biti onemogućena.
+- Pristup ograničenim stranicama putem rola može biti nemoguć.
 
 ## Otvorena pitanja
 

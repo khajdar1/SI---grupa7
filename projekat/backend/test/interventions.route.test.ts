@@ -827,4 +827,87 @@ describe("PBI-004 interventions route", () => {
     expect(response.status).toBe(200);
     expect(response.body[0].isOverdue).toBe(true);
   });
+
+  describe("/interventions/history", () => {
+  it("returns intervention history filtered by location", async () => {
+    interventionFindManyMock.mockResolvedValue([
+      {
+        id: 11,
+        description: "Ranije curenje vode u šahtu.",
+        location: "Ilidza",
+        status: InterventionStatus.RESOLVED,
+        priority: Priority.HIGH,
+        createdAt: new Date("2026-05-01T10:00:00.000Z"),
+        category: {
+          id: 1,
+          name: "Vodoinstalacije",
+        },
+        assignments: [
+          {
+            user: {
+              firstName: "Serviser",
+              lastName: "Test",
+            },
+          },
+        ],
+      },
+    ]);
+
+    const response = await request(
+      "GET",
+      "/interventions/history?location=Ilidza",
+      {
+        roles: ["Serviser"],
+      },
+    );
+
+    expect(response.status).toBe(200);
+
+    expect(interventionFindManyMock).toHaveBeenCalledWith({
+      where: expect.any(Object),
+      orderBy: [{ createdAt: "desc" }],
+      select: expect.any(Object),
+    });
+
+    expect(response.body).toMatchObject({
+      message: "Historija intervencija je uspješno dohvaćena.",
+      data: [
+        {
+          id: "11",
+          location: "Ilidza",
+          categoryName: "Vodoinstalacije",
+          servicer: "Serviser Test",
+          status: InterventionStatus.RESOLVED,
+        },
+      ],
+    });
+  });
+
+  it("rejects history access for unauthorized roles", async () => {
+    const response = await request(
+      "GET",
+      "/interventions/history?location=Ilidza",
+      {
+        roles: ["Korisnik"],
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(interventionFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("requires location or category filter", async () => {
+    const response = await request("GET", "/interventions/history", {
+      roles: ["Serviser"],
+    });
+
+    expect(response.status).toBe(400);
+
+    expect(response.body).toMatchObject({
+      error: {
+        code: "BAD_REQUEST",
+      },
+    });
+  });
+});
 });
