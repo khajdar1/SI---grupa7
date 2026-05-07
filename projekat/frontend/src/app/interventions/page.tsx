@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, ExternalLink, AlertTriangle } from "lucide-react";
+import { Pencil, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { ROUTES, UI, VALIDATION } from "@/constants";
@@ -637,7 +637,7 @@ export default function InterventionsPage() {
                 <span>{formatDateTime(value as string | null)}</span>
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
-                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    <TriangleAlert className="mr-1 h-3 w-3" />
                     Zakašnjenje
                   </Badge>
                 )}
