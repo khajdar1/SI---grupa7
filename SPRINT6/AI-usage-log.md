@@ -449,24 +449,18 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 - **Sprint broj:** Sprint 6  
 - **Alat koji je korišten:** Claude (Anthropic)  
 - **Svrha korištenja:** Testiranje i implementacija funkcionalnosti za PBI-004.  
-- **Kratak opis zadatka ili upita:**  
-  Implementacija i testiranje funkcionalnosti planiranja intervencija, uključujući dodavanje unit testova za validaciju poslovnih pravila i proširenje mogućnosti upravljanja intervencijama od strane koordinatora.  
+- **Kratak opis zadatka ili upita:** Implementacija i testiranje funkcionalnosti planiranja intervencija, uključujući dodavanje unit testova za validaciju poslovnih pravila i proširenje mogućnosti upravljanja intervencijama od strane koordinatora.  
 - **Šta je AI predložio ili generisao:**  
   - Generisanje unit testova za validaciju planiranja intervencija.  
   - Provjeru poslovnih pravila, uključujući validaciju da datum izvršenja intervencije ne može biti prije datuma početka intervencije.  
   - Implementaciju provjere privilegija kako bi koordinator imao mogućnost uređivanja svih intervencija.  
   - Zadržavanje automatskog kreiranja intervencija nakon uspješnog evidentiranja kvarova.  
   - Omogućavanje koordinatoru kreiranja i uređivanja intervencija koje nisu direktno povezane sa kvarovima, već predstavljaju redovna održavanja sistema.  
-- **Šta je tim prihvatio:**  
-  Tim je prihvatio kompletnu implementaciju, uključujući predložene unit testove i proširenja funkcionalnosti za upravljanje intervencijama.  
-- **Šta je tim izmijenio:**  
-  /.  
-- **Šta je tim odbacio:**  
-  / 
-- **Rizici, problemi ili greške koje su uočene:**  
-  Nisu uočeni značajni rizici, problemi niti greške tokom implementacije i testiranja funkcionalnosti.  
-- **Ko je koristio alat:**  
-  Lamija Bojić
+- **Šta je tim prihvatio:** Tim je prihvatio kompletnu implementaciju, uključujući predložene unit testove i proširenja funkcionalnosti za upravljanje intervencijama.  
+- **Šta je tim izmijenio:** / 
+- **Šta je tim odbacio:** / 
+- **Rizici, problemi ili greške koje su uočene:** Nisu uočeni značajni rizici, problemi niti greške tokom implementacije i testiranja funkcionalnosti.  
+- **Ko je koristio alat:** Lamija Bojić
 
 
 
