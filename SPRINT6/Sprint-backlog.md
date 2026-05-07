@@ -7,7 +7,7 @@
 | **PBI-004** | Planiranje intervencija | Lamija Bojić | Završeno | Koordinator kreira i zakazuje intervenciju; moguće i bez veze na prijavu kvara; detalji izmjenjivi dok je status Otvoreno ili U procesu |
 | **PBI-005** | Postavljanje prioriteta intervencije | Iman Šehić | Završeno | Prioritet obavezan pri kreiranju; vizualna razlika po razinama |
 | **PBI-006** | Dodjela servisera intervenciji | Ismail Mujanović | Završeno | Lista servisera sortirana po broju aktivnih zadataka; mogućnost izmjene dodjele |
-| **PBI-007** | Pregled liste aktivnih intervencija | Emina Hadžić | Todo | Centralni operativni ekran; sortiranje po prioritetu; filtriranje po statusu, tipu, dodjeljnosti |
+| **PBI-007** | Pregled liste aktivnih intervencija | Emina Hadžić | Završeno | Centralni operativni ekran; sortiranje po prioritetu; filtriranje po statusu, tipu, dodjeljnosti |
 | **PBI-011** | Historija intervencija — dostupno serviserima kao ispomoć | Dalila Tanković | Završeno | Tabelarni prikaz završenih intervencija po lokaciji/uređaju; serviser može provjeriti historijat na terenu; grafički prikazi nisu u MVP-u |
 | **PBI-013** | Upravljanje korisničkim računima (Admin) | Kerim Hajdar | Završeno | Kreiranje, izmjena, deaktivacija i reaktivacija računa; dodjela uloga i firme; audit log; RBAC; izvorno planirano za Sprint 8 — ubrzano zbog potrebe PBI-006 |
 | **PBI-016** | Komentari intervencije | Lejla Gičević | Završeno | Koordinator i serviser dodaju komentare; kronološki prikaz; autor, datum i vrijeme uz svaki komentar |
