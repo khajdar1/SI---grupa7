@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { MessageSquare, Send, User } from 'lucide-react';
+import { MessageCircle, Send, User } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -172,7 +172,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
+          <MessageCircle className="h-5 w-5" />
           Komentari
           {comments.length > 0 && (
             <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
@@ -199,7 +199,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
             <p className="text-sm text-destructive">{error}</p>
           ) : comments.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
-              <MessageSquare className="h-8 w-8 opacity-40" />
+              <MessageCircle className="h-8 w-8 opacity-40" />
               <p className="text-sm">Nema komentara. Budite prvi koji komentariše.</p>
             </div>
           ) : (
