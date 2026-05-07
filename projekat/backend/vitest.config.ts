@@ -7,6 +7,7 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
     },
+    setupFiles: ['test/setup.ts'],
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov"],
