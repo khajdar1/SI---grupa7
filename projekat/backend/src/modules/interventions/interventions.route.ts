@@ -29,7 +29,7 @@ const INTERVENTION_HISTORY_ROLES = [
   ...SERVICER_ROLES,
 ];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
-  InterventionStatus.NEW,
+  InterventionStatus.OPEN,
   InterventionStatus.IN_PROGRESS,
 ]);
 
@@ -220,7 +220,7 @@ async function calculateDueAt(
 
   if (!sla) {
     // Default fallback if SLA is not configured
-    const defaultHours = priority === Priority.CRITICAL ? 4 : 24;
+    const defaultHours = priority === Priority.URGENT ? 4 : 24;
     return new Date(baseDate.getTime() + defaultHours * 60 * 60 * 1000);
   }
 
@@ -230,8 +230,8 @@ async function calculateDueAt(
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
-    intervention.status === InterventionStatus.RESOLVED ||
-    intervention.status === InterventionStatus.CANCELLED
+    intervention.status === InterventionStatus.DONE ||
+    intervention.status === InterventionStatus.CANCELED
   ) {
     return false;
   }
@@ -253,6 +253,14 @@ function mapIntervention(intervention: {
   company: { id: number; name: string };
   creator: { username: string; id: number };
   faultReport: { id: number; description: string; reportedAt: Date } | null;
+  assignments: {
+  user: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    username: string;
+  };
+}[];
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -270,6 +278,17 @@ function mapIntervention(intervention: {
     type: intervention.type,
     owner: intervention.creator.username,
     ownerId: intervention.creator.id,
+    assignedServicers: intervention.assignments.map((assignment) => ({
+  id: assignment.user.id,
+  name: `${assignment.user.firstName} ${assignment.user.lastName}`,
+  username: assignment.user.username,
+})),
+assignedServicerNames:
+  intervention.assignments.length > 0
+    ? intervention.assignments
+        .map((assignment) => `${assignment.user.firstName} ${assignment.user.lastName}`)
+        .join(", ")
+    : "Nije dodijeljen",
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
     dueAt: intervention.dueAt?.toISOString() ?? null,
@@ -310,12 +329,24 @@ const interventionInclude = {
       reportedAt: true,
     },
   },
+  assignments: {
+  select: {
+    user: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+      },
+    },
+  },
+},
 } as const;
 
 interventionsRouter.get(
   "/options",
   authorizeRoles(COORDINATOR_ROLES),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
     const [companies, categories, faultReports] = await Promise.all([
       prisma.company.findMany({
         orderBy: { name: "asc" },
@@ -349,29 +380,45 @@ interventionsRouter.get(
     });
   }),
 );
-
+const activeInterventionsQuerySchema = z.object({
+  status: z.nativeEnum(InterventionStatus).optional(),
+  type: z.nativeEnum(InterventionType).optional(),
+  assigned: z.enum(["assigned", "unassigned"]).optional(),
+  servicerId: z.coerce.number().int().positive().optional(),
+});
 interventionsRouter.get(
   "/",
   authorizeRoles(INTERVENTION_VIEW_ROLES),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+     const query = activeInterventionsQuerySchema.parse(req.query);
     const interventions = await prisma.intervention.findMany({
       where: {
-        archived: false,
-        status: {
-          in: [
-            InterventionStatus.NEW,
-            InterventionStatus.ASSIGNED,
-            InterventionStatus.IN_PROGRESS,
-          ],
-        },
+  archived: false,
+  status: query.status
+    ? query.status
+    : {
+        in: [
+          InterventionStatus.OPEN,
+          InterventionStatus.IN_PROGRESS,
+        ],
       },
+  type: query.type,
+  assignments:
+    query.assigned === "assigned"
+      ? { some: {} }
+      : query.assigned === "unassigned"
+        ? { none: {} }
+        : query.servicerId
+          ? { some: { userId: query.servicerId } }
+          : undefined,
+},
       include: interventionInclude,
     });
 
     const priorityRank: Record<Priority, number> = {
-      [Priority.CRITICAL]: 4,
+      [Priority.URGENT]: 4,
       [Priority.HIGH]: 3,
-      [Priority.MEDIUM]: 2,
+      [Priority.NORMAL]: 2,
       [Priority.LOW]: 1,
     };
 
@@ -411,7 +458,7 @@ interventionsRouter.get(
         AND: [
           {
             OR: [
-              { status: InterventionStatus.RESOLVED },
+              { status: InterventionStatus.DONE },
               { archived: true },
             ],
           },
@@ -513,7 +560,7 @@ interventionsRouter.post(
         latitude: context.latitude,
         longitude: context.longitude,
         priority: input.priority,
-        status: InterventionStatus.NEW,
+        status: InterventionStatus.OPEN,
         type: InterventionType.PREVENTIVE,
         startedAt: input.startedAt ?? new Date(),
         dueAt: input.dueAt ?? await calculateDueAt(input.priority, input.startedAt),
