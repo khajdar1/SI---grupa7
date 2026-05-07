@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const profileRouter = Router();
-
-profileRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'profile',
-    endpoints: ['GET /me', 'PATCH /me'],
-  });
+const profileRouter = createModuleInfoRouter({
+  module: 'profile',
+  endpoints: ['GET /me', 'PATCH /me'],
 });
 
 export default profileRouter;

@@ -4,9 +4,16 @@ export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import { INTERVENTION_STATUS, type InterventionStatus } from '@shared/enums';
 
 import { ROUTES } from '@/constants';
-import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
+import {
+  ConfirmDialog,
+  DataTable,
+  PageHeader,
+  PageLayout,
+  type PageHeaderAction,
+} from '@/components/shared';
 import { CommentsSection } from '@/components/shared/CommentsSection';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
 import { Button } from '@/components/ui/button';
@@ -24,8 +31,89 @@ import {
 } from '@/services/attachments.service';
 import {
   getInterventionById,
+  updateInterventionStatus,
   type InterventionDetail,
 } from '@/services/interventions.service';
+
+const EDITABLE_STATUSES = new Set<InterventionStatus>([
+  INTERVENTION_STATUS.NEW,
+  INTERVENTION_STATUS.IN_PROGRESS,
+]);
+const STARTABLE_STATUSES = new Set<InterventionStatus>([
+  INTERVENTION_STATUS.NEW,
+  INTERVENTION_STATUS.ASSIGNED,
+]);
+const CLOSEABLE_STATUSES = new Set<InterventionStatus>([
+  INTERVENTION_STATUS.IN_PROGRESS,
+]);
+const INTERVENTION_MANAGEMENT_ROLES = new Set([
+  'koordinator',
+  'coordinator',
+  'admin',
+  'administrator',
+]);
+const ADMIN_ATTACHMENT_ROLES = new Set([
+  'admin',
+  'administrator',
+]);
+const STATUS_MANAGEMENT_ROLES = new Set([
+  'koordinator',
+  'coordinator',
+  'serviser',
+  'admin',
+  'administrator',
+]);
+
+type KeycloakTokenPayload = {
+  realm_access?: { roles?: string[] };
+  resource_access?: Record<string, { roles?: string[] }>;
+};
+
+function decodeTokenPayload(token: string): KeycloakTokenPayload | null {
+  const [, payload] = token.split('.');
+  if (!payload) return null;
+
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+    return JSON.parse(window.atob(padded)) as KeycloakTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
+function getSessionRoles(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+
+  const roles = new Set<string>();
+  const rawUser = window.localStorage.getItem('user');
+  const token = window.localStorage.getItem('token');
+
+  try {
+    if (rawUser) {
+      const user = JSON.parse(rawUser) as { role?: string; roles?: string[] };
+      if (user.role) roles.add(user.role.toLowerCase());
+      user.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    }
+  } catch {
+    // ignore malformed local session state
+  }
+
+  if (token) {
+    const payload = decodeTokenPayload(token);
+    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    Object.values(payload?.resource_access ?? {}).forEach((client) =>
+      client.roles?.forEach((role) => roles.add(role.toLowerCase())),
+    );
+  }
+
+  return roles;
+}
+
+function hasSessionRole(allowedRoles: Set<string>): boolean {
+  const roles = getSessionRoles();
+  return Array.from(roles).some((role) => allowedRoles.has(role));
+}
 
 interface DeleteState {
   isOpen: boolean;
@@ -51,6 +139,7 @@ export default function InterventionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const loadData = async () => {
     if (!Number.isInteger(interventionId) || interventionId <= 0) {
@@ -83,6 +172,26 @@ export default function InterventionDetailPage() {
     downloadAttachment(attachment.id, attachment.fileName).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : 'Failed to download attachment.');
     });
+  };
+
+  const handleStatusChange = async (status: InterventionStatus) => {
+    if (!intervention) return;
+
+    try {
+      setIsUpdatingStatus(true);
+      setError(null);
+      setSuccessMessage('');
+      const updatedIntervention = await updateInterventionStatus(intervention.id, status);
+      setIntervention((current) => ({
+        ...updatedIntervention,
+        assignments: current?.assignments ?? updatedIntervention.assignments,
+      }));
+      setSuccessMessage('Status updated.');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to update status.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
   const openDeleteDialog = (attachment: AttachmentListItem) => {
@@ -120,6 +229,38 @@ export default function InterventionDetailPage() {
     return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('bs-BA');
   };
 
+  const canManageIntervention = hasSessionRole(INTERVENTION_MANAGEMENT_ROLES);
+  const canDeleteAttachments = hasSessionRole(ADMIN_ATTACHMENT_ROLES);
+  const canChangeStatus = hasSessionRole(STATUS_MANAGEMENT_ROLES);
+  const statusActions: PageHeaderAction[] = intervention
+    ? [
+        ...(canChangeStatus && STARTABLE_STATUSES.has(intervention.status)
+          ? [
+              {
+                label: 'Start',
+                onClick: () => {
+                  void handleStatusChange(INTERVENTION_STATUS.IN_PROGRESS);
+                },
+                variant: 'outline' as const,
+                isLoading: isUpdatingStatus,
+              },
+            ]
+          : []),
+        ...(canChangeStatus && CLOSEABLE_STATUSES.has(intervention.status)
+          ? [
+              {
+                label: 'Close',
+                onClick: () => {
+                  void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
+                },
+                variant: 'outline' as const,
+                isLoading: isUpdatingStatus,
+              },
+            ]
+          : []),
+      ]
+    : [];
+
   return (
     <PageLayout className="space-y-6">
       <PageHeader
@@ -130,6 +271,16 @@ export default function InterventionDetailPage() {
           { label: 'Intervencije', href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}` },
         ]}
+        primaryAction={
+          intervention && canManageIntervention && EDITABLE_STATUSES.has(intervention.status)
+            ? {
+                label: 'Edit',
+                href: ROUTES.INTERVENTION_EDIT(String(interventionId)),
+                variant: 'outline',
+              }
+            : undefined
+        }
+        secondaryActions={statusActions}
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -163,11 +314,11 @@ export default function InterventionDetailPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Category</p>
-                <p className="font-medium">{intervention.category.name}</p>
+                <p className="font-medium">{intervention.categoryName}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Company</p>
-                <p className="font-medium">{intervention.company.name}</p>
+                <p className="font-medium">{intervention.companyName}</p>
               </div>
             </div>
 
@@ -178,7 +329,7 @@ export default function InterventionDetailPage() {
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Creator</p>
-                <p className="font-medium">{intervention.creator.username}</p>
+                <p className="font-medium">{intervention.owner}</p>
               </div>
             </div>
 
@@ -213,7 +364,7 @@ export default function InterventionDetailPage() {
               setIntervention({ ...intervention, assignments });
             }
           }}
-          canManage={true}
+          canManage={canManageIntervention}
         />
       )}
 
@@ -261,14 +412,16 @@ export default function InterventionDetailPage() {
                       >
                         Preuzmi
                       </Button>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => openDeleteDialog(row)}
-                      >
-                        Obriši
-                      </Button>
+                      {canDeleteAttachments ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => openDeleteDialog(row)}
+                        >
+                          Obriši
+                        </Button>
+                      ) : null}
                     </div>
                   ),
                 },

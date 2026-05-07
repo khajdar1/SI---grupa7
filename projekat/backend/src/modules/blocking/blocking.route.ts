@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const blockingRouter = Router();
-
-blockingRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'blocking',
-    endpoints: ['GET /', 'POST /', 'PATCH /:id/unblock', 'DELETE /:id'],
-  });
+const blockingRouter = createModuleInfoRouter({
+  module: 'blocking',
+  endpoints: ['GET /', 'POST /', 'PATCH /:id/unblock', 'DELETE /:id'],
 });
 
 export default blockingRouter;

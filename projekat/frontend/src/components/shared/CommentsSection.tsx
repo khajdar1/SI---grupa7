@@ -34,28 +34,27 @@ const ALLOWED_COMMENT_ROLES = new Set([
   'koordinator',
   'servicer',
   'serviser',
+  'korisnik',
+  'user',
 ]);
 
-function getSessionInfo(): { userId: number | null; canComment: boolean; displayName: string } {
-  if (typeof window === 'undefined') return { userId: null, canComment: false, displayName: '' };
+function getSessionInfo(): { canComment: boolean; displayName: string } {
+  if (typeof window === 'undefined') return { canComment: false, displayName: '' };
 
   const rawUser = window.localStorage.getItem('user');
   const token = window.localStorage.getItem('token');
   const roles = new Set<string>();
-  let userId: number | null = null;
   let displayName = '';
 
   try {
     if (rawUser) {
       const user = JSON.parse(rawUser) as {
-        id?: number;
         username?: string;
         firstName?: string;
         lastName?: string;
         role?: string;
         roles?: string[];
       };
-      userId = user.id ?? null;
       displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.username || '';
       if (user.role) roles.add(user.role.toLowerCase());
       user.roles?.forEach((r) => roles.add(r.toLowerCase()));
@@ -73,7 +72,7 @@ function getSessionInfo(): { userId: number | null; canComment: boolean; display
   }
 
   const canComment = Array.from(roles).some((r) => ALLOWED_COMMENT_ROLES.has(r));
-  return { userId, canComment, displayName };
+  return { canComment, displayName };
 }
 
 function formatDateTime(iso: string): string {
@@ -107,7 +106,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const { userId, canComment } = getSessionInfo();
+  const { canComment } = getSessionInfo();
 
   const loadComments = async () => {
     setIsLoading(true);
@@ -138,20 +137,12 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
     const trimmed = text.trim();
     if (!trimmed || isSubmitting) return;
 
-    if (!userId) {
-      setSubmitError('Nije moguće identificirati korisnika. Pokušajte se ponovo prijaviti.');
-      return;
-    }
-
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
       const newComment = await createComment(String(interventionId), {
         text: trimmed,
-        authorId: userId,
-        // role is only a hint; server enforces via req.user
-        role: 'COORDINATOR',
       });
       setComments((prev) => [...prev, newComment]);
       setText('');
@@ -271,7 +262,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
           </div>
         ) : (
           <p className="border-t pt-4 text-center text-xs text-muted-foreground">
-            Samo koordinatori i serviseri mogu dodavati komentare.
+            Samo ucesnici intervencije mogu dodavati komentare.
           </p>
         )}
       </CardContent>

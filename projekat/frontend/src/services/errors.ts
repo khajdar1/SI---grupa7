@@ -20,3 +20,28 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
 
   return fallbackMessage;
 }
+
+interface DataResponse<T> {
+  data: T;
+}
+
+export async function withServiceError<T>(
+  action: () => Promise<T>,
+  fallbackMessage: string,
+): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    throw new ServiceError(getErrorMessage(error, fallbackMessage), error);
+  }
+}
+
+export async function getResponseData<T>(
+  request: () => Promise<DataResponse<T>>,
+  fallbackMessage: string,
+): Promise<T> {
+  return withServiceError(async () => {
+    const response = await request();
+    return response.data;
+  }, fallbackMessage);
+}

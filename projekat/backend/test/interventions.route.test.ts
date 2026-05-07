@@ -12,12 +12,16 @@ const {
   faultReportFindManyMock,
   faultReportFindUniqueMock,
   interventionCreateMock,
+  interventionCountMock,
   interventionFindManyMock,
+  interventionFindFirstMock,
   interventionFindUniqueMock,
   interventionUpdateMock,
+  statusHistoryCreateMock,
   userFindFirstMock,
   slaConfigurationFindUniqueMock,
   auditLogCreateMock,
+  transactionMock,
 } = vi.hoisted(() => ({
   categoryFindManyMock: vi.fn(),
   categoryFindUniqueMock: vi.fn(),
@@ -26,12 +30,18 @@ const {
   faultReportFindManyMock: vi.fn(),
   faultReportFindUniqueMock: vi.fn(),
   interventionCreateMock: vi.fn(),
+  interventionCountMock: vi.fn(),
   interventionFindManyMock: vi.fn(),
+  interventionFindFirstMock: vi.fn(),
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
+  statusHistoryCreateMock: vi.fn(),
   userFindFirstMock: vi.fn(),
   slaConfigurationFindUniqueMock: vi.fn(),
   auditLogCreateMock: vi.fn(),
+  transactionMock: vi.fn((operations: Array<Promise<unknown> | unknown>) =>
+    Promise.all(operations),
+  ),
 }));
 
 vi.mock("../src/config/database", () => ({
@@ -50,9 +60,14 @@ vi.mock("../src/config/database", () => ({
     },
     intervention: {
       create: interventionCreateMock,
+      count: interventionCountMock,
+      findFirst: interventionFindFirstMock,
       findMany: interventionFindManyMock,
       findUnique: interventionFindUniqueMock,
       update: interventionUpdateMock,
+    },
+    statusHistory: {
+      create: statusHistoryCreateMock,
     },
     user: {
       findFirst: userFindFirstMock,
@@ -63,6 +78,7 @@ vi.mock("../src/config/database", () => ({
     auditLog: {
       create: auditLogCreateMock,
     },
+    $transaction: transactionMock,
   },
 }));
 
@@ -199,6 +215,7 @@ function createApp() {
   app.use((req, _res, next) => {
     req.user = {
       id: req.header("x-test-subject") ?? "kc-coordinator-001",
+      localUserId: Number(req.header("x-test-local-user-id") ?? "3"),
       username: req.header("x-test-username") ?? "milan.koordinator",
       roles: (req.header("x-test-roles") ?? "Koordinator")
         .split(",")
@@ -237,7 +254,7 @@ function createApp() {
 async function request(
   method: HttpMethod,
   path: string,
-  options: { body?: unknown; roles?: string[] } = {},
+  options: { body?: unknown; roles?: string[]; localUserId?: number } = {},
 ): Promise<TestResponse> {
   const app = createApp();
   const server = app.listen(0);
@@ -249,6 +266,7 @@ async function request(
       headers: {
         "Content-Type": "application/json",
         "x-test-roles": (options.roles ?? ["Koordinator"]).join(","),
+        "x-test-local-user-id": String(options.localUserId ?? 3),
       },
       body:
         options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -333,6 +351,8 @@ describe("PBI-004 interventions route", () => {
     basePayload = buildBasePayload();
     faultReportPayload = buildFaultReportPayload();
     interventionRecord = buildInterventionRecord(basePayload);
+    interventionCountMock.mockResolvedValue(1);
+    interventionFindFirstMock.mockResolvedValue(null);
     seedHappyPathMocks();
   });
 
@@ -390,6 +410,23 @@ describe("PBI-004 interventions route", () => {
 
     expect(response.status).toBe(403);
     expect(interventionCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("allows admins to create planned maintenance", async () => {
+    const response = await request("POST", "/interventions", {
+      body: basePayload,
+      roles: ["Admin"],
+    });
+
+    expect(response.status).toBe(201);
+    expect(interventionCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          creatorId: 3,
+          status: InterventionStatus.NEW,
+        }),
+      }),
+    );
   });
 
   it("rejects missing required fields before saving", async () => {
@@ -713,6 +750,104 @@ describe("PBI-004 interventions route", () => {
     expect(error.message).toBe("Invalid intervention identifier.");
   });
 
+  it("moves an open intervention to in progress and records status history", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      status: InterventionStatus.NEW,
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.IN_PROGRESS },
+      roles: ["Serviser"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(interventionUpdateMock).toHaveBeenCalledWith({
+      where: { id: 21 },
+      data: { status: InterventionStatus.IN_PROGRESS },
+      include: expect.any(Object),
+    });
+    expect(statusHistoryCreateMock).toHaveBeenCalledWith({
+      data: {
+        interventionId: 21,
+        authorId: 3,
+        oldStatus: InterventionStatus.NEW,
+        newStatus: InterventionStatus.IN_PROGRESS,
+      },
+    });
+    expect(response.body).toMatchObject({
+      id: "21",
+      status: InterventionStatus.IN_PROGRESS,
+    });
+  });
+
+  it("closes an in-progress intervention and makes it eligible for history", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      status: InterventionStatus.IN_PROGRESS,
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(200);
+    expect(interventionUpdateMock).toHaveBeenCalledWith({
+      where: { id: 21 },
+      data: { status: InterventionStatus.RESOLVED },
+      include: expect.any(Object),
+    });
+    expect(statusHistoryCreateMock).toHaveBeenCalledWith({
+      data: {
+        interventionId: 21,
+        authorId: 3,
+        oldStatus: InterventionStatus.IN_PROGRESS,
+        newStatus: InterventionStatus.RESOLVED,
+      },
+    });
+    expect(response.body).toMatchObject({
+      id: "21",
+      status: InterventionStatus.RESOLVED,
+    });
+  });
+
+  it("rejects status changes that skip the predefined workflow", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      status: InterventionStatus.NEW,
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toMatchObject({
+      error: {
+        code: "FORBIDDEN",
+        message:
+          "Intervention status cannot be changed in the requested direction.",
+      },
+    });
+    expect(interventionUpdateMock).not.toHaveBeenCalled();
+    expect(statusHistoryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects status changes after an intervention is closed", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      status: InterventionStatus.RESOLVED,
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.IN_PROGRESS },
+    });
+
+    expect(response.status).toBe(403);
+    expect(interventionUpdateMock).not.toHaveBeenCalled();
+    expect(statusHistoryCreateMock).not.toHaveBeenCalled();
+  });
+
   it("returns options only to coordinators", async () => {
     companyFindManyMock.mockResolvedValue([{ id: 3, name: "Servis Alfa" }]);
     categoryFindManyMock.mockResolvedValue([
@@ -744,18 +879,65 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
-  it("rejects intervention list for non-coordinator and management roles", async () => {
+  it("lists only owned interventions for regular users", async () => {
+    interventionFindManyMock.mockResolvedValue([
+      buildInterventionRecord(faultReportPayload),
+    ]);
+
     const response = await request("GET", "/interventions", {
       roles: ["Korisnik"],
+      localUserId: 4,
     });
 
-    expect(response.status).toBe(403);
-    expect(interventionFindManyMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(interventionFindManyMock).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        archived: false,
+        OR: [
+          {
+            faultReport: {
+              is: {
+                userId: 4,
+              },
+            },
+          },
+          {
+            assignments: {
+              some: {
+                userId: 4,
+              },
+            },
+          },
+        ],
+      }),
+      include: expect.any(Object),
+    });
+    expect(response.body).toMatchObject([
+      {
+        id: "21",
+      },
+    ]);
   });
 
   it("lists active interventions with their original fault report link", async () => {
     interventionFindManyMock.mockResolvedValue([
-      buildInterventionRecord(faultReportPayload),
+      {
+        ...buildInterventionRecord(faultReportPayload),
+        assignments: [
+          {
+            id: 55,
+            userId: 8,
+            assignedAt: new Date("2026-05-07T09:00:00.000Z"),
+            user: {
+              id: 8,
+              firstName: "Marko",
+              lastName: "Serviser",
+              username: "marko.serviser",
+              email: "marko.serviser@example.com",
+            },
+          },
+        ],
+      },
     ]);
 
     const response = await request("GET", "/interventions");
@@ -784,9 +966,76 @@ describe("PBI-004 interventions route", () => {
           id: 7,
           description: "Prijava kvara",
         },
+        assignments: [
+          {
+            id: 55,
+            userId: 8,
+            assignedAt: "2026-05-07T09:00:00.000Z",
+            user: {
+              id: 8,
+              firstName: "Marko",
+              lastName: "Serviser",
+              username: "marko.serviser",
+              email: "marko.serviser@example.com",
+            },
+          },
+        ],
         isOverdue: expect.any(Boolean),
       },
     ]);
+  });
+
+  it("allows a user to view an intervention created from their fault report", async () => {
+    interventionFindFirstMock.mockResolvedValue({ id: 21 });
+    interventionFindUniqueMock.mockResolvedValue({
+      ...interventionRecord,
+      assignments: [],
+    });
+
+    const response = await request("GET", "/interventions/21", {
+      roles: ["Korisnik"],
+      localUserId: 4,
+    });
+
+    expect(response.status).toBe(200);
+    expect(interventionFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: 21,
+        OR: [
+          {
+            faultReport: {
+              is: {
+                userId: 4,
+              },
+            },
+          },
+          {
+            assignments: {
+              some: {
+                userId: 4,
+              },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    expect(response.body).toMatchObject({
+      id: "21",
+      title: "Planirana intervencija",
+    });
+  });
+
+  it("rejects a user viewing someone else's intervention", async () => {
+    interventionFindFirstMock.mockResolvedValue(null);
+
+    const response = await request("GET", "/interventions/21", {
+      roles: ["Korisnik"],
+      localUserId: 4,
+    });
+
+    expect(response.status).toBe(403);
+    expect(interventionFindUniqueMock).not.toHaveBeenCalled();
   });
 
   it("calculates dueAt based on SLA hours", async () => {
@@ -863,10 +1112,15 @@ describe("PBI-004 interventions route", () => {
 
     expect(response.status).toBe(200);
 
-    expect(interventionFindManyMock).toHaveBeenCalledWith({
+    expect(interventionFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.any(Object),
       orderBy: [{ createdAt: "desc" }],
+      skip: 0,
+      take: 10,
       select: expect.any(Object),
+    }));
+    expect(interventionCountMock).toHaveBeenCalledWith({
+      where: expect.any(Object),
     });
 
     expect(response.body).toMatchObject({
@@ -883,6 +1137,53 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
+  it("returns intervention history filtered by category name", async () => {
+    interventionFindManyMock.mockResolvedValue([
+      {
+        id: 12,
+        description: "Raniji kvar instalacija.",
+        location: "Centar",
+        status: InterventionStatus.RESOLVED,
+        priority: Priority.MEDIUM,
+        createdAt: new Date("2026-05-02T10:00:00.000Z"),
+        category: {
+          id: 2,
+          name: "Vodoinstalacije",
+        },
+        assignments: [],
+      },
+    ]);
+
+    const response = await request(
+      "GET",
+      "/interventions/history?category=Vodoinstalacije",
+      {
+        roles: ["Serviser"],
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(interventionFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        AND: expect.arrayContaining([
+          {
+            category: {
+              is: {
+                name: {
+                  contains: "Vodoinstalacije",
+                },
+              },
+            },
+          },
+        ]),
+      },
+      orderBy: [{ createdAt: "desc" }],
+      skip: 0,
+      take: 10,
+      select: expect.any(Object),
+    }));
+  });
+
   it("rejects history access for unauthorized roles", async () => {
     const response = await request(
       "GET",
@@ -896,16 +1197,23 @@ describe("PBI-004 interventions route", () => {
     expect(interventionFindManyMock).not.toHaveBeenCalled();
   });
 
-  it("requires location or category filter", async () => {
+  it("loads paginated history without filters", async () => {
+    interventionFindManyMock.mockResolvedValue([]);
+    interventionCountMock.mockResolvedValue(0);
+
     const response = await request("GET", "/interventions/history", {
       roles: ["Serviser"],
     });
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(200);
 
     expect(response.body).toMatchObject({
-      error: {
-        code: "BAD_REQUEST",
+      data: [],
+      pagination: {
+        page: 1,
+        pageSize: 10,
+        total: 0,
+        totalPages: 1,
       },
     });
   });

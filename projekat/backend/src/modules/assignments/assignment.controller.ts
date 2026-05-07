@@ -30,8 +30,8 @@ export class AssignmentController {
     }
 
     const interventionId = parseInt(rawInterventionId, 10);
-    const actorId = (req.user as any)?.id;
-    const actorUsername = (req.user as any)?.username;
+    const actorId = req.user?.localUserId;
+    const actorUsername = req.user?.username;
 
     if (!interventionId || isNaN(interventionId) || interventionId <= 0) {
       throw new BadRequestError("Invalid intervention ID.", [
@@ -103,8 +103,8 @@ export class AssignmentController {
 
     const interventionId = parseInt(rawInterventionId, 10);
     const userId = parseInt(rawUserId, 10);
-    const actorId = (req.user as any)?.id;
-    const actorUsername = (req.user as any)?.username;
+    const actorId = req.user?.localUserId;
+    const actorUsername = req.user?.username;
 
     if (!interventionId || isNaN(interventionId) || interventionId <= 0) {
       throw new BadRequestError("Invalid intervention ID.", [
