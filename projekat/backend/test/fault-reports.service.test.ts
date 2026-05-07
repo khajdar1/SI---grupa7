@@ -47,6 +47,10 @@ function createRepository(
       referenceNumber: "INT-00034",
       receivedAt: new Date("2026-04-28T10:00:00.000Z"),
     }),
+    getConfig: async () => ({
+      allowedMimeTypes: ["image/jpeg", "image/png", "application/pdf"],
+      maxFileSizeMb: 10,
+    }),
     ...overrides,
   };
 }

@@ -1,4 +1,4 @@
-import { InterventionStatus, InterventionType } from "@prisma/client";
+import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
 import type { Request } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -13,11 +13,21 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors";
+import { AuditService } from "../../shared/audit.service";
 
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
-const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES];
+const ADMIN_ROLES = ["Administrator", "Admin", "administrator", "admin"];
+const SERVICER_ROLES = ["Serviser"];
+
+const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES, ...ADMIN_ROLES];
+
+const INTERVENTION_HISTORY_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...SERVICER_ROLES,
+];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.NEW,
   InterventionStatus.IN_PROGRESS,
@@ -42,24 +52,37 @@ const interventionPayloadSchema = z
       .trim()
       .min(3, "Location must contain at least 3 characters.")
       .max(255),
-    startedAt: z.coerce.date(),
-    dueAt: z.coerce.date(),
+    startedAt: z.coerce.date().optional(),
+    dueAt: z.coerce.date().optional(),
     faultReportId: z.coerce.number().int().positive().nullable().optional(),
     companyId: z.coerce.number().int().positive().optional(),
     categoryId: z.coerce.number().int().positive().optional(),
+    priority: z.nativeEnum(Priority),
   })
-  .refine((value) => value.startedAt >= getCurrentMinute(), {
-    path: ["startedAt"],
-    message: "Planned start date cannot be in the past.",
-  })
-  .refine((value) => value.dueAt >= getCurrentMinute(), {
+  .refine(
+    (value) => !value.startedAt || value.startedAt >= getCurrentMinute(),
+    {
+      path: ["startedAt"],
+      message: "Planned start date cannot be in the past.",
+    }
+  )
+  .refine((value) => !value.dueAt || value.dueAt >= getCurrentMinute(), {
     path: ["dueAt"],
     message: "Due date cannot be in the past.",
   })
-  .refine((value) => value.dueAt >= value.startedAt, {
-    path: ["dueAt"],
-    message: "Due date must be after or equal to the planned start date.",
-  });
+  .refine(
+    (value) =>
+      !value.dueAt || !value.startedAt || value.dueAt >= value.startedAt,
+    {
+      path: ["dueAt"],
+      message: "Due date must be after or equal to the planned start date.",
+    }
+  );
+
+const interventionHistoryQuerySchema = z.object({
+  location: z.string().trim().min(3).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+});
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
   if (typeof rawId !== "string") {
@@ -186,12 +209,41 @@ async function resolvePlanningContext(
   };
 }
 
+async function calculateDueAt(
+  priority: Priority,
+  startedAt: Date | null | undefined,
+): Promise<Date> {
+  const baseDate = startedAt || new Date();
+  const sla = await prisma.slaConfiguration.findUnique({
+    where: { priority },
+  });
+
+  if (!sla) {
+    // Default fallback if SLA is not configured
+    const defaultHours = priority === Priority.CRITICAL ? 4 : 24;
+    return new Date(baseDate.getTime() + defaultHours * 60 * 60 * 1000);
+  }
+
+  return new Date(baseDate.getTime() + sla.deadlineHours * 60 * 60 * 1000);
+}
+
+function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
+  if (
+    !intervention.dueAt ||
+    intervention.status === InterventionStatus.RESOLVED ||
+    intervention.status === InterventionStatus.CANCELLED
+  ) {
+    return false;
+  }
+  return new Date() > intervention.dueAt;
+}
+
 function mapIntervention(intervention: {
   id: number;
   name: string;
   description: string;
   location: string;
-  priority: string;
+  priority: Priority;
   status: InterventionStatus;
   type: InterventionType;
   createdAt: Date;
@@ -199,9 +251,10 @@ function mapIntervention(intervention: {
   dueAt: Date | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
-  creator: { username: string };
+  creator: { username: string; id: number };
   faultReport: { id: number; description: string; reportedAt: Date } | null;
 }) {
+  const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
     id: String(intervention.id),
     title: intervention.name,
@@ -216,9 +269,11 @@ function mapIntervention(intervention: {
     status: intervention.status,
     type: intervention.type,
     owner: intervention.creator.username,
+    ownerId: intervention.creator.id,
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
     dueAt: intervention.dueAt?.toISOString() ?? null,
+    isOverdue: overdue,
     faultReport: intervention.faultReport
       ? {
           id: intervention.faultReport.id,
@@ -244,6 +299,7 @@ const interventionInclude = {
   },
   creator: {
     select: {
+      id: true,
       username: true,
     },
   },
@@ -310,10 +366,120 @@ interventionsRouter.get(
         },
       },
       include: interventionInclude,
-      orderBy: [{ createdAt: "desc" }],
     });
 
-    res.json(interventions.map(mapIntervention));
+    const priorityRank: Record<Priority, number> = {
+      [Priority.CRITICAL]: 4,
+      [Priority.HIGH]: 3,
+      [Priority.MEDIUM]: 2,
+      [Priority.LOW]: 1,
+    };
+
+    const sortedInterventions = [...interventions].sort((a, b) => {
+      const rankA = priorityRank[a.priority] || 0;
+      const rankB = priorityRank[b.priority] || 0;
+      
+      if (rankA !== rankB) {
+        return rankB - rankA; // Priority descending
+      }
+      
+      // Secondary sort: createdAt ascending
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
+
+    res.json(sortedInterventions.map(mapIntervention));
+  }),
+);
+
+interventionsRouter.get(
+  "/history",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const query = interventionHistoryQuerySchema.parse(req.query);
+
+    if (!query.location && !query.categoryId) {
+      throw new BadRequestError("Location or category is required.", [
+        {
+          field: "location",
+          message: "Provide location or categoryId to search history.",
+        },
+      ]);
+    }
+
+    const history = await prisma.intervention.findMany({
+      where: {
+        AND: [
+          {
+            OR: [
+              { status: InterventionStatus.RESOLVED },
+              { archived: true },
+            ],
+          },
+          query.location
+            ? {
+                location: {
+                  contains: query.location,
+                },
+              }
+            : {},
+          query.categoryId ? { categoryId: query.categoryId } : {},
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        id: true,
+        description: true,
+        location: true,
+        status: true,
+        priority: true,
+        createdAt: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        assignments: {
+          select: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    res.json({
+      message:
+        history.length === 0
+          ? "Nema prethodnih intervencija za odabranu lokaciju ili kategoriju."
+          : "Historija intervencija je uspješno dohvaćena.",
+      data: history.map((intervention) => ({
+        id: String(intervention.id),
+        date: intervention.createdAt.toISOString(),
+        status: intervention.status,
+        priority: intervention.priority,
+        location: intervention.location,
+        categoryId: intervention.category.id,
+        categoryName: intervention.category.name,
+        summary:
+          intervention.description.length > 120
+            ? `${intervention.description.slice(0, 120)}...`
+            : intervention.description,
+        servicer:
+          intervention.assignments.length > 0
+            ? intervention.assignments
+                .map(
+                  (assignment) =>
+                    `${assignment.user.firstName} ${assignment.user.lastName}`,
+                )
+                .join(", ")
+            : "Nije dodijeljen",
+      })),
+    });
   }),
 );
 
@@ -346,10 +512,11 @@ interventionsRouter.post(
         location: input.location,
         latitude: context.latitude,
         longitude: context.longitude,
+        priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt: input.startedAt,
-        dueAt: input.dueAt,
+        startedAt: input.startedAt ?? new Date(),
+        dueAt: input.dueAt ?? await calculateDueAt(input.priority, input.startedAt),
         categoryId: context.categoryId,
         companyId: context.companyId,
         creatorId: creator.id,
@@ -372,7 +539,7 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, priority: true, startedAt: true, dueAt: true },
     });
 
     if (!existing) {
@@ -394,11 +561,14 @@ interventionsRouter.patch(
         location: input.location,
         latitude: context.latitude,
         longitude: context.longitude,
+        priority: input.priority,
         type: input.faultReportId
           ? InterventionType.ISSUE
           : InterventionType.PREVENTIVE,
         startedAt: input.startedAt,
-        dueAt: input.dueAt,
+        dueAt:
+          input.dueAt ??
+          await calculateDueAt(input.priority, input.startedAt || existing.startedAt),
         categoryId: context.categoryId,
         companyId: context.companyId,
         faultReportId: input.faultReportId ?? null,
@@ -406,7 +576,79 @@ interventionsRouter.patch(
       include: interventionInclude,
     });
 
+    if (existing.priority !== input.priority) {
+      const actor = await resolveCreator(req);
+      AuditService.logInterventionPriorityChange(
+        id,
+        existing.priority,
+        input.priority,
+        actor.id,
+        actor.username
+      );
+    }
+
     res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.get(
+  '/:id/attachments',
+  authorizeRoles(INTERVENTION_VIEW_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new BadRequestError('Invalid intervention identifier.');
+    }
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        attachments: {
+          select: {
+            id: true,
+            fileName: true,
+            mimeType: true,
+            fileSize: true,
+            createdAt: true,
+            storageKey: true,
+            url: true,
+          },
+        },
+        faultReport: {
+          select: {
+            attachments: {
+              select: {
+                id: true,
+                fileName: true,
+                mimeType: true,
+                fileSize: true,
+                createdAt: true,
+                storageKey: true,
+                url: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError('Intervention not found.');
+    }
+
+    // Combine direct attachments with fault-report attachments, deduplicating by id
+    const direct = intervention.attachments;
+    const fromFaultReport = intervention.faultReport?.attachments ?? [];
+    const seenIds = new Set<number>();
+
+    const combined = [...direct, ...fromFaultReport].filter((att) => {
+      if (seenIds.has(att.id)) return false;
+      seenIds.add(att.id);
+      return true;
+    });
+
+    res.json(combined);
   }),
 );
 

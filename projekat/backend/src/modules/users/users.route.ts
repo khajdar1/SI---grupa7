@@ -209,6 +209,7 @@ function sendMappedError(res: Response, error: unknown): void {
   }
 
   console.error('[UsersRoute] Unexpected user-management error:', error);
+  require('fs').writeFileSync('user_error.log', String(error) + '\n' + JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
   res.status(HTTP_STATUS.INTERNAL).json({ message: 'User management request failed.' });
 }
 

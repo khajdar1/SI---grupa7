@@ -151,6 +151,24 @@ const faultReportsRepository: FaultReportRepository = {
       },
       select: { id: true },
     }),
+
+  getConfig: async () => {
+    const ATTACHMENT_CONFIG_KEY = 'attachment.config';
+    const row = await prisma.systemConfig.findUnique({ where: { key: ATTACHMENT_CONFIG_KEY } });
+    if (!row) return { allowedMimeTypes: [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml',
+      'application/pdf', 'text/plain', 'text/csv', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ], maxFileSizeMb: 10 };
+
+    try {
+      return JSON.parse(row.value);
+    } catch {
+      return { allowedMimeTypes: [], maxFileSizeMb: 10 };
+    }
+  },
+
   createSubmission: async (input) =>
     prisma.$transaction(async (transaction) => {
       const faultReport = await transaction.faultReport.create({

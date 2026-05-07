@@ -1,10 +1,13 @@
 "use client";
-export const runtime = "edge";
+// export const runtime = "edge";
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Pencil, Plus, ExternalLink, AlertTriangle } from "lucide-react";
+import Link from "next/link";
 
 import { ROUTES, UI, VALIDATION } from "@/constants";
+import { PRIORITY } from "@shared/enums";
 import {
   DataTable,
   FilterBar,
@@ -51,6 +54,7 @@ import {
   type InterventionOptions,
 } from "@/services/interventions.service";
 import { getCategories } from "@/services/categories.service";
+import { getPriorityLabel } from "@/services/sla.service";
 import type { ModuleShellResponse } from "@/services/types";
 import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
@@ -63,6 +67,7 @@ const COORDINATOR_ROLES = new Set([
   "Koordinator",
 ]);
 const MANAGEMENT_ROLES = new Set(["menadzment", "management"]);
+const ADMIN_ROLES = new Set(["admin", "administrator"]);
 const EDITABLE_STATUSES = new Set(["NEW", "IN_PROGRESS"]);
 
 type FormState = {
@@ -74,6 +79,7 @@ type FormState = {
   faultReportId: string;
   companyId: string;
   categoryId: string;
+  priority: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -85,6 +91,7 @@ const EMPTY_FORM: FormState = {
   faultReportId: NO_FAULT_REPORT,
   companyId: "",
   categoryId: "",
+  priority: PRIORITY.MEDIUM,
 };
 
 const EMPTY_OPTIONS: InterventionOptions = {
@@ -162,7 +169,8 @@ function hasInterventionViewRole(roles: string[]) {
     const normalizedRole = role.toLowerCase();
     return (
       COORDINATOR_ROLES.has(normalizedRole) ||
-      MANAGEMENT_ROLES.has(normalizedRole)
+      MANAGEMENT_ROLES.has(normalizedRole) ||
+      ADMIN_ROLES.has(normalizedRole)
     );
   });
 }
@@ -223,10 +231,12 @@ function buildFormFromIntervention(
       : NO_FAULT_REPORT,
     companyId: String(intervention.companyId),
     categoryId: String(intervention.categoryId),
+    priority: intervention.priority,
   };
 }
 
 export default function InterventionsPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [options, setOptions] = useState<InterventionOptions>({
     companies: [],
@@ -378,13 +388,17 @@ export default function InterventionsPage() {
       formState.location,
       "Location is required.",
     );
-    const startedAtError = validateRequired(
-      formState.startedAt,
-      "Planned start date is required.",
-    );
-    const dueAtError = validateRequired(
-      formState.dueAt,
-      "Due date is required.",
+    const startedAtError = formState.startedAt && formState.startedAt < getCurrentDatetimeLocal()
+      ? "Planned start date cannot be in the past."
+      : undefined;
+
+    const dueAtError = formState.dueAt && formState.dueAt < getCurrentDatetimeLocal()
+      ? "Due date cannot be in the past."
+      : undefined;
+
+    const priorityError = validateRequired(
+      formState.priority,
+      "Priority is required.",
     );
 
     if (nameError) nextErrors.name = nameError;
@@ -392,26 +406,18 @@ export default function InterventionsPage() {
     if (locationError) nextErrors.location = locationError;
     if (startedAtError) nextErrors.startedAt = startedAtError;
     if (dueAtError) nextErrors.dueAt = dueAtError;
+    if (priorityError) nextErrors.priority = priorityError;
 
     if (!locationError && formState.location.trim().length < 3) {
       nextErrors.location = "Location must have at least 3 characters.";
     }
 
-    if (!startedAtError && formState.startedAt < getCurrentDatetimeLocal()) {
-      nextErrors.startedAt = "Planned start date cannot be in the past.";
-    }
-
-    if (!dueAtError && formState.dueAt < getCurrentDatetimeLocal()) {
-      nextErrors.dueAt = "Due date cannot be in the past.";
-    }
-
     if (
-      !startedAtError &&
-      !dueAtError &&
+      formState.startedAt &&
+      formState.dueAt &&
       new Date(formState.dueAt) < new Date(formState.startedAt)
     ) {
-      nextErrors.dueAt =
-        "Due date must be after or equal to planned start date.";
+      nextErrors.dueAt = "Due date must be after or equal to planned start date.";
     }
 
     if (formState.faultReportId === NO_FAULT_REPORT) {
@@ -431,14 +437,15 @@ export default function InterventionsPage() {
     name: formState.name.trim(),
     description: formState.description.trim(),
     location: formState.location.trim(),
-    startedAt: new Date(formState.startedAt).toISOString(),
-    dueAt: new Date(formState.dueAt).toISOString(),
+    startedAt: formState.startedAt ? new Date(formState.startedAt).toISOString() : undefined,
+    dueAt: formState.dueAt ? new Date(formState.dueAt).toISOString() : undefined,
     faultReportId:
       formState.faultReportId === NO_FAULT_REPORT
         ? null
         : Number(formState.faultReportId),
     companyId: formState.companyId ? Number(formState.companyId) : undefined,
     categoryId: formState.categoryId ? Number(formState.categoryId) : undefined,
+    priority: formState.priority as any,
   });
 
   const openCreateDialog = () => {
@@ -488,17 +495,11 @@ export default function InterventionsPage() {
         ? await updateIntervention(editingIntervention.id, buildPayload())
         : await createIntervention(buildPayload());
 
-      setRows((current) => {
-        if (editingIntervention) {
-          return current.map((row) => (row.id === saved.id ? saved : row));
-        }
-
-        return [saved, ...current];
-      });
+      await loadData();
       setSuccessMessage(
         editingIntervention
           ? "Intervention updated."
-          : "Intervention created with status Otvoreno.",
+          : "Intervention created.",
       );
       setIsDialogOpen(false);
     } catch (requestError: unknown) {
@@ -572,8 +573,27 @@ export default function InterventionsPage() {
             key: "id",
             header: "ID",
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_ID,
+            render: (value) => (
+              <Link
+                href={ROUTES.INTERVENTION(String(value))}
+                className="font-medium text-primary hover:underline"
+              >
+                #{value as string | number}
+              </Link>
+            ),
           },
-          { key: "title", header: "Title" },
+          {
+            key: "title",
+            header: "Title",
+            render: (value, row) => (
+              <Link
+                href={ROUTES.INTERVENTION(String(row.id))}
+                className="hover:text-primary hover:underline"
+              >
+                {value as string}
+              </Link>
+            ),
+          },
           { key: "location", header: "Location" },
           { key: "categoryName", header: "Category" },
           {
@@ -612,8 +632,16 @@ export default function InterventionsPage() {
           {
             key: "dueAt",
             header: "Due",
-            render: (value) => (
-              <span>{formatDateTime(value as string | null)}</span>
+            render: (value, row) => (
+              <div className="flex flex-col gap-1">
+                <span>{formatDateTime(value as string | null)}</span>
+                {row.isOverdue && (
+                  <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
+                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    Zakašnjenje
+                  </Badge>
+                )}
+              </div>
             ),
           },
           {
@@ -640,7 +668,10 @@ export default function InterventionsPage() {
                       variant="ghost"
                       size="sm"
                       disabled={!EDITABLE_STATUSES.has(row.status)}
-                      onClick={() => openEditDialog(row)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEditDialog(row);
+                      }}
                     >
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit
@@ -655,6 +686,7 @@ export default function InterventionsPage() {
         isLoading={isLoading}
         error={error}
         onRetry={() => loadData()}
+        onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
         emptyTitle="No interventions in this category"
         emptyDescription={emptyDescription}
       />
@@ -794,6 +826,47 @@ export default function InterventionsPage() {
                     className="text-xs text-destructive"
                   >
                     {fieldErrors.location}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="priority">Prioritet</Label>
+                <Select
+                  value={formState.priority}
+                  onValueChange={(value) => updateField("priority", value ?? "")}
+                >
+                  <SelectTrigger
+                    id="priority"
+                    aria-invalid={Boolean(fieldErrors.priority)}
+                    aria-describedby={
+                      fieldErrors.priority ? "priority-error" : undefined
+                    }
+                  >
+                    <SelectValue placeholder="Odaberi prioritet">
+                      {formState.priority
+                        ? getPriorityLabel(formState.priority as any)
+                        : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={PRIORITY.CRITICAL}>
+                      {getPriorityLabel(PRIORITY.CRITICAL)}
+                    </SelectItem>
+                    <SelectItem value={PRIORITY.HIGH}>
+                      {getPriorityLabel(PRIORITY.HIGH)}
+                    </SelectItem>
+                    <SelectItem value={PRIORITY.MEDIUM}>
+                      {getPriorityLabel(PRIORITY.MEDIUM)}
+                    </SelectItem>
+                    <SelectItem value={PRIORITY.LOW}>
+                      {getPriorityLabel(PRIORITY.LOW)}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                {fieldErrors.priority ? (
+                  <p id="priority-error" className="text-xs text-destructive">
+                    {fieldErrors.priority}
                   </p>
                 ) : null}
               </div>

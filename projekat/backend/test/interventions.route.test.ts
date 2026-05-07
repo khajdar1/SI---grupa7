@@ -16,6 +16,8 @@ const {
   interventionFindUniqueMock,
   interventionUpdateMock,
   userFindFirstMock,
+  slaConfigurationFindUniqueMock,
+  auditLogCreateMock,
 } = vi.hoisted(() => ({
   categoryFindManyMock: vi.fn(),
   categoryFindUniqueMock: vi.fn(),
@@ -28,6 +30,8 @@ const {
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
   userFindFirstMock: vi.fn(),
+  slaConfigurationFindUniqueMock: vi.fn(),
+  auditLogCreateMock: vi.fn(),
 }));
 
 vi.mock("../src/config/database", () => ({
@@ -52,6 +56,12 @@ vi.mock("../src/config/database", () => ({
     },
     user: {
       findFirst: userFindFirstMock,
+    },
+    slaConfiguration: {
+      findUnique: slaConfigurationFindUniqueMock,
+    },
+    auditLog: {
+      create: auditLogCreateMock,
     },
   },
 }));
@@ -129,6 +139,7 @@ function buildBasePayload() {
     faultReportId: null,
     companyId: 3,
     categoryId: 4,
+    priority: Priority.MEDIUM,
   };
 }
 
@@ -140,6 +151,7 @@ function buildFaultReportPayload() {
     startedAt: isoMinutesFromNow(60),
     dueAt: isoMinutesFromNow(180),
     faultReportId: 7,
+    priority: Priority.HIGH,
   };
 }
 
@@ -279,8 +291,40 @@ function seedHappyPathMocks() {
   });
   companyFindUniqueMock.mockResolvedValue({ id: 3 });
   categoryFindUniqueMock.mockResolvedValue({ id: 4, active: true });
-  interventionCreateMock.mockResolvedValue(interventionRecord);
-  interventionUpdateMock.mockResolvedValue(interventionRecord);
+  interventionCreateMock.mockImplementation((args) => {
+    return Promise.resolve({
+      ...interventionRecord,
+      ...args.data,
+      category: { id: args.data.categoryId ?? 4, name: "Elektricni kvar" },
+      company: { id: args.data.companyId ?? 3, name: "Servis Alfa" },
+      creator: { id: 3, username: "milan.koordinator" },
+      faultReport: args.data.faultReportId
+        ? {
+            id: args.data.faultReportId,
+            description: "Prijava kvara",
+            reportedAt: dateMinutesFromNow(-60),
+          }
+        : null,
+    });
+  });
+  interventionUpdateMock.mockImplementation((args) => {
+    return Promise.resolve({
+      ...interventionRecord,
+      ...args.data,
+      category: { id: args.data.categoryId ?? 4, name: "Elektricni kvar" },
+      company: { id: args.data.companyId ?? 3, name: "Servis Alfa" },
+      creator: { id: 3, username: "milan.koordinator" },
+      faultReport: args.data.faultReportId
+        ? {
+            id: args.data.faultReportId,
+            description: "Prijava kvara",
+            reportedAt: dateMinutesFromNow(-60),
+          }
+        : null,
+    });
+  });
+  slaConfigurationFindUniqueMock.mockResolvedValue({ priority: Priority.MEDIUM, deadlineHours: 24 });
+  auditLogCreateMock.mockResolvedValue({});
 }
 
 describe("PBI-004 interventions route", () => {
@@ -307,6 +351,7 @@ describe("PBI-004 interventions route", () => {
         faultReportId: null,
         companyId: 3,
         categoryId: 4,
+        priority: Priority.MEDIUM,
       }),
       include: expect.any(Object),
     });
@@ -316,6 +361,7 @@ describe("PBI-004 interventions route", () => {
       status: InterventionStatus.NEW,
       type: InterventionType.PREVENTIVE,
       faultReport: null,
+      priority: Priority.MEDIUM,
     });
   });
 
@@ -536,6 +582,7 @@ describe("PBI-004 interventions route", () => {
     interventionFindUniqueMock.mockResolvedValue({
       id: 21,
       status: InterventionStatus.NEW,
+      priority: Priority.MEDIUM,
     });
     faultReportFindUniqueMock.mockResolvedValue(null);
 
@@ -556,6 +603,7 @@ describe("PBI-004 interventions route", () => {
     interventionFindUniqueMock.mockResolvedValue({
       id: 21,
       status: InterventionStatus.NEW,
+      priority: Priority.MEDIUM,
     });
 
     const response = await request("PATCH", "/interventions/21", {
@@ -568,6 +616,7 @@ describe("PBI-004 interventions route", () => {
       data: expect.objectContaining({
         name: faultReportPayload.name,
         faultReportId: 7,
+        priority: Priority.HIGH,
       }),
       include: expect.any(Object),
     });
@@ -577,6 +626,7 @@ describe("PBI-004 interventions route", () => {
     interventionFindUniqueMock.mockResolvedValue({
       id: 21,
       status: InterventionStatus.IN_PROGRESS,
+      priority: Priority.MEDIUM,
     });
 
     const response = await request("PATCH", "/interventions/21", {
@@ -723,8 +773,8 @@ describe("PBI-004 interventions route", () => {
         },
       },
       include: expect.any(Object),
-      orderBy: [{ createdAt: "desc" }],
     });
+
     expect(response.body).toMatchObject([
       {
         id: "21",
@@ -734,7 +784,130 @@ describe("PBI-004 interventions route", () => {
           id: 7,
           description: "Prijava kvara",
         },
+        isOverdue: expect.any(Boolean),
       },
     ]);
   });
+
+  it("calculates dueAt based on SLA hours", async () => {
+    slaConfigurationFindUniqueMock.mockResolvedValue({ priority: Priority.HIGH, deadlineHours: 8 });
+
+    const { dueAt: _ignored, ...payloadWithoutDueAt } = basePayload;
+    const response = await request("POST", "/interventions", {
+      body: {
+        ...payloadWithoutDueAt,
+        priority: Priority.HIGH,
+      },
+    });
+
+    expect(response.status).toBe(201);
+    
+    // The backend uses getCurrentMinute() to normalize dates
+    const startedDate = new Date(basePayload.startedAt);
+    startedDate.setSeconds(0, 0);
+    startedDate.setMilliseconds(0);
+    
+    const expectedDueAt = new Date(startedDate.getTime() + 8 * 60 * 60 * 1000).toISOString();
+    
+    // Compare without milliseconds to avoid tiny discrepancies
+    const actualDueAt = new Date(response.body.dueAt).toISOString();
+    expect(actualDueAt).toBe(expectedDueAt);
+  });
+
+  it("identifies overdue interventions", async () => {
+    const overdueIntervention = {
+      ...interventionRecord,
+      dueAt: new Date(Date.now() - 3600000), // 1 hour ago
+      status: InterventionStatus.IN_PROGRESS,
+    };
+    interventionFindManyMock.mockResolvedValue([overdueIntervention]);
+
+    const response = await request("GET", "/interventions");
+
+    expect(response.status).toBe(200);
+    expect(response.body[0].isOverdue).toBe(true);
+  });
+
+  describe("/interventions/history", () => {
+  it("returns intervention history filtered by location", async () => {
+    interventionFindManyMock.mockResolvedValue([
+      {
+        id: 11,
+        description: "Ranije curenje vode u šahtu.",
+        location: "Ilidza",
+        status: InterventionStatus.RESOLVED,
+        priority: Priority.HIGH,
+        createdAt: new Date("2026-05-01T10:00:00.000Z"),
+        category: {
+          id: 1,
+          name: "Vodoinstalacije",
+        },
+        assignments: [
+          {
+            user: {
+              firstName: "Serviser",
+              lastName: "Test",
+            },
+          },
+        ],
+      },
+    ]);
+
+    const response = await request(
+      "GET",
+      "/interventions/history?location=Ilidza",
+      {
+        roles: ["Serviser"],
+      },
+    );
+
+    expect(response.status).toBe(200);
+
+    expect(interventionFindManyMock).toHaveBeenCalledWith({
+      where: expect.any(Object),
+      orderBy: [{ createdAt: "desc" }],
+      select: expect.any(Object),
+    });
+
+    expect(response.body).toMatchObject({
+      message: "Historija intervencija je uspješno dohvaćena.",
+      data: [
+        {
+          id: "11",
+          location: "Ilidza",
+          categoryName: "Vodoinstalacije",
+          servicer: "Serviser Test",
+          status: InterventionStatus.RESOLVED,
+        },
+      ],
+    });
+  });
+
+  it("rejects history access for unauthorized roles", async () => {
+    const response = await request(
+      "GET",
+      "/interventions/history?location=Ilidza",
+      {
+        roles: ["Korisnik"],
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(interventionFindManyMock).not.toHaveBeenCalled();
+  });
+
+  it("requires location or category filter", async () => {
+    const response = await request("GET", "/interventions/history", {
+      roles: ["Serviser"],
+    });
+
+    expect(response.status).toBe(400);
+
+    expect(response.body).toMatchObject({
+      error: {
+        code: "BAD_REQUEST",
+      },
+    });
+  });
+});
 });

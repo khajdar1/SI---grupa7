@@ -21,7 +21,7 @@
 
 | Cilj | Obim | Kriterij uspjeha |
 |------|------|-----------------|
-| Verifikacija registracije i upravljanja korisničkim računima (PBI-001, PBI-013) | Samoregistracija, kreiranje računa od strane admina, dodjela uloge i firme, deaktivacija i reaktivacija | Svi AC iz PBI-001 i PBI-013 zadovoljeni; samoregistrirani korisnik automatski dobija ulogu Korisnik; admin ne može deaktivirati vlastiti račun |
+| Verifikacija registracije i upravljanja korisničkim računima (PBI-001, PBI-013) | Samoregistracija (bez odabira firme - dodjela firme je administrativni tok), kreiranje računa od strane admina, dodjela uloge i firme, deaktivacija i reaktivacija | Svi AC iz PBI-001 i PBI-013 zadovoljeni; samoregistrirani korisnik automatski dobija ulogu Korisnik; samoregistracijska forma ne sadrži polje firma; admin ne može deaktivirati vlastiti račun |
 | Verifikacija prijave, upravljanja sesijom i reset lozinke (PBI-002, PBI-019) | Login/logout tok za sve uloge (Gost, Korisnik, Serviser, Koordinator, Menadžment, Admin); reset lozinke putem emaila | Svi AC iz PBI-002 i PBI-019 zadovoljeni; deaktivirani račun ne može pristupiti sistemu; zaštićene stranice nedostupne bez aktivne sesije |
 | Provjera sistema permisija i uloga – RBAC (NFR_03, NFR_09) | Pristup svim modulima i podacima za svaku od šest korisničkih uloga | Svaka uloga pristupa isključivo sebi namijenjenim modulima; neovlašten URL pristup preusmjerava na login |
 | Validacija toka prijave kvara i automatskog kreiranja intervencije (PBI-003, PBI-004, PBI-032) | Anonimna i autentificirana prijava kvara; odabir kategorije; upload attachmenta; automatsko kreiranje intervencije | Svi AC iz PBI-003, PBI-004 i PBI-032 zadovoljeni; intervencija se kreira odmah i koordinator prima notifikaciju |
@@ -57,7 +57,7 @@ Tabela prikazuje raspodjelu testnog fokusa po PBI stavkama. Oznake: **DA** = tes
 
 | Funkcionalnost | Unit | Integracijsko | Sistemsko | UAT | Regresijsko | UI/UX |
 |----------------|------|--------------|-----------|-----|-------------|-------|
-| Registracija korisnika – samoregistracija i admin kreiranje (PBI-001) | DA – validacija obaveznih polja, format emaila, jedinstvenost emaila/korisničkog imena, automatska dodjela uloge Korisnik | DA – upis korisnika u bazu, dodjela firme, provjera jedinstvenosti na nivou baze | DA – kompletni tok samoregistracije i admin kreiranja; provjera da samoreg. korisnik ne može odabrati privilegovanu ulogu | DA – PO potvrđuje oba toka registracije | DA | DA |
+| Registracija korisnika – samoregistracija i admin kreiranje (PBI-001) | DA – validacija obaveznih polja, format emaila, jedinstvenost emaila/korisničkog imena, automatska dodjela uloge Korisnik; provjera da companyId nije dio samoregistracijskog zahtjeva | DA – upis korisnika u bazu, dodjela firme, provjera jedinstvenosti na nivou baze | DA – kompletni tok samoregistracije i admin kreiranja; provjera da samoreg. korisnik ne može odabrati privilegovanu ulogu | DA – PO potvrđuje oba toka registracije | DA | DA |
 | Prijava u sistem i upravljanje sesijom (PBI-002) | DA – logika provjere kredencijala, logika završetka sesije | DA – auth API + baza + zaštita ruta; provjera da zaštićene rute nisu dostupne bez sesije | DA – tok prijave po ulogama; provjera da "Nazad" dugme ne vraća na zaštićenu stranicu nakon odjave; blokada deaktiviranog računa | DA – potvrda ispravnosti toka za sve uloge | DA | DA |
 | Reset lozinke (PBI-019) | DA – generisanje tokena, logika isteka, logika jednokratnosti linka | DA – slanje emaila, integracija s mail serverom; simulacija timeout-a mail servera | DA – kompletni tok: zahtjev → email → novi link → nova lozinka; provjera neutralne poruke za nepostojeći email | DA – PO potvrđuje tok | DA | DA |
 | Prijava kvara – anonimni korisnik (PBI-003) | DA – validacija obaveznih polja, format attachmenta | DA – kreiranje intervencije iz obrasca; integracija s notifikacijom koordinatora | DA – anonimni tok od početka do vidljivosti intervencije kod koordinatora | DA – potvrda jednostavnosti toka bez registracije | DA | DA |
@@ -104,7 +104,7 @@ Ova sekcija prikazuje kako se Acceptance Kriteriji iz Product Backloga (v2.1) ma
 
 | PBI referenca | Ključni Acceptance Kriterij | Nivoi verifikacije | Dokaz ispunjenja |
 |--------------|----------------------------|--------------------|-----------------|
-| PBI-001, PBI-013 | Samoregistrirani korisnik automatski dobija ulogu Korisnik i ne može odabrati drugu ulogu; korisnički račun vezan za firmu; admin ne može deaktivirati vlastiti račun | Unit, Integracijsko, Sistemsko, UAT | CI rezultat validacijske logike; API zapis dodjele uloge i firme; demo toka registracije |
+| PBI-001, PBI-013 | Samoregistrirani korisnik automatski dobija ulogu Korisnik i ne može odabrati drugu ulogu; samoregistracijska forma ne sadrži polje za firmu; admin ne može deaktivirati vlastiti račun; dodjela firme je isključivo administrativni tok | Unit, Integracijsko, Sistemsko, UAT | CI rezultat validacijske logike; API zapis dodjele uloge i firme; demo toka registracije |
 | PBI-002 | Generička poruka greške bez otkrivanja koja vrijednost je netačna; deaktivirani račun ne može se prijaviti; "Nazad" ne vraća na zaštićenu stranicu nakon odjave | Unit, Integracijsko, Sistemsko, UAT | CI rezultat za modul prijave; evidencija API provjere; demo toka odjave po ulogama |
 | PBI-003, PBI-032 | Anonimni korisnik može prijaviti kvar bez registracije; obavezno polje kategorija iz padajućeg menija; automatsko kreiranje intervencije vidljivo koordinatoru | Unit, Integracijsko, Sistemsko, UAT | Zapis API toka; demo anonimne i autentificirane prijave; evidencija vidljivosti intervencije |
 | PBI-005, PBI-035 | Prioritet je obavezno polje; promjena prioriteta evidentirana s oznakom vremena i imenom korisnika; SLA konfiguracija se odmah primjenjuje; prazno/nulto/negativno polje nije dozvoljeno | Unit, Integracijsko, Sistemsko, UAT | CI log za validacijsku logiku; API zapis pohrane SLA; evidencija audit loga |
@@ -193,4 +193,3 @@ Notacija defekata: **BUG-[DD.MM.YYYY]-[sekvenca]** (npr. BUG-13.04.2026-001).
 | R-14 | **Nepotpunost audit loga** – kritične akcije nisu evidentirane ili zapisi su izmjenjivi (NFR_14) | 2 | 4 | 8 | Srednji | Provjera audit loga nakon svakog kritičnog E2E toka; verifikacija da zapisi nisu izmjenjivi ni od strane admina |
 
 ---
-
