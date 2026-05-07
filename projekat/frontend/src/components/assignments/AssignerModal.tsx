@@ -46,7 +46,7 @@ export function AssignerModal({
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Load available servicers when modal opens
+  // Initialize selected servicers from current assignments
   useEffect(() => {
     if (!isOpen) return;
 

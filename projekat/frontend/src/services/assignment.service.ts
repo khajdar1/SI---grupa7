@@ -132,3 +132,6 @@ export async function removeServicerAssignment(
     );
   }
 }
+
+// Alias for consistency
+export const removeServicer = removeServicerAssignment;

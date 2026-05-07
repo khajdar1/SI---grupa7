@@ -14,21 +14,6 @@ jobs:
     defaults:
       run:
         working-directory: projekat
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: si_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping --silent -h localhost -uroot -proot"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
-    env:
-      DATABASE_URL: mysql://root:root@127.0.0.1:3306/si_test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,14 +33,6 @@ jobs:
           DATABASE_URL="${DATABASE_URL:-mysql://placeholder:placeholder@example.invalid:3306/placeholder}" \
           npm run prisma:generate --workspace backend
 
-      - name: Run database migrations
-        run: |
-          set -e
-          until npx prisma migrate deploy --schema=projekat/backend/prisma/schema.prisma; do
-            echo "Waiting for database to become available..."
-            sleep 2
-          done
-
       - name: Build (root)
         run: npm run build
 
@@ -72,4 +49,3 @@ jobs:
           name: backend-coverage
           path: projekat/backend/coverage/**
           if-no-files-found: warn
-

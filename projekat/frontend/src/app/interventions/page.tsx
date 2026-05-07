@@ -283,12 +283,14 @@ export default function InterventionsPage() {
       setRows(interventionsResult.items);
       setModuleInfo(interventionsResult.moduleInfo);
       setOptions(formOptions);
+      return interventionsResult.items;
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
           : "Failed to load interventions data.",
       );
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -468,13 +470,23 @@ export default function InterventionsPage() {
 
   const openAssignerModal = () => {
     if (!editingIntervention) return;
-    setAssignedServicerIds([]);
+    setAssignedServicerIds(
+      editingIntervention.assignments?.map((assignment) => assignment.userId) ?? [],
+    );
     setIsAssignerModalOpen(true);
   };
 
-  const handleAssignersChange = (userIds: number[]) => {
+  const handleAssignersChange = async (userIds: number[]) => {
     setAssignedServicerIds(userIds);
     setSuccessMessage(`${userIds.length} servicer(s) assigned.`);
+    const refreshedRows = await loadData();
+    const updatedIntervention = refreshedRows?.find(
+      (row) => row.id === editingIntervention?.id,
+    );
+
+    if (updatedIntervention) {
+      setEditingIntervention(updatedIntervention);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -655,6 +667,29 @@ export default function InterventionsPage() {
             key: "owner",
             header: "Owner",
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER,
+          },
+          {
+            key: "assignments",
+            header: "Assigned",
+            render: (_value: unknown, row: InterventionListItem) => {
+              if (!row.assignments || row.assignments.length === 0) {
+                return <span className="text-xs text-muted-foreground">—</span>;
+              }
+              return (
+                <div className="space-y-1">
+                  {row.assignments.slice(0, 2).map((a) => (
+                    <div key={a.id} className="text-xs">
+                      {a.user.firstName} {a.user.lastName}
+                    </div>
+                  ))}
+                  {row.assignments.length > 2 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{row.assignments.length - 2} more
+                    </div>
+                  )}
+                </div>
+              );
+            },
           },
           ...(canPlanInterventions
             ? [
