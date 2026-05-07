@@ -12,6 +12,14 @@
 | **PBI-013** | Upravljanje korisničkim računima (Admin) | Kerim Hajdar | Završeno | Kreiranje, izmjena, deaktivacija i reaktivacija računa; dodjela uloga i firme; audit log; RBAC; izvorno planirano za Sprint 8 — ubrzano zbog potrebe PBI-006 |
 | **PBI-016** | Komentari intervencije | Lejla Gičević | Završeno | Koordinator i serviser dodaju komentare; kronološki prikaz; autor, datum i vrijeme uz svaki komentar |
 | **PBI-033** | Pregled i upravljanje attachmentima | Nedim Omanović | Završeno | Pregled, preuzimanje i brisanje fajlova priloženih u PBI-003; admin konfigurira dozvoljene tipove i max veličinu; audit log brisanja |
+| **PBI-004** | Planiranje intervencija | Lamija Bojić | Done | Koordinator kreira i zakazuje intervenciju; moguće i bez veze na prijavu kvara; detalji izmjenjivi dok je status Otvoreno ili U procesu |
+| **PBI-005** | Postavljanje prioriteta intervencije | Iman Šehić | Done | Prioritet obavezan pri kreiranju; vizualna razlika po razinama |
+| **PBI-006** | Dodjela servisera intervenciji | Ismail Mujanović | Done | Lista servisera sortirana po broju aktivnih zadataka; mogućnost izmjenee dodjele |
+| **PBI-007** | Pregled liste aktivnih intervencija | Emina Hadžić | Done | Centralni operativni ekran; sortiranje po prioritetu; filtriranje po statusu, tipu, dodjeljnosti |
+| **PBI-011** | Historija intervencija — dostupno serviserima kao ispomoć | Dalila Tanković | Done | Tabelarni prikaz završenih intervencija po lokaciji/uređaju; serviser može provjeriti historijat na terenu; grafički prikazi nisu u MVP-u |
+| **PBI-013** | Upravljanje korisničkim računima (Admin) | Kerim Hajdar | Done | Kreiranje, izmjena, deaktivacija i reaktivacija računa; dodjela uloga i firme; audit log; RBAC; izvorno planirano za Sprint 8 — ubrzano zbog potrebe PBI-006 |
+| **PBI-016** | Komentari intervencije | Lejla Gičević | Done | Koordinator i serviser dodaju komentare; kronološki prikaz; autor, datum i vrijeme uz svaki komentar |
+| **PBI-033** | Pregled i upravljanje attachmentima | Nedim Omanović | Done | Pregled, preuzimanje i brisanje fajlova priloženih u PBI-003; admin konfigurira dozvoljene tipove i max veličinu; audit log brisanja |
 
 ---
 
