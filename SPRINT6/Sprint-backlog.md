@@ -4,14 +4,14 @@
 
 | ID | Naziv zadatka / Storija | Odgovorna osoba | Status | Napomena |
 |----|------------------------|-----------------|--------|----------|
-| **PBI-004** | Planiranje intervencija | Lamija Bojić | Todo | Koordinator kreira i zakazuje intervenciju; moguće i bez veze na prijavu kvara; detalji izmjenjivi dok je status Otvoreno ili U procesu |
-| **PBI-005** | Postavljanje prioriteta intervencije | Iman Šehić | Todo | Prioritet obavezan pri kreiranju; vizualna razlika po razinama |
-| **PBI-006** | Dodjela servisera intervenciji | Ismail Mujanović | Todo | Lista servisera sortirana po broju aktivnih zadataka; mogućnost izmjene dodjele |
+| **PBI-004** | Planiranje intervencija | Lamija Bojić | Završeno | Koordinator kreira i zakazuje intervenciju; moguće i bez veze na prijavu kvara; detalji izmjenjivi dok je status Otvoreno ili U procesu |
+| **PBI-005** | Postavljanje prioriteta intervencije | Iman Šehić | Završeno | Prioritet obavezan pri kreiranju; vizualna razlika po razinama |
+| **PBI-006** | Dodjela servisera intervenciji | Ismail Mujanović | Završeno | Lista servisera sortirana po broju aktivnih zadataka; mogućnost izmjene dodjele |
 | **PBI-007** | Pregled liste aktivnih intervencija | Emina Hadžić | Todo | Centralni operativni ekran; sortiranje po prioritetu; filtriranje po statusu, tipu, dodjeljnosti |
-| **PBI-011** | Historija intervencija — dostupno serviserima kao ispomoć | Dalila Tanković | Todo | Tabelarni prikaz završenih intervencija po lokaciji/uređaju; serviser može provjeriti historijat na terenu; grafički prikazi nisu u MVP-u |
-| **PBI-013** | Upravljanje korisničkim računima (Admin) | Kerim Hajdar | Todo | Kreiranje, izmjena, deaktivacija i reaktivacija računa; dodjela uloga i firme; audit log; RBAC; izvorno planirano za Sprint 8 — ubrzano zbog potrebe PBI-006 |
-| **PBI-016** | Komentari intervencije | Lejla Gičević | Todo | Koordinator i serviser dodaju komentare; kronološki prikaz; autor, datum i vrijeme uz svaki komentar |
-| **PBI-033** | Pregled i upravljanje attachmentima | Nedim Omanović | Todo | Pregled, preuzimanje i brisanje fajlova priloženih u PBI-003; admin konfigurira dozvoljene tipove i max veličinu; audit log brisanja |
+| **PBI-011** | Historija intervencija — dostupno serviserima kao ispomoć | Dalila Tanković | Završeno | Tabelarni prikaz završenih intervencija po lokaciji/uređaju; serviser može provjeriti historijat na terenu; grafički prikazi nisu u MVP-u |
+| **PBI-013** | Upravljanje korisničkim računima (Admin) | Kerim Hajdar | Završeno | Kreiranje, izmjena, deaktivacija i reaktivacija računa; dodjela uloga i firme; audit log; RBAC; izvorno planirano za Sprint 8 — ubrzano zbog potrebe PBI-006 |
+| **PBI-016** | Komentari intervencije | Lejla Gičević | Završeno | Koordinator i serviser dodaju komentare; kronološki prikaz; autor, datum i vrijeme uz svaki komentar |
+| **PBI-033** | Pregled i upravljanje attachmentima | Nedim Omanović | Završeno | Pregled, preuzimanje i brisanje fajlova priloženih u PBI-003; admin konfigurira dozvoljene tipove i max veličinu; audit log brisanja |
 
 ---
 
@@ -59,9 +59,7 @@
 
 ### PBI-011 – Historija intervencija po lokaciji/uređaju
 
-**Story 1 –** Kao **koordinator**, želim **pregledati sve prethodne intervencije na određenoj lokaciji ili uređaju**, kako bih **razumio historijat problema na tom mjestu i donio bolju odluku o pristupu rješavanju**.
-
-**Story 2 –** Kao **serviser**, želim **na terenu brzo provjeriti da li je isti kvar na ovoj lokaciji bio prijavljen ranije i šta je tada urađeno**, kako bih **fokusirao istragu na sistemski uzrok, a ne površinski simptom**.
+**Story 1 –** Kao **serviser**, želim **na terenu brzo provjeriti da li je isti kvar na ovoj lokaciji bio prijavljen ranije i šta je tada urađeno**, kako bih **fokusirao istragu na sistemski uzrok, a ne površinski simptom**.
 
 ---
 

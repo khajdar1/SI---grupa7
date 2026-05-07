@@ -462,6 +462,23 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 - **Rizici, problemi ili greške koje su uočene:** Nisu uočeni značajni rizici, problemi niti greške tokom implementacije i testiranja funkcionalnosti.  
 - **Ko je koristio alat:** Lamija Bojić
 
+---
+## AI Usage Log
 
+- **Datum:** 07.05.2026.  
+- **Sprint broj:** Sprint 6  
+- **Alat koji je korišten:** ChatGPT (LLM)  
+- **Svrha korištenja:** Implementacija i testiranje funkcionalnosti historije intervencija uz debugging Docker, Keycloak i frontend integracije.
+- **Kratak opis zadatka ili upita:** Implementacija backend endpointa `/interventions/history` sa filtriranjem po lokaciji i kategoriji, izrada frontend stranice za pregled historije intervencija, dodavanje role-based pristupa kroz navigaciju, te pisanje testova za novu rutu. Tokom implementacije rješavani su problemi sa Docker okruženjem, CORS konfiguracijom, Keycloak autentifikacijom i lokalnom MySQL bazom.
+- **Šta je AI predložio ili generisao:**
+    - Implementaciju history endpointa u `interventions.route.ts`
+    - Frontend `history/page.tsx` sa formom za filtriranje i tabelarnim prikazom rezultata
+    - Role-based prikaz History sekcije u `AppNavigation`
+    - Unit/integration testove za `/interventions/history` rutu u `interventions.route.test.ts`
+- **Šta je tim prihvatio:** Backend i frontend implementaciju history funkcionalnosti, navigacijsku logiku zasnovanu na rolama i predložene testove za rutu historije intervencija.
+- **Šta je tim izmijenio:** Prilagođena je frontend navigacija postojećoj strukturi projekta i dodani su test podaci u lokalnu Docker bazu radi validacije funkcionalnosti.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:**  Nisu uočeni značajni rizici, problemi niti greške tokom implementacije i testiranja funkcionalnosti. 
+- **Ko je koristio alat:** Dalila Tanković
 
 
