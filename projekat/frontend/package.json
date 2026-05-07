@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node ../node_modules/next/dist/bin/next dev",
+    "build": "node ../node_modules/next/dist/bin/next build",
     "build:cf": "npx @cloudflare/next-on-pages",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "next start -H 0.0.0.0 -p 3000"
+    "start": "node ../node_modules/next/dist/bin/next start -H 0.0.0.0 -p 3000"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

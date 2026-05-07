@@ -1,20 +1,10 @@
-<<<<<<< HEAD
-2026-04-29 18:33:06.298696Z jdbc[3]: exception
+2026-05-07 01:04:04.936940Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "MIGRATION_MODEL" not found (this database is empty); SQL statement:
 SELECT ID, VERSION FROM MIGRATION_MODEL ORDER BY UPDATE_TIME DESC [42104-240]
-2026-04-29 18:33:07.144313Z jdbc[4]: exception
+2026-05-07 01:04:06.021960Z jdbc[4]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "DATABASECHANGELOGLOCK" not found; SQL statement:
 SELECT COUNT(*) FROM PUBLIC.DATABASECHANGELOGLOCK [42102-240]
-2026-04-29 18:33:09.283646Z jdbc[3]: exception
-=======
-2026-04-28 20:34:37.020279Z jdbc[3]: exception
-org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "MIGRATION_MODEL" not found (this database is empty); SQL statement:
-SELECT ID, VERSION FROM MIGRATION_MODEL ORDER BY UPDATE_TIME DESC [42104-240]
-2026-04-28 20:34:38.212812Z jdbc[4]: exception
-org.h2.jdbc.JdbcSQLSyntaxErrorException: Table "DATABASECHANGELOGLOCK" not found; SQL statement:
-SELECT COUNT(*) FROM PUBLIC.DATABASECHANGELOGLOCK [42102-240]
-2026-04-28 20:34:40.424072Z jdbc[3]: exception
->>>>>>> b7653b0 (Zavrsen PBI-003)
+2026-05-07 01:04:08.786348Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Column "T.DETAILS_JSON" not found; SQL statement:
 select t.DETAILS_JSON from PUBLIC.ADMIN_EVENT_ENTITY t where 0=1 [42122-240]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514)
@@ -87,12 +77,8 @@ select t.DETAILS_JSON from PUBLIC.ADMIN_EVENT_ENTITY t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.storage.database.jpa.QuarkusJpaConnectionProviderFactory.postInit(QuarkusJpaConnectionProviderFactory.java:134)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:168)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-<<<<<<< HEAD
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-=======
->>>>>>> b7653b0 (Zavrsen PBI-003)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:142)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:126)
 	at org.keycloak.quarkus.runtime.integration.QuarkusKeycloakSessionFactory.init(QuarkusKeycloakSessionFactory.java:87)
@@ -134,11 +120,7 @@ select t.DETAILS_JSON from PUBLIC.ADMIN_EVENT_ENTITY t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.KeycloakMain.main(KeycloakMain.java:81)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.doRun(QuarkusEntryPoint.java:86)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.main(QuarkusEntryPoint.java:37)
-<<<<<<< HEAD
-2026-04-29 18:33:09.354282Z jdbc[3]: exception
-=======
-2026-04-28 20:34:40.512438Z jdbc[3]: exception
->>>>>>> b7653b0 (Zavrsen PBI-003)
+2026-05-07 01:04:08.946823Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Column "T.REMEMBER_ME" not found; SQL statement:
 select t.REMEMBER_ME from PUBLIC.OFFLINE_USER_SESSION t where 0=1 [42122-240]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514)
@@ -211,12 +193,8 @@ select t.REMEMBER_ME from PUBLIC.OFFLINE_USER_SESSION t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.storage.database.jpa.QuarkusJpaConnectionProviderFactory.postInit(QuarkusJpaConnectionProviderFactory.java:134)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:168)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-<<<<<<< HEAD
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-=======
->>>>>>> b7653b0 (Zavrsen PBI-003)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:142)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:126)
 	at org.keycloak.quarkus.runtime.integration.QuarkusKeycloakSessionFactory.init(QuarkusKeycloakSessionFactory.java:87)
@@ -258,11 +236,7 @@ select t.REMEMBER_ME from PUBLIC.OFFLINE_USER_SESSION t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.KeycloakMain.main(KeycloakMain.java:81)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.doRun(QuarkusEntryPoint.java:86)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.main(QuarkusEntryPoint.java:37)
-<<<<<<< HEAD
-2026-04-29 18:33:09.415775Z jdbc[3]: exception
-=======
-2026-04-28 20:34:40.589699Z jdbc[3]: exception
->>>>>>> b7653b0 (Zavrsen PBI-003)
+2026-05-07 01:04:09.103173Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Column "T.REALM_ID" not found; SQL statement:
 select t.REALM_ID from PUBLIC.OFFLINE_CLIENT_SESSION t where 0=1 [42122-240]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514)
@@ -335,12 +309,8 @@ select t.REALM_ID from PUBLIC.OFFLINE_CLIENT_SESSION t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.storage.database.jpa.QuarkusJpaConnectionProviderFactory.postInit(QuarkusJpaConnectionProviderFactory.java:134)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:168)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-<<<<<<< HEAD
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-=======
->>>>>>> b7653b0 (Zavrsen PBI-003)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:142)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:126)
 	at org.keycloak.quarkus.runtime.integration.QuarkusKeycloakSessionFactory.init(QuarkusKeycloakSessionFactory.java:87)
@@ -382,11 +352,7 @@ select t.REALM_ID from PUBLIC.OFFLINE_CLIENT_SESSION t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.KeycloakMain.main(KeycloakMain.java:81)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.doRun(QuarkusEntryPoint.java:86)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.main(QuarkusEntryPoint.java:37)
-<<<<<<< HEAD
-2026-04-29 18:33:09.461822Z jdbc[3]: exception
-=======
-2026-04-28 20:34:40.625045Z jdbc[3]: exception
->>>>>>> b7653b0 (Zavrsen PBI-003)
+2026-05-07 01:04:09.145791Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Column "T.LAST_MODIFIED_TIMESTAMP" not found; SQL statement:
 select t.LAST_MODIFIED_TIMESTAMP from PUBLIC.USER_ENTITY t where 0=1 [42122-240]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514)
@@ -459,12 +425,8 @@ select t.LAST_MODIFIED_TIMESTAMP from PUBLIC.USER_ENTITY t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.storage.database.jpa.QuarkusJpaConnectionProviderFactory.postInit(QuarkusJpaConnectionProviderFactory.java:134)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:168)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-<<<<<<< HEAD
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-=======
->>>>>>> b7653b0 (Zavrsen PBI-003)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:142)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:126)
 	at org.keycloak.quarkus.runtime.integration.QuarkusKeycloakSessionFactory.init(QuarkusKeycloakSessionFactory.java:87)
@@ -506,11 +468,7 @@ select t.LAST_MODIFIED_TIMESTAMP from PUBLIC.USER_ENTITY t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.KeycloakMain.main(KeycloakMain.java:81)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.doRun(QuarkusEntryPoint.java:86)
 	at io.quarkus.bootstrap.runner.QuarkusEntryPoint.main(QuarkusEntryPoint.java:37)
-<<<<<<< HEAD
-2026-04-29 18:33:09.500928Z jdbc[3]: exception
-=======
-2026-04-28 20:34:40.650233Z jdbc[3]: exception
->>>>>>> b7653b0 (Zavrsen PBI-003)
+2026-05-07 01:04:09.179129Z jdbc[3]: exception
 org.h2.jdbc.JdbcSQLSyntaxErrorException: Column "T.CREATED_TIMESTAMP" not found; SQL statement:
 select t.CREATED_TIMESTAMP from PUBLIC.KEYCLOAK_GROUP t where 0=1 [42122-240]
 	at org.h2.message.DbException.getJdbcSQLException(DbException.java:514)
@@ -583,12 +541,8 @@ select t.CREATED_TIMESTAMP from PUBLIC.KEYCLOAK_GROUP t where 0=1 [42122-240]
 	at org.keycloak.quarkus.runtime.storage.database.jpa.QuarkusJpaConnectionProviderFactory.postInit(QuarkusJpaConnectionProviderFactory.java:134)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:168)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-<<<<<<< HEAD
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-	at org.keycloak.services.DefaultKeycloakSessionFactory.initializeProviders(DefaultKeycloakSessionFactory.java:165)
-=======
->>>>>>> b7653b0 (Zavrsen PBI-003)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:142)
 	at org.keycloak.services.DefaultKeycloakSessionFactory.initProviderFactories(DefaultKeycloakSessionFactory.java:126)
 	at org.keycloak.quarkus.runtime.integration.QuarkusKeycloakSessionFactory.init(QuarkusKeycloakSessionFactory.java:87)

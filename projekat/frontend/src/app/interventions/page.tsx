@@ -52,6 +52,8 @@ import {
 } from "@/services/interventions.service";
 import { getCategories } from "@/services/categories.service";
 import type { ModuleShellResponse } from "@/services/types";
+import { AssignerModal } from "@/components/assignments/AssignerModal";
+import { Users } from "lucide-react";
 
 const ALL_CATEGORY = "ALL";
 const NO_FAULT_REPORT = "NONE";
@@ -249,6 +251,9 @@ export default function InterventionsPage() {
   const [formError, setFormError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
+  const [assignedServicerIds, setAssignedServicerIds] = useState<number[]>([]);
 
   const loadData = async (canLoadPlanningOptions = canPlanInterventions) => {
     try {
@@ -452,6 +457,17 @@ export default function InterventionsPage() {
     setFormError("");
     setSuccessMessage("");
     setIsDialogOpen(true);
+  };
+
+  const openAssignerModal = () => {
+    if (!editingIntervention) return;
+    setAssignedServicerIds([]);
+    setIsAssignerModalOpen(true);
+  };
+
+  const handleAssignersChange = (userIds: number[]) => {
+    setAssignedServicerIds(userIds);
+    setSuccessMessage(`${userIds.length} servicer(s) assigned.`);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -926,6 +942,16 @@ export default function InterventionsPage() {
               >
                 Cancel
               </Button>
+              {editingIntervention && canPlanInterventions && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openAssignerModal}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Assign Servicers
+                </Button>
+              )}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save Intervention"}
               </Button>
@@ -933,6 +959,16 @@ export default function InterventionsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {editingIntervention && (
+        <AssignerModal
+          interventionId={Number(editingIntervention.id)}
+          isOpen={isAssignerModalOpen}
+          onClose={() => setIsAssignerModalOpen(false)}
+          onSave={handleAssignersChange}
+          currentAssignedUserIds={assignedServicerIds}
+        />
+      )}
     </PageLayout>
   );
 }
