@@ -58,6 +58,9 @@ import { getPriorityLabel } from "@/services/sla.service";
 import type { ModuleShellResponse } from "@/services/types";
 
 const ALL_CATEGORY = "ALL";
+const ALL_STATUS = "ALL";
+const ALL_TYPE = "ALL";
+const ALL_ASSIGNMENT = "ALL";
 const NO_FAULT_REPORT = "NONE";
 const COORDINATOR_ROLES = new Set([
   "koordinator",
@@ -246,6 +249,9 @@ export default function InterventionsPage() {
     null,
   );
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
+  const [selectedType, setSelectedType] = useState(ALL_TYPE);
+  const [selectedAssignment, setSelectedAssignment] = useState(ALL_ASSIGNMENT);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canPlanInterventions, setCanPlanInterventions] = useState(false);
@@ -315,20 +321,43 @@ export default function InterventionsPage() {
     [formState.faultReportId, options.faultReports],
   );
 
-  const filteredRows = useMemo(() => {
-    if (selectedCategory === ALL_CATEGORY) {
-      return rows;
-    }
+ const filteredRows = useMemo(() => {
+  return rows.filter((row) => {
+    const categoryMatch =
+      selectedCategory === ALL_CATEGORY ||
+      row.categoryName ===
+        categories.find((item) => String(item.id) === selectedCategory)?.name;
 
-    const category = categories.find(
-      (item) => String(item.id) === selectedCategory,
+    const statusMatch =
+      selectedStatus === ALL_STATUS ||
+      row.status === selectedStatus;
+
+    const typeMatch =
+      selectedType === ALL_TYPE ||
+      row.type === selectedType;
+
+    const assignmentMatch =
+      selectedAssignment === ALL_ASSIGNMENT ||
+      (selectedAssignment === "ASSIGNED" &&
+        row.assignedServicers.length > 0) ||
+      (selectedAssignment === "UNASSIGNED" &&
+        row.assignedServicers.length === 0);
+
+    return (
+      categoryMatch &&
+      statusMatch &&
+      typeMatch &&
+      assignmentMatch
     );
-    if (!category) {
-      return [];
-    }
-
-    return rows.filter((row) => row.categoryName === category.name);
-  }, [categories, rows, selectedCategory]);
+  });
+}, [
+  categories,
+  rows,
+  selectedCategory,
+  selectedStatus,
+  selectedType,
+  selectedAssignment,
+]);
 
   const filterOptions = [
     { value: ALL_CATEGORY, label: "All categories" },
@@ -337,7 +366,23 @@ export default function InterventionsPage() {
       label: category.name,
     })),
   ];
+const statusFilterOptions = [
+  { value: ALL_STATUS, label: "Svi statusi" },
+  { value: "OPEN", label: "Otvoreno" },
+  { value: "IN_PROGRESS", label: "U procesu" },
+];
 
+const typeFilterOptions = [
+  { value: ALL_TYPE, label: "Svi tipovi" },
+  { value: "ISSUE", label: "Kvar" },
+  { value: "PREVENTIVE", label: "Preventivno" },
+];
+
+const assignmentFilterOptions = [
+  { value: ALL_ASSIGNMENT, label: "Sve dodjele" },
+  { value: "ASSIGNED", label: "Dodijeljeno" },
+  { value: "UNASSIGNED", label: "Nije dodijeljeno" },
+];
   const emptyDescription = moduleInfo
     ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(", ")}`
     : "No intervention records available yet.";
@@ -538,18 +583,49 @@ export default function InterventionsPage() {
       ) : null}
 
       <FilterBar
-        filters={[
-          {
-            key: "category",
-            label: "Category",
-            options: filterOptions,
-            value: selectedCategory,
-            onChange: setSelectedCategory,
-          },
-        ]}
-        isFiltered={selectedCategory !== ALL_CATEGORY}
-        onClear={() => setSelectedCategory(ALL_CATEGORY)}
-      />
+  filters={[
+    {
+      key: "category",
+      label: "Kategorija",
+      options: filterOptions,
+      value: selectedCategory,
+      onChange: setSelectedCategory,
+    },
+    {
+      key: "status",
+      label: "Status",
+      options: statusFilterOptions,
+      value: selectedStatus,
+      onChange: setSelectedStatus,
+    },
+    {
+      key: "type",
+      label: "Tip",
+      options: typeFilterOptions,
+      value: selectedType,
+      onChange: setSelectedType,
+    },
+    {
+      key: "assignment",
+      label: "Dodijeljenost",
+      options: assignmentFilterOptions,
+      value: selectedAssignment,
+      onChange: setSelectedAssignment,
+    },
+  ]}
+  isFiltered={
+    selectedCategory !== ALL_CATEGORY ||
+    selectedStatus !== ALL_STATUS ||
+    selectedType !== ALL_TYPE ||
+    selectedAssignment !== ALL_ASSIGNMENT
+  }
+  onClear={() => {
+    setSelectedCategory(ALL_CATEGORY);
+    setSelectedStatus(ALL_STATUS);
+    setSelectedType(ALL_TYPE);
+    setSelectedAssignment(ALL_ASSIGNMENT);
+  }}
+/>
 
       <DataTable<InterventionListItem>
         columns={[
@@ -635,11 +711,11 @@ export default function InterventionsPage() {
               <span>{formatDateTime(value as string | null)}</span>
             ),
           },
-          {
-            key: "owner",
-            header: "Owner",
-            width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER,
-          },
+         {
+  key: "assignedServicerNames",
+  header: "Serviser",
+  width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER,
+},
           ...(canPlanInterventions
             ? [
                 {

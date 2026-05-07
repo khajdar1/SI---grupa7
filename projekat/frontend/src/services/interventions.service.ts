@@ -26,6 +26,13 @@ export interface InterventionListItem {
   status: InterventionStatus;
   type: 'ISSUE' | 'PREVENTIVE';
   owner: string;
+  assignedServicers: {
+  id: number;
+  name: string;
+  username: string;
+  }[];
+
+  assignedServicerNames: string;
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
@@ -90,6 +97,8 @@ function isInterventionListItem(payload: unknown): payload is InterventionListIt
     typeof maybe.status === 'string' &&
     typeof maybe.type === 'string' &&
     typeof maybe.owner === 'string' &&
+    Array.isArray(maybe.assignedServicers) &&
+    typeof maybe.assignedServicerNames === 'string' &&
     (maybe.isOverdue === undefined || typeof maybe.isOverdue === 'boolean')
   );
 }
