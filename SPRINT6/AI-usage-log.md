@@ -463,7 +463,6 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koristeÄ
 - **Ko je koristio alat:** Lamija BojiÄ‡
 
 ---
-## AI Usage Log
 
 - **Datum:** 07.05.2026.  
 - **Sprint broj:** Sprint 6  
