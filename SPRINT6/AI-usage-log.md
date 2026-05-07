@@ -575,3 +575,24 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 - **Ko je koristio alat:** Dalila Tanković
 
 
+-**Datum:** 07.05.2026.
+-**Sprint** broj: Sprint 6
+-**Alat koji je korišten:** Claude (Anthropic) – claude-sonnet-4-6
+Svrha korištenja: Implementacija PBI-016 (Komentari intervencije) — backend ruta, frontend komponenta, seed podaci i testovi.
+-**Prompt koji je korišten:** 1. Implementiraj PBI-016 prema acceptance kriterijima: forma za unos komentara unutar detalja intervencije, prikaz autora/datuma/vremena, kronološko sortiranje, zabrana praznih komentara, restrikcija na koordinatora i servisera, trajnost komentara. Dodaj seed podatke jer je lokalna baza prazna. 2. Napravi testove za PBI-016 koji pokrivaju sve acceptance kriterije, slijedeći konvencije postojećih testova u projektu.
+-**Kratak opis zadatka ili upita:** Razvoj kompletnog modula za komentare na intervencijama: backend API (GET i POST), frontend CommentsSection komponenta uključena u stranicu detalja intervencije, proširenje seed skripte s demo komentarima, te 28 unit/integration testova za backend rutu.
+-**Sta je AI predložio ili generisao:**
+Backend comments.route.ts s GET /intervention/:id i POST /intervention/:id; autorizacija se oslanja na req.user.localUserId i req.user.roles iz auth middlewarea (koordinator i serviser), bez povjerenja u client-supplied polja.
+Frontend CommentsSection.tsx komponentu s prikazom liste komentara (Avatar, ime, username, datum/vrijeme, tekst), formom za unos s Ctrl+Enter prečicom i brojačem preostalih znakova.
+Integraciju komponente u /interventions/[id]/page.tsx.
+Ažuriran comments.service.ts koji koristi api (axios) klijent s auth tokenom umjesto raw fetch.
+Ažuriran shared/index.ts s exportom CommentsSection.
+Proširenu seed skriptu s buildDemoCommentSeeds i seedComments funkcijama: 7 demo komentara na 4 intervencije od koordinatora i servisera.
+Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, provjera rola autora, zabrana praznih komentara, nepostojeća intervencija, nedostatak localUserId, DB greške, case-insensitive uloge.
+-**Sta je tim prihvatio:** Kompletan backend i frontend tok za komentare, prošireni seed, ažurirani shared index i svi testovi.
+-**Sta je tim izmijenio:**/
+-**Sta je tim odbacio:** /
+-**Rizici, problemi ili greške koje su uočene:** Frontend nije prikazivao podatke nakon pokretanja zbog nedostatka Keycloak korisnika s odgovarajućim ulogama — riješeno uputama za kreiranje test korisnika u Keycloak admin panelu i dodjelu uloge koordinator. Seed kreira korisnike samo u MySQL bazi; Keycloak mora imati iste korisnike kako bi se JWT token s ulogom mogao koristiti za login i prikaz podataka.
+-**Ko je koristio alat:** Lejla Gičević
+
+
