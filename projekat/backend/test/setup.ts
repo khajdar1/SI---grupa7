@@ -1,5 +1,6 @@
 import { prisma } from '../src/config/database';
 import { createPrismaSeedClient, seedDatabase } from '../src/scripts/seed';
+import { execSync } from 'child_process';
 
 async function waitForPrisma(retries = 20, delayMs = 500): Promise<boolean> {
   for (let i = 0; i < retries; i++) {
@@ -9,6 +10,19 @@ async function waitForPrisma(retries = 20, delayMs = 500): Promise<boolean> {
       await prisma.$executeRaw`SELECT 1`;
       return true;
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // If database doesn't exist, try running migrations to create it
+      if (msg.includes('does not exist') || msg.includes('Unknown database')) {
+        try {
+          execSync('npx prisma migrate deploy --schema=prisma/schema.prisma', {
+            stdio: 'inherit',
+            cwd: __dirname + '/..',
+            env: process.env,
+          });
+        } catch (mErr) {
+          // ignore and retry
+        }
+      }
       // wait and retry
       // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, delayMs));
@@ -17,7 +31,7 @@ async function waitForPrisma(retries = 20, delayMs = 500): Promise<boolean> {
   return false;
 }
 
-export default (async function setup() {
+export default async function setup() {
   const ready = await waitForPrisma();
   if (!ready) {
     // Provide a clear message; tests will still run but many DB-backed tests will likely fail.
@@ -36,4 +50,4 @@ export default (async function setup() {
     // eslint-disable-next-line no-console
     console.warn('Seeding the test database failed:', err instanceof Error ? err.message : err);
   }
-})();
+}

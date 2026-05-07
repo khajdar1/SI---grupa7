@@ -11,7 +11,7 @@ const envSchema = z.object({
   SOCKET_CORS_ORIGIN: z.string().default('http://localhost:3000'),
   JWT_SECRET: z.string().default('change-me'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').optional().default(
-  nodeEnv === 'test' ? 'mysql://root:root@localhost:3306/si_test' : ''
+  nodeEnv === 'test' ? 'mysql://root:root@localhost:3307/si_test' : ''
   ),
 });
 

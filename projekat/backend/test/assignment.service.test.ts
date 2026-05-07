@@ -12,20 +12,57 @@ describe("AssignmentService", () => {
   describe("assignServicesToIntervention", () => {
     it("should assign multiple servicers to an intervention", async () => {
       const intervention = await prisma.intervention.findFirst();
+      const alreadyAssigned = intervention
+        ? await prisma.assignment.findMany({
+            where: { interventionId: intervention.id },
+            select: { userId: true },
+          })
+        : [];
+
+      const assignedUserIds = new Set(alreadyAssigned.map((item) => item.userId));
       const servicers = await prisma.user.findMany({
         where: { active: true },
-        take: 2,
       });
 
-      if (!intervention || servicers.length < 2) {
+      let unassignedServicers = servicers
+        .filter((servicer) => !assignedUserIds.has(servicer.id))
+        .slice(0, 2);
+
+      if (intervention && unassignedServicers.length < 2) {
+        const missingCount = 2 - unassignedServicers.length;
+        const timestamp = Date.now();
+
+        for (let i = 0; i < missingCount; i++) {
+          await prisma.user.create({
+            data: {
+              firstName: "Test",
+              lastName: `Servicer${i + 1}`,
+              username: `test.servicer.${timestamp}.${i}`,
+              email: `test.servicer.${timestamp}.${i}@demo.local`,
+              active: true,
+              companyId: intervention.companyId,
+            },
+          });
+        }
+
+        const refreshedServicers = await prisma.user.findMany({
+          where: { active: true },
+        });
+
+        unassignedServicers = refreshedServicers
+          .filter((servicer) => !assignedUserIds.has(servicer.id))
+          .slice(0, 2);
+      }
+
+      if (!intervention || unassignedServicers.length < 2) {
         throw new Error("Insufficient test data");
       }
 
       const result = await AssignmentService.assignServicesToIntervention(
         intervention.id,
-        servicers.map((s) => s.id),
-        servicers[0].id,
-        servicers[0].username,
+        unassignedServicers.map((s) => s.id),
+        unassignedServicers[0].id,
+        unassignedServicers[0].username,
       );
 
       expect(result.length).toBeGreaterThan(0);
@@ -53,9 +90,23 @@ describe("AssignmentService", () => {
 
     it("should reject assignment of deactivated user", async () => {
       const intervention = await prisma.intervention.findFirst();
-      const inactiveUser = await prisma.user.findFirst({
+      let inactiveUser = await prisma.user.findFirst({
         where: { active: false },
       });
+
+      if (!inactiveUser) {
+        const userToDeactivate = await prisma.user.findFirst({
+          where: { active: true },
+          orderBy: { id: "asc" },
+        });
+
+        if (userToDeactivate) {
+          inactiveUser = await prisma.user.update({
+            where: { id: userToDeactivate.id },
+            data: { active: false },
+          });
+        }
+      }
 
       if (!intervention || !inactiveUser) {
         throw new Error("Insufficient test data");

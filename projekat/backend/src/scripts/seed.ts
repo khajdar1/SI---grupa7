@@ -240,7 +240,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       lastName: 'Korisnik',
       username: 'jelena.korisnik',
       email: 'jelena.korisnik@demo.local',
-      active: true,
+      active: false,
       companyId,
       persona: DemoUserPersona.USER,
     },
@@ -499,7 +499,23 @@ export function createPrismaSeedClient(prisma: PrismaClient): SeedClient {
       upsert: (args) => prisma.intervention.upsert(args),
     },
     assignment: {
-      upsert: (args) => prisma.assignment.upsert(args),
+      upsert: (args) =>
+        prisma.assignment.upsert({
+          where: {
+            interventionId_userId: {
+              interventionId: args.create.interventionId,
+              userId: args.create.userId,
+            },
+          },
+          create: {
+            interventionId: args.create.interventionId,
+            userId: args.create.userId,
+            method: args.create.method,
+          },
+          update: {
+            method: args.update.method,
+          },
+        }),
     },
   };
 }
