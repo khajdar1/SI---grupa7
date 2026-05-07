@@ -15,15 +15,17 @@ export const PRIMARY_NAV_ITEMS: readonly NavItem[] = [
 ] as const;
 
 export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
+  { label: 'New Intervention', to: ROUTES.INTERVENTION_NEW },
   { label: 'History', to: ROUTES.HISTORY },
   { label: 'Tickets', to: ROUTES.TICKETS },
   { label: 'Map', to: ROUTES.MAP },
 ];
 
 export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
-  { label: 'Admin Home', to: ROUTES.ADMIN },
+  { label: 'Users', to: ROUTES.ADMIN },
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
   { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },
+  { label: 'Attachment Config', to: ROUTES.ADMIN_ATTACHMENT_CONFIG },
 ];
 
 export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [

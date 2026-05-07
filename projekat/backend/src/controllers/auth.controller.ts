@@ -7,6 +7,8 @@ import { registerSchema } from "../modules/auth/auth.schema";
 import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
 
 const authService = new AuthService();
+const DISABLED_ACCOUNT_LOGIN_MESSAGE =
+  "Your account is disabled. Please contact an administrator.";
 
 export const registerController = async (
   req: Request,
@@ -55,6 +57,14 @@ export const loginController = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const userInDb = await authService.getUserByUsername(username);
+    if (userInDb && !userInDb.active) {
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        message: DISABLED_ACCOUNT_LOGIN_MESSAGE,
+      });
+      return;
+    }
+
     let tokens: { access_token: string; refresh_token: string };
     try {
       tokens = await loginKeycloakUser(username, password);
@@ -65,14 +75,15 @@ export const loginController = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const userInDb = await authService.getUserByUsername(username);
     if (!userInDb) {
       res.status(HTTP_STATUS.NOT_FOUND).json({ message: "User could not be found." });
       return;
     }
 
     if (!userInDb.active) {
-      res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: "Invalid username or password." });
+      res.status(HTTP_STATUS.FORBIDDEN).json({
+        message: DISABLED_ACCOUNT_LOGIN_MESSAGE,
+      });
       return;
     }
 

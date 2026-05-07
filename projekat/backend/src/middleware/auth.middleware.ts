@@ -1,8 +1,14 @@
 import type { RequestHandler } from 'express';
+import { prisma } from '../config/database';
 import { HTTP_STATUS } from '../constants';
+import {
+  getKeycloakAdminToken,
+  getKeycloakUserRoleNames,
+} from '../clients/keycloak.client';
 
 type AuthenticatedUser = {
   id?: string;
+  localUserId?: number;
   username?: string;
   roles: string[];
 };
@@ -69,7 +75,55 @@ function extractRoles(payload: KeycloakTokenPayload): string[] {
   return Array.from(new Set([...realmRoles, ...clientRoles]));
 }
 
-export const authenticate: RequestHandler = (req, res, next) => {
+async function loadLocalUserContext(providerSubject?: string, username?: string) {
+  if (providerSubject) {
+    const identity = await prisma.externalIdentity.findFirst({
+      where: { providerSubject },
+      select: {
+        user: {
+          select: {
+            id: true,
+            username: true,
+            active: true,
+          },
+        },
+      },
+    });
+
+    if (identity?.user) {
+      return identity.user;
+    }
+  }
+
+  if (username) {
+    return prisma.user.findUnique({
+      where: { username },
+      select: {
+        id: true,
+        username: true,
+        active: true,
+      },
+    });
+  }
+
+  return null;
+}
+
+async function loadLiveKeycloakRoles(providerSubject?: string): Promise<string[]> {
+  if (!providerSubject) {
+    return [];
+  }
+
+  try {
+    const adminToken = await getKeycloakAdminToken();
+    return await getKeycloakUserRoleNames(adminToken, providerSubject);
+  } catch (error) {
+    console.warn('[AuthMiddleware] Could not refresh live Keycloak roles; using token roles.', error);
+    return [];
+  }
+}
+
+export const authenticate: RequestHandler = async (req, res, next) => {
   const token = getTokenFromRequest(req);
 
   if (!token) {
@@ -92,25 +146,49 @@ export const authenticate: RequestHandler = (req, res, next) => {
   }
 
   const roles = extractRoles(payload);
+  let localUser: Awaited<ReturnType<typeof loadLocalUserContext>>;
+
+  try {
+    localUser = await loadLocalUserContext(payload.sub, payload.preferred_username);
+  } catch (error) {
+    return next(error);
+  }
+
+  if (localUser && !localUser.active) {
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'User account is deactivated' });
+  }
 
   req.user = {
     id: payload.sub,
-    username: payload.preferred_username,
+    localUserId: localUser?.id,
+    username: localUser?.username ?? payload.preferred_username,
     roles,
   };
 
   return next();
 };
 
+export const optionalAuthenticate: RequestHandler = async (req, res, next) => {
+  const token = getTokenFromRequest(req);
+
+  if (!token) {
+    return next();
+  }
+
+  return authenticate(req, res, next);
+};
+
 export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
   const normalizedAllowedRoles = allowedRoles.map((role) => role.toLowerCase());
 
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.user) {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Unauthorized' });
     }
 
-    const normalizedUserRoles = req.user.roles.map((role) => role.toLowerCase());
+    const liveRoles = await loadLiveKeycloakRoles(req.user.id);
+    const roleSource = liveRoles.length > 0 ? liveRoles : req.user.roles;
+    const normalizedUserRoles = roleSource.map((role) => role.toLowerCase());
     const hasRequiredRole = normalizedAllowedRoles.some((role) =>
       normalizedUserRoles.includes(role),
     );

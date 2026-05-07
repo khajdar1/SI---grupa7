@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 /**
  * Audit Service
  * Responsible for logging significant system events
@@ -15,7 +17,11 @@ export interface AuditLogEntry {
   entity: string;
   entityId?: number | string;
   userId?: number;
+  actorId?: number;
+  actorUsername?: string;
   details?: string;
+  oldValues?: Prisma.InputJsonValue;
+  newValues?: Prisma.InputJsonValue;
   timestamp?: Date;
 }
 
@@ -32,6 +38,33 @@ export interface SlaConfigurationChangeEvent extends AuditLogEntry {
   };
   newValues: {
     deadlineHours: number;
+  };
+}
+
+/**
+ * Attachment deleted event
+ * Logged when an admin or coordinator deletes a file attachment
+ */
+export interface AttachmentDeletedEvent extends AuditLogEntry {
+  action: "ATTACHMENT_DELETED";
+  entity: "Attachment";
+  entityId: number;
+  details: string;
+}
+
+/**
+ * Intervention Priority change event
+ * Logged when a coordinator or admin modifies an intervention's priority
+ */
+export interface InterventionPriorityChangeEvent extends AuditLogEntry {
+  action: "INTERVENTION_PRIORITY_CHANGED";
+  entity: "Intervention";
+  entityId: number;
+  oldValues: {
+    priority: string;
+  };
+  newValues: {
+    priority: string;
   };
 }
 
@@ -63,6 +96,44 @@ export class AuditService {
     // });
   }
 
+  static async record(entry: AuditLogEntry): Promise<void> {
+    this.log(entry);
+    const { prisma } = await import("../config/database.js");
+
+    await prisma.auditLog.create({
+      data: {
+        action: entry.action,
+        entity: entry.entity,
+        entityId: entry.entityId === undefined ? null : String(entry.entityId),
+        actorId: entry.actorId ?? entry.userId ?? null,
+        actorUsername: entry.actorUsername ?? null,
+        details: entry.details ?? null,
+        oldValues: entry.oldValues ?? undefined,
+        newValues: entry.newValues ?? undefined,
+        createdAt: entry.timestamp ?? new Date(),
+      },
+    });
+  }
+
+  /**
+   * Log attachment deletion
+   * Records who deleted which file and when
+   */
+  static logAttachmentDeleted(
+    attachmentId: number,
+    fileName: string,
+    actorUsername: string,
+  ): void {
+    const event: AttachmentDeletedEvent = {
+      action: "ATTACHMENT_DELETED",
+      entity: "Attachment",
+      entityId: attachmentId,
+      details: `Attachment '${fileName}' (id=${attachmentId}) deleted by ${actorUsername}`,
+    };
+
+    this.log(event);
+  }
+
   /**
    * Log SLA configuration change
    * Typed to match domain Konfiguracija_sistema entity
@@ -84,5 +155,30 @@ export class AuditService {
     };
 
     this.log(event);
+  }
+
+  /**
+   * Log intervention priority change
+   */
+  static logInterventionPriorityChange(
+    interventionId: number,
+    oldPriority: string,
+    newPriority: string,
+    actorId?: number,
+    actorUsername?: string,
+  ): void {
+    const event: InterventionPriorityChangeEvent = {
+      action: "INTERVENTION_PRIORITY_CHANGED",
+      entity: "Intervention",
+      entityId: interventionId,
+      actorId,
+      actorUsername,
+      oldValues: { priority: oldPriority },
+      newValues: { priority: newPriority },
+      details: `Priority for intervention #${interventionId} changed from ${oldPriority} to ${newPriority}`,
+    };
+
+    this.log(event);
+    void this.record(event);
   }
 }

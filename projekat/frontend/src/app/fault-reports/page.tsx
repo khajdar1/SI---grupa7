@@ -102,6 +102,7 @@ export default function FaultReportsPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [createdInterventionId, setCreatedInterventionId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -146,6 +147,7 @@ export default function FaultReportsPage() {
   const clearError = (field: string) => {
     setFieldErrors((previous) => clearFieldError(previous, field));
     setSuccessMessage('');
+    setCreatedInterventionId(null);
     setError('');
   };
 
@@ -244,6 +246,7 @@ export default function FaultReportsPage() {
     event.preventDefault();
     setError('');
     setSuccessMessage('');
+    setCreatedInterventionId(null);
 
     const nextErrors = validateForm();
     if (Object.keys(nextErrors).length > 0) {
@@ -301,6 +304,7 @@ export default function FaultReportsPage() {
       setSuccessMessage(
         `Report submitted successfully. Reference ${response.referenceNumber} created.`,
       );
+      setCreatedInterventionId(response.interventionId);
 
       setLocation('');
       setDescription('');
@@ -361,7 +365,19 @@ export default function FaultReportsPage() {
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
               {error ? <p className="text-sm text-destructive">{error}</p> : null}
-              {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
+              {successMessage ? (
+                <div className="space-y-1 text-sm text-emerald-600">
+                  <p>{successMessage}</p>
+                  {createdInterventionId ? (
+                    <Link
+                      href={ROUTES.INTERVENTION(String(createdInterventionId))}
+                      className="font-medium underline underline-offset-4"
+                    >
+                      Open intervention #{createdInterventionId}
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="flex flex-wrap gap-2">
                 {isAuthenticated ? (

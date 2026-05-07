@@ -16,5 +16,9 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@floating-ui/react-dom": "2.1.8",
+    "@swc/helpers": "0.5.15"
   }
 }

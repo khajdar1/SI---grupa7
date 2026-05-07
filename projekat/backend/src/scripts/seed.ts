@@ -100,6 +100,15 @@ export interface SeedSummary {
   readonly assignmentCount: number;
 }
 
+function requireFaultReport(
+  faultReports: Array<SeedRecord & SeedFaultReportInput>,
+  id: number,
+): SeedRecord & SeedFaultReportInput {
+  const fr = faultReports.find((f) => f.id === id);
+  if (!fr) throw new Error(`Missing seed fault report id=${id}`);
+  return fr;
+}
+
 interface SeedRecord {
   id: number;
 }
@@ -231,7 +240,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
       lastName: 'Korisnik',
       username: 'jelena.korisnik',
       email: 'jelena.korisnik@demo.local',
-      active: true,
+      active: false,
       companyId,
       persona: DemoUserPersona.USER,
     },
@@ -276,37 +285,137 @@ function buildDemoExternalIdentitySeeds(
   ];
 }
 
-function buildDemoFaultReportSeed(companyId: number, categoryId: number, userId: number): SeedFaultReportInput {
-  return {
-    id: 1,
-    description: 'Kvar na ulaznom osvetljenju u prizemlju.',
-    location: 'Glavni ulaz, objekat A',
-    userId,
-    categoryId,
-    companyId,
-  };
+function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedRecord & SeedCategoryInput>, userId: number): SeedFaultReportInput[] {
+  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
+  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
+  const network = requireSeedCategory(categories, 'Mreza i internet');
+  return [
+    {
+      id: 1,
+      description: 'Kvar na ulaznom osvetljenju u prizemlju.',
+      location: 'Glavni ulaz, objekat A',
+      userId,
+      categoryId: electrical.id,
+      companyId,
+    },
+    {
+      id: 2,
+      description: 'Pukla cijev u kupatilu na 2. spratu.',
+      location: 'Sprat 2, kupatilo B',
+      userId,
+      categoryId: plumbing.id,
+      companyId,
+    },
+    {
+      id: 3,
+      description: 'Internet veza pala u cijeloj zgradi.',
+      location: 'Server soba, prizemlje',
+      userId,
+      categoryId: network.id,
+      companyId,
+    },
+  ];
 }
 
-function buildDemoInterventionSeed(
+function buildDemoInterventionSeeds(
   companyId: number,
-  categoryId: number,
+  categories: Array<SeedRecord & SeedCategoryInput>,
   creatorId: number,
-  faultReportId: number,
-): SeedInterventionInput {
-  return {
-    id: 1,
-    name: 'Uklanjanje kvara na ulaznom osvjetljenju',
-    description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
-    location: 'Glavni ulaz, objekat A',
-    priority: Priority.HIGH,
-    status: InterventionStatus.NEW,
-    type: InterventionType.ISSUE,
-    archived: false,
-    categoryId,
-    creatorId,
-    companyId,
-    faultReportId,
-  };
+  faultReports: Array<SeedRecord & SeedFaultReportInput>,
+): SeedInterventionInput[] {
+  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
+  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
+  const network = requireSeedCategory(categories, 'Mreza i internet');
+  const maintenance = requireSeedCategory(categories, 'Opste odrzavanje');
+  const fr1 = faultReports.find((f) => f.id === 1)!;
+  const fr2 = faultReports.find((f) => f.id === 2)!;
+  const fr3 = faultReports.find((f) => f.id === 3)!;
+  return [
+    {
+      id: 1,
+      name: 'Uklanjanje kvara na ulaznom osvjetljenju',
+      description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
+      location: 'Glavni ulaz, objekat A',
+      priority: Priority.HIGH,
+      status: InterventionStatus.NEW,
+      type: InterventionType.ISSUE,
+      archived: false,
+      categoryId: electrical.id,
+      creatorId,
+      companyId,
+      faultReportId: fr1.id,
+    },
+    {
+      id: 20,
+      name: 'Popravak vodovodne instalacije',
+      description: 'Majstor na terenu, radovi u toku.',
+      location: 'Sprat 2, kupatilo B',
+      priority: Priority.HIGH,
+      status: InterventionStatus.IN_PROGRESS,
+      type: InterventionType.ISSUE,
+      archived: false,
+      categoryId: plumbing.id,
+      creatorId,
+      companyId,
+      faultReportId: fr2.id,
+    },
+    {
+      id: 21,
+      name: 'Preventivni pregled mreze',
+      description: 'Kvartalini pregled LAN infrastrukture.',
+      location: 'Server soba, prizemlje',
+      priority: Priority.MEDIUM,
+      status: InterventionStatus.IN_PROGRESS,
+      type: InterventionType.PREVENTIVE,
+      archived: false,
+      categoryId: network.id,
+      creatorId,
+      companyId,
+      faultReportId: null,
+    },
+    {
+      id: 22,
+      name: 'Zamjena sigurnosnih kamera',
+      description: 'Zamijenjene 3 kamere na ulazu.',
+      location: 'Glavni ulaz',
+      priority: Priority.LOW,
+      status: InterventionStatus.RESOLVED,
+      type: InterventionType.PREVENTIVE,
+      archived: false,
+      categoryId: maintenance.id,
+      creatorId,
+      companyId,
+      faultReportId: null,
+    },
+    {
+      id: 23,
+      name: 'Instalacija novog rashladnog uredjaja',
+      description: 'Otkazano - budzet odbijen.',
+      location: 'Server soba',
+      priority: Priority.CRITICAL,
+      status: InterventionStatus.CANCELLED,
+      type: InterventionType.PREVENTIVE,
+      archived: false,
+      categoryId: network.id,
+      creatorId,
+      companyId,
+      faultReportId: null,
+    },
+    {
+      id: 24,
+      name: 'Popravka internet konekcije',
+      description: 'Internet veza nestabilna, potrebna dijagnostika.',
+      location: 'Server soba, prizemlje',
+      priority: Priority.CRITICAL,
+      status: InterventionStatus.NEW,
+      type: InterventionType.ISSUE,
+      archived: false,
+      categoryId: network.id,
+      creatorId,
+      companyId,
+      faultReportId: fr3.id,
+    },
+  ];
 }
 
 function buildDemoAssignmentSeed(interventionId: number, userId: number): SeedAssignmentInput {
@@ -390,7 +499,23 @@ export function createPrismaSeedClient(prisma: PrismaClient): SeedClient {
       upsert: (args) => prisma.intervention.upsert(args),
     },
     assignment: {
-      upsert: (args) => prisma.assignment.upsert(args),
+      upsert: (args) =>
+        prisma.assignment.upsert({
+          where: {
+            interventionId_userId: {
+              interventionId: args.create.interventionId,
+              userId: args.create.userId,
+            },
+          },
+          create: {
+            interventionId: args.create.interventionId,
+            userId: args.create.userId,
+            method: args.create.method,
+          },
+          update: {
+            method: args.update.method,
+          },
+        }),
     },
   };
 }
@@ -450,35 +575,39 @@ async function seedUsers(
   );
 }
 
-async function seedFaultReport(
+async function seedFaultReports(
   client: SeedClient,
   companyId: number,
-  categoryId: number,
+  categories: Array<SeedRecord & SeedCategoryInput>,
   userId: number,
-): Promise<SeedRecord & SeedFaultReportInput> {
-  const faultReportSeed = buildDemoFaultReportSeed(companyId, categoryId, userId);
-
-  return client.faultReport.upsert({
-    where: { id: faultReportSeed.id },
-    create: faultReportSeed,
-    update: faultReportSeed,
-  });
+): Promise<Array<SeedRecord & SeedFaultReportInput>> {
+  return Promise.all(
+    buildDemoFaultReportSeeds(companyId, categories, userId).map((faultReportSeed) =>
+      client.faultReport.upsert({
+        where: { id: faultReportSeed.id },
+        create: faultReportSeed,
+        update: faultReportSeed,
+      }),
+    ),
+  );
 }
 
-async function seedIntervention(
+async function seedInterventions(
   client: SeedClient,
   companyId: number,
-  categoryId: number,
+  categories: Array<SeedRecord & SeedCategoryInput>,
   creatorId: number,
-  faultReportId: number,
-): Promise<SeedRecord & SeedInterventionInput> {
-  const interventionSeed = buildDemoInterventionSeed(companyId, categoryId, creatorId, faultReportId);
-
-  return client.intervention.upsert({
-    where: { id: interventionSeed.id },
-    create: interventionSeed,
-    update: interventionSeed,
-  });
+  faultReports: Array<SeedRecord & SeedFaultReportInput>,
+): Promise<Array<SeedRecord & SeedInterventionInput>> {
+  return Promise.all(
+    buildDemoInterventionSeeds(companyId, categories, creatorId, faultReports).map((interventionSeed) =>
+      client.intervention.upsert({
+        where: { id: interventionSeed.id },
+        create: interventionSeed,
+        update: interventionSeed,
+      }),
+    ),
+  );
 }
 
 async function seedAssignment(
@@ -505,9 +634,9 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   const customerUser = requireSeedUser(users, DemoUserPersona.USER);
   const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
   const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
-  const faultReport = await seedFaultReport(client, company.id, electricalCategory.id, customerUser.id);
-  const intervention = await seedIntervention(client, company.id, electricalCategory.id, coordinatorUser.id, faultReport.id);
-  await seedAssignment(client, intervention.id, servicerUser.id);
+  const faultReports = await seedFaultReports(client, company.id, categories, customerUser.id);
+  const interventions = await seedInterventions(client, company.id, categories, coordinatorUser.id, faultReports);
+  await seedAssignment(client, interventions[0].id, servicerUser.id);
 
   return {
     companyName: company.name,
@@ -515,8 +644,8 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
     slaConfigurationCount: slaConfigurations.length,
     userCount: users.length,
     externalIdentityCount: externalIdentities.length,
-    faultReportCount: 1,
-    interventionCount: 1,
+    faultReportCount: faultReports.length,
+    interventionCount: interventions.length,
     assignmentCount: 1,
   };
 }

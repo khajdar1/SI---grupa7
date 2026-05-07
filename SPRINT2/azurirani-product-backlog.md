@@ -48,6 +48,7 @@ Sprint 5 — ~32 SP
 Sprint 6 — ~24 SP
   PBI-004 (5), PBI-033 (3), PBI-005 (3), PBI-006 (2), PBI-007 (5), PBI-016 (3), PBI-011 (3)
   Fokus: Planiranje i pregled — kreiranje i zakazivanje intervencija, prioriteti, dodjela servisera, pregled liste, komentari, historija, attachmenti
+  Napomena: PBI-013 Prebačen u Sprint 6 ~24 + 8 SP
 
 Sprint 7 — ~16 SP
   PBI-009 (3), PBI-008 (8), PBI-010 (5)
@@ -55,6 +56,7 @@ Sprint 7 — ~16 SP
 
 Sprint 8 — ~28 SP
   PBI-012 (8), PBI-013 (8), PBI-014 (5), PBI-015 (2), PBI-020 (5)
+  Napomena: PBI-013 Prebačen u Sprint 6 
 
 Sprint 9 — ~27 SP
   PBI-017 (5), PBI-018 (3), PBI-021 (3), PBI-025 (5), PBI-026 (3), PBI-027 (3), PBI-028 (5)
@@ -77,13 +79,13 @@ Sprint 10 — ~35 SP
 | PBI-010 | Evidencija izvještaja o intervenciji | Serviser dokumentira ishod intervencije: opis obavljenih radova, utrošeni materijal, napomene. Izvještaj se veže za intervenciju. | Feature | Visok | 5 SP | Todo | Sprint 7 | Obračun troškova nije u MVP scopeu; Izvještaj dostupan u statusu U procesu i Završeno |
 | PBI-011 | Historija intervencija po lokaciji/uređaju | Pregled prethodnih intervencija filtriranih prema lokaciji ili uređaju, s osnovnim podacima o svakoj intervenciji | Feature | Srednji | 3 SP | Todo | Sprint 7 | Osnovna historija bez grafičkih prikaza (van MVP scope) |
 | PBI-012 | Notifikacije | Serviser dobija notifikaciju pri dodjeli zadatka; koordinator dobija notifikaciju pri novoj prijavi kvara od korisnika | Feature | Srednji | 8 SP | Todo | Sprint 8 | Automatski podsjetnici za preglede nisu u MVP scopeu; Notifikacije su isključivo in-app |
-| PBI-013 | Upravljanje korisničkim računima (Admin) | Administrator kreira, uređuje, aktivira i deaktivira korisničke račune te dodjeljuje uloge i kontrolira pristup sistemu; dodjela firme | Feature | Srednji | 8 SP | Todo | Sprint 8 | Uključuje kontrolu pristupa po ulogama (RBAC) |
+| PBI-013 | Upravljanje korisničkim računima (Admin) | Administrator kreira, uređuje, aktivira i deaktivira korisničke račune te dodjeljuje uloge i kontrolira pristup sistemu; dodjela firme | Feature | Srednji | 8 SP | Todo | Sprint 6 | Uključuje kontrolu pristupa po ulogama (RBAC) |
 | PBI-014 | Menadžment dashboard | Pregled ključnih pokazatelja: broj aktivnih/završenih intervencija, prosječno vrijeme rješavanja, distribucija po prioritetu | Feature | Srednji | 5 SP | Todo | Sprint 8 | Samo tabelarni/numerički prikaz; grafički prikazi van MVP |
-| PBI-015 | Upravljanje korisničkim profilom | Svaki prijavljeni korisnik može pregledati i ažurirati vlastite podatke: ime, kontakt, lozinka | Feature | Nizak | 2 SP | Todo | Sprint 6 | |
+| PBI-015 | Upravljanje korisničkim profilom | Svaki prijavljeni korisnik može pregledati i ažurirati vlastite podatke: ime, kontakt, lozinka | Feature | Nizak | 2 SP | Todo | Sprint 8 | |
 | PBI-016 | Komentari intervencije | Koordinator i serviser mogu dodavati tekstualne komentare na intervenciju radi dodatnog pojašnjenja, evidencije ili prijave kašnjenja | Feature | Srednji | 3 SP | Todo | Sprint 7 | Potrebna procjena SP na sljedećem refinementu |
 | PBI-017 | Napredna pretraga | Koordinator ima mogućnost napredne pretrage intervencija po više kriterija: nazivu/opisu, datumu, lokaciji, statusu i dodijeljenom serviseru | Feature | Visok | 5 SP | Todo | Sprint 7 | Potrebna procjena SP |
 | PBI-018 | Upozorenje usljed kašnjenja | Sistem generiše upozorenje ako intervencija nije riješena unutar definisanog vremenskog roka (vidi PBI-035) | Feature | Nizak | 3 SP | Todo | Sprint 9 | Automatski podsjetnici za redovne preglede nisu u MVP scopeu; zavisi od PBI-035 |
-| PBI-019 | Reset lozinke | Korisnik može zatražiti reset lozinke putem emaila | Feature | Kritičan | 3 SP | Todo | Sprint 5 | |
+| PBI-019 | Reset lozinke | Korisnik može zatražiti reset lozinke putem emaila | Feature | Kritičan | 3 SP | Todo | Odgođen | |
 | PBI-020 | Kalendarski prikaz intervencija | Koordinator ima uvid u kalendarski prikaz prijavljenih intervencija | Feature | Srednji | 5 SP | Todo | Sprint 8 | |
 | PBI-021 | Pregled dostupnosti servisera | Koordinator pri dodjeli intervencije vidi listu servisera sortiranu po broju aktivnih intervencija (serviseri s manje intervencija prikazani prvi) | Feature | Visok | 3 SP | Todo | Sprint 8 | Koordinator može dodijeliti intervenciju bilo kojem serviseru |
 | PBI-022 | Planirana/preventivna održavanja | Koordinator može kreirati intervenciju bez prijave kvara (planirano održavanje). Moguće je definisati periodičnost, pri čemu sistem automatski generiše nove intervencije prema definisanom rasporedu. | Feature | Srednji | 5 SP | Todo | Sprint 9 | Podrška za ponavljanje |

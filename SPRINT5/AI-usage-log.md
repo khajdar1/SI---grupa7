@@ -1,5 +1,3 @@
-# AI Usage Log
-
 - **Datum:** 29.04.2026.
 - **Sprint broj:** Sprint 5
 - **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.2-Codex

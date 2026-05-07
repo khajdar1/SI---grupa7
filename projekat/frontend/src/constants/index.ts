@@ -8,6 +8,7 @@ export const ROUTES = {
   INTERVENTIONS: '/interventions',
   INTERVENTION: (id: string) => `/interventions/${id}`,
   INTERVENTION_NEW: '/interventions/new',
+  INTERVENTION_EDIT: (id: string) => `/interventions/${id}/edit`,
   ASSIGNMENTS: '/assignments',
   REPORTS: '/reports',
   HISTORY: '/history',
@@ -19,6 +20,7 @@ export const ROUTES = {
   ADMIN: '/admin',
   ADMIN_CATEGORY: '/admin/categories',
   ADMIN_SLA_CONFIG: '/admin/sla-config',
+  ADMIN_ATTACHMENT_CONFIG: '/admin/attachment-config',
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
 } as const;
 
@@ -44,11 +46,24 @@ export const API_ENDPOINTS = {
   COMPANIES: {
     BASE: '/api/v1/companies',
   },
+  USERS: {
+    BASE: '/api/v1/users',
+    BY_ID: (id: number | string) => `/api/v1/users/${id}`,
+    ACTIVATE: (id: number | string) => `/api/v1/users/${id}/activate`,
+    DEACTIVATE: (id: number | string) => `/api/v1/users/${id}/deactivate`,
+  },
   SLA: {
     BASE: '/api/v1/sla',
   },
   INTERVENTIONS: {
     BASE: '/api/v1/interventions',
+    BY_ID: (id: number | string) => `/api/v1/interventions/${id}`,
+    ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
+  },
+  ATTACHMENTS: {
+    DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,
+    BY_ID: (id: number | string) => `/api/v1/attachments/${id}`,
+    CONFIG: '/api/v1/attachments/config',
   },
   ASSIGNMENTS: {
     BASE: '/api/v1/assignments',
@@ -80,6 +95,10 @@ export const UI = {
     CATEGORY_STATUS: '110px',
     CATEGORY_CREATED: '120px',
     CATEGORY_ACTIONS: '220px',
+    USER_STATUS: '110px',
+    USER_ROLE: '150px',
+    USER_COMPANY: '180px',
+    USER_ACTIONS: '260px',
     SLA_HOURS: '90px',
   },
 } as const;

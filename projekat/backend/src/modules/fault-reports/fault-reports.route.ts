@@ -1,25 +1,25 @@
-import { Router } from 'express';
-import { InterventionStatus, InterventionType, Priority } from '@prisma/client';
-import { z } from 'zod';
+import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
+import { Router } from "express";
+import { z } from "zod";
 
-import { prisma } from '../../config/database';
-import { authRateLimiter } from '../../middleware/rateLimit.middleware';
-import { asyncHandler } from '../../shared/async-handler';
-import { BadRequestError, NotFoundError } from '../../shared/errors';
+import { prisma } from "../../config/database";
+import { authRateLimiter } from "../../middleware/rateLimit.middleware";
+import { asyncHandler } from "../../shared/async-handler";
+import { BadRequestError, NotFoundError } from "../../shared/errors";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   FaultReportService,
   type FaultReportRepository,
   type FaultReportSubmissionInput,
-} from './fault-reports.service';
-import { buildFaultReportSubmissionPayload } from './fault-reports.payload';
-import fs from 'node:fs/promises';
-import path from 'node:path';
+} from "./fault-reports.service";
+import { buildFaultReportSubmissionPayload } from "./fault-reports.payload";
+import fs from "node:fs/promises";
+import path from "node:path";
 
 const faultReportsRouter = Router();
 
-const SYSTEM_USER_EMAIL = 'system.fault-reports@si-grupa7.local';
-const SYSTEM_USER_USERNAME = 'system.fault-reports';
+const SYSTEM_USER_EMAIL = "system.fault-reports@si-grupa7.local";
+const SYSTEM_USER_USERNAME = "system.fault-reports";
 
 const faultReportSubmissionSchema = z.object({
   companyId: z.coerce.number().int().positive().optional(),
@@ -28,14 +28,23 @@ const faultReportSubmissionSchema = z.object({
     .string()
     .trim()
     .refine((val) => val.length === 0 || val.length >= 3, {
-      message: 'String must contain at least 3 character(s)',
+      message: "String must contain at least 3 character(s)",
     })
     .optional()
-    .default(''),
-  description: z.string().trim().optional().default(''),
-  reporterName: z.union([z.string().trim().min(2), z.literal('')]).optional().default(''),
-  reporterEmail: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
-  reporterPhone: z.union([z.string().trim().min(5), z.literal('')]).optional().default(''),
+    .default(""),
+  description: z.string().trim().optional().default(""),
+  reporterName: z
+    .union([z.string().trim().min(2), z.literal("")])
+    .optional()
+    .default(""),
+  reporterEmail: z
+    .union([z.string().trim().email(), z.literal("")])
+    .optional()
+    .default(""),
+  reporterPhone: z
+    .union([z.string().trim().min(5), z.literal("")])
+    .optional()
+    .default(""),
   templateId: z.string().trim().min(1),
   templateName: z.string().trim().min(1),
   isAuthenticated: z.boolean().optional().default(false),
@@ -50,7 +59,7 @@ const faultReportSubmissionSchema = z.object({
           .trim()
           .min(1)
           .refine((value) => ALLOWED_ATTACHMENT_MIME_TYPES.has(value), {
-            message: 'Unsupported attachment type',
+            message: "Unsupported attachment type",
           }),
         fileSize: z.coerce.number().int().positive(),
         // Optional base64 payload of the file to persist on the server
@@ -58,7 +67,7 @@ const faultReportSubmissionSchema = z.object({
           .string()
           .optional()
           .refine((val) => !val || /^[A-Za-z0-9+/=\s]+$/.test(val), {
-            message: 'Invalid file content encoding',
+            message: "Invalid file content encoding",
           }),
       }),
     )
@@ -71,16 +80,16 @@ function sanitizeAttachmentName(fileName: string): string {
     fileName
       .trim()
       .toLowerCase()
-      .replace(/[^a-z0-9._-]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 80) || 'attachment'
+      .replace(/[^a-z0-9._-]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80) || "attachment"
   );
 }
 
 const faultReportsRepository: FaultReportRepository = {
   listCompanies: async () =>
     prisma.company.findMany({
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
@@ -93,7 +102,7 @@ const faultReportsRepository: FaultReportRepository = {
   listActiveCategories: async () =>
     prisma.category.findMany({
       where: { active: true },
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       select: {
         id: true,
         name: true,
@@ -106,7 +115,7 @@ const faultReportsRepository: FaultReportRepository = {
   listActiveInterventions: async () =>
     prisma.intervention.findMany({
       where: { archived: false },
-      orderBy: [{ createdAt: 'desc' }],
+      orderBy: [{ createdAt: "desc" }],
       include: {
         category: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
@@ -126,31 +135,49 @@ const faultReportsRepository: FaultReportRepository = {
     prisma.user.upsert({
       where: { email: SYSTEM_USER_EMAIL },
       create: {
-        firstName: 'System',
-        lastName: 'Reporter',
+        firstName: "System",
+        lastName: "Reporter",
         username: SYSTEM_USER_USERNAME,
         email: SYSTEM_USER_EMAIL,
         active: true,
         companyId: null,
       },
       update: {
-        firstName: 'System',
-        lastName: 'Reporter',
+        firstName: "System",
+        lastName: "Reporter",
         username: SYSTEM_USER_USERNAME,
         active: true,
         companyId: null,
       },
       select: { id: true },
     }),
+
+  getConfig: async () => {
+    const ATTACHMENT_CONFIG_KEY = 'attachment.config';
+    const row = await prisma.systemConfig.findUnique({ where: { key: ATTACHMENT_CONFIG_KEY } });
+    if (!row) return { allowedMimeTypes: [
+      'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml',
+      'application/pdf', 'text/plain', 'text/csv', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ], maxFileSizeMb: 10 };
+
+    try {
+      return JSON.parse(row.value);
+    } catch {
+      return { allowedMimeTypes: [], maxFileSizeMb: 10 };
+    }
+  },
+
   createSubmission: async (input) =>
     prisma.$transaction(async (transaction) => {
       const faultReport = await transaction.faultReport.create({
         data: {
-          description: input.description ?? '',
-          location: input.location ?? '',
+          description: input.description ?? "",
+          location: input.location ?? "",
           latitude: input.latitude ?? null,
           longitude: input.longitude ?? null,
-          userId: null,
+          userId: input.reporterUserId ?? null,
           categoryId: input.categoryId!,
           companyId: input.companyId!,
         },
@@ -159,8 +186,8 @@ const faultReportsRepository: FaultReportRepository = {
       const intervention = await transaction.intervention.create({
         data: {
           name: input.templateName,
-          description: input.description ?? '',
-          location: input.location ?? '',
+          description: input.description ?? "",
+          location: input.location ?? "",
           latitude: input.latitude ?? null,
           longitude: input.longitude ?? null,
           priority: Priority.MEDIUM,
@@ -175,7 +202,7 @@ const faultReportsRepository: FaultReportRepository = {
       });
 
       // Persist file contents if provided and create attachment records
-      const uploadsRoot = path.resolve(__dirname, '../../../uploads');
+      const uploadsRoot = path.resolve(__dirname, "../../../uploads");
       await fs.mkdir(uploadsRoot, { recursive: true });
 
       await Promise.all(
@@ -189,7 +216,7 @@ const faultReportsRepository: FaultReportRepository = {
             // ensure directory exists
             await fs.mkdir(path.dirname(absolutePath), { recursive: true });
             // write file (base64 -> buffer)
-            const buffer = Buffer.from(attachment.fileContent, 'base64');
+            const buffer = Buffer.from(attachment.fileContent, "base64");
             await fs.writeFile(absolutePath, buffer);
           }
 
@@ -209,7 +236,7 @@ const faultReportsRepository: FaultReportRepository = {
       return {
         faultReportId: faultReport.id,
         interventionId: intervention.id,
-        referenceNumber: `INT-${String(intervention.id).padStart(5, '0')}`,
+        referenceNumber: `INT-${String(intervention.id).padStart(5, "0")}`,
         receivedAt: faultReport.reportedAt,
       };
     }),
@@ -218,7 +245,7 @@ const faultReportsRepository: FaultReportRepository = {
 const faultReportService = new FaultReportService(faultReportsRepository);
 
 faultReportsRouter.get(
-  '/options',
+  "/options",
   asyncHandler(async (_req, res) => {
     const [companies, categories] = await Promise.all([
       faultReportService.listCompanies(),
@@ -230,10 +257,10 @@ faultReportsRouter.get(
 );
 
 faultReportsRouter.get(
-  '/',
+  "/",
   asyncHandler(async (_req, res) => {
     const faultReports = await prisma.faultReport.findMany({
-      orderBy: [{ reportedAt: 'desc' }],
+      orderBy: [{ reportedAt: "desc" }],
       include: {
         category: { select: { id: true, name: true } },
         company: { select: { id: true, name: true } },
@@ -264,25 +291,33 @@ faultReportsRouter.get(
 );
 
 faultReportsRouter.post(
-  '/',
+  "/",
   authRateLimiter,
   asyncHandler(async (req, res) => {
     const parsed = faultReportSubmissionSchema.parse(req.body);
 
-    const payload = buildFaultReportSubmissionPayload(parsed, req.body as Record<string, unknown>);
-    const result = await faultReportService.submitFaultReport(payload);
+    const payload = buildFaultReportSubmissionPayload(
+      parsed,
+      req.body as Record<string, unknown>,
+    );
+    const reporterUserId = req.user?.localUserId ?? null;
+    const result = await faultReportService.submitFaultReport({
+      ...payload,
+      isAuthenticated: Boolean(reporterUserId),
+      reporterUserId,
+    });
 
     res.status(201).json(result);
   }),
 );
 
 faultReportsRouter.get(
-  '/:id',
+  "/:id",
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
 
     if (!Number.isInteger(id) || id <= 0) {
-      throw new BadRequestError('Invalid fault report identifier.');
+      throw new BadRequestError("Invalid fault report identifier.");
     }
 
     const faultReport = await prisma.faultReport.findUnique({
@@ -296,7 +331,7 @@ faultReportsRouter.get(
     });
 
     if (!faultReport) {
-      throw new NotFoundError('Fault report not found.');
+      throw new NotFoundError("Fault report not found.");
     }
 
     res.json(faultReport);
