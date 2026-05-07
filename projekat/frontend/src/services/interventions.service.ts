@@ -3,7 +3,8 @@ import type { InterventionStatus, Priority } from '@shared/enums';
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { getResponseData, withServiceError } from './errors';
+import { toModuleShellResponse } from './module-shell.service';
 import type { ModuleShellResponse } from './types';
 
 export interface InterventionFaultReportLink {
@@ -106,29 +107,24 @@ function isInterventionListItem(payload: unknown): payload is InterventionListIt
   );
 }
 
-function isModuleInfo(payload: unknown): payload is ModuleShellResponse {
-  if (typeof payload !== 'object' || payload === null) {
-    return false;
-  }
-
-  const maybe = payload as { module?: unknown; endpoints?: unknown };
-  return typeof maybe.module === 'string' && Array.isArray(maybe.endpoints);
-}
-
 export interface InterventionDetail {
-  id: number;
+  id: string;
+  title: string;
   name: string;
   description: string;
   location: string;
+  categoryId: number;
+  categoryName: string;
+  companyId: number;
+  companyName: string;
   priority: Priority;
   status: InterventionStatus;
   type: string;
+  owner: string;
+  ownerId?: number;
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
-  category: { id: number; name: string };
-  creator: { id: number; username: string };
-  company: { id: number; name: string };
   faultReport: { id: number } | null;
   assignments?: Array<{
     id: number;
@@ -145,16 +141,14 @@ export interface InterventionDetail {
 }
 
 export async function getInterventionById(id: number): Promise<InterventionDetail> {
-  try {
-    const response = await api.get<InterventionDetail>(API_ENDPOINTS.INTERVENTIONS.BY_ID(id));
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load intervention.'), error);
-  }
+  return getResponseData(
+    () => api.get<InterventionDetail>(API_ENDPOINTS.INTERVENTIONS.BY_ID(id)),
+    'Failed to load intervention.',
+  );
 }
 
 export async function getInterventions(): Promise<InterventionsResult> {
-  try {
+  return withServiceError(async () => {
     const response = await api.get<unknown>(API_ENDPOINTS.INTERVENTIONS.BASE);
 
     if (Array.isArray(response.data)) {
@@ -165,53 +159,55 @@ export async function getInterventions(): Promise<InterventionsResult> {
       };
     }
 
-    if (isModuleInfo(response.data)) {
+    const moduleInfo = toModuleShellResponse(response.data);
+
+    if (moduleInfo) {
       return {
         items: [],
-        moduleInfo: {
-          module: response.data.module,
-          endpoints: response.data.endpoints.filter(
-            (entry): entry is string => typeof entry === 'string',
-          ),
-        },
+        moduleInfo,
       };
     }
 
     return { items: [], moduleInfo: null };
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load interventions.'), error);
-  }
+  }, 'Failed to load interventions.');
 }
 
 export async function getInterventionOptions(): Promise<InterventionOptions> {
-  try {
-    const response = await api.get<InterventionOptions>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/options`);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load intervention options.'), error);
-  }
+  return getResponseData(
+    () => api.get<InterventionOptions>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/options`),
+    'Failed to load intervention options.',
+  );
 }
 
 export async function createIntervention(payload: InterventionFormPayload): Promise<InterventionListItem> {
-  try {
-    const response = await api.post<InterventionListItem>(API_ENDPOINTS.INTERVENTIONS.BASE, payload);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to create intervention.'), error);
-  }
+  return getResponseData(
+    () => api.post<InterventionListItem>(API_ENDPOINTS.INTERVENTIONS.BASE, payload),
+    'Failed to create intervention.',
+  );
 }
 
 export async function updateIntervention(
   id: string,
   payload: InterventionFormPayload,
 ): Promise<InterventionListItem> {
-  try {
-    const response = await api.patch<InterventionListItem>(
+  return getResponseData(
+    () => api.patch<InterventionListItem>(
       `${API_ENDPOINTS.INTERVENTIONS.BASE}/${id}`,
       payload,
-    );
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to update intervention.'), error);
-  }
+    ),
+    'Failed to update intervention.',
+  );
+}
+
+export async function updateInterventionStatus(
+  id: string | number,
+  status: InterventionStatus,
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.patch<InterventionDetail>(
+      `${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/status`,
+      { status },
+    ),
+    'Failed to update intervention status.',
+  );
 }

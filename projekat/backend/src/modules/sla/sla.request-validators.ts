@@ -11,15 +11,27 @@ export interface ValidationResult {
   error?: string;
 }
 
+export function getSlaConfigurationsFromBody(body: unknown): unknown {
+  if (Array.isArray(body)) {
+    return body;
+  }
+
+  if (typeof body === "object" && body !== null && "configurations" in body) {
+    return (body as { configurations?: unknown }).configurations;
+  }
+
+  return undefined;
+}
+
 export function validateUpdateSlaRequest(
   req: Request,
   res: Response,
   next: NextFunction,
 ) {
-  const { configurations } = req.body;
+  const rawConfigurations = getSlaConfigurationsFromBody(req.body);
   const fieldErrors: Record<string, string> = {};
 
-  const arrayValidation = validateConfigurationsArray(configurations);
+  const arrayValidation = validateConfigurationsArray(rawConfigurations);
   if (!arrayValidation.valid) {
     res.status(HTTP_STATUS.BAD_REQUEST).json({
       message: arrayValidation.error,
@@ -27,6 +39,8 @@ export function validateUpdateSlaRequest(
     });
     return;
   }
+
+  const configurations = rawConfigurations as unknown[];
 
   // Collect all validation errors for all configurations
   for (let i = 0; i < configurations.length; i++) {

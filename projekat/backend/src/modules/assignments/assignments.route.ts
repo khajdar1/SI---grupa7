@@ -7,7 +7,12 @@ const assignmentsRouter = Router();
 
 const COORDINATOR_ROLES = ['Koordinator', 'Coordinator'];
 const MANAGEMENT_ROLES = ['Menadzment', 'Management'];
-const ASSIGNMENT_MANAGEMENT_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES];
+const ADMIN_ROLES = ['Administrator', 'Admin', 'administrator', 'admin'];
+const ASSIGNMENT_MANAGEMENT_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...ADMIN_ROLES,
+];
 
 /**
  * GET /assignments

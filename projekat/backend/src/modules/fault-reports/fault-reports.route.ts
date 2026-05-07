@@ -177,7 +177,7 @@ const faultReportsRepository: FaultReportRepository = {
           location: input.location ?? "",
           latitude: input.latitude ?? null,
           longitude: input.longitude ?? null,
-          userId: null,
+          userId: input.reporterUserId ?? null,
           categoryId: input.categoryId!,
           companyId: input.companyId!,
         },
@@ -300,7 +300,12 @@ faultReportsRouter.post(
       parsed,
       req.body as Record<string, unknown>,
     );
-    const result = await faultReportService.submitFaultReport(payload);
+    const reporterUserId = req.user?.localUserId ?? null;
+    const result = await faultReportService.submitFaultReport({
+      ...payload,
+      isAuthenticated: Boolean(reporterUserId),
+      reporterUserId,
+    });
 
     res.status(201).json(result);
   }),

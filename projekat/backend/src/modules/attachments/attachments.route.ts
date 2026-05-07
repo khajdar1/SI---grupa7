@@ -24,6 +24,7 @@ const attachmentsRouter = Router();
 
 const ADMIN_ROLES = ['admin', 'administrator'];
 const VIEW_ROLES = ['koordinator', 'admin', 'administrator'];
+const DELETE_ROLES = ADMIN_ROLES;
 
 const prismaAttachmentRepository: IAttachmentRepository = {
   findByInterventionId: async (interventionId: number) => {
@@ -170,8 +171,7 @@ attachmentsRouter.put(
       throw new BadRequestError('Invalid configuration data.', fields);
     }
 
-    const rawUserId = req.user?.id;
-    const actorId = rawUserId ? Number(rawUserId) : undefined;
+    const actorId = req.user?.localUserId;
 
     try {
       const updated = await attachmentService.updateConfig(parsed.data, actorId);
@@ -233,7 +233,7 @@ attachmentsRouter.get(
 
 attachmentsRouter.delete(
   '/:id',
-  authorizeRoles(VIEW_ROLES),
+  authorizeRoles(DELETE_ROLES),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {

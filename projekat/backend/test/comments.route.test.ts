@@ -8,10 +8,12 @@ const {
   interventionCommentFindManyMock,
   interventionCommentCreateMock,
   interventionFindUniqueMock,
+  interventionFindFirstMock,
 } = vi.hoisted(() => ({
   interventionCommentFindManyMock: vi.fn(),
   interventionCommentCreateMock: vi.fn(),
   interventionFindUniqueMock: vi.fn(),
+  interventionFindFirstMock: vi.fn(),
 }));
 
 vi.mock('../src/config/database', () => ({
@@ -22,6 +24,7 @@ vi.mock('../src/config/database', () => ({
     },
     intervention: {
       findUnique: interventionFindUniqueMock,
+      findFirst: interventionFindFirstMock,
     },
   },
 }));
@@ -116,6 +119,7 @@ const INTERVENTION_FIXTURE = { id: 5 };
 describe('GET /comments/intervention/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    interventionFindFirstMock.mockResolvedValue(null);
   });
 
   it('vraca listu komentara za validnu intervenciju', async () => {
@@ -214,6 +218,39 @@ describe('GET /comments/intervention/:id', () => {
       }),
     );
   });
+
+  it('dozvoljava korisniku citanje komentara na intervenciji koju je prijavio', async () => {
+    interventionFindFirstMock.mockResolvedValue({ id: 5 });
+    interventionCommentFindManyMock.mockResolvedValue([COMMENT_FIXTURE]);
+
+    const response = await request('GET', '/comments/intervention/5', {
+      user: { localUserId: 4, roles: ['Korisnik'] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(interventionFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        id: 5,
+        faultReport: {
+          is: {
+            userId: 4,
+          },
+        },
+      },
+      select: { id: true },
+    });
+  });
+
+  it('odbija korisniku citanje komentara na tudjoj intervenciji', async () => {
+    interventionFindFirstMock.mockResolvedValue(null);
+
+    const response = await request('GET', '/comments/intervention/5', {
+      user: { localUserId: 4, roles: ['Korisnik'] },
+    });
+
+    expect(response.status).toBe(403);
+    expect(interventionCommentFindManyMock).not.toHaveBeenCalled();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -221,6 +258,7 @@ describe('GET /comments/intervention/:id', () => {
 describe('POST /comments/intervention/:id', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    interventionFindFirstMock.mockResolvedValue(null);
     interventionFindUniqueMock.mockResolvedValue(INTERVENTION_FIXTURE);
     interventionCommentCreateMock.mockResolvedValue(COMMENT_FIXTURE);
   });
@@ -343,7 +381,29 @@ describe('POST /comments/intervention/:id', () => {
 
   // ── Autorizacija ─────────────────────────────────────────────────────────────
 
-  it('odbija korisnika bez prepoznate uloge (obican korisnik)', async () => {
+  it('dozvoljava korisniku komentar na intervenciji koju je prijavio', async () => {
+    interventionFindFirstMock.mockResolvedValue({ id: 5 });
+
+    const response = await request('POST', '/comments/intervention/5', {
+      body: { text: 'Komentar obicnog korisnika.' },
+      user: { localUserId: 4, roles: ['Korisnik'] },
+    });
+
+    expect(response.status).toBe(201);
+    expect(interventionCommentCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          text: 'Komentar obicnog korisnika.',
+          interventionId: 5,
+          authorId: 4,
+        }),
+      }),
+    );
+  });
+
+  it('odbija korisnikov komentar na tudjoj intervenciji', async () => {
+    interventionFindFirstMock.mockResolvedValue(null);
+
     const response = await request('POST', '/comments/intervention/5', {
       body: { text: 'Komentar obicnog korisnika.' },
       user: { localUserId: 4, roles: ['Korisnik'] },
@@ -363,14 +423,22 @@ describe('POST /comments/intervention/:id', () => {
     expect(interventionCommentCreateMock).not.toHaveBeenCalled();
   });
 
-  it('odbija korisnika s ulogom Admin', async () => {
+  it('admin moze dodati komentar', async () => {
     const response = await request('POST', '/comments/intervention/5', {
       body: { text: 'Admin komentar.' },
       user: { localUserId: 1, roles: ['Admin'] },
     });
 
-    expect(response.status).toBe(403);
-    expect(interventionCommentCreateMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(interventionCommentCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          text: 'Admin komentar.',
+          interventionId: 5,
+          authorId: 1,
+        }),
+      }),
+    );
   });
 
   it('odbija korisnika bez uloga (prazna lista)', async () => {

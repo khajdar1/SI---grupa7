@@ -15,6 +15,7 @@ export const PRIMARY_NAV_ITEMS: readonly NavItem[] = [
 ] as const;
 
 export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
+  { label: 'New Intervention', to: ROUTES.INTERVENTION_NEW },
   { label: 'History', to: ROUTES.HISTORY },
   { label: 'Tickets', to: ROUTES.TICKETS },
   { label: 'Map', to: ROUTES.MAP },
