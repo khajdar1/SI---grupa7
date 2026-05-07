@@ -29,12 +29,13 @@ vi.mock("../src/clients/keycloak.client", () => ({
   getKeycloakUserRoleNames: getKeycloakUserRoleNamesMock,
 }));
 
-import { authenticate, authorizeRoles } from "../src/middleware/auth.middleware";
+import { authenticate, authorizeRoles, optionalAuthenticate } from "../src/middleware/auth.middleware";
 
 type MockRequest = {
   header: (name: string) => string | undefined;
   user?: {
     id?: string;
+    localUserId?: number;
     username?: string;
     roles: string[];
   };
@@ -107,6 +108,28 @@ test("authenticate rejects expired tokens", async () => {
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 401);
   assert.deepEqual(res.body, { message: "Authentication token has expired" });
+});
+
+test("optionalAuthenticate continues without user when token is missing", async () => {
+  const req: MockRequest = {
+    header() {
+      return undefined;
+    },
+  };
+  const res = createMockResponse();
+
+  let nextCalled = false;
+  await optionalAuthenticate(
+    req as never,
+    res as never,
+    () => {
+      nextCalled = true;
+    },
+  );
+
+  assert.equal(nextCalled, true);
+  assert.equal(req.user, undefined);
+  assert.equal(res.statusCode, undefined);
 });
 
 test("authorizeRoles matches roles case-insensitively", async () => {

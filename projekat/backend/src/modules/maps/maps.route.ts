@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const mapsRouter = Router();
-
-mapsRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'maps',
-    endpoints: ['GET /interventions', 'GET /interventions/:id', 'GET /locations'],
-  });
+const mapsRouter = createModuleInfoRouter({
+  module: 'maps',
+  endpoints: ['GET /interventions', 'GET /interventions/:id', 'GET /locations'],
 });
 
 export default mapsRouter;

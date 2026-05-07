@@ -69,6 +69,7 @@ export interface FaultReportSubmissionInput {
   templateId: string;
   templateName: string;
   isAuthenticated?: boolean;
+  reporterUserId?: number | null;
   latitude?: number | null;
   longitude?: number | null;
   attachments: FaultReportAttachmentInput[];
@@ -88,6 +89,7 @@ export interface FaultReportSubmissionPayload extends Omit<
   description: string;
   reporterEmail: string;
   creatorId: number;
+  reporterUserId?: number | null;
 }
 
 export interface FaultReportRepository {
@@ -233,6 +235,7 @@ export class FaultReportService {
         templateName: input.templateName.trim(),
         isAuthenticated: Boolean(input.isAuthenticated),
         creatorId: systemUser.id,
+        reporterUserId: input.reporterUserId ?? null,
         attachments: input.attachments.map((attachment) => ({
           fileName: attachment.fileName.trim(),
           mimeType: attachment.mimeType.trim(),
@@ -339,6 +342,7 @@ export class FaultReportService {
       templateName: input.templateName.trim(),
       isAuthenticated: Boolean(input.isAuthenticated),
       creatorId: systemUser.id,
+      reporterUserId: input.reporterUserId ?? null,
       attachments: input.attachments.map((attachment) => ({
         fileName: attachment.fileName.trim(),
         mimeType: attachment.mimeType.trim(),

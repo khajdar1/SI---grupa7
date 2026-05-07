@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const messagesRouter = Router();
-
-messagesRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'messages',
-    endpoints: ['GET /tickets/:ticketId', 'POST /tickets/:ticketId'],
-  });
+const messagesRouter = createModuleInfoRouter({
+  module: 'messages',
+  endpoints: ['GET /tickets/:ticketId', 'POST /tickets/:ticketId'],
 });
 
 export default messagesRouter;

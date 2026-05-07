@@ -4,7 +4,7 @@ import helmet from 'helmet';
 
 import { env } from './config/env';
 import { BACKEND_ROUTES } from './constants';
-import { authenticate } from './middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from './middleware/auth.middleware';
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware';
 import { requestLoggerMiddleware } from './middleware/request-logger.middleware';
 import healthRouter from './routes/health.route';
@@ -42,7 +42,7 @@ export function createApp() {
   app.use(requestLoggerMiddleware);
 
   app.use(BACKEND_ROUTES.HEALTH, healthRouter);
-  app.use(BACKEND_ROUTES.FAULT_REPORTS, faultReportsRouter);
+  app.use(BACKEND_ROUTES.FAULT_REPORTS, optionalAuthenticate, faultReportsRouter);
   app.use(BACKEND_ROUTES.AUTH, authRouter);
   app.use(BACKEND_ROUTES.USERS, authenticate, usersRouter);
   app.use(BACKEND_ROUTES.COMPANIES, companiesRouter);

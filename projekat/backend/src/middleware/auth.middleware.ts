@@ -168,6 +168,16 @@ export const authenticate: RequestHandler = async (req, res, next) => {
   return next();
 };
 
+export const optionalAuthenticate: RequestHandler = async (req, res, next) => {
+  const token = getTokenFromRequest(req);
+
+  if (!token) {
+    return next();
+  }
+
+  return authenticate(req, res, next);
+};
+
 export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
   const normalizedAllowedRoles = allowedRoles.map((role) => role.toLowerCase());
 

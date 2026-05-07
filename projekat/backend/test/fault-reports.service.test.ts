@@ -163,4 +163,24 @@ describe("FaultReportService", () => {
 
     expect(capturedCreatorId).toBe(99);
   });
+
+  it("passes the authenticated reporter user id to the repository", async () => {
+    let capturedReporterUserId: number | null | undefined;
+    const repository = createRepository({
+      createSubmission: async (input) => {
+        capturedReporterUserId = input.reporterUserId;
+        return {
+          faultReportId: 12,
+          interventionId: 34,
+          referenceNumber: "INT-00034",
+          receivedAt: new Date("2026-04-28T10:00:00.000Z"),
+        };
+      },
+    });
+    const service = new FaultReportService(repository);
+
+    await service.submitFaultReport({ ...baseInput, reporterUserId: 4 });
+
+    expect(capturedReporterUserId).toBe(4);
+  });
 });

@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const auditRouter = Router();
-
-auditRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'audit',
-    endpoints: ['GET /'],
-  });
+const auditRouter = createModuleInfoRouter({
+  module: 'audit',
+  endpoints: ['GET /'],
 });
 
 export default auditRouter;

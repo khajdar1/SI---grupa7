@@ -4,6 +4,39 @@ import { HTTP_STATUS } from '../../constants';
 
 const commentsRouter = Router();
 
+const STAFF_COMMENT_ROLES = [
+  'admin',
+  'administrator',
+  'coordinator',
+  'koordinator',
+  'servicer',
+  'serviser',
+];
+
+function hasStaffCommentRole(roles: string[]): boolean {
+  return roles.some((role) => STAFF_COMMENT_ROLES.includes(role.toLowerCase()));
+}
+
+async function canAccessInterventionComments(interventionId: number, userId?: number | null) {
+  if (!userId) {
+    return false;
+  }
+
+  const intervention = await prisma.intervention.findFirst({
+    where: {
+      id: interventionId,
+      faultReport: {
+        is: {
+          userId,
+        },
+      },
+    },
+    select: { id: true },
+  });
+
+  return Boolean(intervention);
+}
+
 commentsRouter.get('/', (_req, res) => {
   res.json({
     module: 'comments',
@@ -17,6 +50,16 @@ commentsRouter.get('/intervention/:id', async (req, res) => {
 
     if (!Number.isInteger(interventionId) || interventionId <= 0) {
       return res.status(HTTP_STATUS.BAD_REQUEST).json({ message: 'Invalid intervention ID' });
+    }
+
+    const userRoles = req.user?.roles ?? [];
+    const authorId = req.user?.localUserId;
+    const hasAccess =
+      hasStaffCommentRole(userRoles) ||
+      (await canAccessInterventionComments(interventionId, authorId));
+
+    if (!hasAccess) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Forbidden' });
     }
 
     const comments = await prisma.interventionComment.findMany({
@@ -55,11 +98,12 @@ commentsRouter.post('/intervention/:id', async (req, res) => {
       return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authenticated user not found in local database' });
     }
 
-    const ALLOWED_ROLES = ['coordinator', 'koordinator', 'servicer', 'serviser'];
-    const hasAllowedRole = userRoles.some((r) => ALLOWED_ROLES.includes(r.toLowerCase()));
+    const hasAllowedRole =
+      hasStaffCommentRole(userRoles) ||
+      (await canAccessInterventionComments(interventionId, authorId));
 
     if (!hasAllowedRole) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Only coordinators and servicers can add comments' });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Only participants can add comments' });
     }
 
     const { text } = req.body as { text?: unknown };

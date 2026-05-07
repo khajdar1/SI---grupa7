@@ -1,6 +1,6 @@
 import { api } from '@/lib/api';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { withServiceError } from './errors';
 import type { ModuleShellResponse } from './types';
 
 function isModuleShellResponse(payload: unknown): payload is ModuleShellResponse {
@@ -12,21 +12,22 @@ function isModuleShellResponse(payload: unknown): payload is ModuleShellResponse
   return typeof maybe.module === 'string' && Array.isArray(maybe.endpoints);
 }
 
-export async function getModuleShell(endpoint: string): Promise<ModuleShellResponse | null> {
-  try {
-    const response = await api.get<unknown>(endpoint);
-
-    if (!isModuleShellResponse(response.data)) {
-      return null;
-    }
-
-    return {
-      module: response.data.module,
-      endpoints: response.data.endpoints.filter(
-        (entry): entry is string => typeof entry === 'string',
-      ),
-    };
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load module data.'), error);
+export function toModuleShellResponse(payload: unknown): ModuleShellResponse | null {
+  if (!isModuleShellResponse(payload)) {
+    return null;
   }
+
+  return {
+    module: payload.module,
+    endpoints: payload.endpoints.filter(
+      (entry): entry is string => typeof entry === 'string',
+    ),
+  };
+}
+
+export async function getModuleShell(endpoint: string): Promise<ModuleShellResponse | null> {
+  return withServiceError(async () => {
+    const response = await api.get<unknown>(endpoint);
+    return toModuleShellResponse(response.data);
+  }, 'Failed to load module data.');
 }

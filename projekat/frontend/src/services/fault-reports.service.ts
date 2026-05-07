@@ -6,27 +6,23 @@ import type {
   FaultReportSubmissionResponse,
 } from '@/models/FaultReport';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { getResponseData } from './errors';
 
 export async function getFaultReportOptions(): Promise<FaultReportOptionsResponse> {
-  try {
-    const response = await api.get<FaultReportOptionsResponse>(API_ENDPOINTS.FAULT_REPORTS.OPTIONS);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load fault report options.'), error);
-  }
+  return getResponseData(
+    () => api.get<FaultReportOptionsResponse>(API_ENDPOINTS.FAULT_REPORTS.OPTIONS),
+    'Failed to load fault report options.',
+  );
 }
 
 export async function submitFaultReport(
   payload: FaultReportSubmissionPayload,
 ): Promise<FaultReportSubmissionResponse> {
-  try {
-    const response = await api.post<FaultReportSubmissionResponse>(
+  return getResponseData(
+    () => api.post<FaultReportSubmissionResponse>(
       API_ENDPOINTS.FAULT_REPORTS.BASE,
       payload,
-    );
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to submit fault report.'), error);
-  }
+    ),
+    'Failed to submit fault report.',
+  );
 }
