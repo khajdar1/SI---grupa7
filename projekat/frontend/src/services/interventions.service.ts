@@ -31,6 +31,18 @@ export interface InterventionListItem {
   dueAt: string | null;
   isOverdue?: boolean;
   faultReport: InterventionFaultReportLink | null;
+  assignments?: Array<{
+    id: number;
+    userId: number;
+    user: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      username: string;
+      email: string;
+    };
+    assignedAt: string;
+  }>;
 }
 
 export interface InterventionFormPayload {
@@ -118,6 +130,18 @@ export interface InterventionDetail {
   creator: { id: number; username: string };
   company: { id: number; name: string };
   faultReport: { id: number } | null;
+  assignments?: Array<{
+    id: number;
+    userId: number;
+    user: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      username: string;
+      email: string;
+    };
+    assignedAt: string;
+  }>;
 }
 
 export async function getInterventionById(id: number): Promise<InterventionDetail> {

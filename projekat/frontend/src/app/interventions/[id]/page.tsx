@@ -8,9 +8,13 @@ import { useParams } from 'next/navigation';
 import { ROUTES } from '@/constants';
 import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
 import { CommentsSection } from '@/components/shared/CommentsSection';
+import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
+import { InterventionStatusBadge } from '@/components/shared/InterventionStatusBadge';
 import {
   getInterventionAttachments,
   deleteAttachment,
@@ -18,6 +22,10 @@ import {
   formatFileSize,
   type AttachmentListItem,
 } from '@/services/attachments.service';
+import {
+  getInterventionById,
+  type InterventionDetail,
+} from '@/services/interventions.service';
 
 interface DeleteState {
   isOpen: boolean;
@@ -37,13 +45,14 @@ export default function InterventionDetailPage() {
   const params = useParams();
   const interventionId = Number(params.id);
 
+  const [intervention, setIntervention] = useState<InterventionDetail | null>(null);
   const [attachments, setAttachments] = useState<AttachmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [successMessage, setSuccessMessage] = useState('');
 
-  const loadAttachments = async () => {
+  const loadData = async () => {
     if (!Number.isInteger(interventionId) || interventionId <= 0) {
       setError('Invalid intervention identifier.');
       setIsLoading(false);
@@ -53,17 +62,21 @@ export default function InterventionDetailPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await getInterventionAttachments(interventionId);
-      setAttachments(data);
+      const [interventionData, attachmentData] = await Promise.all([
+        getInterventionById(interventionId),
+        getInterventionAttachments(interventionId),
+      ]);
+      setIntervention(interventionData);
+      setAttachments(attachmentData);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load attachments.');
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load data.');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadAttachments();
+    void loadData();
   }, [interventionId]);
 
   const handleDownload = (attachment: AttachmentListItem) => {
@@ -121,6 +134,90 @@ export default function InterventionDetailPage() {
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
+
+      {/* Intervention Details */}
+      {isLoading ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : intervention ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intervention.name}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Status</p>
+                <InterventionStatusBadge status={intervention.status} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Priority</p>
+                <PriorityBadge priority={intervention.priority} />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Category</p>
+                <p className="font-medium">{intervention.category.name}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Company</p>
+                <p className="font-medium">{intervention.company.name}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <p className="text-xs text-muted-foreground">Location</p>
+                <p className="font-medium">{intervention.location}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Creator</p>
+                <p className="font-medium">{intervention.creator.username}</p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-xs text-muted-foreground">Description</p>
+              <p className="text-sm">{intervention.description}</p>
+            </div>
+
+            {intervention.startedAt && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <p className="text-xs text-muted-foreground">Started</p>
+                  <p className="text-sm">{new Date(intervention.startedAt).toLocaleDateString('bs-BA')}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Due</p>
+                  <p className="text-sm">{intervention.dueAt ? new Date(intervention.dueAt).toLocaleDateString('bs-BA') : '-'}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Assigned Servicers */}
+      {intervention && (
+        <AssignedServicersSection
+          interventionId={interventionId}
+          assignments={intervention.assignments || []}
+          onAssignmentsChange={(assignments) => {
+            if (intervention) {
+              setIntervention({ ...intervention, assignments });
+            }
+          }}
+          canManage={true}
+        />
+      )}
+
+      {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
       <Card>
         <CardHeader>
@@ -180,7 +277,7 @@ export default function InterventionDetailPage() {
               keyExtractor={(row) => String(row.id)}
               isLoading={false}
               error={error}
-              onRetry={loadAttachments}
+              onRetry={loadData}
               emptyTitle="Nema fajlova"
               emptyDescription="Ova intervencija nema priloženih fajlova."
             />

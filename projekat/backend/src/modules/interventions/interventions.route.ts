@@ -310,6 +310,19 @@ const interventionInclude = {
       reportedAt: true,
     },
   },
+  assignments: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          email: true,
+        },
+      },
+    },
+  },
 } as const;
 
 interventionsRouter.get(
@@ -588,6 +601,39 @@ interventionsRouter.patch(
     }
 
     res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.get(
+  "/:id",
+  authorizeRoles(INTERVENTION_VIEW_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      include: interventionInclude,
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    res.json({
+      ...mapIntervention(intervention),
+      assignments: intervention.assignments.map((a) => ({
+        id: a.id,
+        userId: a.userId,
+        user: {
+          id: a.user.id,
+          firstName: a.user.firstName,
+          lastName: a.user.lastName,
+          username: a.user.username,
+          email: a.user.email,
+        },
+        assignedAt: a.assignedAt.toISOString(),
+      })),
+    });
   }),
 );
 

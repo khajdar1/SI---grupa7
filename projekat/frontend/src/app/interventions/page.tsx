@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, ExternalLink, AlertTriangle } from "lucide-react";
+import { Pencil, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { ROUTES, UI, VALIDATION } from "@/constants";
@@ -56,6 +56,8 @@ import {
 import { getCategories } from "@/services/categories.service";
 import { getPriorityLabel } from "@/services/sla.service";
 import type { ModuleShellResponse } from "@/services/types";
+import { AssignerModal } from "@/components/assignments/AssignerModal";
+import { Users } from "lucide-react";
 
 const ALL_CATEGORY = "ALL";
 const NO_FAULT_REPORT = "NONE";
@@ -260,6 +262,9 @@ export default function InterventionsPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
+  const [assignedServicerIds, setAssignedServicerIds] = useState<number[]>([]);
+
   const loadData = async (canLoadPlanningOptions = canPlanInterventions) => {
     try {
       setIsLoading(true);
@@ -278,12 +283,14 @@ export default function InterventionsPage() {
       setRows(interventionsResult.items);
       setModuleInfo(interventionsResult.moduleInfo);
       setOptions(formOptions);
+      return interventionsResult.items;
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
           : "Failed to load interventions data.",
       );
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -461,6 +468,27 @@ export default function InterventionsPage() {
     setIsDialogOpen(true);
   };
 
+  const openAssignerModal = () => {
+    if (!editingIntervention) return;
+    setAssignedServicerIds(
+      editingIntervention.assignments?.map((assignment) => assignment.userId) ?? [],
+    );
+    setIsAssignerModalOpen(true);
+  };
+
+  const handleAssignersChange = async (userIds: number[]) => {
+    setAssignedServicerIds(userIds);
+    setSuccessMessage(`${userIds.length} servicer(s) assigned.`);
+    const refreshedRows = await loadData();
+    const updatedIntervention = refreshedRows?.find(
+      (row) => row.id === editingIntervention?.id,
+    );
+
+    if (updatedIntervention) {
+      setEditingIntervention(updatedIntervention);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     const nextErrors = validateForm();
@@ -621,7 +649,7 @@ export default function InterventionsPage() {
                 <span>{formatDateTime(value as string | null)}</span>
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
-                    <AlertTriangle className="mr-1 h-3 w-3" />
+                    <TriangleAlert className="mr-1 h-3 w-3" />
                     Zakašnjenje
                   </Badge>
                 )}
@@ -639,6 +667,29 @@ export default function InterventionsPage() {
             key: "owner",
             header: "Owner",
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER,
+          },
+          {
+            key: "assignments",
+            header: "Assigned",
+            render: (_value: unknown, row: InterventionListItem) => {
+              if (!row.assignments || row.assignments.length === 0) {
+                return <span className="text-xs text-muted-foreground">—</span>;
+              }
+              return (
+                <div className="space-y-1">
+                  {row.assignments.slice(0, 2).map((a) => (
+                    <div key={a.id} className="text-xs">
+                      {a.user.firstName} {a.user.lastName}
+                    </div>
+                  ))}
+                  {row.assignments.length > 2 && (
+                    <div className="text-xs text-muted-foreground">
+                      +{row.assignments.length - 2} more
+                    </div>
+                  )}
+                </div>
+              );
+            },
           },
           ...(canPlanInterventions
             ? [
@@ -999,6 +1050,16 @@ export default function InterventionsPage() {
               >
                 Cancel
               </Button>
+              {editingIntervention && canPlanInterventions && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openAssignerModal}
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Assign Servicers
+                </Button>
+              )}
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Saving..." : "Save Intervention"}
               </Button>
@@ -1006,6 +1067,16 @@ export default function InterventionsPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {editingIntervention && (
+        <AssignerModal
+          interventionId={Number(editingIntervention.id)}
+          isOpen={isAssignerModalOpen}
+          onClose={() => setIsAssignerModalOpen(false)}
+          onSave={handleAssignersChange}
+          currentAssignedUserIds={assignedServicerIds}
+        />
+      )}
     </PageLayout>
   );
 }

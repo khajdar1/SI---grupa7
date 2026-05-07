@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node ../node_modules/next/dist/bin/next dev",
+    "build": "node ../node_modules/next/dist/bin/next build",
     "build:cf": "npx @cloudflare/next-on-pages",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "start": "next start -H 0.0.0.0 -p 3000"
+    "start": "node ../node_modules/next/dist/bin/next start -H 0.0.0.0 -p 3000"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -22,7 +22,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "js-cookie": "^3.0.5",
-    "lucide-react": "^1.14.0",
+    "lucide-react": "1.14.0",
     "next": "15.1.0",
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
