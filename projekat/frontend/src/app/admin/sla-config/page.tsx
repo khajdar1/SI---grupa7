@@ -5,7 +5,7 @@ export const runtime = 'edge';
 import { useEffect, useState } from "react";
 import { Save, RefreshCw } from "lucide-react";
 
-import { PageHeader, PageLayout } from "@/components/shared";
+import { AccessDenied, PageHeader, PageLayout } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,11 +19,29 @@ import {
 } from "@/services/sla.service";
 import { ROUTES } from "@/constants";
 
+function hasAdminRole(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = window.localStorage.getItem('token');
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+      realm_access?: { roles?: string[] };
+      resource_access?: Record<string, { roles?: string[] }>;
+    };
+    const roles = [
+      ...(payload.realm_access?.roles ?? []),
+      ...Object.values(payload.resource_access ?? {}).flatMap((a) => a.roles ?? []),
+    ].map((r) => r.toLowerCase());
+    return roles.includes('admin') || roles.includes('administrator');
+  } catch { return false; }
+}
+
 export default function SlaConfigPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [configs, setConfigs] = useState<SlaConfiguration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  // No hook needed for sonner toast
 
   const loadConfigs = async () => {
     try {
@@ -40,7 +58,15 @@ export default function SlaConfigPage() {
   };
 
   useEffect(() => {
-    loadConfigs();
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+    const canUseAdmin = hasAdminRole();
+    setAuthorized(canUseAdmin);
+    setIsGuest(!token);
+    if (canUseAdmin) {
+      loadConfigs();
+    } else {
+      setIsLoading(false);
+    }
   }, []);
 
   const handleUpdateHours = (id: number, hours: string) => {
@@ -71,6 +97,10 @@ export default function SlaConfigPage() {
       setIsSaving(false);
     }
   };
+
+  if (!authorized) {
+    return <AccessDenied reason={isGuest ? 'unauthenticated' : 'unauthorized'} requiredRole="Admin" />;
+  }
 
   return (
     <PageLayout className="space-y-6">
