@@ -76,7 +76,7 @@ export default function LoginPage() {
                 {submitting ? 'Signing in...' : 'Sign in'}
               </Button>
               <Button asChild type="button" variant="outline">
-                <Link href={ROUTES.RESET_PASSWORD}>Reset password</Link>
+                <Link href={ROUTES.RESET_PASSWORD}>Forgot password?</Link>
               </Button>
               <Button asChild type="button" variant="outline">
                 <Link href={ROUTES.REGISTER}>Create account</Link>

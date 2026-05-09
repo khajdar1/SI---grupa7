@@ -294,6 +294,49 @@ export async function updateKeycloakUser(
   }
 }
 
+export async function setKeycloakUserPassword(
+  token: string,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/users/${userId}/reset-password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      type: "password",
+      value: password,
+      temporary: false,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError("Failed to update user password in Keycloak.");
+  }
+}
+
+export async function logoutKeycloakUserSessions(
+  token: string,
+  userId: string,
+): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/users/${userId}/logout`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError("Failed to invalidate user sessions in Keycloak.");
+  }
+}
+
 export async function getKeycloakUserRoleNames(
   token: string,
   userId: string

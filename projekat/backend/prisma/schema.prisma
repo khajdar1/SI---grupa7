@@ -87,6 +87,7 @@ model User {
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   externalIdentities    ExternalIdentity[]
+  passwordResetTokens   PasswordResetToken[]
   createdFaultReports   FaultReport[]           @relation("FaultReportAuthor")
   createdInterventions  Intervention[]          @relation("InterventionCreator")
   reports              Report[]                @relation("ReportAuthor")
@@ -129,6 +130,19 @@ model ExternalIdentity {
 
   @@unique([provider, providerSubject])
   @@unique([userId, provider])
+}
+
+model PasswordResetToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Category {

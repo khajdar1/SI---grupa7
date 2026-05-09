@@ -56,6 +56,14 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-service-system}
       KEYCLOAK_CLIENT_ID:  ${KEYCLOAK_CLIENT_ID:-backend-service}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      RESET_PASSWORD_BASE_URL: ${RESET_PASSWORD_BASE_URL:-http://localhost:3000/reset-password}
+      EMAIL_FROM: ${EMAIL_FROM}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
     command: sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && npm run start"
     ports:
       - "4000:4000"
