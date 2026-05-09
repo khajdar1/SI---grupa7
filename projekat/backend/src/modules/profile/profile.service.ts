@@ -1,6 +1,7 @@
 import { prisma } from "../../config/database";
 import {
   getKeycloakAdminToken,
+  KeycloakError,
   loginKeycloakUser,
   setKeycloakUserPassword,
   updateKeycloakUser,
@@ -123,8 +124,11 @@ export class ProfileService {
 
     try {
       await loginKeycloakUser(user.username, input.currentPassword);
-    } catch {
-      throw new InvalidCurrentPasswordError();
+    } catch (error) {
+      if (error instanceof KeycloakError && error.message === "Invalid username or password.") {
+        throw new InvalidCurrentPasswordError();
+      }
+      throw error;
     }
 
     const adminToken = await getKeycloakAdminToken();
