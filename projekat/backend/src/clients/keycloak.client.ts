@@ -396,23 +396,33 @@ export async function loginKeycloakUser(
 
   console.log("[KeycloakClient] Login token request initiated.");
 
-  const res = await fetch(`${url}/realms/${realm}/protocol/openid-connect/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "password",
-      client_id: clientId,
-      client_secret: clientSecret,
-      username,
-      password,
-    }),
-  });
+  let res: globalThis.Response;
+  try {
+    res = await fetch(`${url}/realms/${realm}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "password",
+        client_id: clientId,
+        client_secret: clientSecret,
+        username,
+        password,
+      }),
+    });
+  } catch (error) {
+    console.warn("[KeycloakClient] Login request failed before receiving response.", error);
+    throw new KeycloakError("Failed to authenticate user in Keycloak.");
+  }
 
   if (!res.ok) {
     console.warn(
       `[KeycloakClient] Keycloak rejected login attempt. HTTP status: ${res.status}`
     );
-    throw new KeycloakError("Invalid username or password.");
+    // Keycloak returns 400/401 for bad resource owner credentials.
+    if (res.status === 400 || res.status === 401) {
+      throw new KeycloakError("Invalid username or password.");
+    }
+    throw new KeycloakError("Failed to authenticate user in Keycloak.");
   }
 
   console.log(`[KeycloakClient] Token obtained successfully — username: ${username}`);

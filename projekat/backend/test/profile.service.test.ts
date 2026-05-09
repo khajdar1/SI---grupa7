@@ -8,6 +8,7 @@ const {
   updateKeycloakUserMock,
   loginKeycloakUserMock,
   setKeycloakUserPasswordMock,
+  KeycloakErrorMock,
 } = vi.hoisted(() => ({
   userFindUniqueMock: vi.fn(),
   userFindFirstMock: vi.fn(),
@@ -16,6 +17,12 @@ const {
   updateKeycloakUserMock: vi.fn(),
   loginKeycloakUserMock: vi.fn(),
   setKeycloakUserPasswordMock: vi.fn(),
+  KeycloakErrorMock: class KeycloakError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "KeycloakError";
+    }
+  },
 }));
 
 vi.mock("../src/config/database", () => ({
@@ -33,8 +40,12 @@ vi.mock("../src/clients/keycloak.client", () => ({
   updateKeycloakUser: updateKeycloakUserMock,
   loginKeycloakUser: loginKeycloakUserMock,
   setKeycloakUserPassword: setKeycloakUserPasswordMock,
+  KeycloakError: KeycloakErrorMock,
 }));
 
+import {
+  KeycloakError,
+} from "../src/clients/keycloak.client";
 import {
   InvalidCurrentPasswordError,
   ProfileConflictError,
@@ -117,7 +128,7 @@ test("ProfileService - updateProfile updates Keycloak and local profile", async 
 
 test("ProfileService - changePassword rejects invalid current password", async () => {
   userFindUniqueMock.mockResolvedValueOnce(buildProfileUser());
-  loginKeycloakUserMock.mockRejectedValueOnce(new Error("bad credentials"));
+  loginKeycloakUserMock.mockRejectedValueOnce(new KeycloakError("Invalid username or password."));
 
   await expect(
     new ProfileService().changePassword(7, {
@@ -126,6 +137,21 @@ test("ProfileService - changePassword rejects invalid current password", async (
       confirmPassword: "Password2",
     }),
   ).rejects.toBeInstanceOf(InvalidCurrentPasswordError);
+
+  expect(setKeycloakUserPasswordMock).not.toHaveBeenCalled();
+});
+
+test("ProfileService - changePassword rethrows external auth failures", async () => {
+  userFindUniqueMock.mockResolvedValueOnce(buildProfileUser());
+  loginKeycloakUserMock.mockRejectedValueOnce(new KeycloakError("Failed to authenticate user in Keycloak."));
+
+  await expect(
+    new ProfileService().changePassword(7, {
+      currentPassword: "Password1",
+      newPassword: "Password2",
+      confirmPassword: "Password2",
+    }),
+  ).rejects.toBeInstanceOf(KeycloakError);
 
   expect(setKeycloakUserPasswordMock).not.toHaveBeenCalled();
 });
