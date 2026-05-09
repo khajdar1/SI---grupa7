@@ -409,7 +409,8 @@ export async function loginKeycloakUser(
         password,
       }),
     });
-  } catch {
+  } catch (error) {
+    console.warn("[KeycloakClient] Login request failed before receiving response.", error);
     throw new KeycloakError("Failed to authenticate user in Keycloak.");
   }
 
@@ -417,6 +418,7 @@ export async function loginKeycloakUser(
     console.warn(
       `[KeycloakClient] Keycloak rejected login attempt. HTTP status: ${res.status}`
     );
+    // Keycloak returns 400/401 for bad resource owner credentials.
     if (res.status === 400 || res.status === 401) {
       throw new KeycloakError("Invalid username or password.");
     }
