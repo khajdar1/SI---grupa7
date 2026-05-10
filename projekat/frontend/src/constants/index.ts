@@ -59,6 +59,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/interventions',
     BY_ID: (id: number | string) => `/api/v1/interventions/${id}`,
     ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
+    REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
   },
   ATTACHMENTS: {
     DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,
