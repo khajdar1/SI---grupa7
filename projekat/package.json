@@ -21,5 +21,8 @@
   "dependencies": {
     "@floating-ui/react-dom": "2.1.8",
     "@swc/helpers": "0.5.15"
+  },
+  "devDependencies": {
+    "wrangler": "^4.90.0"
   }
 }
