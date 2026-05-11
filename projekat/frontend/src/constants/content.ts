@@ -23,6 +23,7 @@ export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
 
 export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Users', to: ROUTES.ADMIN },
+  { label: 'Companies', to: ROUTES.ADMIN_COMPANIES },
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
   { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },
   { label: 'Attachment Config', to: ROUTES.ADMIN_ATTACHMENT_CONFIG },
@@ -30,6 +31,7 @@ export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
 
 export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Profile', to: ROUTES.PROFILE },
+  { label: 'Company', to: ROUTES.COMPANY },
   { label: 'Settings', to: ROUTES.SETTINGS },
   { label: 'Logout', to: ROUTES.LOGOUT },
 ] as const;
@@ -37,6 +39,7 @@ export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
 export const AUTH_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Login', to: ROUTES.LOGIN },
   { label: 'Register', to: ROUTES.REGISTER },
+  { label: 'Register Company', to: ROUTES.COMPANY_REGISTER },
   { label: 'Forgot Password', to: ROUTES.RESET_PASSWORD },
 ] as const;
 
@@ -61,7 +64,7 @@ export const HOME_CAPABILITY_CARDS = [
 
 export const HOME_STACK_PILLS = ['Next.js', 'React', 'Express', 'TypeScript', 'MySQL', 'Socket.IO'] as const;
 
-export const TARGET_USER_ROLES = ['Coordinator', 'Technician', 'Management', 'Admin'] as const;
+export const TARGET_USER_ROLES = ['Coordinator', 'Technician', 'Management', 'Company Admin', 'Admin'] as const;
 
 export const ASSIGNMENT_TOOLS = ['Manual override', 'Auto assign', 'Multi-assignee', 'Load-aware'] as const;
 

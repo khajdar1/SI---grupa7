@@ -28,3 +28,11 @@ export const AssignmentMethod = {
 } as const;
 export type AssignmentMethod = (typeof AssignmentMethod)[keyof typeof AssignmentMethod];
 
+export const CompanyStatus = {
+  PENDING: "PENDING",
+  ACTIVE: "ACTIVE",
+  REJECTED: "REJECTED",
+  INACTIVE: "INACTIVE",
+} as const;
+export type CompanyStatus = (typeof CompanyStatus)[keyof typeof CompanyStatus];
+

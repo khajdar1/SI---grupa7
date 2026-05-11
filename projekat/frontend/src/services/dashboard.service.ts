@@ -45,7 +45,13 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
         throw error;
       }),
       api.get<HealthResponse>(API_ENDPOINTS.HEALTH.BASE),
-      getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE),
+      getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE).catch((error) => {
+        if (isForbiddenError(error)) {
+          return null;
+        }
+
+        throw error;
+      }),
     ]);
 
     const activeCategories = categories.filter((category) => category.active).length;

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 
 import { Inter } from 'next/font/google';
 
-import { AppNavigation } from '@/components/shared';
+import { AppNavigation, AuthRedirectNotice } from '@/components/shared';
 import '@/styles/global.css';
 
 const inter = Inter({
@@ -27,6 +28,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <div className="min-h-screen bg-background">
           <AppNavigation />
+          <Suspense fallback={null}>
+            <AuthRedirectNotice />
+          </Suspense>
           <main className="mx-auto w-full max-w-[var(--content-max-width)] pb-8">{children}</main>
         </div>
       </body>

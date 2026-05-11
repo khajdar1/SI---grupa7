@@ -2,6 +2,7 @@ export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
   REGISTER: '/register',
+  COMPANY_REGISTER: '/company-register',
   LOGOUT: '/logout',
   RESET_PASSWORD: '/reset-password',
   DASHBOARD: '/dashboard',
@@ -18,10 +19,12 @@ export const ROUTES = {
   FAULT_REPORTS: '/fault-reports',
   TICKETS: '/tickets',
   ADMIN: '/admin',
+  ADMIN_COMPANIES: '/admin/companies',
   ADMIN_CATEGORY: '/admin/categories',
   ADMIN_SLA_CONFIG: '/admin/sla-config',
   ADMIN_ATTACHMENT_CONFIG: '/admin/attachment-config',
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
+  COMPANY: '/company',
 } as const;
 
 export const API_ENDPOINTS = {
@@ -50,6 +53,11 @@ export const API_ENDPOINTS = {
   },
   COMPANIES: {
     BASE: '/api/v1/companies',
+    SELF_REGISTER: '/api/v1/companies/self-register',
+    ME: '/api/v1/companies/me',
+    BY_ID: (id: number | string) => `/api/v1/companies/${id}`,
+    STATUS: (id: number | string) => `/api/v1/companies/${id}/status`,
+    ADMIN: (id: number | string) => `/api/v1/companies/${id}/admin`,
   },
   USERS: {
     BASE: '/api/v1/users',
@@ -105,6 +113,9 @@ export const UI = {
     USER_ROLE: '150px',
     USER_COMPANY: '180px',
     USER_ACTIONS: '260px',
+    COMPANY_STATUS: '130px',
+    COMPANY_ADMIN: '190px',
+    COMPANY_ACTIONS: '280px',
     SLA_HOURS: '90px',
   },
 } as const;

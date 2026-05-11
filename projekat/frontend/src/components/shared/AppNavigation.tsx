@@ -29,12 +29,26 @@ type SessionUser = {
   username?: string;
 };
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
+const COMPANY_ADMIN_ROLE_NAMES = new Set(['kompanijaadmin', 'companyadmin']);
 const HISTORY_ROLE_NAMES = new Set([
   'serviser',
   'koordinator',
   'coordinator',
   'management',
   'menadzment',
+  'admin',
+  'administrator',
+]);
+
+const OPERATION_ROLE_NAMES = new Set([
+  'korisnik',
+  'serviser',
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
 ]);
 
 function isRouteActive(pathname: string, href: string): boolean {
@@ -135,6 +149,26 @@ function hasAdminRole(token: string | null): boolean {
   );
 }
 
+function hasCompanyAdminRole(token: string | null): boolean {
+  if (!token) {
+    return false;
+  }
+
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return false;
+  }
+
+  const realmRoles = payload.realm_access?.roles ?? [];
+  const clientRoles = Object.values(payload.resource_access ?? {}).flatMap(
+    (clientAccess) => clientAccess.roles ?? [],
+  );
+
+  return [...realmRoles, ...clientRoles].some((role) =>
+    COMPANY_ADMIN_ROLE_NAMES.has(role.toLowerCase()),
+  );
+}
+
 function hasHistoryAccess(token: string | null): boolean {
   if (!token) {
     return false;
@@ -156,11 +190,31 @@ function hasHistoryAccess(token: string | null): boolean {
   );
 }
 
+function getTokenRoles(token: string | null): string[] {
+  if (!token) {
+    return [];
+  }
+
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return [];
+  }
+
+  const realmRoles = payload.realm_access?.roles ?? [];
+  const clientRoles = Object.values(payload.resource_access ?? {}).flatMap(
+    (clientAccess) => clientAccess.roles ?? [],
+  );
+
+  return [...realmRoles, ...clientRoles].map((role) => role.toLowerCase());
+}
+
 export function AppNavigation() {
   const pathname = usePathname();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
+  const [canUseOperations, setCanUseOperations] = useState(false);
   const [canViewHistory, setCanViewHistory] = useState(false);
 
   useEffect(() => {
@@ -169,14 +223,20 @@ export function AppNavigation() {
         const token = window.localStorage.getItem('token');
         const rawUser = window.localStorage.getItem('user');
         const parsedUser = rawUser ? (JSON.parse(rawUser) as SessionUser) : null;
+        const roles = getTokenRoles(token);
 
         setSessionUser(parsedUser);
         setIsAdmin(hasAdminRole(token));
+        setIsCompanyAdmin(hasCompanyAdminRole(token));
+        setCanUseOperations(roles.some((role) => OPERATION_ROLE_NAMES.has(role)));
         setCanViewHistory(hasHistoryAccess(token));
         setAuthState(token ? 'authenticated' : 'guest');
       } catch {
         setSessionUser(null);
         setIsAdmin(false);
+        setIsCompanyAdmin(false);
+        setCanUseOperations(false);
+        setCanViewHistory(false);
         setAuthState('guest');
       }
     };
@@ -194,11 +254,32 @@ export function AppNavigation() {
   const isAuthenticated = authState === 'authenticated';
 
   const visiblePrimaryItems = useMemo(
+    () => {
+      if (!isAuthenticated) {
+        return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
+      }
+
+      if (isCompanyAdmin && !isAdmin) {
+        return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
+      }
+
+      if (!canUseOperations) {
+        return PRIMARY_NAV_ITEMS.filter((item) =>
+          item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD,
+        );
+      }
+
+      return PRIMARY_NAV_ITEMS.filter((item) => item.to !== ROUTES.REPORTS);
+    },
+    [canUseOperations, isAdmin, isAuthenticated, isCompanyAdmin],
+  );
+
+  const visibleAccountItems = useMemo(
     () =>
-      isAuthenticated
-        ? PRIMARY_NAV_ITEMS
-        : PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME),
-    [isAuthenticated],
+      ACCOUNT_NAV_ITEMS.filter((item) =>
+        item.to === ROUTES.COMPANY ? isCompanyAdmin : true,
+      ),
+    [isCompanyAdmin],
   );
 
   return (
@@ -215,15 +296,15 @@ export function AppNavigation() {
             ))}
             {isAuthenticated ? (
               <>
-                <NavigationMenu
-                  label="Operations"
-                  items={
-                    canViewHistory
-                      ? [...OPERATIONS_NAV_ITEMS, { label: 'History', to: '/history' }]
-                      : OPERATIONS_NAV_ITEMS
-                  }
-                  pathname={pathname}
-                />
+                {canUseOperations && (!isCompanyAdmin || isAdmin) ? (
+                  <NavigationMenu
+                    label="Operations"
+                    items={OPERATIONS_NAV_ITEMS.filter((item) =>
+                      item.to === ROUTES.HISTORY ? canViewHistory : true,
+                    )}
+                    pathname={pathname}
+                  />
+                ) : null}
                 {isAdmin ? <NavigationMenu label="Admin" items={ADMIN_NAV_ITEMS} pathname={pathname} /> : null}
               </>
             ) : null}
@@ -239,7 +320,7 @@ export function AppNavigation() {
 
           {isAuthenticated ? (
             <>
-              {ACCOUNT_NAV_ITEMS.map((item) => (
+              {visibleAccountItems.map((item) => (
                 <NavigationLink key={item.to} item={item} pathname={pathname} />
               ))}
             </>
@@ -265,13 +346,19 @@ export function AppNavigation() {
 
               {isAuthenticated ? (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel>Operations</DropdownMenuLabel>
-                  {OPERATIONS_NAV_ITEMS.map((item) => (
-                    <DropdownMenuItem asChild key={item.to}>
-                      <Link href={item.to}>{item.label}</Link>
-                    </DropdownMenuItem>
-                  ))}
+                  {canUseOperations && (!isCompanyAdmin || isAdmin) ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuLabel>Operations</DropdownMenuLabel>
+                      {OPERATIONS_NAV_ITEMS.filter((item) =>
+                        item.to === ROUTES.HISTORY ? canViewHistory : true,
+                      ).map((item) => (
+                          <DropdownMenuItem asChild key={item.to}>
+                            <Link href={item.to}>{item.label}</Link>
+                          </DropdownMenuItem>
+                        ))}
+                    </>
+                  ) : null}
 
                   {isAdmin ? (
                     <>
@@ -287,7 +374,7 @@ export function AppNavigation() {
 
                   <DropdownMenuSeparator />
                   <DropdownMenuLabel>Account</DropdownMenuLabel>
-                  {ACCOUNT_NAV_ITEMS.map((item) => (
+                  {visibleAccountItems.map((item) => (
                     <DropdownMenuItem asChild key={item.to}>
                       <Link href={item.to}>{item.label}</Link>
                     </DropdownMenuItem>

@@ -56,6 +56,28 @@
                         "clientRole":  false,
                         "containerId":  "0c07a9a6-0c3d-47d1-8c7b-53d672545a9e"
                     },
+    "roles":  {
+                  "realm":  [
+                                {
+                                    "name":  "Korisnik"
+                                },
+                                {
+                                    "name":  "Serviser"
+                                },
+                                {
+                                    "name":  "Koordinator"
+                                },
+                                {
+                                    "name":  "Menadzment"
+                                },
+                                {
+                                    "name":  "KompanijaAdmin"
+                                },
+                                {
+                                    "name":  "Admin"
+                                }
+                            ]
+              },
     "requiredCredentials":  [
                                 "password"
                             ],
