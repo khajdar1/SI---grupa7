@@ -46,9 +46,19 @@ export function createApp() {
   app.use(BACKEND_ROUTES.FAULT_REPORTS, optionalAuthenticate, faultReportsRouter);
   app.use(BACKEND_ROUTES.AUTH, authRouter);
   app.use(BACKEND_ROUTES.USERS, authenticate, usersRouter);
-  app.use(BACKEND_ROUTES.COMPANIES, companiesRouter);
+  app.use(BACKEND_ROUTES.COMPANIES, optionalAuthenticate, companiesRouter);
   app.use(BACKEND_ROUTES.CATEGORIES, categoriesRouter);
   app.use(BACKEND_ROUTES.ASSIGNMENTS, authenticate, assignmentsRouter);
+  app.get(BACKEND_ROUTES.REPORTS, authenticate, (_req, res) => {
+    res.json({
+      module: 'reports',
+      endpoints: [
+        'GET /interventions/:interventionId/reports',
+        'POST /interventions/:interventionId/reports',
+        'PATCH /interventions/:interventionId/reports/:reportId',
+      ],
+    });
+  });
   app.use(`${BACKEND_ROUTES.INTERVENTIONS}/:interventionId/reports`, authenticate, reportsRouter);
   app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
   app.use(BACKEND_ROUTES.ATTACHMENTS, authenticate, attachmentsRouter);

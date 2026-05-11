@@ -8,6 +8,7 @@ export const MANAGED_KEYCLOAK_ROLE_ALIASES = {
   SERVISER: ["Serviser", "serviser"],
   KOORDINATOR: ["Koordinator", "koordinator"],
   MENADZMENT: ["Menadzment", "menadzment", "Management", "management"],
+  KOMPANIJA_ADMIN: ["KompanijaAdmin", "kompanijaadmin", "CompanyAdmin", "companyadmin"],
   ADMIN: ["Admin", "admin", "Administrator", "administrator"],
 } as const;
 

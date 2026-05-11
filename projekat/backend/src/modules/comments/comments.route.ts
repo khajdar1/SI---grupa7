@@ -59,7 +59,9 @@ commentsRouter.get('/intervention/:id', async (req, res) => {
       (await canAccessInterventionComments(interventionId, authorId));
 
     if (!hasAccess) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Forbidden' });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        message: 'You do not have permission to view comments for this intervention.',
+      });
     }
 
     const comments = await prisma.interventionComment.findMany({
@@ -103,7 +105,9 @@ commentsRouter.post('/intervention/:id', async (req, res) => {
       (await canAccessInterventionComments(interventionId, authorId));
 
     if (!hasAllowedRole) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Only participants can add comments' });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({
+        message: 'Only intervention staff or the reporting user can add comments.',
+      });
     }
 
     const { text } = req.body as { text?: unknown };

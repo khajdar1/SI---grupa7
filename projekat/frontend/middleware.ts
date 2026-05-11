@@ -6,6 +6,7 @@ const PUBLIC_ROUTES: string[] = [
   ROUTES.HOME,
   ROUTES.LOGIN,
   ROUTES.REGISTER,
+  ROUTES.COMPANY_REGISTER,
   ROUTES.RESET_PASSWORD,
   ROUTES.FAULT_REPORTS,
 ];
@@ -13,6 +14,8 @@ const PUBLIC_ROUTES: string[] = [
 const GUEST_ONLY_ROUTES: string[] = [ROUTES.LOGIN, ROUTES.REGISTER, ROUTES.RESET_PASSWORD];
 const ADMIN_ROUTES: string[] = [ROUTES.ADMIN];
 const ADMIN_ROLE_NAMES = new Set(["admin", "administrator"]);
+const COMPANY_ADMIN_ROUTES: string[] = [ROUTES.COMPANY];
+const COMPANY_ADMIN_ROLE_NAMES = new Set(["kompanijaadmin", "companyadmin"]);
 
 function matchesRoute(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(`${route}/`);
@@ -40,6 +43,18 @@ function decodeJwtPayload(token: string): {
 }
 
 function hasAdminRole(token: string): boolean {
+  return hasRole(token, ADMIN_ROLE_NAMES);
+}
+
+function hasCompanyAdminRole(token: string): boolean {
+  return hasRole(token, COMPANY_ADMIN_ROLE_NAMES);
+}
+
+function getAuthenticatedHomeRoute(token: string): string {
+  return hasCompanyAdminRole(token) && !hasAdminRole(token) ? ROUTES.COMPANY : ROUTES.DASHBOARD;
+}
+
+function hasRole(token: string, allowedRoles: Set<string>): boolean {
   const payload = decodeJwtPayload(token);
   if (!payload) {
     return false;
@@ -50,9 +65,7 @@ function hasAdminRole(token: string): boolean {
     (clientAccess) => clientAccess.roles ?? [],
   );
 
-  return [...realmRoles, ...clientRoles].some((role) =>
-    ADMIN_ROLE_NAMES.has(role.toLowerCase()),
-  );
+  return [...realmRoles, ...clientRoles].some((role) => allowedRoles.has(role.toLowerCase()));
 }
 
 export function middleware(request: NextRequest): NextResponse {
@@ -60,7 +73,7 @@ export function middleware(request: NextRequest): NextResponse {
   const token = request.cookies.get("token")?.value;
 
   if (token && GUEST_ONLY_ROUTES.some((route) => matchesRoute(pathname, route))) {
-    const response = NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
+    const response = NextResponse.redirect(new URL(getAuthenticatedHomeRoute(token), request.url));
     response.headers.set("Cache-Control", "no-store");
     return response;
   }
@@ -79,7 +92,17 @@ export function middleware(request: NextRequest): NextResponse {
   }
 
   if (ADMIN_ROUTES.some((route) => matchesRoute(pathname, route)) && !hasAdminRole(token)) {
-    const response = NextResponse.redirect(new URL(ROUTES.DASHBOARD, request.url));
+    const redirectUrl = new URL(getAuthenticatedHomeRoute(token), request.url);
+    redirectUrl.searchParams.set("unauthorized", "1");
+    const response = NextResponse.redirect(redirectUrl);
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
+  if (COMPANY_ADMIN_ROUTES.some((route) => matchesRoute(pathname, route)) && !hasCompanyAdminRole(token)) {
+    const dashboardUrl = new URL(ROUTES.DASHBOARD, request.url);
+    dashboardUrl.searchParams.set("unauthorized", "1");
+    const response = NextResponse.redirect(dashboardUrl);
     response.headers.set("Cache-Control", "no-store");
     return response;
   }

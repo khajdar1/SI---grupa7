@@ -127,22 +127,22 @@ export const authenticate: RequestHandler = async (req, res, next) => {
   const token = getTokenFromRequest(req);
 
   if (!token) {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token missing' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Please sign in to continue.' });
   }
 
   const payload = decodeJwtPayload(token);
 
   if (!payload) {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Invalid authentication token' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Your session is invalid. Please sign in again.' });
   }
 
   const nowInSeconds = Math.floor(Date.now() / 1000);
   if (typeof payload.nbf === 'number' && payload.nbf > nowInSeconds) {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token is not active yet' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Your session is not active yet. Please try again.' });
   }
 
   if (typeof payload.exp === 'number' && payload.exp <= nowInSeconds) {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authentication token has expired' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Your session has expired. Please sign in again.' });
   }
 
   const roles = extractRoles(payload);
@@ -155,7 +155,7 @@ export const authenticate: RequestHandler = async (req, res, next) => {
   }
 
   if (localUser && !localUser.active) {
-    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'User account is deactivated' });
+    return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Your account is deactivated. Please contact an administrator.' });
   }
 
   req.user = {
@@ -183,7 +183,7 @@ export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
 
   return async (req, res, next) => {
     if (!req.user) {
-      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Unauthorized' });
+      return res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Please sign in to continue.' });
     }
 
     const liveRoles = await loadLiveKeycloakRoles(req.user.id);
@@ -194,7 +194,7 @@ export const authorizeRoles = (allowedRoles: string[]): RequestHandler => {
     );
 
     if (!hasRequiredRole) {
-      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'Forbidden' });
+      return res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'You do not have permission to access this resource.' });
     }
 
     return next();

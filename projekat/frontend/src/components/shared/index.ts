@@ -1,5 +1,6 @@
 export { AccessDenied } from './AccessDenied';
 export { AppNavigation } from './AppNavigation';
+export { AuthRedirectNotice } from './AuthRedirectNotice';
 export { CommentsSection } from './CommentsSection';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable } from './DataTable';

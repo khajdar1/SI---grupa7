@@ -12,6 +12,33 @@ import {
 } from '@/lib/form-validation';
 import { login, logout } from '@/services/auth.service';
 
+function getTokenRoles(token: string): string[] {
+  try {
+    const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+      realm_access?: { roles?: string[] };
+      resource_access?: Record<string, { roles?: string[] }>;
+    };
+
+    const realmRoles = payload.realm_access?.roles ?? [];
+    const clientRoles = Object.values(payload.resource_access ?? {}).flatMap((access) => access.roles ?? []);
+    return [...realmRoles, ...clientRoles].map((role) => role.toLowerCase());
+  } catch {
+    return [];
+  }
+}
+
+function getPostLoginRoute(accessToken: string): string {
+  const roles = getTokenRoles(accessToken);
+  const isCompanyAdmin = roles.includes('kompanijaadmin') || roles.includes('companyadmin');
+  const isSystemAdmin = roles.includes('admin') || roles.includes('administrator');
+
+  if (isCompanyAdmin && !isSystemAdmin) {
+    return ROUTES.COMPANY;
+  }
+
+  return ROUTES.DASHBOARD;
+}
+
 export function useLogin() {
   const router = useRouter();
   const [formData, setFormData] = useState({ username: '', password: '' });
@@ -59,7 +86,7 @@ export function useLogin() {
       localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
 
-      router.push(ROUTES.DASHBOARD);
+      router.push(getPostLoginRoute(response.accessToken));
     } catch (error: unknown) {
       const serviceDetails =
         typeof error === 'object' && error !== null

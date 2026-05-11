@@ -2,6 +2,7 @@
 export const runtime = 'edge';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Pencil,
   Plus,
@@ -12,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { AccessDenied, ConfirmDialog, DataTable, PageHeader, PageLayout, StatCard } from '@/components/shared';
+import { ConfirmDialog, DataTable, PageHeader, PageLayout, StatCard } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +60,7 @@ const ROLE_LABELS: Record<ManagedUserRole, string> = {
   SERVISER: 'Serviser',
   KOORDINATOR: 'Koordinator',
   MENADZMENT: 'Menadzment',
+  KOMPANIJA_ADMIN: 'KompanijaAdmin',
   ADMIN: 'Admin',
 };
 const NO_COMPANY_VALUE = 'NO_COMPANY';
@@ -103,6 +105,14 @@ function hasAdminRole(): boolean {
   return roles.includes('admin') || roles.includes('administrator');
 }
 
+function getUnauthorizedRedirectRoute(token: string | null): string {
+  const roles = token ? getTokenRoles(token) : [];
+  const isCompanyAdmin = roles.includes('kompanijaadmin') || roles.includes('companyadmin');
+  const isSystemAdmin = roles.includes('admin') || roles.includes('administrator');
+
+  return isCompanyAdmin && !isSystemAdmin ? ROUTES.COMPANY : ROUTES.DASHBOARD;
+}
+
 function getCurrentUserId(): number | null {
   try {
     const rawUser = window.localStorage.getItem('user');
@@ -126,6 +136,7 @@ function getRoleBadgeVariant(role: ManagedUserRole | null): 'default' | 'seconda
 }
 
 export default function AdminPage() {
+  const router = useRouter();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,7 +149,7 @@ export default function AdminPage() {
   const [formError, setFormError] = useState('');
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [authorized, setAuthorized] = useState(false);
-  const [isGuest, setIsGuest] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   const stats = useMemo(() => {
@@ -172,15 +183,18 @@ export default function AdminPage() {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
     const canUseAdmin = hasAdminRole();
     setAuthorized(canUseAdmin);
-    setIsGuest(!token);
     setCurrentUserId(getCurrentUserId());
 
     if (canUseAdmin) {
       void loadAdminData();
     } else {
+      window.sessionStorage.setItem('authRedirectMessage', 'You do not have permission to access the admin area.');
+      router.replace(`${getUnauthorizedRedirectRoute(token)}?unauthorized=1`);
       setLoading(false);
     }
-  }, []);
+
+    setAuthChecked(true);
+  }, [router]);
 
   const resetForm = () => {
     setFormMode('create');
@@ -240,8 +254,11 @@ export default function AdminPage() {
       }
     }
 
-    if (formData.role === 'SERVISER') {
-      const companyError = validateRequiredSelection(formData.companyId, 'Company is required for servicer users.');
+    if (formData.role === 'SERVISER' || formData.role === 'KOMPANIJA_ADMIN') {
+      const companyError = validateRequiredSelection(
+        formData.companyId,
+        'Company is required for servicer and company admin users.',
+      );
       if (companyError) nextErrors.companyId = companyError;
     }
 
@@ -330,8 +347,8 @@ export default function AdminPage() {
     }
   };
 
-  if (!authorized) {
-    return <AccessDenied reason={isGuest ? 'unauthenticated' : 'unauthorized'} requiredRole="Admin" />;
+  if (!authChecked || !authorized) {
+    return null;
   }
 
   return (
