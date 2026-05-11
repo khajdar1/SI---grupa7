@@ -200,15 +200,6 @@ function buildDemoSlaSeeds(): SeedSlaConfigurationInput[] {
 function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
   return [
     {
-      firstName: 'Nedim',
-      lastName: 'Omanovic',
-      username: 'nedux',
-      email: 'nedux@demo.local',
-      active: true,
-      companyId: null,
-      persona: DemoUserPersona.ADMIN,
-    },
-    {
       firstName: 'Ana',
       lastName: 'Administrator',
       username: 'ana.admin',
