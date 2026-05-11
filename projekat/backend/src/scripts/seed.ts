@@ -250,9 +250,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
 function buildDemoExternalIdentitySeeds(
   users: SeedUserRecord[],
 ): SeedExternalIdentityInput[] {
-  const neduxUser = users.find((u) => u.username === 'nedux');
-  if (!neduxUser) throw new Error('Missing seed user: nedux');
-
+  const adminUser = requireSeedUser(users, DemoUserPersona.ADMIN);
   const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
   const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
   const managementUser = requireSeedUser(users, DemoUserPersona.MANAGEMENT);
@@ -260,9 +258,9 @@ function buildDemoExternalIdentitySeeds(
 
   return [
     {
-      userId: neduxUser.id,
-      provider: 'keycloak',
-      providerSubject: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+      userId: adminUser.id,
+      provider: 'entra',
+      providerSubject: 'entra-admin-001',
     },
     {
       userId: coordinatorUser.id,
