@@ -11,6 +11,7 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
+    "gmail:authorize": "npm run gmail:authorize --workspace backend",
     "compose:up": "docker compose up -d --build",
     "compose:down": "docker compose down"
   },

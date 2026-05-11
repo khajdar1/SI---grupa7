@@ -33,6 +33,11 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/v1/auth/logout',
     REGISTER: '/api/v1/auth/register',
     RESET_PASSWORD: '/api/v1/auth/reset-password',
+    RESET_PASSWORD_CONFIRM: '/api/v1/auth/reset-password/confirm',
+  },
+  PROFILE: {
+    ME: '/api/v1/profile/me',
+    PASSWORD: '/api/v1/profile/me/password',
   },
   CATEGORIES: {
     BASE: '/api/v1/categories',

@@ -74,4 +74,17 @@ export async function requestPasswordReset(email: string): Promise<void> {
   );
 }
 
+export async function confirmPasswordReset(input: {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<void> {
+  return withServiceError(
+    async () => {
+      await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD_CONFIRM, input);
+    },
+    'Failed to reset password. Please request a new reset link.',
+  );
+}
+
 export type { LoginResponse, RegisterInput, LoginInput, LoginUser };
