@@ -34,10 +34,10 @@ const prismaManagementRepository: IManagementRepository = {
     }),
 
   getInterventionCountsByPriorityAndStatus: () =>
-    prisma.intervention.groupBy({
+    (prisma.intervention.groupBy({
       by: ['priority', 'status'],
       _count: { _all: true },
-    }) as Promise<PriorityStatusCount[]>,
+    }) as unknown) as Promise<PriorityStatusCount[]>,
 };
 
 const managementService = new ManagementService(prismaManagementRepository);
