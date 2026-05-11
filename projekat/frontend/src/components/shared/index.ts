@@ -1,3 +1,4 @@
+export { AccessDenied } from './AccessDenied';
 export { AppNavigation } from './AppNavigation';
 export { CommentsSection } from './CommentsSection';
 export { ConfirmDialog } from './ConfirmDialog';
@@ -11,6 +12,7 @@ export { PageLayout } from './PageLayout';
 export { PriorityBadge } from './PriorityBadge';
 export { StatCard } from './StatCard';
 
+export type { AccessDeniedProps } from './AccessDenied';
 export type { ConfirmDialogProps } from './ConfirmDialog';
 export type { Column, DataTableProps } from './DataTable';
 export type { EmptyStateProps } from './EmptyState';

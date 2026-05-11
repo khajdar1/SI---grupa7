@@ -27,7 +27,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       <body>
         <div className="min-h-screen bg-background">
           <AppNavigation />
-          <main className="mx-auto w-full max-w-[var(--content-max-width)] pb-8">{children}</main>
+          <main className="mx-auto w-full max-w-[var(--content-max-width)] pb-10">{children}</main>
         </div>
       </body>
     </html>

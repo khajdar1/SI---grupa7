@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { ClipboardList, Pencil, Plus } from 'lucide-react';
 
 import { INTERVENTION_STATUS, type InterventionStatus } from '@shared/enums';
 
@@ -86,7 +87,7 @@ export function ReportSection({
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load report.');
+          setError(err instanceof Error ? err.message : 'Greška pri učitavanju izvještaja.');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -122,7 +123,7 @@ export function ReportSection({
 
   const handleSave = async () => {
     if (!form.description.trim()) {
-      setError('Work description is required.');
+      setError('Opis rada je obavezan.');
       return;
     }
 
@@ -152,9 +153,9 @@ export function ReportSection({
       }
 
       setIsEditing(false);
-      setSuccessMessage('Report saved successfully.');
+      setSuccessMessage('Izvještaj je uspješno sačuvan.');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save report.');
+      setError(err instanceof Error ? err.message : 'Greška pri čuvanju izvještaja.');
     } finally {
       setIsSaving(false);
     }
@@ -163,19 +164,34 @@ export function ReportSection({
   if (!canSeeSection) return null;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Intervention Report</CardTitle>
+    <Card className="stat-card-glow">
+      <CardHeader className="flex flex-row items-center justify-between pb-3">
+        <div className="flex items-center gap-2">
+          <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
+            <ClipboardList className="size-4 text-primary" />
+          </div>
+          <CardTitle className="text-base">Izvještaj o intervenciji</CardTitle>
+        </div>
         {canWrite && isAllowedStatus && !isEditing && (
-          <Button type="button" variant="outline" size="sm" onClick={handleEdit}>
-            {report ? 'Edit report' : 'Add report'}
+          <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-1.5">
+            {report
+              ? <><Pencil className="size-3.5" /> Uredi izvještaj</>
+              : <><Plus className="size-3.5" /> Dodaj izvještaj</>}
           </Button>
         )}
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
+        {error ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
+        {successMessage ? (
+          <p className="rounded-lg border border-emerald-300/40 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            {successMessage}
+          </p>
+        ) : null}
 
         {isLoading ? (
           <div className="space-y-2">
@@ -189,9 +205,7 @@ export function ReportSection({
             isSaving={isSaving}
             descriptionRef={descriptionRef}
             onChange={handleChange}
-            onSave={() => {
-              void handleSave();
-            }}
+            onSave={() => { void handleSave(); }}
             onCancel={handleCancel}
           />
         ) : report ? (
@@ -213,26 +227,19 @@ interface ReportFormProps {
   onCancel: () => void;
 }
 
-function ReportForm({
-  form,
-  isSaving,
-  descriptionRef,
-  onChange,
-  onSave,
-  onCancel,
-}: ReportFormProps) {
+function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel }: ReportFormProps) {
   return (
     <div className="space-y-4">
       <div className="space-y-1">
         <Label htmlFor="report-description">
-          Work description <span className="text-destructive">*</span>
+          Opis rada <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="report-description"
           ref={descriptionRef}
           value={form.description}
           onChange={onChange('description')}
-          placeholder="Describe what was done…"
+          placeholder="Opišite šta je urađeno…"
           maxLength={FIELD_MAX_LENGTH.DESCRIPTION}
           rows={5}
           disabled={isSaving}
@@ -243,12 +250,12 @@ function ReportForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-material">Materials used</Label>
+        <Label htmlFor="report-material">Utrošeni materijal</Label>
         <Textarea
           id="report-material"
           value={form.material}
           onChange={onChange('material')}
-          placeholder="List materials used (optional)…"
+          placeholder="Navedite utrošeni materijal (opcionalno)…"
           maxLength={FIELD_MAX_LENGTH.MATERIAL}
           rows={3}
           disabled={isSaving}
@@ -259,12 +266,12 @@ function ReportForm({
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-notes">Notes</Label>
+        <Label htmlFor="report-notes">Napomene</Label>
         <Textarea
           id="report-notes"
           value={form.notes}
           onChange={onChange('notes')}
-          placeholder="Additional notes (optional)…"
+          placeholder="Dodatne napomene (opcionalno)…"
           maxLength={FIELD_MAX_LENGTH.NOTES}
           rows={3}
           disabled={isSaving}
@@ -274,18 +281,23 @@ function ReportForm({
         </p>
       </div>
 
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
+          Odustani
+        </Button>
         <Button
           type="button"
-          variant="outline"
           size="sm"
-          onClick={onCancel}
+          onClick={onSave}
           disabled={isSaving}
+          className="btn-glow rounded-lg"
         >
-          Cancel
-        </Button>
-        <Button type="button" size="sm" onClick={onSave} disabled={isSaving}>
-          {isSaving ? 'Saving…' : 'Save report'}
+          {isSaving ? (
+            <span className="flex items-center gap-2">
+              <span className="spinner" />
+              Snimanje…
+            </span>
+          ) : 'Sačuvaj izvještaj'}
         </Button>
       </div>
     </div>
@@ -297,7 +309,7 @@ interface ReportReadViewProps {
 }
 
 function ReportReadView({ report }: ReportReadViewProps) {
-  const formattedDate = new Date(report.reportDate).toLocaleDateString('en-GB', {
+  const formattedDate = new Date(report.reportDate).toLocaleDateString('bs-BA', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -308,28 +320,28 @@ function ReportReadView({ report }: ReportReadViewProps) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Author:{' '}
-        <span className="font-medium">
+        Autor:{' '}
+        <span className="font-medium text-foreground">
           {report.author.firstName} {report.author.lastName}
         </span>{' '}
-        · Saved: <span className="font-medium">{formattedDate}</span>
+        · Sačuvano: <span className="font-medium text-foreground">{formattedDate}</span>
       </p>
 
-      <div>
-        <p className="mb-1 text-xs text-muted-foreground">Work description</p>
+      <div className="rounded-lg bg-muted/40 p-3">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Opis rada</p>
         <p className="whitespace-pre-wrap text-sm">{report.description}</p>
       </div>
 
       {report.material ? (
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Materials used</p>
+        <div className="rounded-lg bg-muted/40 p-3">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Utrošeni materijal</p>
           <p className="whitespace-pre-wrap text-sm">{report.material}</p>
         </div>
       ) : null}
 
       {report.notes ? (
-        <div>
-          <p className="mb-1 text-xs text-muted-foreground">Notes</p>
+        <div className="rounded-lg bg-muted/40 p-3">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Napomene</p>
           <p className="whitespace-pre-wrap text-sm">{report.notes}</p>
         </div>
       ) : null}
@@ -346,7 +358,7 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   if (canWrite && !isAllowedStatus) {
     return (
       <p className="text-sm text-muted-foreground">
-        A report can only be added while the intervention is in progress or resolved.
+        Izvještaj se može dodati samo dok je intervencija u toku ili riješena.
       </p>
     );
   }
@@ -354,8 +366,8 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   return (
     <p className="text-sm text-muted-foreground">
       {canWrite
-        ? 'No report yet. Add one using the button above.'
-        : 'The servicer has not submitted a report for this intervention yet.'}
+        ? 'Još nema izvještaja. Dodajte ga koristeći dugme iznad.'
+        : 'Serviser još nije dostavio izvještaj za ovu intervenciju.'}
     </p>
   );
 }

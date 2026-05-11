@@ -8,12 +8,11 @@ import {
   Power,
   RefreshCw,
   Save,
-  ShieldCheck,
   Trash2,
   X,
 } from 'lucide-react';
 
-import { ConfirmDialog, DataTable, PageHeader, PageLayout, StatCard } from '@/components/shared';
+import { AccessDenied, ConfirmDialog, DataTable, PageHeader, PageLayout, StatCard } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -139,6 +138,7 @@ export default function AdminPage() {
   const [formError, setFormError] = useState('');
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [authorized, setAuthorized] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   const stats = useMemo(() => {
@@ -169,8 +169,10 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
     const canUseAdmin = hasAdminRole();
     setAuthorized(canUseAdmin);
+    setIsGuest(!token);
     setCurrentUserId(getCurrentUserId());
 
     if (canUseAdmin) {
@@ -329,21 +331,7 @@ export default function AdminPage() {
   };
 
   if (!authorized) {
-    return (
-      <PageLayout className="space-y-6">
-        <PageHeader
-          title="Admin"
-          subtitle="Account governance dashboard."
-          breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Admin' }]}
-        />
-        <Card>
-          <CardContent className="flex items-center gap-3 pt-6 text-sm text-muted-foreground">
-            <ShieldCheck className="size-5 text-destructive" aria-hidden="true" />
-            Admin role is required.
-          </CardContent>
-        </Card>
-      </PageLayout>
-    );
+    return <AccessDenied reason={isGuest ? 'unauthenticated' : 'unauthorized'} requiredRole="Admin" />;
   }
 
   return (

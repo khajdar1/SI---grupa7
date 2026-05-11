@@ -3,7 +3,7 @@ export const runtime = 'edge';
 
 import { useEffect, useMemo, useState } from 'react';
 
-import { ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
+import { AccessDenied, ConfirmDialog, DataTable, PageHeader, PageLayout } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +27,26 @@ import {
 
 const NEW_CATEGORY_ID = 0;
 
+function hasAdminRole(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = window.localStorage.getItem('token');
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+      realm_access?: { roles?: string[] };
+      resource_access?: Record<string, { roles?: string[] }>;
+    };
+    const roles = [
+      ...(payload.realm_access?.roles ?? []),
+      ...Object.values(payload.resource_access ?? {}).flatMap((a) => a.roles ?? []),
+    ].map((r) => r.toLowerCase());
+    return roles.includes('admin') || roles.includes('administrator');
+  } catch { return false; }
+}
+
 export default function AdminCategoriesPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -55,7 +74,15 @@ export default function AdminCategoriesPage() {
   };
 
   useEffect(() => {
-    void fetchCategories();
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+    const canUseAdmin = hasAdminRole();
+    setAuthorized(canUseAdmin);
+    setIsGuest(!token);
+    if (canUseAdmin) {
+      void fetchCategories();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -150,6 +177,10 @@ export default function AdminCategoriesPage() {
     setFormError('');
     setFieldErrors({});
   };
+
+  if (!authorized) {
+    return <AccessDenied reason={isGuest ? 'unauthenticated' : 'unauthorized'} requiredRole="Admin" />;
+  }
 
   return (
     <PageLayout className="space-y-6">
