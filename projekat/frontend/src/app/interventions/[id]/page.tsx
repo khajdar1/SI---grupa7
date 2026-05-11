@@ -1,9 +1,9 @@
 'use client';
-
 export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+
 import { INTERVENTION_STATUS, type InterventionStatus } from '@shared/enums';
 
 import { ROUTES } from '@/constants';
@@ -14,19 +14,19 @@ import {
   PageLayout,
   type PageHeaderAction,
 } from '@/components/shared';
-import { CommentsSection } from '@/components/shared/CommentsSection';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
+import { CommentsSection } from '@/components/shared/CommentsSection';
+import { ReportSection } from '@/components/reports/ReportSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import { InterventionStatusBadge } from '@/components/shared/InterventionStatusBadge';
+import { PriorityBadge } from '@/components/shared/PriorityBadge';
 import {
-  getInterventionAttachments,
   deleteAttachment,
   downloadAttachment,
   formatFileSize,
+  getInterventionAttachments,
   type AttachmentListItem,
 } from '@/services/attachments.service';
 import {
@@ -34,28 +34,29 @@ import {
   updateInterventionStatus,
   type InterventionDetail,
 } from '@/services/interventions.service';
+import { hasSessionRole } from '../../../lib/auth';
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.NEW,
   INTERVENTION_STATUS.IN_PROGRESS,
 ]);
+
 const STARTABLE_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.NEW,
   INTERVENTION_STATUS.ASSIGNED,
 ]);
-const CLOSEABLE_STATUSES = new Set<InterventionStatus>([
-  INTERVENTION_STATUS.IN_PROGRESS,
-]);
+
+const CLOSEABLE_STATUSES = new Set<InterventionStatus>([INTERVENTION_STATUS.IN_PROGRESS]);
+
 const INTERVENTION_MANAGEMENT_ROLES = new Set([
   'koordinator',
   'coordinator',
   'admin',
   'administrator',
 ]);
-const ADMIN_ATTACHMENT_ROLES = new Set([
-  'admin',
-  'administrator',
-]);
+
+const ADMIN_ATTACHMENT_ROLES = new Set(['admin', 'administrator']);
+
 const STATUS_MANAGEMENT_ROLES = new Set([
   'koordinator',
   'coordinator',
@@ -64,56 +65,17 @@ const STATUS_MANAGEMENT_ROLES = new Set([
   'administrator',
 ]);
 
-type KeycloakTokenPayload = {
-  realm_access?: { roles?: string[] };
-  resource_access?: Record<string, { roles?: string[] }>;
-};
+const REPORT_READ_ROLES = new Set([
+  'koordinator',
+  'coordinator',
+  'admin',
+  'administrator',
+  'menadzment',
+  'management',
+  'serviser',
+]);
 
-function decodeTokenPayload(token: string): KeycloakTokenPayload | null {
-  const [, payload] = token.split('.');
-  if (!payload) return null;
-
-  try {
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-    return JSON.parse(window.atob(padded)) as KeycloakTokenPayload;
-  } catch {
-    return null;
-  }
-}
-
-function getSessionRoles(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-
-  const roles = new Set<string>();
-  const rawUser = window.localStorage.getItem('user');
-  const token = window.localStorage.getItem('token');
-
-  try {
-    if (rawUser) {
-      const user = JSON.parse(rawUser) as { role?: string; roles?: string[] };
-      if (user.role) roles.add(user.role.toLowerCase());
-      user.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    }
-  } catch {
-    // ignore malformed local session state
-  }
-
-  if (token) {
-    const payload = decodeTokenPayload(token);
-    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    Object.values(payload?.resource_access ?? {}).forEach((client) =>
-      client.roles?.forEach((role) => roles.add(role.toLowerCase())),
-    );
-  }
-
-  return roles;
-}
-
-function hasSessionRole(allowedRoles: Set<string>): boolean {
-  const roles = getSessionRoles();
-  return Array.from(roles).some((role) => allowedRoles.has(role));
-}
+const REPORT_WRITE_ROLES = new Set(['serviser']);
 
 interface DeleteState {
   isOpen: boolean;
@@ -137,28 +99,31 @@ export default function InterventionDetailPage() {
   const [attachments, setAttachments] = useState<AttachmentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [successMessage, setSuccessMessage] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
+
+  const isValidId = Number.isInteger(interventionId) && interventionId > 0;
 
   const loadData = async () => {
-    if (!Number.isInteger(interventionId) || interventionId <= 0) {
+    if (!isValidId) {
       setError('Invalid intervention identifier.');
       setIsLoading(false);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
       const [interventionData, attachmentData] = await Promise.all([
         getInterventionById(interventionId),
         getInterventionAttachments(interventionId),
       ]);
       setIntervention(interventionData);
       setAttachments(attachmentData);
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load data.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load data.');
     } finally {
       setIsLoading(false);
     }
@@ -177,18 +142,19 @@ export default function InterventionDetailPage() {
   const handleStatusChange = async (status: InterventionStatus) => {
     if (!intervention) return;
 
+    setIsUpdatingStatus(true);
+    setError(null);
+    setSuccessMessage('');
+
     try {
-      setIsUpdatingStatus(true);
-      setError(null);
-      setSuccessMessage('');
-      const updatedIntervention = await updateInterventionStatus(intervention.id, status);
+      const updated = await updateInterventionStatus(intervention.id, status);
       setIntervention((current) => ({
-        ...updatedIntervention,
-        assignments: current?.assignments ?? updatedIntervention.assignments,
+        ...updated,
+        assignments: current?.assignments ?? updated.assignments,
       }));
       setSuccessMessage('Status updated.');
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update status.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update status.');
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -203,9 +169,7 @@ export default function InterventionDetailPage() {
     });
   };
 
-  const closeDeleteDialog = () => {
-    setDeleteState(INITIAL_DELETE_STATE);
-  };
+  const closeDeleteDialog = () => setDeleteState(INITIAL_DELETE_STATE);
 
   const handleConfirmDelete = async () => {
     if (!deleteState.attachmentId) return;
@@ -214,24 +178,28 @@ export default function InterventionDetailPage() {
 
     try {
       await deleteAttachment(deleteState.attachmentId);
-      setAttachments((prev) => prev.filter((a) => a.id !== deleteState.attachmentId));
+      setAttachments((prev) =>
+        prev.filter((a) => a.id !== deleteState.attachmentId),
+      );
       setSuccessMessage(`Attachment '${deleteState.fileName}' was deleted successfully.`);
       closeDeleteDialog();
-    } catch (requestError) {
-      setDeleteState((prev) => ({ ...prev, isLoading: false }));
-      setError(requestError instanceof Error ? requestError.message : 'Failed to delete attachment.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete attachment.');
       closeDeleteDialog();
     }
   };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('bs-BA');
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-GB');
   };
 
   const canManageIntervention = hasSessionRole(INTERVENTION_MANAGEMENT_ROLES);
   const canDeleteAttachments = hasSessionRole(ADMIN_ATTACHMENT_ROLES);
   const canChangeStatus = hasSessionRole(STATUS_MANAGEMENT_ROLES);
+  const canReadReport = hasSessionRole(REPORT_READ_ROLES);
+  const canWriteReport = hasSessionRole(REPORT_WRITE_ROLES);
+
   const statusActions: PageHeaderAction[] = intervention
     ? [
         ...(canChangeStatus && STARTABLE_STATUSES.has(intervention.status)
@@ -263,16 +231,19 @@ export default function InterventionDetailPage() {
 
   return (
     <PageLayout className="space-y-6">
+      {/* ── Header ── */}
       <PageHeader
-        title={`Intervencija #${interventionId}`}
-        subtitle="Detalji intervencije, priloženi fajlovi i komentari."
+        title={`Intervention #${interventionId}`}
+        subtitle="Intervention details, attachments and comments."
         breadcrumbs={[
           { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Intervencije', href: ROUTES.INTERVENTIONS },
+          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}` },
         ]}
         primaryAction={
-          intervention && canManageIntervention && EDITABLE_STATUSES.has(intervention.status)
+          intervention &&
+          canManageIntervention &&
+          EDITABLE_STATUSES.has(intervention.status)
             ? {
                 label: 'Edit',
                 href: ROUTES.INTERVENTION_EDIT(String(interventionId)),
@@ -283,10 +254,11 @@ export default function InterventionDetailPage() {
         secondaryActions={statusActions}
       />
 
+      {/* ── Feedback messages ── */}
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {successMessage ? <p className="text-sm text-emerald-600">{successMessage}</p> : null}
 
-      {/* Intervention Details */}
+      {/* ── Intervention details ── */}
       {isLoading ? (
         <Card>
           <CardContent className="pt-6">
@@ -338,41 +310,54 @@ export default function InterventionDetailPage() {
               <p className="text-sm">{intervention.description}</p>
             </div>
 
-            {intervention.startedAt && (
+            {intervention.startedAt ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <p className="text-xs text-muted-foreground">Started</p>
-                  <p className="text-sm">{new Date(intervention.startedAt).toLocaleDateString('bs-BA')}</p>
+                  <p className="text-sm">
+                    {new Date(intervention.startedAt).toLocaleDateString('en-GB')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Due</p>
-                  <p className="text-sm">{intervention.dueAt ? new Date(intervention.dueAt).toLocaleDateString('bs-BA') : '-'}</p>
+                  <p className="text-sm">
+                    {intervention.dueAt
+                      ? new Date(intervention.dueAt).toLocaleDateString('en-GB')
+                      : '-'}
+                  </p>
                 </div>
               </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
       ) : null}
 
-      {/* Assigned Servicers */}
-      {intervention && (
+      {/* ── Assigned servicers ── */}
+      {intervention ? (
         <AssignedServicersSection
           interventionId={interventionId}
-          assignments={intervention.assignments || []}
+          assignments={intervention.assignments ?? []}
           onAssignmentsChange={(assignments) => {
-            if (intervention) {
-              setIntervention({ ...intervention, assignments });
-            }
+            setIntervention((current) => (current ? { ...current, assignments } : current));
           }}
           canManage={canManageIntervention}
         />
-      )}
+      ) : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {/* ── PBI-010: Intervention report ── */}
+      {intervention && (canReadReport || canWriteReport) ? (
+        <ReportSection
+          interventionId={interventionId}
+          interventionStatus={intervention.status}
+          canRead={canReadReport}
+          canWrite={canWriteReport}
+        />
+      ) : null}
 
+      {/* ── Attachments ── */}
       <Card>
         <CardHeader>
-          <CardTitle>Priloženi fajlovi</CardTitle>
+          <CardTitle>Attachments</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -384,23 +369,23 @@ export default function InterventionDetailPage() {
           ) : (
             <DataTable<AttachmentListItem>
               columns={[
-                { key: 'fileName', header: 'Naziv fajla' },
+                { key: 'fileName', header: 'File name' },
                 { key: 'mimeType', header: 'Tip', width: '200px' },
                 {
                   key: 'fileSize',
-                  header: 'Veličina',
+                  header: 'Size',
                   width: '100px',
                   render: (value) => formatFileSize(Number(value)),
                 },
                 {
                   key: 'createdAt',
-                  header: 'Dodano',
+                  header: 'Added',
                   width: '120px',
                   render: (value) => formatDate(String(value)),
                 },
                 {
                   key: 'id',
-                  header: 'Akcije',
+                  header: 'Actions',
                   width: '200px',
                   render: (_value, row) => (
                     <div className="flex gap-2">
@@ -410,7 +395,7 @@ export default function InterventionDetailPage() {
                         size="sm"
                         onClick={() => handleDownload(row)}
                       >
-                        Preuzmi
+                        Download
                       </Button>
                       {canDeleteAttachments ? (
                         <Button
@@ -419,7 +404,7 @@ export default function InterventionDetailPage() {
                           size="sm"
                           onClick={() => openDeleteDialog(row)}
                         >
-                          Obriši
+                          Delete
                         </Button>
                       ) : null}
                     </div>
@@ -431,26 +416,27 @@ export default function InterventionDetailPage() {
               isLoading={false}
               error={error}
               onRetry={loadData}
-              emptyTitle="Nema fajlova"
-              emptyDescription="Ova intervencija nema priloženih fajlova."
+              emptyTitle="No attachments"
+              emptyDescription="This intervention has no attachments."
             />
           )}
         </CardContent>
       </Card>
 
-      {/* ── PBI-016: Komentari intervencije ── */}
-      {Number.isInteger(interventionId) && interventionId > 0 && (
-        <CommentsSection interventionId={interventionId} />
-      )}
+      {/* ── PBI-016: Intervention comments ── */}
+      {isValidId ? <CommentsSection interventionId={interventionId} /> : null}
 
+      {/* ── Delete attachment dialog ── */}
       <ConfirmDialog
         isOpen={deleteState.isOpen}
         onClose={closeDeleteDialog}
-        onConfirm={() => { void handleConfirmDelete(); }}
-        title="Obriši fajl"
-        description={`Da li ste sigurni da želite obrisati '${deleteState.fileName}'? Ova akcija se ne može poništiti.`}
-        confirmLabel="Obriši"
-        cancelLabel="Otkaži"
+        onConfirm={() => {
+          void handleConfirmDelete();
+        }}
+        title="Delete attachment"
+        description={`Are you sure you want to delete '${deleteState.fileName}'? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
         variant="danger"
         isLoading={deleteState.isLoading}
       />

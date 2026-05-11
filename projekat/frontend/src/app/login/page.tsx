@@ -116,6 +116,15 @@ export default function LoginPage() {
                 'Prijava'
               )}
             </Button>
+
+            <div className="text-center">
+              <Link
+                href={ROUTES.RESET_PASSWORD}
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                Zaboravili ste lozinku?
+              </Link>
+            </div>
           </form>
 
           <div className="mt-5 text-center text-sm text-muted-foreground">

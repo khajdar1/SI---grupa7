@@ -116,26 +116,7 @@
                                    "contentSecurityPolicy":  "frame-src \u0027self\u0027; frame-ancestors \u0027self\u0027; object-src \u0027none\u0027;",
                                    "strictTransportSecurity":  "max-age=31536000; includeSubDomains"
                                },
-    "smtpServer":  {
-                       "allowutf8":  "",
-                       "replyToDisplayName":  "",
-                       "debug":  "false",
-                       "starttls":  "true",
-                       "auth":  "true",
-                       "writeTimeout":  "10000",
-                       "envelopeFrom":  "",
-                       "ssl":  "false",
-                       "timeout":  "10000",
-                       "password":  "${SMTP_PASSWORD}",
-                       "port":  "587",
-                       "replyTo":  "",
-                       "host":  "smtp.gmail.com",
-                       "from":  "${SMTP_FROM}",
-                       "fromDisplayName":  "Sistem za intervencije",
-                       "authType":  "basic",
-                       "connectionTimeout":  "10000",
-                       "user":  "${SMTP_USER}"
-                   },
+    "smtpServer":  {},
     "eventsEnabled":  false,
     "eventsListeners":  [
                             "jboss-logging"

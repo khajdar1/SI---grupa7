@@ -5,9 +5,10 @@ import {
   loginController,
   logoutController,
   resetPasswordController,
+  confirmPasswordResetController,
 } from '../../controllers/auth.controller';
 import { validate } from '../../middleware/validate.middleware';
-import { registerSchema, loginSchema, resetPasswordSchema } from './auth.schema';
+import { confirmPasswordResetSchema, registerSchema, loginSchema, resetPasswordSchema } from './auth.schema';
 import { authRateLimiter } from '../../middleware/rateLimit.middleware';
 
 const authRouter = Router();
@@ -17,7 +18,7 @@ authRouter.get('/', authenticate, (req, res) => {
   res.json({
     module: 'auth',
     flow: 'local-profile-plus-external-identity',
-    endpoints: ['POST /register', 'POST /login', 'POST /logout', 'POST /reset-password'],
+    endpoints: ['POST /register', 'POST /login', 'POST /logout', 'POST /reset-password', 'POST /reset-password/confirm'],
   });
 });
 
@@ -33,6 +34,7 @@ authRouter.get(
 authRouter.post('/register', authRateLimiter, validate(registerSchema), registerController);
 authRouter.post('/login', authRateLimiter, validate(loginSchema), loginController);
 authRouter.post('/reset-password', authRateLimiter, validate(resetPasswordSchema), resetPasswordController);
+authRouter.post('/reset-password/confirm', authRateLimiter, validate(confirmPasswordResetSchema), confirmPasswordResetController);
 authRouter.post('/logout', logoutController);
 
 export default authRouter;

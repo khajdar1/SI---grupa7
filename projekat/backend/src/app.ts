@@ -47,9 +47,9 @@ export function createApp() {
   app.use(BACKEND_ROUTES.USERS, authenticate, usersRouter);
   app.use(BACKEND_ROUTES.COMPANIES, companiesRouter);
   app.use(BACKEND_ROUTES.CATEGORIES, categoriesRouter);
-  app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
   app.use(BACKEND_ROUTES.ASSIGNMENTS, authenticate, assignmentsRouter);
-  app.use(BACKEND_ROUTES.REPORTS, authenticate, reportsRouter);
+  app.use(`${BACKEND_ROUTES.INTERVENTIONS}/:interventionId/reports`, authenticate, reportsRouter);
+  app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
   app.use(BACKEND_ROUTES.ATTACHMENTS, authenticate, attachmentsRouter);
   app.use(BACKEND_ROUTES.NOTIFICATIONS, authenticate, notificationsRouter);
   app.use(BACKEND_ROUTES.SLA, authenticate, slaRouter);

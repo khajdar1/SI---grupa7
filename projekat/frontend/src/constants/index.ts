@@ -33,6 +33,11 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/v1/auth/logout',
     REGISTER: '/api/v1/auth/register',
     RESET_PASSWORD: '/api/v1/auth/reset-password',
+    RESET_PASSWORD_CONFIRM: '/api/v1/auth/reset-password/confirm',
+  },
+  PROFILE: {
+    ME: '/api/v1/profile/me',
+    PASSWORD: '/api/v1/profile/me/password',
   },
   CATEGORIES: {
     BASE: '/api/v1/categories',
@@ -59,6 +64,7 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/interventions',
     BY_ID: (id: number | string) => `/api/v1/interventions/${id}`,
     ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
+    REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
   },
   ATTACHMENTS: {
     DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,

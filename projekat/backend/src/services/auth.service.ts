@@ -1,14 +1,19 @@
 import { prisma } from "../config/database";
-import type { RegisterInput} from "../modules/auth/auth.schema";
+import { createHash, randomBytes } from "crypto";
+import type { ConfirmPasswordResetInput, RegisterInput} from "../modules/auth/auth.schema";
 import {
   getKeycloakAdminToken,
   createKeycloakUser,
   deleteKeycloakUser,
   KeycloakError,
+  logoutKeycloakUserSessions,
+  setKeycloakUserPassword,
 } from "../clients/keycloak.client";
-import { sendKeycloakResetEmail } from "../clients/keycloak.client";
+import { sendPasswordResetEmail } from "../clients/email.client";
 
 export { KeycloakError };
+
+const PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
 
 export type RegisteredUser = {
   id: number;
@@ -25,6 +30,26 @@ export class ConflictError extends Error {
     super(message);
     this.name = "ConflictError";
   }
+}
+
+export class PasswordResetTokenError extends Error {
+  constructor(message = "Reset link is invalid or expired.") {
+    super(message);
+    this.name = "PasswordResetTokenError";
+  }
+}
+
+function hashResetToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+function getKeycloakSubject(
+  user: { externalIdentities?: Array<{ provider: string; providerSubject: string }> },
+): string | null {
+  return (
+    user.externalIdentities?.find((identity) => identity.provider === "keycloak")
+      ?.providerSubject ?? null
+  );
 }
 
 async function assertNoDuplicateUser(username: string, email: string): Promise<void> {
@@ -142,7 +167,16 @@ export class AuthService {
       const normalizedEmail = email.trim().toLowerCase();
       const user = await prisma.user.findUnique({
         where: { email: normalizedEmail },
-        select: { id: true, active: true },
+        select: {
+          id: true,
+          active: true,
+          externalIdentities: {
+            select: {
+              provider: true,
+              providerSubject: true,
+            },
+          },
+        },
       });
 
       if (user && !user.active) {
@@ -152,11 +186,90 @@ export class AuthService {
         return;
       }
 
-      const adminToken = await getKeycloakAdminToken();
-      await sendKeycloakResetEmail(adminToken, normalizedEmail);
+      if (!user) {
+        return;
+      }
+
+      const keycloakSub = getKeycloakSubject(user);
+      if (!keycloakSub) {
+        console.warn(`[AuthService] Password reset requested for user without Keycloak identity id=${user.id}`);
+        return;
+      }
+
+      const rawToken = randomBytes(32).toString("hex");
+      const tokenHash = hashResetToken(rawToken);
+      const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MINUTES * 60 * 1000);
+
+      await prisma.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash,
+          expiresAt,
+        },
+      });
+
+      await sendPasswordResetEmail(normalizedEmail, rawToken);
     } catch (err) {
       console.error("[AuthService] Error during password reset request:", err);
       throw err;
     }
+  }
+
+  async confirmPasswordReset(input: ConfirmPasswordResetInput): Promise<void> {
+    const tokenHash = hashResetToken(input.token);
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+      select: {
+        id: true,
+        expiresAt: true,
+        usedAt: true,
+        user: {
+          select: {
+            id: true,
+            active: true,
+            externalIdentities: {
+              select: {
+                provider: true,
+                providerSubject: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= new Date()) {
+      throw new PasswordResetTokenError();
+    }
+
+    if (!resetToken.user.active) {
+      throw new PasswordResetTokenError();
+    }
+
+    const keycloakSub = getKeycloakSubject(resetToken.user);
+    if (!keycloakSub) {
+      throw new PasswordResetTokenError();
+    }
+
+    const claimed = await prisma.passwordResetToken.updateMany({
+      where: {
+        id: resetToken.id,
+        usedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+      data: {
+        usedAt: new Date(),
+      },
+    });
+
+    if (claimed.count !== 1) {
+      throw new PasswordResetTokenError();
+    }
+
+    const adminToken = await getKeycloakAdminToken();
+    await setKeycloakUserPassword(adminToken, keycloakSub, input.password);
+    await logoutKeycloakUserSessions(adminToken, keycloakSub);
   }
 }

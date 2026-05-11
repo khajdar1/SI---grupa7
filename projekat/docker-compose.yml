@@ -25,9 +25,6 @@ services:
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_ADMIN_USERNAME:-service_app_admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-service_admin}
-      SMTP_FROM: ${SMTP_FROM}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
     volumes:
       - ./.containers/identity:/opt/keycloak/data
       - ./infra/keycloak:/opt/keycloak/data/import/
@@ -56,6 +53,12 @@ services:
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-service-system}
       KEYCLOAK_CLIENT_ID:  ${KEYCLOAK_CLIENT_ID:-backend-service}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      RESET_PASSWORD_BASE_URL: ${RESET_PASSWORD_BASE_URL:-http://localhost:3000/reset-password}
+      GMAIL_CLIENT_ID: ${GMAIL_CLIENT_ID}
+      GMAIL_CLIENT_SECRET: ${GMAIL_CLIENT_SECRET}
+      GMAIL_REFRESH_TOKEN: ${GMAIL_REFRESH_TOKEN}
+      GMAIL_FROM_EMAIL: ${GMAIL_FROM_EMAIL}
+      GMAIL_FROM_NAME: ${GMAIL_FROM_NAME:-Sistem za intervencije}
     command: sh -c "npx prisma migrate deploy --schema prisma/schema.prisma && npm run start"
     ports:
       - "4000:4000"

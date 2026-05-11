@@ -15,7 +15,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx src/scripts/seed.ts",
     "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "gmail:authorize": "tsx src/scripts/gmail-authorize.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
