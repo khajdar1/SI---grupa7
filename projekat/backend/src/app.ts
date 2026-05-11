@@ -29,6 +29,7 @@ import profileRouter from './modules/profile/profile.route';
 import blockingRouter from './modules/blocking/blocking.route';
 import systemConfigRouter from './modules/system-config/system-config.route';
 import mapsRouter from './modules/maps/maps.route';
+import managementRouter from './modules/management/management.route';
 
 export function createApp() {
   const app = express();
@@ -63,6 +64,7 @@ export function createApp() {
   app.use(BACKEND_ROUTES.BLOCKING, authenticate, blockingRouter);
   app.use(BACKEND_ROUTES.SYSTEM_CONFIG, authenticate, systemConfigRouter);
   app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
+  app.use(BACKEND_ROUTES.MANAGEMENT, authenticate, managementRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
   

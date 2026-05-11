@@ -36,6 +36,7 @@ import {
   ACCOUNT_NAV_ITEMS,
   ADMIN_NAV_ITEMS,
   AUTH_NAV_ITEMS,
+  MANAGEMENT_NAV_ITEMS,
   OPERATIONS_NAV_ITEMS,
   PRIMARY_NAV_ITEMS,
   type NavItem,
@@ -56,8 +57,10 @@ type SessionUser = { username?: string };
 
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 const HISTORY_ROLE_NAMES = new Set(['serviser', 'koordinator', 'coordinator', 'management', 'menadzment']);
+const MANAGEMENT_ROLE_NAMES = new Set(['menadzment', 'management', 'admin', 'administrator']);
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
+  '/management': <BarChart2 className="size-4" />,
   '/': <Home className="size-4" />,
   '/dashboard': <LayoutDashboard className="size-4" />,
   '/fault-reports': <AlertTriangle className="size-4" />,
@@ -118,6 +121,17 @@ function hasHistoryAccess(token: string | null): boolean {
     ...Object.values(payload.resource_access ?? {}).flatMap((c) => c.roles ?? []),
   ];
   return roles.some((r) => HISTORY_ROLE_NAMES.has(r.toLowerCase()));
+}
+
+function hasManagementAccess(token: string | null): boolean {
+  if (!token) return false;
+  const payload = decodeJwtPayload(token);
+  if (!payload) return false;
+  const roles = [
+    ...(payload.realm_access?.roles ?? []),
+    ...Object.values(payload.resource_access ?? {}).flatMap((c) => c.roles ?? []),
+  ];
+  return roles.some((r) => MANAGEMENT_ROLE_NAMES.has(r.toLowerCase()));
 }
 
 function NavLink({ item, pathname, showIcon = true }: { item: NavItem; pathname: string; showIcon?: boolean }) {
@@ -199,6 +213,7 @@ export function AppNavigation() {
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canViewHistory, setCanViewHistory] = useState(false);
+  const [isManagement, setIsManagement] = useState(false);
 
   useEffect(() => {
     const readAuthState = () => {
@@ -209,10 +224,12 @@ export function AppNavigation() {
         setSessionUser(parsedUser);
         setIsAdmin(hasAdminRole(token));
         setCanViewHistory(hasHistoryAccess(token));
+        setIsManagement(hasManagementAccess(token));
         setAuthState(token ? 'authenticated' : 'guest');
       } catch {
         setSessionUser(null);
         setIsAdmin(false);
+        setIsManagement(false);
         setAuthState('guest');
       }
     };
@@ -233,13 +250,12 @@ export function AppNavigation() {
     [isAuthenticated],
   );
 
-  const operationsItems = useMemo(
-    () =>
-      canViewHistory
-        ? [...OPERATIONS_NAV_ITEMS, { label: 'History', to: '/history' }]
-        : OPERATIONS_NAV_ITEMS,
-    [canViewHistory],
-  );
+  const operationsItems = useMemo(() => {
+    const items = [...OPERATIONS_NAV_ITEMS];
+    if (canViewHistory) items.push({ label: 'History', to: '/history' });
+    if (isManagement) items.push({ label: 'Management', to: ROUTES.MANAGEMENT_DASHBOARD });
+    return items;
+  }, [canViewHistory, isManagement]);
 
   const initials = sessionUser?.username
     ? sessionUser.username.slice(0, 2).toUpperCase()
