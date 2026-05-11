@@ -37,3 +37,17 @@ test('updateUserSchema requires at least one editable field', () => {
   const result = updateUserSchema.safeParse({});
   expect(result.success).toBe(false);
 });
+
+test('createUserSchema accepts KompanijaAdmin role', () => {
+  const result = createUserSchema.safeParse({
+    firstName: 'Amina',
+    lastName: 'Admin',
+    username: 'amina.company',
+    email: 'amina.company@example.com',
+    password: 'Password1',
+    role: 'KOMPANIJA_ADMIN',
+    companyId: 1,
+  });
+
+  expect(result.success).toBe(true);
+});

@@ -7,7 +7,8 @@ export class ServiceError extends Error {
 
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (typeof error === 'object' && error !== null) {
-    const maybeMessage = (error as { response?: { data?: { message?: unknown } } }).response?.data?.message;
+    const responseData = (error as { response?: { data?: { message?: unknown; error?: { message?: unknown } } } }).response?.data;
+    const maybeMessage = responseData?.message ?? responseData?.error?.message;
     if (typeof maybeMessage === 'string' && maybeMessage.trim().length > 0) {
       return maybeMessage;
     }

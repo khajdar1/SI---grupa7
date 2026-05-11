@@ -62,17 +62,31 @@ enum NotificationType {
   TICKET_REPLY
 }
 
+enum CompanyStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  INACTIVE
+}
+
 model Company {
-  id           Int              @id @default(autoincrement())
-  name         String           @unique
-  contact      String?
-  type         String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  users        User[]           @relation("CompanyUsers")
-  faultReports FaultReport[]
+  id            Int              @id @default(autoincrement())
+  name          String           @unique
+  contact       String?
+  type          String?
+  email         String?          @unique
+  phone         String?
+  address       String?
+  identificationNumber String?   @unique
+  status        CompanyStatus    @default(ACTIVE)
+  adminUserId   Int?             @unique
+  adminUser     User?            @relation("CompanyAdmin", fields: [adminUserId], references: [id], onDelete: SetNull)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  users         User[]           @relation("CompanyUsers")
+  faultReports  FaultReport[]
   interventions Intervention[]
-  blocks       UserBlock[]
+  blocks        UserBlock[]
 }
 
 model User {
@@ -84,6 +98,7 @@ model User {
   active               Boolean                 @default(true)
   companyId            Int?
   company              Company?                @relation("CompanyUsers", fields: [companyId], references: [id], onDelete: SetNull)
+  administeredCompany  Company?                @relation("CompanyAdmin")
   createdAt            DateTime                @default(now())
   updatedAt            DateTime                @updatedAt
   externalIdentities    ExternalIdentity[]

@@ -107,7 +107,7 @@ test("authenticate rejects expired tokens", async () => {
 
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 401);
-  assert.deepEqual(res.body, { message: "Authentication token has expired" });
+  assert.deepEqual(res.body, { message: "Your session has expired. Please sign in again." });
 });
 
 test("optionalAuthenticate continues without user when token is missing", async () => {
@@ -191,5 +191,5 @@ test("authenticate rejects deactivated local users", async () => {
 
   assert.equal(nextCalled, false);
   assert.equal(res.statusCode, 401);
-  assert.deepEqual(res.body, { message: "User account is deactivated" });
+  assert.deepEqual(res.body, { message: "Your account is deactivated. Please contact an administrator." });
 });
