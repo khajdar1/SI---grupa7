@@ -22,6 +22,7 @@ export const ROUTES = {
   ADMIN_SLA_CONFIG: '/admin/sla-config',
   ADMIN_ATTACHMENT_CONFIG: '/admin/attachment-config',
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
+  MANAGEMENT_DASHBOARD: '/management',
 } as const;
 
 export const API_ENDPOINTS = {
@@ -76,6 +77,9 @@ export const API_ENDPOINTS = {
   },
   REPORTS: {
     BASE: '/api/v1/reports',
+  },
+  MANAGEMENT: {
+    DASHBOARD: '/api/v1/management/dashboard',
   },
 } as const;
 

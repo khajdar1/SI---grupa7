@@ -28,6 +28,10 @@ export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Attachment Config', to: ROUTES.ADMIN_ATTACHMENT_CONFIG },
 ];
 
+export const MANAGEMENT_NAV_ITEMS: readonly NavItem[] = [
+  { label: 'Management', to: ROUTES.MANAGEMENT_DASHBOARD },
+];
+
 export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Profile', to: ROUTES.PROFILE },
   { label: 'Settings', to: ROUTES.SETTINGS },
