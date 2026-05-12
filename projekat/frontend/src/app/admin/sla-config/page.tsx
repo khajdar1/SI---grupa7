@@ -49,8 +49,8 @@ export default function SlaConfigPage() {
       const data = await getSlaConfigurations();
       setConfigs(data);
     } catch (error) {
-      toast.error("Greška", {
-        description: "Neuspješno učitavanje SLA konfiguracije.",
+      toast.error("Error", {
+        description: "Failed to load SLA configuration.",
       });
     } finally {
       setIsLoading(false);
@@ -86,12 +86,12 @@ export default function SlaConfigPage() {
         deadlineHours: c.deadlineHours,
       }));
       await updateSlaConfigurations(updates);
-      toast.success("Uspjeh", {
-        description: "SLA konfiguracija je sačuvana.",
+      toast.success("Success", {
+        description: "SLA configuration has been saved.",
       });
     } catch (error) {
-      toast.error("Greška", {
-        description: "Neuspješno spašavanje konfiguracije.",
+      toast.error("Error", {
+        description: "Failed to save configuration.",
       });
     } finally {
       setIsSaving(false);
@@ -105,14 +105,14 @@ export default function SlaConfigPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="SLA Konfiguracija"
-        subtitle="Definišite rokove za rješavanje intervencija na osnovu nivoa prioriteta."
+        title="SLA Configuration"
+        subtitle="Define intervention resolution deadlines by priority level."
         breadcrumbs={[
           { label: "Admin", href: ROUTES.ADMIN },
-          { label: "SLA Konfiguracija" },
+          { label: "SLA Configuration" },
         ]}
         primaryAction={{
-          label: "Spasi promjene",
+          label: "Save Changes",
           onClick: handleSave,
           icon: <Save className="mr-2 h-4 w-4" />,
           isLoading: isSaving || isLoading,
@@ -123,15 +123,15 @@ export default function SlaConfigPage() {
         {configs.map((config) => (
           <Card key={config.id}>
             <CardHeader>
-              <CardTitle>{getPriorityLabel(config.priority)} Prioritet</CardTitle>
+              <CardTitle>{getPriorityLabel(config.priority)} Priority</CardTitle>
               <CardDescription>
-                Vremenski rok za rješavanje intervencija ovog nivoa.
+                Resolution deadline for interventions at this level.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor={`hours-${config.id}`}>Rok u satima</Label>
+                  <Label htmlFor={`hours-${config.id}`}>Deadline in Hours</Label>
                   <Input
                     id={`hours-${config.id}`}
                     type="number"

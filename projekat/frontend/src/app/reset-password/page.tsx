@@ -46,7 +46,7 @@ export default function ResetPasswordPage() {
           </div>
           <div>
             <p className="text-2xl font-black tracking-tight gradient-text">ServisIS</p>
-            <p className="mt-1 text-xs text-muted-foreground">Sistem za upravljanje intervencijama</p>
+            <p className="mt-1 text-xs text-muted-foreground">Intervention management system</p>
           </div>
         </div>
 
@@ -55,13 +55,13 @@ export default function ResetPasswordPage() {
           <div className="mb-1 flex items-center gap-2">
             <KeyRound className="size-5 text-primary" />
             <h1 className="text-xl font-black tracking-tight">
-              {isConfirmMode ? 'Nova lozinka' : 'Zaboravljena lozinka'}
+              {isConfirmMode ? 'New password' : 'Forgot password'}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             {isConfirmMode
-              ? 'Unesite i potvrdite vašu novu lozinku.'
-              : 'Unesite email adresu, a mi ćemo vam poslati link za resetovanje.'}
+              ? 'Enter and confirm your new password.'
+              : 'Enter your email address and we will send you a reset link.'}
           </p>
 
           {message ? (
@@ -91,7 +91,7 @@ export default function ResetPasswordPage() {
             {isConfirmMode ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Nova lozinka</Label>
+                  <Label htmlFor="password">New password</Label>
                   <Input
                     id="password"
                     type="password"
@@ -105,13 +105,13 @@ export default function ResetPasswordPage() {
                   />
                   {errors.password ? (
                     <p id="reset-password-error" className="flex items-center gap-1 text-xs text-destructive">
-                      <span>•</span> {errors.password}
+                      <span>&bull;</span> {errors.password}
                     </p>
                   ) : null}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Potvrda nove lozinke</Label>
+                  <Label htmlFor="confirmPassword">Confirm new password</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -125,20 +125,20 @@ export default function ResetPasswordPage() {
                   />
                   {errors.confirmPassword ? (
                     <p id="reset-confirm-password-error" className="flex items-center gap-1 text-xs text-destructive">
-                      <span>•</span> {errors.confirmPassword}
+                      <span>&bull;</span> {errors.confirmPassword}
                     </p>
                   ) : null}
                 </div>
               </>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="email">Email adresa</Label>
+                <Label htmlFor="email">Email address</Label>
                 <Input
                   id="email"
                   type="email"
                   name="email"
                   autoComplete="email"
-                  placeholder="korisnik@primjer.ba"
+                  placeholder="user@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
@@ -147,7 +147,7 @@ export default function ResetPasswordPage() {
                 />
                 {errors.email ? (
                   <p id="reset-email-error" className="flex items-center gap-1 text-xs text-destructive">
-                    <span>•</span> {errors.email}
+                    <span>&bull;</span> {errors.email}
                   </p>
                 ) : null}
               </div>
@@ -161,17 +161,17 @@ export default function ResetPasswordPage() {
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <span className="spinner" />
-                  {isConfirmMode ? 'Snimanje...' : 'Slanje...'}
+                  {isConfirmMode ? 'Saving...' : 'Sending...'}
                 </span>
               ) : (
-                isConfirmMode ? 'Resetuj lozinku' : 'Pošalji link'
+                isConfirmMode ? 'Reset password' : 'Send link'
               )}
             </Button>
           </form>
 
           <div className="mt-5 text-center text-sm text-muted-foreground">
             <Link href={ROUTES.LOGIN} className="font-semibold text-primary hover:underline transition-colors">
-              ← Povratak na prijavu
+              ← Back to login
             </Link>
           </div>
         </div>

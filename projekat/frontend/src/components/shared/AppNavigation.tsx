@@ -311,7 +311,7 @@ export function AppNavigation() {
 
           <div className="hidden h-5 w-px bg-border lg:block" />
 
-          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Glavna navigacija">
+          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
             {visiblePrimaryItems.map((item) => (
               <NavLink key={item.to} item={item} pathname={pathname} />
             ))}
@@ -319,7 +319,7 @@ export function AppNavigation() {
               <>
                 {operationsItems.length > 0 ? (
                   <NavDropdown
-                    label="Operacije"
+                    label="Operations"
                     icon={<ClipboardList className="size-4" />}
                     items={operationsItems}
                     pathname={pathname}
@@ -352,7 +352,7 @@ export function AppNavigation() {
                   <>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">Prijavljeni kao</span>
+                        <span className="text-xs text-muted-foreground">Signed in as</span>
                         <span className="font-medium">@{sessionUser.username}</span>
                       </div>
                     </DropdownMenuLabel>
@@ -383,13 +383,13 @@ export function AppNavigation() {
               >
                 <Link href={ROUTES.LOGIN} className="flex items-center gap-1.5">
                   <LogIn className="size-4" />
-                  Prijava
+                  Login
                 </Link>
               </Button>
               <Button asChild size="sm" className="btn-glow h-8 rounded-lg px-4">
                 <Link href={ROUTES.REGISTER} className="flex items-center gap-1.5">
                   <UserPlus className="size-4" />
-                  Registracija
+                  Register
                 </Link>
               </Button>
             </div>
@@ -406,7 +406,7 @@ export function AppNavigation() {
                 className="h-9 w-9 rounded-lg p-0 transition-all duration-200 hover:bg-slate-100/80"
               >
                 <Menu className="size-4" />
-                <span className="sr-only">Otvori meni</span>
+                <span className="sr-only">Open menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
@@ -416,7 +416,7 @@ export function AppNavigation() {
                     <div className="flex items-center gap-2">
                       <span className="avatar-gradient flex size-8 items-center justify-center rounded-full text-xs">{initials}</span>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Prijavljeni kao</span>
+                        <span className="text-xs text-muted-foreground">Signed in as</span>
                         <span className="font-medium">@{sessionUser.username}</span>
                       </div>
                     </div>
@@ -425,7 +425,7 @@ export function AppNavigation() {
                 </>
               ) : null}
 
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Navigacija</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Navigation</DropdownMenuLabel>
               {visiblePrimaryItems.map((item) => {
                 const icon = NAV_ICONS[item.to];
                 const isActive = isRouteActive(pathname, item.to);
@@ -445,7 +445,7 @@ export function AppNavigation() {
                   {operationsItems.length > 0 ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">Operacije</DropdownMenuLabel>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">Operations</DropdownMenuLabel>
                       {operationsItems.map((item) => {
                         const icon = NAV_ICONS[item.to];
 
@@ -481,7 +481,7 @@ export function AppNavigation() {
                   ) : null}
 
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Korisnicki racun</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Account</DropdownMenuLabel>
                   {visibleAccountItems.map((item) => {
                     const icon = NAV_ICONS[item.to];
 
@@ -498,7 +498,7 @@ export function AppNavigation() {
               ) : authState === 'guest' ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Prijava</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">Authentication</DropdownMenuLabel>
                   {AUTH_NAV_ITEMS.map((item) => {
                     const icon = NAV_ICONS[item.to];
 

@@ -78,7 +78,7 @@ function getSessionInfo(): { canComment: boolean; displayName: string } {
 function formatDateTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('bs-BA', {
+  return date.toLocaleString('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -115,7 +115,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       const data = await getComments(String(interventionId));
       setComments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Greška pri učitavanju komentara.');
+      setError(err instanceof Error ? err.message : 'Failed to load comments.');
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +147,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       setComments((prev) => [...prev, newComment]);
       setText('');
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Greška pri slanju komentara.');
+      setSubmitError(err instanceof Error ? err.message : 'Failed to send comment.');
     } finally {
       setIsSubmitting(false);
     }
@@ -164,7 +164,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          Komentari
+          Comments
           {comments.length > 0 && (
             <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
               {comments.length}
@@ -191,7 +191,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
           ) : comments.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
               <MessageCircle className="h-8 w-8 opacity-40" />
-              <p className="text-sm">Nema komentara. Budite prvi koji komentariše.</p>
+              <p className="text-sm">No comments yet. Be the first to comment.</p>
             </div>
           ) : (
             comments.map((comment) => (
@@ -237,7 +237,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Napišite komentar… (Ctrl+Enter za slanje)"
+                  placeholder="Write a comment... (Ctrl+Enter to send)"
                   rows={3}
                   disabled={isSubmitting}
                   className="resize-none flex-1"
@@ -248,7 +248,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
                   size="icon"
                   onClick={() => void handleSubmit()}
                   disabled={!text.trim() || isSubmitting}
-                  title="Pošalji komentar (Ctrl+Enter)"
+                  title="Send comment (Ctrl+Enter)"
                   className="self-end"
                 >
                   <Send className="h-4 w-4" />
@@ -262,7 +262,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
           </div>
         ) : (
           <p className="border-t pt-4 text-center text-xs text-muted-foreground">
-            Samo ucesnici intervencije mogu dodavati komentare.
+            Only intervention participants can add comments.
           </p>
         )}
       </CardContent>

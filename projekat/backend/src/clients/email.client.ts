@@ -48,10 +48,10 @@ function buildPasswordResetHtml(resetUrl: string): string {
   const safeResetUrl = escapeHtml(resetUrl);
 
   return `
-    <p>Zaprimili smo zahtjev za reset lozinke.</p>
-    <p>Link vrijedi 30 minuta i moze se iskoristiti samo jednom.</p>
-    <p><a href="${safeResetUrl}">Postavi novu lozinku</a></p>
-    <p>Ako niste zatrazili reset, mozete ignorisati ovu poruku.</p>
+    <p>Greetings,</p>
+    <p>We received a request to reset the password for the account associated with this e-mail address. Click the link below to reset your password using our secure server:</p>
+    <p><a href="${safeResetUrl}">${safeResetUrl}</a></p>
+    <p>If you did not request to have your password reset, you can safely ignore this email. Rest assured your account is safe.</p>
   `;
 }
 
@@ -114,7 +114,7 @@ function buildRawEmail(email: string, resetUrl: string): string {
   const headers = [
     `To: ${sanitizeHeader(email)}`,
     `From: ${buildFromHeader(fromEmail, process.env.GMAIL_FROM_NAME)}`,
-    "Subject: Reset lozinke",
+    "Subject: Password reset request",
     "MIME-Version: 1.0",
     'Content-Type: text/html; charset="UTF-8"',
   ];

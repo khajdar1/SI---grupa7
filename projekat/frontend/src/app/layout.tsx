@@ -14,7 +14,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Sistem za upravljanje servisnim intervencijama',
+  title: 'Service Intervention Management System',
   description: 'Next.js frontend skeleton for a service intervention management system.',
 };
 
@@ -24,7 +24,7 @@ type RootLayoutProps = {
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
-    <html lang="bs" className={inter.variable}>
+    <html lang="en" className={inter.variable}>
       <body>
         <div className="min-h-screen bg-background">
           <AppNavigation />

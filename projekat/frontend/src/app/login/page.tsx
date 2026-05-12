@@ -31,14 +31,14 @@ export default function LoginPage() {
           </div>
           <div>
             <p className="text-2xl font-black tracking-tight gradient-text">ServisIS</p>
-            <p className="mt-1 text-xs text-muted-foreground">Sistem za upravljanje intervencijama</p>
+            <p className="mt-1 text-xs text-muted-foreground">Intervention management system</p>
           </div>
         </div>
 
         {/* Card */}
         <div className="glass-card rounded-2xl p-7">
-          <h1 className="text-xl font-black tracking-tight mb-1">Dobrodošli nazad</h1>
-          <p className="text-sm text-muted-foreground mb-6">Unesite vaše pristupne podatke za nastavak.</p>
+          <h1 className="text-xl font-black tracking-tight mb-1">Welcome back</h1>
+          <p className="text-sm text-muted-foreground mb-6">Enter your credentials to continue.</p>
 
           {serverError ? (
             <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -50,7 +50,7 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleSubmit} noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="username" className="text-sm font-semibold">
-                Korisničko ime
+                Username
               </Label>
               <Input
                 id="username"
@@ -66,7 +66,7 @@ export default function LoginPage() {
               />
               {errors.username ? (
                 <p id="login-username-error" className="flex items-center gap-1 text-xs text-destructive">
-                  <span>•</span> {errors.username}
+                  <span>&bull;</span> {errors.username}
                 </p>
               ) : null}
             </div>
@@ -74,13 +74,13 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-sm font-semibold">
-                  Lozinka
+                  Password
                 </Label>
                 <Link
                   href={ROUTES.RESET_PASSWORD}
                   className="text-xs font-medium text-primary/80 transition-colors hover:text-primary hover:underline"
                 >
-                  Zaboravili ste lozinku?
+                  Forgot password?
                 </Link>
               </div>
               <Input
@@ -97,7 +97,7 @@ export default function LoginPage() {
               />
               {errors.password ? (
                 <p id="login-password-error" className="flex items-center gap-1 text-xs text-destructive">
-                  <span>•</span> {errors.password}
+                  <span>&bull;</span> {errors.password}
                 </p>
               ) : null}
             </div>
@@ -110,10 +110,10 @@ export default function LoginPage() {
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <span className="spinner" />
-                  Prijavljivanje...
+                  Signing in...
                 </span>
               ) : (
-                'Prijava'
+                'Login'
               )}
             </Button>
 
@@ -122,15 +122,15 @@ export default function LoginPage() {
                 href={ROUTES.RESET_PASSWORD}
                 className="text-xs text-muted-foreground hover:text-primary transition-colors"
               >
-                Zaboravili ste lozinku?
+                Forgot password?
               </Link>
             </div>
           </form>
 
           <div className="mt-5 text-center text-sm text-muted-foreground">
-            Nemate račun?{' '}
+            Do not have an account?{' '}
             <Link href={ROUTES.REGISTER} className="font-semibold text-primary hover:underline transition-colors">
-              Registrujte se
+              Register
             </Link>
           </div>
         </div>

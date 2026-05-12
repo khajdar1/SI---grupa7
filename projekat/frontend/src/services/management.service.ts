@@ -22,6 +22,6 @@ export interface ManagementDashboardStats {
 export async function getManagementDashboard(): Promise<ManagementDashboardStats> {
   return getResponseData(
     () => api.get<ManagementDashboardStats>(API_ENDPOINTS.MANAGEMENT.DASHBOARD),
-    'Greška pri učitavanju upravljačke table.',
+    'Failed to load the management dashboard.',
   );
 }

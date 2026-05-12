@@ -87,7 +87,7 @@ export function ReportSection({
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Greška pri učitavanju izvještaja.');
+          setError(err instanceof Error ? err.message : 'Failed to load the report.');
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -123,7 +123,7 @@ export function ReportSection({
 
   const handleSave = async () => {
     if (!form.description.trim()) {
-      setError('Opis rada je obavezan.');
+      setError('Work description is required.');
       return;
     }
 
@@ -153,9 +153,9 @@ export function ReportSection({
       }
 
       setIsEditing(false);
-      setSuccessMessage('Izvještaj je uspješno sačuvan.');
+      setSuccessMessage('The report has been saved successfully.');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Greška pri čuvanju izvještaja.');
+      setError(err instanceof Error ? err.message : 'Failed to save the report.');
     } finally {
       setIsSaving(false);
     }
@@ -170,13 +170,13 @@ export function ReportSection({
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
             <ClipboardList className="size-4 text-primary" />
           </div>
-          <CardTitle className="text-base">Izvještaj o intervenciji</CardTitle>
+          <CardTitle className="text-base">Intervention Report</CardTitle>
         </div>
         {canWrite && isAllowedStatus && !isEditing && (
           <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-1.5">
             {report
-              ? <><Pencil className="size-3.5" /> Uredi izvještaj</>
-              : <><Plus className="size-3.5" /> Dodaj izvještaj</>}
+              ? <><Pencil className="size-3.5" /> Edit Report</>
+              : <><Plus className="size-3.5" /> Add Report</>}
           </Button>
         )}
       </CardHeader>
@@ -232,14 +232,14 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
     <div className="space-y-4">
       <div className="space-y-1">
         <Label htmlFor="report-description">
-          Opis rada <span className="text-destructive">*</span>
+          Work Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="report-description"
-          ref={descriptionRef}
+          ref={descriptionRef as React.Ref<HTMLTextAreaElement>}
           value={form.description}
           onChange={onChange('description')}
-          placeholder="Opišite šta je urađeno…"
+          placeholder="Describe what was done..."
           maxLength={FIELD_MAX_LENGTH.DESCRIPTION}
           rows={5}
           disabled={isSaving}
@@ -250,12 +250,12 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-material">Utrošeni materijal</Label>
+        <Label htmlFor="report-material">Materials Used</Label>
         <Textarea
           id="report-material"
           value={form.material}
           onChange={onChange('material')}
-          placeholder="Navedite utrošeni materijal (opcionalno)…"
+          placeholder="List the materials used (optional)..."
           maxLength={FIELD_MAX_LENGTH.MATERIAL}
           rows={3}
           disabled={isSaving}
@@ -266,12 +266,12 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-notes">Napomene</Label>
+        <Label htmlFor="report-notes">Notes</Label>
         <Textarea
           id="report-notes"
           value={form.notes}
           onChange={onChange('notes')}
-          placeholder="Dodatne napomene (opcionalno)…"
+          placeholder="Additional notes (optional)..."
           maxLength={FIELD_MAX_LENGTH.NOTES}
           rows={3}
           disabled={isSaving}
@@ -283,7 +283,7 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
-          Odustani
+          Cancel
         </Button>
         <Button
           type="button"
@@ -295,9 +295,9 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
           {isSaving ? (
             <span className="flex items-center gap-2">
               <span className="spinner" />
-              Snimanje…
+              Saving...
             </span>
-          ) : 'Sačuvaj izvještaj'}
+          ) : 'Save Report'}
         </Button>
       </div>
     </div>
@@ -309,7 +309,7 @@ interface ReportReadViewProps {
 }
 
 function ReportReadView({ report }: ReportReadViewProps) {
-  const formattedDate = new Date(report.reportDate).toLocaleDateString('bs-BA', {
+  const formattedDate = new Date(report.reportDate).toLocaleDateString('en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -320,28 +320,28 @@ function ReportReadView({ report }: ReportReadViewProps) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Autor:{' '}
+        Author:{' '}
         <span className="font-medium text-foreground">
           {report.author.firstName} {report.author.lastName}
         </span>{' '}
-        · Sačuvano: <span className="font-medium text-foreground">{formattedDate}</span>
+        · Saved: <span className="font-medium text-foreground">{formattedDate}</span>
       </p>
 
       <div className="rounded-lg bg-muted/40 p-3">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">Opis rada</p>
+        <p className="mb-1 text-xs font-medium text-muted-foreground">Work Description</p>
         <p className="whitespace-pre-wrap text-sm">{report.description}</p>
       </div>
 
       {report.material ? (
         <div className="rounded-lg bg-muted/40 p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Utrošeni materijal</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Materials Used</p>
           <p className="whitespace-pre-wrap text-sm">{report.material}</p>
         </div>
       ) : null}
 
       {report.notes ? (
         <div className="rounded-lg bg-muted/40 p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Napomene</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">Notes</p>
           <p className="whitespace-pre-wrap text-sm">{report.notes}</p>
         </div>
       ) : null}
@@ -358,7 +358,7 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   if (canWrite && !isAllowedStatus) {
     return (
       <p className="text-sm text-muted-foreground">
-        Izvještaj se može dodati samo dok je intervencija u toku ili riješena.
+        A report can only be added while the intervention is in progress or resolved.
       </p>
     );
   }
@@ -366,8 +366,8 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   return (
     <p className="text-sm text-muted-foreground">
       {canWrite
-        ? 'Još nema izvještaja. Dodajte ga koristeći dugme iznad.'
-        : 'Serviser još nije dostavio izvještaj za ovu intervenciju.'}
+        ? 'There is no report yet. Add one using the button above.'
+        : 'The technician has not submitted a report for this intervention yet.'}
     </p>
   );
 }

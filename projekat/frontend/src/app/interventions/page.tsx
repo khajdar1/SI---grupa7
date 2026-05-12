@@ -209,7 +209,7 @@ function formatDateTime(value: string | null) {
     return "";
   }
 
-  return new Intl.DateTimeFormat("bs-BA", {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -394,7 +394,7 @@ export default function InterventionsPage() {
       { value: ALL_SERVICERS, label: "All servicers" },
       { value: UNASSIGNED_SERVICERS, label: "Unassigned" },
       ...Array.from(servicers.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], "bs"))
+        .sort((a, b) => a[1].localeCompare(b[1], "en"))
         .map(([value, label]) => ({ value, label })),
     ];
   }, [rows]);
@@ -737,7 +737,7 @@ export default function InterventionsPage() {
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
                     <TriangleAlert className="mr-1 h-3 w-3" />
-                    Zakašnjenje
+                    Overdue
                   </Badge>
                 )}
               </div>
@@ -965,7 +965,7 @@ export default function InterventionsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Prioritet</Label>
+                <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={formState.priority}
                   onValueChange={(value) => updateField("priority", value ?? "")}
@@ -977,7 +977,7 @@ export default function InterventionsPage() {
                       fieldErrors.priority ? "priority-error" : undefined
                     }
                   >
-                    <SelectValue placeholder="Odaberi prioritet">
+                    <SelectValue placeholder="Select priority">
                       {formState.priority
                         ? getPriorityLabel(formState.priority as any)
                         : undefined}

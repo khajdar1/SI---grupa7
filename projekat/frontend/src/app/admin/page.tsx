@@ -56,11 +56,11 @@ type PendingAction = {
 } | null;
 
 const ROLE_LABELS: Record<ManagedUserRole, string> = {
-  KORISNIK: 'Korisnik',
-  SERVISER: 'Serviser',
-  KOORDINATOR: 'Koordinator',
-  MENADZMENT: 'Menadzment',
-  KOMPANIJA_ADMIN: 'KompanijaAdmin',
+  KORISNIK: 'User',
+  SERVISER: 'Technician',
+  KOORDINATOR: 'Coordinator',
+  MENADZMENT: 'Management',
+  KOMPANIJA_ADMIN: 'Company Admin',
   ADMIN: 'Admin',
 };
 const NO_COMPANY_VALUE = 'NO_COMPANY';
