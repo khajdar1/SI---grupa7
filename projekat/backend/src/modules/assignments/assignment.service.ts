@@ -158,8 +158,8 @@ export class AssignmentService {
 
     const servicerUsers = await filterServicersByRole(users);
     if (servicerUsers.length !== users.length) {
-      throw new BadRequestError("Only users with the Serviser role can be assigned.", [
-        { field: "userIds", message: "Selected users must have the Serviser role." },
+      throw new BadRequestError("Only users with the Technician role can be assigned.", [
+        { field: "userIds", message: "Selected users must have the Technician role." },
       ]);
     }
 

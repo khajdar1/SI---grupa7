@@ -370,7 +370,7 @@ export default function InterventionDetailPage() {
             <DataTable<AttachmentListItem>
               columns={[
                 { key: 'fileName', header: 'File name' },
-                { key: 'mimeType', header: 'Tip', width: '200px' },
+                { key: 'mimeType', header: 'Type', width: '200px' },
                 {
                   key: 'fileSize',
                   header: 'Size',

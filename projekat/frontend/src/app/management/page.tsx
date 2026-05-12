@@ -17,10 +17,10 @@ import {
 const MANAGEMENT_ROLES = new Set(['menadzment', 'management', 'admin', 'administrator']);
 
 const PRIORITY_LABELS: Record<Priority, string> = {
-  CRITICAL: 'Kritičan',
-  HIGH: 'Visok',
-  MEDIUM: 'Srednji',
-  LOW: 'Nizak',
+  CRITICAL: 'Critical',
+  HIGH: 'High',
+  MEDIUM: 'Medium',
+  LOW: 'Low',
 };
 
 const PRIORITY_BADGE_CLASS: Record<Priority, string> = {
@@ -54,7 +54,7 @@ function hasManagementAccess(): boolean {
 }
 
 function formatHours(hours: number | null): string {
-  if (hours === null) return '—';
+  if (hours === null) return '-';
   if (hours < 1) return `${Math.round(hours * 60)} min`;
   return `${hours.toFixed(1)} h`;
 }
@@ -83,7 +83,7 @@ export default function ManagementDashboardPage() {
       const data = await getManagementDashboard();
       setStats(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Greška pri učitavanju podataka.');
+      setError(err instanceof Error ? err.message : 'Failed to load data.');
     } finally {
       setLoading(false);
     }
@@ -106,7 +106,7 @@ export default function ManagementDashboardPage() {
     return (
       <AccessDenied
         reason={isGuest ? 'unauthenticated' : 'unauthorized'}
-        requiredRole="Menadžment / Admin"
+        requiredRole="Management / Admin"
       />
     );
   }
@@ -114,11 +114,11 @@ export default function ManagementDashboardPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Upravljačka tabla"
-        subtitle="Pregled ključnih metrika sistema intervencija."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Upravljačka tabla' }]}
+        title="Management Dashboard"
+        subtitle="Overview of key intervention system metrics."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Management Dashboard' }]}
         primaryAction={{
-          label: 'Osvježi',
+          label: 'Refresh',
           onClick: () => void loadStats(),
           variant: 'outline',
           icon: <RefreshCw className="mr-1.5 size-4" aria-hidden="true" />,
@@ -133,22 +133,22 @@ export default function ManagementDashboardPage() {
       ) : null}
 
       {/* Stat cards */}
-      <section className="grid gap-4 sm:grid-cols-3" aria-label="Statistike">
+      <section className="grid gap-4 sm:grid-cols-3" aria-label="Statistics">
         <StatCard
-          title="Aktivne intervencije"
+          title="Active Interventions"
           value={stats?.activeCount ?? 0}
           icon={<Wrench className="size-5 text-primary" aria-hidden="true" />}
           isLoading={loading}
         />
         <StatCard
-          title="Završene intervencije"
+          title="Completed Interventions"
           value={stats?.completedCount ?? 0}
           icon={<CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" />}
           isLoading={loading}
         />
         <StatCard
-          title="Prosj. vrijeme rješavanja"
-          value={stats ? formatHours(stats.averageResolutionHours) : '—'}
+          title="Avg. Resolution Time"
+          value={stats ? formatHours(stats.averageResolutionHours) : '-'}
           icon={<Clock className="size-5 text-violet-500" aria-hidden="true" />}
           isLoading={loading}
         />
@@ -160,20 +160,20 @@ export default function ManagementDashboardPage() {
           <div className="icon-bg-purple flex size-10 items-center justify-center rounded-xl">
             <BarChart2 className="size-5 text-purple-600" aria-hidden="true" />
           </div>
-          <CardTitle className="text-base font-bold">Distribucija po prioritetu</CardTitle>
+          <CardTitle className="text-base font-bold">Priority Distribution</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <PriorityTableSkeleton />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" aria-label="Distribucija intervencija po prioritetu">
+              <table className="w-full text-sm" aria-label="Intervention distribution by priority">
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-3 pr-4">Prioritet</th>
-                    <th className="pb-3 px-4 text-right">Ukupno</th>
-                    <th className="pb-3 px-4 text-right">Aktivne</th>
-                    <th className="pb-3 pl-4 text-right">Završene</th>
+                    <th className="pb-3 pr-4">Priority</th>
+                    <th className="pb-3 px-4 text-right">Total</th>
+                    <th className="pb-3 px-4 text-right">Active</th>
+                    <th className="pb-3 pl-4 text-right">Completed</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">

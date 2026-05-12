@@ -101,7 +101,7 @@ export default function ProfilePage() {
         if (!active) return;
         setProfileMessage({
           type: 'error',
-          text: error instanceof Error ? error.message : 'Greška pri učitavanju profila.',
+          text: error instanceof Error ? error.message : 'Failed to load profile.',
         });
       } finally {
         if (active) setLoading(false);
@@ -120,14 +120,14 @@ export default function ProfilePage() {
 
     const nextErrors = {
       firstName: validatePersonName(profileForm.firstName, {
-        requiredMessage: 'Ime je obavezno.',
+        requiredMessage: 'First name is required.',
         maxLength: 100,
       }),
       lastName: validatePersonName(profileForm.lastName, {
-        requiredMessage: 'Prezime je obavezno.',
+        requiredMessage: 'Last name is required.',
         maxLength: 100,
       }),
-      email: validateEmail(profileForm.email, 'Email je obavezan.', 'Unesite ispravnu email adresu.'),
+      email: validateEmail(profileForm.email, 'Email is required.', 'Enter a valid email address.'),
     };
     const filteredErrors = Object.fromEntries(
       Object.entries(nextErrors).filter(([, value]) => value),
@@ -135,7 +135,7 @@ export default function ProfilePage() {
 
     if (Object.keys(filteredErrors).length > 0) {
       setProfileErrors(filteredErrors);
-      setProfileMessage({ type: 'error', text: 'Ispravite označena polja.' });
+      setProfileMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
       return;
     }
 
@@ -147,7 +147,7 @@ export default function ProfilePage() {
       const updated = await updateMyProfile(profileForm);
       setProfile(updated);
       updateStoredUser(updated);
-      setProfileMessage({ type: 'success', text: 'Promjene profila su sačuvane.' });
+      setProfileMessage({ type: 'success', text: 'Profile changes have been saved.' });
     } catch (error) {
       const backendFieldErrors = readServiceFieldErrors(error);
       if (Object.keys(backendFieldErrors).length > 0) {
@@ -155,7 +155,7 @@ export default function ProfilePage() {
       }
       setProfileMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Ažuriranje profila nije uspjelo.',
+        text: error instanceof Error ? error.message : 'Profile update failed.',
       });
     } finally {
       setSavingProfile(false);
@@ -167,20 +167,20 @@ export default function ProfilePage() {
 
     const nextErrors: Record<string, string> = {};
     if (!passwordForm.currentPassword.trim()) {
-      nextErrors.currentPassword = 'Trenutna lozinka je obavezna.';
+      nextErrors.currentPassword = 'Current password is required.';
     }
     if (passwordForm.newPassword.length < 8) {
-      nextErrors.newPassword = 'Lozinka mora imati najmanje 8 znakova.';
+      nextErrors.newPassword = 'Password must be at least 8 characters.';
     } else if (!/[0-9]/.test(passwordForm.newPassword) || !/[A-Z]/.test(passwordForm.newPassword)) {
-      nextErrors.newPassword = 'Lozinka mora sadržavati jedno veliko slovo i jedan broj.';
+      nextErrors.newPassword = 'Password must contain one uppercase letter and one number.';
     }
     if (passwordForm.confirmPassword !== passwordForm.newPassword) {
-      nextErrors.confirmPassword = 'Lozinke se ne podudaraju.';
+      nextErrors.confirmPassword = 'Passwords do not match.';
     }
 
     if (Object.keys(nextErrors).length > 0) {
       setPasswordErrors(nextErrors);
-      setPasswordMessage({ type: 'error', text: 'Ispravite označena polja.' });
+      setPasswordMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
       return;
     }
 
@@ -191,7 +191,7 @@ export default function ProfilePage() {
     try {
       await changeMyPassword(passwordForm);
       setPasswordForm(EMPTY_PASSWORD_FORM);
-      setPasswordMessage({ type: 'success', text: 'Lozinka je uspješno promijenjena.' });
+      setPasswordMessage({ type: 'success', text: 'Password has been changed successfully.' });
     } catch (error) {
       const backendFieldErrors = readServiceFieldErrors(error);
       if (Object.keys(backendFieldErrors).length > 0) {
@@ -199,7 +199,7 @@ export default function ProfilePage() {
       }
       setPasswordMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Promjena lozinke nije uspjela.',
+        text: error instanceof Error ? error.message : 'Password change failed.',
       });
     } finally {
       setSavingPassword(false);
@@ -209,9 +209,9 @@ export default function ProfilePage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Moj profil"
-        subtitle="Pregled i ažuriranje osnovnih podataka računa."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Moj profil' }]}
+        title="My Profile"
+        subtitle="View and update your basic account information."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'My Profile' }]}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -223,8 +223,8 @@ export default function ProfilePage() {
                 <UserCircle2 className="size-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-base">Kontaktni podaci</CardTitle>
-                <CardDescription className="text-xs">Korisničko ime nije moguće promijeniti ovdje.</CardDescription>
+                <CardTitle className="text-base">Contact Information</CardTitle>
+                <CardDescription className="text-xs">The username cannot be changed here.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -240,7 +240,7 @@ export default function ProfilePage() {
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">Ime</Label>
+                      <Label htmlFor="firstName">First Name</Label>
                       <Input
                         id="firstName"
                         value={profileForm.firstName}
@@ -253,7 +253,7 @@ export default function ProfilePage() {
                       {profileErrors.firstName ? <p className="text-xs text-destructive">{profileErrors.firstName}</p> : null}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Prezime</Label>
+                      <Label htmlFor="lastName">Last Name</Label>
                       <Input
                         id="lastName"
                         value={profileForm.lastName}
@@ -268,12 +268,12 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="username">Korisničko ime</Label>
+                    <Label htmlFor="username">Username</Label>
                     <Input id="username" value={profile?.username ?? ''} disabled className="bg-muted/50" />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email adresa</Label>
+                    <Label htmlFor="email">Email Address</Label>
                     <Input
                       id="email"
                       type="email"
@@ -295,12 +295,12 @@ export default function ProfilePage() {
                     {savingProfile ? (
                       <span className="flex items-center gap-2">
                         <span className="spinner" />
-                        Spremanje...
+                        Saving...
                       </span>
                     ) : (
                       <>
                         <Save className="size-4" />
-                        Sačuvaj promjene
+                        Save Changes
                       </>
                     )}
                   </Button>
@@ -318,8 +318,8 @@ export default function ProfilePage() {
                 <KeyRound className="size-5 text-violet-600" />
               </div>
               <div>
-                <CardTitle className="text-base">Promjena lozinke</CardTitle>
-                <CardDescription className="text-xs">Unesite trenutnu i novu lozinku s potvrdom.</CardDescription>
+                <CardTitle className="text-base">Change Password</CardTitle>
+                <CardDescription className="text-xs">Enter your current password and confirm the new one.</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -328,7 +328,7 @@ export default function ProfilePage() {
 
             <form className="space-y-4" onSubmit={handlePasswordSubmit} noValidate>
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Trenutna lozinka</Label>
+                <Label htmlFor="currentPassword">Current Password</Label>
                 <Input
                   id="currentPassword"
                   type="password"
@@ -344,7 +344,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newPassword">Nova lozinka</Label>
+                <Label htmlFor="newPassword">New Password</Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -360,7 +360,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Potvrda nove lozinke</Label>
+                <Label htmlFor="confirmPassword">Confirm New Password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -383,12 +383,12 @@ export default function ProfilePage() {
                 {savingPassword ? (
                   <span className="flex items-center gap-2">
                     <span className="spinner" />
-                    Spremanje...
+                    Saving...
                   </span>
                 ) : (
                   <>
                     <KeyRound className="size-4" />
-                    Promijeni lozinku
+                    Change Password
                   </>
                 )}
               </Button>

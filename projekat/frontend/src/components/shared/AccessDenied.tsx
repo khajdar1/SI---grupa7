@@ -24,23 +24,23 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
         </div>
 
         <h1 className="mb-3 text-3xl font-black tracking-tight">
-          Pristup <span className="gradient-text">odbijen</span>
+          Access <span className="gradient-text">denied</span>
         </h1>
         <p className="mb-8 max-w-sm text-muted-foreground leading-relaxed">
-          Morate biti prijavljeni da biste pristupili ovoj stranici.
+          You must be signed in to access this page.
         </p>
 
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild className="btn-glow h-11 rounded-xl px-6">
             <Link href={ROUTES.LOGIN}>
               <LogIn className="mr-2 size-4" aria-hidden="true" />
-              Prijava
+              Login
             </Link>
           </Button>
           <Button variant="outline" asChild className="h-11 rounded-xl px-6 glass-card border-0">
             <Link href={ROUTES.HOME}>
               <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
-              Nazad
+              Back
             </Link>
           </Button>
         </div>
@@ -58,12 +58,12 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
         </div>
       </div>
 
-      <h1 className="mb-3 text-3xl font-black tracking-tight">Nema pristupa</h1>
+      <h1 className="mb-3 text-3xl font-black tracking-tight">Access denied</h1>
       <p className="mb-2 max-w-sm text-muted-foreground leading-relaxed">
-        Nemate dozvolu za pristup ovoj stranici.
+        You do not have permission to access this page.
       </p>
       <p className="mb-8 max-w-sm text-xs text-muted-foreground">
-        Potrebna uloga:{' '}
+        Required role:{' '}
         <span className="rounded-md bg-rose-50 px-2 py-0.5 font-semibold text-rose-600">
           {requiredRole}
         </span>
@@ -72,7 +72,7 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
       <Button variant="outline" asChild className="h-11 rounded-xl px-6 glass-card border-0">
         <Link href={ROUTES.HOME}>
           <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
-          Nazad na početnu
+          Back to home
         </Link>
       </Button>
     </div>
