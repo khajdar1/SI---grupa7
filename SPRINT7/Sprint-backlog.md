@@ -23,6 +23,7 @@
 
 **Story 3 –** Kao **sistem**, moram **ograničiti pristup dashboardu isključivo na uloge Menadžment i Admin**, kako bih **spriječio da serviseri imaju uvid u ukupne operativne podatke organizacije**.
 
+---
 
 ### PBI-015 – Upravljanje korisničkim profilom i reset lozinke
 
@@ -32,6 +33,7 @@
 
 **Story 3 –** Kao **registrirani korisnik koji nije prijavljen**, želim **zatražiti reset lozinke putem emaila**, kako bih **povratio pristup računu bez potrebe za kontaktiranjem administratora**.
 
+---
 
 ### PBI-020 - Kalendarski prikaz intervencija
 
@@ -39,6 +41,7 @@
 
 **Story 2 –** Kao **koordinator**, želim **jednostavno prebaciti između listnog i kalendarskog prikaza i kliknuti na intervenciju u kalendaru da direktno otvorim njen detalj**, kako bih **zadržao kontekst rada bez gubitka produktivnosti pri prelasku između prikaza**.
 
+---
 
 ### PBI-049 - Upravljanje kompanijama i uloga KompanijaAdmin
 
@@ -52,6 +55,7 @@
 
 **Story 5 –** Kao **sistem**, zelim **ograniciti company management funkcionalnosti prema rolama i pripadnosti kompaniji**, kako bih **sprijecio neovlastene izmjene, IDOR propuste i curenje podataka izmedju kompanija**.
 
+---
 
 ### PBI-010 - Evidencija izvještaja o intervenciji 
 **Story 1 –** Kao **serviser**, želim **po završetku intervencije dokumentirati šta sam uradio i koji materijal sam koristio**, kako bih **ostavio trajnu evidenciju obavljenog rada koja služi koordinatoru, menadžmentu i budućim servisima na istoj lokaciji**.
@@ -60,6 +64,7 @@
 
 **Story 3 –** Kao **sistem**, moram **spriječiti unos izvještaja ako intervencija još nije započeta i ne prikazivati polje za troškove u MVP-u**, kako bih **osigurao integritet podataka i opseg MVP verzije**.
 
+---
 
 ## Acceptance Criteria
 
