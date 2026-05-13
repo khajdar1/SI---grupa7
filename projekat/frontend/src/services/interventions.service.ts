@@ -4,8 +4,6 @@ import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
 import { getResponseData, withServiceError } from './errors';
-import { toModuleShellResponse } from './module-shell.service';
-import type { ModuleShellResponse } from './types';
 
 export interface InterventionFaultReportLink {
   id: number;
@@ -78,9 +76,41 @@ export interface InterventionOptions {
   faultReports: InterventionFaultReportOption[];
 }
 
+export interface InterventionHistoryItem {
+  id: string;
+  date: string;
+  status: InterventionStatus;
+  priority: Priority;
+  location: string;
+  categoryId: number;
+  categoryName: string;
+  summary: string;
+  servicer: string;
+}
+
+export interface InterventionHistoryPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface InterventionHistoryResponse {
+  message: string;
+  data: InterventionHistoryItem[];
+  pagination: InterventionHistoryPagination;
+}
+
+export interface InterventionHistoryQuery {
+  location?: string;
+  category?: string;
+  categoryId?: number | string;
+  page?: number;
+  pageSize?: number;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
-  moduleInfo: ModuleShellResponse | null;
 }
 
 function isInterventionListItem(payload: unknown): payload is InterventionListItem {
@@ -155,20 +185,10 @@ export async function getInterventions(): Promise<InterventionsResult> {
       const items = response.data.filter(isInterventionListItem);
       return {
         items,
-        moduleInfo: null,
       };
     }
 
-    const moduleInfo = toModuleShellResponse(response.data);
-
-    if (moduleInfo) {
-      return {
-        items: [],
-        moduleInfo,
-      };
-    }
-
-    return { items: [], moduleInfo: null };
+    return { items: [] };
   }, 'Failed to load interventions.');
 }
 
@@ -176,6 +196,39 @@ export async function getInterventionOptions(): Promise<InterventionOptions> {
   return getResponseData(
     () => api.get<InterventionOptions>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/options`),
     'Failed to load intervention options.',
+  );
+}
+
+export async function getInterventionHistory(
+  query: InterventionHistoryQuery = {},
+): Promise<InterventionHistoryResponse> {
+  const params = new URLSearchParams();
+
+  if (query.location?.trim()) {
+    params.set('location', query.location.trim());
+  }
+
+  if (query.categoryId !== undefined && query.categoryId !== '') {
+    params.set('categoryId', String(query.categoryId));
+  } else if (query.category?.trim()) {
+    params.set('category', query.category.trim());
+  }
+
+  if (query.page) {
+    params.set('page', String(query.page));
+  }
+
+  if (query.pageSize) {
+    params.set('pageSize', String(query.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<InterventionHistoryResponse>(
+      `${API_ENDPOINTS.INTERVENTIONS.BASE}/history${suffix}`,
+    ),
+    'Failed to load intervention history.',
   );
 }
 

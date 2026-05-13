@@ -3,7 +3,6 @@ import { api } from '@/lib/api';
 
 import { getCategories } from './categories.service';
 import { withServiceError } from './errors';
-import { getModuleShell } from './module-shell.service';
 import { getSlaConfigurations } from './sla.service';
 
 interface HealthResponse {
@@ -17,7 +16,6 @@ interface DashboardStat {
 
 interface DashboardSnapshot {
   stats: DashboardStat[];
-  activity: string[];
 }
 
 function isForbiddenError(error: unknown): boolean {
@@ -35,7 +33,7 @@ function isForbiddenError(error: unknown): boolean {
 
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
   return withServiceError(async () => {
-    const [categories, slaConfigsResult, health, interventionsModule] = await Promise.all([
+    const [categories, slaConfigsResult, health] = await Promise.all([
       getCategories(),
       getSlaConfigurations().catch((error) => {
         if (isForbiddenError(error)) {
@@ -45,7 +43,6 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
         throw error;
       }),
       api.get<HealthResponse>(API_ENDPOINTS.HEALTH.BASE),
-      getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE),
     ]);
 
     const activeCategories = categories.filter((category) => category.active).length;
@@ -58,13 +55,8 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
       { title: 'API status', value: health.data.status.toUpperCase() },
     ];
 
-    const activity = (interventionsModule?.endpoints ?? []).map(
-      (endpoint) => `Interventions module exposes ${endpoint}`,
-    );
-
     return {
       stats,
-      activity,
     };
   }, 'Failed to load dashboard snapshot.');
 }

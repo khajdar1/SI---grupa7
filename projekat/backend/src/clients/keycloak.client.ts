@@ -8,6 +8,7 @@ export const MANAGED_KEYCLOAK_ROLE_ALIASES = {
   SERVISER: ["Serviser", "serviser"],
   KOORDINATOR: ["Koordinator", "koordinator"],
   MENADZMENT: ["Menadzment", "menadzment", "Management", "management"],
+  KOMPANIJA_ADMIN: ["KompanijaAdmin", "kompanijaadmin", "CompanyAdmin", "companyadmin"],
   ADMIN: ["Admin", "admin", "Administrator", "administrator"],
 } as const;
 
@@ -294,6 +295,49 @@ export async function updateKeycloakUser(
   }
 }
 
+export async function setKeycloakUserPassword(
+  token: string,
+  userId: string,
+  password: string,
+): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/users/${userId}/reset-password`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      type: "password",
+      value: password,
+      temporary: false,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError("Failed to update user password in Keycloak.");
+  }
+}
+
+export async function logoutKeycloakUserSessions(
+  token: string,
+  userId: string,
+): Promise<void> {
+  const { url, realm } = getKeycloakConfig();
+
+  const response = await fetch(`${url}/admin/realms/${realm}/users/${userId}/logout`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError("Failed to invalidate user sessions in Keycloak.");
+  }
+}
+
 export async function getKeycloakUserRoleNames(
   token: string,
   userId: string
@@ -353,23 +397,33 @@ export async function loginKeycloakUser(
 
   console.log("[KeycloakClient] Login token request initiated.");
 
-  const res = await fetch(`${url}/realms/${realm}/protocol/openid-connect/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "password",
-      client_id: clientId,
-      client_secret: clientSecret,
-      username,
-      password,
-    }),
-  });
+  let res: globalThis.Response;
+  try {
+    res = await fetch(`${url}/realms/${realm}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "password",
+        client_id: clientId,
+        client_secret: clientSecret,
+        username,
+        password,
+      }),
+    });
+  } catch (error) {
+    console.warn("[KeycloakClient] Login request failed before receiving response.", error);
+    throw new KeycloakError("Failed to authenticate user in Keycloak.");
+  }
 
   if (!res.ok) {
     console.warn(
       `[KeycloakClient] Keycloak rejected login attempt. HTTP status: ${res.status}`
     );
-    throw new KeycloakError("Invalid username or password.");
+    // Keycloak returns 400/401 for bad resource owner credentials.
+    if (res.status === 400 || res.status === 401) {
+      throw new KeycloakError("Invalid username or password.");
+    }
+    throw new KeycloakError("Failed to authenticate user in Keycloak.");
   }
 
   console.log(`[KeycloakClient] Token obtained successfully — username: ${username}`);

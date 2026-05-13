@@ -10,6 +10,7 @@ export const managedUserRoleSchema = z.enum([
   'SERVISER',
   'KOORDINATOR',
   'MENADZMENT',
+  'KOMPANIJA_ADMIN',
   'ADMIN',
 ]);
 

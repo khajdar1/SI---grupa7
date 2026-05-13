@@ -5,6 +5,7 @@ export const MANAGED_USER_ROLES: readonly ManagedUserRole[] = [
   'SERVISER',
   'KOORDINATOR',
   'MENADZMENT',
+  'KOMPANIJA_ADMIN',
   'ADMIN',
 ] as const;
 
@@ -13,6 +14,7 @@ const ROLE_ALIASES: Record<ManagedUserRole, readonly string[]> = {
   SERVISER: ['serviser'],
   KOORDINATOR: ['koordinator'],
   MENADZMENT: ['menadzment', 'management'],
+  KOMPANIJA_ADMIN: ['kompanijaadmin', 'companyadmin'],
   ADMIN: ['admin', 'administrator'],
 };
 
@@ -380,8 +382,8 @@ export class UserManagementService {
     role: ManagedUserRole | null,
   ): Promise<void> {
     if (!companyId) {
-      if (role === 'SERVISER') {
-        throw new UserValidationError('Company must be assigned for servicer users.');
+      if (role === 'SERVISER' || role === 'KOMPANIJA_ADMIN') {
+        throw new UserValidationError('Company must be assigned for servicer and company admin users.');
       }
 
       return;

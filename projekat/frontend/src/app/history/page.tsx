@@ -5,35 +5,14 @@ import Link from 'next/link';
 
 import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
-import { api } from '@/lib/api';
-
-type InterventionHistoryItem = {
-  id: string;
-  date: string;
-  status: string;
-  priority: string;
-  location: string;
-  categoryId: number;
-  categoryName: string;
-  summary: string;
-  servicer: string;
-};
-
-type HistoryPagination = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-};
-
-type InterventionHistoryResponse = {
-  message: string;
-  data: InterventionHistoryItem[];
-  pagination: HistoryPagination;
-};
+import {
+  getInterventionHistory,
+  type InterventionHistoryItem,
+  type InterventionHistoryPagination,
+} from '@/services/interventions.service';
 
 const PAGE_SIZE = 10;
-const INITIAL_PAGINATION: HistoryPagination = {
+const INITIAL_PAGINATION: InterventionHistoryPagination = {
   page: 1,
   pageSize: PAGE_SIZE,
   total: 0,
@@ -46,7 +25,7 @@ export default function HistoryPage() {
   const [items, setItems] = useState<InterventionHistoryItem[]>([]);
   const [message, setMessage] = useState('');
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState<HistoryPagination>(INITIAL_PAGINATION);
+  const [pagination, setPagination] = useState<InterventionHistoryPagination>(INITIAL_PAGINATION);
   const [isLoading, setIsLoading] = useState(false);
 
   async function loadHistory(nextPage = page) {
@@ -54,35 +33,22 @@ export default function HistoryPage() {
     setMessage('');
 
     try {
-      const params = new URLSearchParams({
-        page: String(nextPage),
-        pageSize: String(PAGE_SIZE),
+      const normalizedCategory = category.trim();
+      const response = await getInterventionHistory({
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        location,
+        categoryId: /^\d+$/.test(normalizedCategory) ? normalizedCategory : undefined,
+        category: /^\d+$/.test(normalizedCategory) ? undefined : normalizedCategory,
       });
 
-      if (location.trim()) {
-        params.set('location', location.trim());
-      }
-
-      if (category.trim()) {
-        const normalizedCategory = category.trim();
-        if (/^\d+$/.test(normalizedCategory)) {
-          params.set('categoryId', normalizedCategory);
-        } else {
-          params.set('category', normalizedCategory);
-        }
-      }
-
-      const response = await api.get<InterventionHistoryResponse>(
-        `/api/v1/interventions/history?${params.toString()}`,
-      );
-
-      setItems(response.data.data);
-      setMessage(response.data.message);
-      setPagination(response.data.pagination);
+      setItems(response.data);
+      setMessage(response.message);
+      setPagination(response.pagination);
     } catch {
       setItems([]);
       setPagination(INITIAL_PAGINATION);
-      setMessage('Historiju intervencija nije moguce dohvatiti. Provjerite filtere i pokusajte ponovo.');
+      setMessage('Intervention history could not be loaded. Check the filters and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -107,29 +73,29 @@ export default function HistoryPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Historija intervencija"
-        subtitle="Pregled prethodnih zavrsenih ili arhiviranih intervencija po lokaciji i tipu kvara."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Historija' }]}
+        title="Intervention History"
+        subtitle="Review previous completed or archived interventions by location and fault type."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'History' }]}
       />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <form onSubmit={handleSearch} className="grid gap-4 md:grid-cols-3">
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-            Lokacija
+            Location
             <input
               value={location}
               onChange={(event) => setLocation(event.target.value)}
-              placeholder="npr. Ilidza"
+              placeholder="e.g. Ilidza"
               className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-            Tip kvara
+            Fault Type
             <input
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              placeholder="npr. Vodoinstalacije ili 2"
+              placeholder="e.g. Plumbing or 2"
               className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
@@ -140,7 +106,7 @@ export default function HistoryPage() {
               disabled={isLoading}
               className="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isLoading ? 'Pretraga...' : 'Filtriraj historiju'}
+              {isLoading ? 'Searching...' : 'Filter History'}
             </button>
           </div>
         </form>
@@ -152,27 +118,27 @@ export default function HistoryPage() {
         <table className="w-full border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
-              <th className="px-4 py-3">Datum</th>
+              <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Prioritet</th>
-              <th className="px-4 py-3">Lokacija</th>
-              <th className="px-4 py-3">Tip kvara</th>
-              <th className="px-4 py-3">Serviser</th>
-              <th className="px-4 py-3">Opis</th>
-              <th className="px-4 py-3">Izvjestaj</th>
+              <th className="px-4 py-3">Priority</th>
+              <th className="px-4 py-3">Location</th>
+              <th className="px-4 py-3">Fault Type</th>
+              <th className="px-4 py-3">Technician</th>
+              <th className="px-4 py-3">Description</th>
+              <th className="px-4 py-3">Report</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-6 text-center text-slate-500">
-                  Nema podataka za prikaz.
+                  No data to display.
                 </td>
               </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">{new Date(item.date).toLocaleDateString('bs-BA')}</td>
+                  <td className="px-4 py-3">{new Date(item.date).toLocaleDateString('en-US')}</td>
                   <td className="px-4 py-3">{item.status}</td>
                   <td className="px-4 py-3">{item.priority}</td>
                   <td className="px-4 py-3">{item.location}</td>
@@ -184,7 +150,7 @@ export default function HistoryPage() {
                       href={`${ROUTES.REPORTS}?interventionId=${encodeURIComponent(item.id)}`}
                       className="font-medium text-slate-900 underline underline-offset-4"
                     >
-                      Otvori
+                      Open
                     </Link>
                   </td>
                 </tr>
@@ -195,7 +161,7 @@ export default function HistoryPage() {
 
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <span>
-            Stranica {pagination.page} od {pagination.totalPages} ({pagination.total} ukupno)
+            Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
           </span>
           <div className="flex gap-2">
             <button
@@ -204,7 +170,7 @@ export default function HistoryPage() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-50"
             >
-              Prethodna
+              Previous
             </button>
             <button
               type="button"
@@ -212,7 +178,7 @@ export default function HistoryPage() {
               onClick={() => setPage((current) => current + 1)}
               className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-50"
             >
-              Sljedeca
+              Next
             </button>
           </div>
         </div>

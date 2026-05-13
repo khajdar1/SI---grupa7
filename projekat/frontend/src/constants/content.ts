@@ -23,13 +23,19 @@ export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
 
 export const ADMIN_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Users', to: ROUTES.ADMIN },
+  { label: 'Companies', to: ROUTES.ADMIN_COMPANIES },
   { label: 'Categories', to: ROUTES.ADMIN_CATEGORY },
   { label: 'SLA Config', to: ROUTES.ADMIN_SLA_CONFIG },
   { label: 'Attachment Config', to: ROUTES.ADMIN_ATTACHMENT_CONFIG },
 ];
 
+export const MANAGEMENT_NAV_ITEMS: readonly NavItem[] = [
+  { label: 'Management', to: ROUTES.MANAGEMENT_DASHBOARD },
+];
+
 export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Profile', to: ROUTES.PROFILE },
+  { label: 'Company', to: ROUTES.COMPANY },
   { label: 'Settings', to: ROUTES.SETTINGS },
   { label: 'Logout', to: ROUTES.LOGOUT },
 ] as const;
@@ -37,6 +43,7 @@ export const ACCOUNT_NAV_ITEMS: readonly NavItem[] = [
 export const AUTH_NAV_ITEMS: readonly NavItem[] = [
   { label: 'Login', to: ROUTES.LOGIN },
   { label: 'Register', to: ROUTES.REGISTER },
+  { label: 'Register Company', to: ROUTES.COMPANY_REGISTER },
   { label: 'Forgot Password', to: ROUTES.RESET_PASSWORD },
 ] as const;
 
@@ -59,15 +66,3 @@ export const HOME_CAPABILITY_CARDS = [
   },
 ] as const;
 
-export const HOME_STACK_PILLS = ['Next.js', 'React', 'Express', 'TypeScript', 'MySQL', 'Socket.IO'] as const;
-
-export const TARGET_USER_ROLES = ['Coordinator', 'Technician', 'Management', 'Admin'] as const;
-
-export const ASSIGNMENT_TOOLS = ['Manual override', 'Auto assign', 'Multi-assignee', 'Load-aware'] as const;
-
-export const ADMIN_SYSTEM_TAGS = ['SLA limits', 'Audit log', 'Disabled states'] as const;
-export const MAP_TAGS = ['PBI-034', 'Location clustering', 'Dispatch support'] as const;
-export const PROFILE_TAGS = ['PBI-015', 'Personal data', 'Password change'] as const;
-export const SETTINGS_TAGS = ['PBI-031', 'PBI-035', 'Language', 'SLA'] as const;
-export const TICKETS_TAGS = ['Ticketing', 'Messages', 'PBI-027', 'PBI-028'] as const;
-export const HISTORY_TAGS = ['PBI-011', 'Status history', 'Timeline'] as const;

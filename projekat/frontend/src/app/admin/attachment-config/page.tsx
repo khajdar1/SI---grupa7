@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { ROUTES } from '@/constants';
-import { PageHeader, PageLayout } from '@/components/shared';
+import { AccessDenied, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,26 @@ import {
   type AttachmentConfig,
 } from '@/services/attachments.service';
 
+function hasAdminRole(): boolean {
+  if (typeof window === 'undefined') return false;
+  const token = window.localStorage.getItem('token');
+  if (!token) return false;
+  try {
+    const payload = JSON.parse(window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as {
+      realm_access?: { roles?: string[] };
+      resource_access?: Record<string, { roles?: string[] }>;
+    };
+    const roles = [
+      ...(payload.realm_access?.roles ?? []),
+      ...Object.values(payload.resource_access ?? {}).flatMap((a) => a.roles ?? []),
+    ].map((r) => r.toLowerCase());
+    return roles.includes('admin') || roles.includes('administrator');
+  } catch { return false; }
+}
+
 export default function AdminAttachmentConfigPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const [config, setConfig] = useState<AttachmentConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,7 +61,15 @@ export default function AdminAttachmentConfigPage() {
   };
 
   useEffect(() => {
-    void fetchConfig();
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
+    const canUseAdmin = hasAdminRole();
+    setAuthorized(canUseAdmin);
+    setIsGuest(!token);
+    if (canUseAdmin) {
+      void fetchConfig();
+    } else {
+      setLoading(false);
+    }
   }, []);
 
   const handleRemoveMimeType = (type: string) => {
@@ -120,6 +147,10 @@ export default function AdminAttachmentConfigPage() {
   };
 
   const hasErrors = maxSizeError !== '' || (config?.allowedMimeTypes.length ?? 1) === 0;
+
+  if (!authorized) {
+    return <AccessDenied reason={isGuest ? 'unauthenticated' : 'unauthorized'} requiredRole="Admin" />;
+  }
 
   return (
     <PageLayout className="space-y-6">

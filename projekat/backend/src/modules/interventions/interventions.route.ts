@@ -625,8 +625,8 @@ interventionsRouter.get(
     res.json({
       message:
         history.length === 0
-          ? "Nema prethodnih intervencija za odabranu lokaciju ili kategoriju."
-          : "Historija intervencija je uspješno dohvaćena.",
+          ? "No previous interventions match the selected location or category."
+          : "Intervention history loaded successfully.",
       data: history.map((intervention) => ({
         id: String(intervention.id),
         date: intervention.createdAt.toISOString(),
@@ -647,7 +647,7 @@ interventionsRouter.get(
                     `${assignment.user.firstName} ${assignment.user.lastName}`,
                 )
                 .join(", ")
-            : "Nije dodijeljen",
+            : "Unassigned",
       })),
       pagination: {
         page,

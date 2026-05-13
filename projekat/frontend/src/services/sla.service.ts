@@ -39,18 +39,18 @@ export async function updateSlaConfigurations(updates: SlaUpdateData[]): Promise
 }
 
 /**
- * Helper to get the human readable priority label in Bosnian
+ * Helper to get the human readable priority label.
  */
 export function getPriorityLabel(priority: Priority): string {
   switch (priority) {
     case PRIORITY.CRITICAL:
-      return 'Hitan';
+      return 'Critical';
     case PRIORITY.HIGH:
-      return 'Visok';
+      return 'High';
     case PRIORITY.MEDIUM:
-      return 'Normalan';
+      return 'Medium';
     case PRIORITY.LOW:
-      return 'Nizak';
+      return 'Low';
     default:
       return priority;
   }

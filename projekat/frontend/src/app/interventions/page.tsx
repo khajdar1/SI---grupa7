@@ -43,6 +43,7 @@ import {
   validateRequired,
   validateSafeText,
 } from "@/lib/form-validation";
+import MonthCalendar from '@/components/shared/MonthCalendar';
 import type { Category } from "@/models/Category";
 import {
   createIntervention,
@@ -55,7 +56,6 @@ import {
 } from "@/services/interventions.service";
 import { getCategories } from "@/services/categories.service";
 import { getPriorityLabel } from "@/services/sla.service";
-import type { ModuleShellResponse } from "@/services/types";
 import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
 
@@ -209,7 +209,7 @@ function formatDateTime(value: string | null) {
     return "";
   }
 
-  return new Intl.DateTimeFormat("bs-BA", {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -243,6 +243,7 @@ function buildFormFromIntervention(
 
 export default function InterventionsPage() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [categories, setCategories] = useState<Category[]>([]);
   const [options, setOptions] = useState<InterventionOptions>({
     companies: [],
@@ -250,9 +251,6 @@ export default function InterventionsPage() {
     faultReports: [],
   });
   const [rows, setRows] = useState<InterventionListItem[]>([]);
-  const [moduleInfo, setModuleInfo] = useState<ModuleShellResponse | null>(
-    null,
-  );
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
   const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
   const [selectedType, setSelectedType] = useState(ALL_TYPE);
@@ -286,11 +284,10 @@ export default function InterventionsPage() {
           canLoadPlanningOptions
             ? getInterventionOptions()
             : Promise.resolve(EMPTY_OPTIONS),
-        ]);
+      ]);
 
       setCategories(categoryList);
       setRows(interventionsResult.items);
-      setModuleInfo(interventionsResult.moduleInfo);
       setOptions(formOptions);
       return interventionsResult.items;
     } catch (requestError) {
@@ -394,7 +391,7 @@ export default function InterventionsPage() {
       { value: ALL_SERVICERS, label: "All servicers" },
       { value: UNASSIGNED_SERVICERS, label: "Unassigned" },
       ...Array.from(servicers.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], "bs"))
+        .sort((a, b) => a[1].localeCompare(b[1], "en"))
         .map(([value, label]) => ({ value, label })),
     ];
   }, [rows]);
@@ -411,9 +408,8 @@ export default function InterventionsPage() {
     setSelectedServicer(ALL_SERVICERS);
   };
 
-  const emptyDescription = moduleInfo
-    ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(", ")}`
-    : "No intervention records available yet.";
+  const emptyDescription = "No intervention records available yet.";
+  const activeViewMode = canPlanInterventions ? viewMode : "list";
 
   const clearError = (field: string) => {
     setFieldErrors((previous) => clearFieldError(previous, field));
@@ -612,6 +608,16 @@ export default function InterventionsPage() {
           { label: "Dashboard", href: ROUTES.DASHBOARD },
           { label: "Interventions" },
         ]}
+        secondaryActions={
+          canPlanInterventions
+            ? [
+                {
+                  label: activeViewMode === "list" ? "Calendar" : "List",
+                  onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
+                },
+              ]
+            : undefined
+        }
         primaryAction={
           canPlanInterventions
             ? {
@@ -666,7 +672,8 @@ export default function InterventionsPage() {
         onClear={clearFilters}
       />
 
-      <DataTable<InterventionListItem>
+      {activeViewMode === 'list' ? (
+        <DataTable<InterventionListItem>
         columns={[
           {
             key: "id",
@@ -737,7 +744,7 @@ export default function InterventionsPage() {
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
                     <TriangleAlert className="mr-1 h-3 w-3" />
-                    Zakašnjenje
+                    Overdue
                   </Badge>
                 )}
               </div>
@@ -823,7 +830,15 @@ export default function InterventionsPage() {
         onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
         emptyTitle="No interventions in this category"
         emptyDescription={emptyDescription}
-      />
+        />
+      ) : (
+        <MonthCalendar
+          events={filteredRows
+            .map((r) => ({ id: r.id, title: r.title ?? r.name, date: r.dueAt ?? r.startedAt ?? '', priority: r.priority }))
+            .filter((e) => !!e.date)
+          }
+        />
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -965,7 +980,7 @@ export default function InterventionsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Prioritet</Label>
+                <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={formState.priority}
                   onValueChange={(value) => updateField("priority", value ?? "")}
@@ -977,7 +992,7 @@ export default function InterventionsPage() {
                       fieldErrors.priority ? "priority-error" : undefined
                     }
                   >
-                    <SelectValue placeholder="Odaberi prioritet">
+                    <SelectValue placeholder="Select priority">
                       {formState.priority
                         ? getPriorityLabel(formState.priority as any)
                         : undefined}

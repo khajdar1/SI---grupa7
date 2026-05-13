@@ -56,6 +56,28 @@
                         "clientRole":  false,
                         "containerId":  "0c07a9a6-0c3d-47d1-8c7b-53d672545a9e"
                     },
+    "roles":  {
+                  "realm":  [
+                                {
+                                    "name":  "Korisnik"
+                                },
+                                {
+                                    "name":  "Serviser"
+                                },
+                                {
+                                    "name":  "Koordinator"
+                                },
+                                {
+                                    "name":  "Menadzment"
+                                },
+                                {
+                                    "name":  "KompanijaAdmin"
+                                },
+                                {
+                                    "name":  "Admin"
+                                }
+                            ]
+              },
     "requiredCredentials":  [
                                 "password"
                             ],
@@ -116,26 +138,7 @@
                                    "contentSecurityPolicy":  "frame-src \u0027self\u0027; frame-ancestors \u0027self\u0027; object-src \u0027none\u0027;",
                                    "strictTransportSecurity":  "max-age=31536000; includeSubDomains"
                                },
-    "smtpServer":  {
-                       "allowutf8":  "",
-                       "replyToDisplayName":  "",
-                       "debug":  "false",
-                       "starttls":  "true",
-                       "auth":  "true",
-                       "writeTimeout":  "10000",
-                       "envelopeFrom":  "",
-                       "ssl":  "false",
-                       "timeout":  "10000",
-                       "password":  "${SMTP_PASSWORD}",
-                       "port":  "587",
-                       "replyTo":  "",
-                       "host":  "smtp.gmail.com",
-                       "from":  "${SMTP_FROM}",
-                       "fromDisplayName":  "Sistem za intervencije",
-                       "authType":  "basic",
-                       "connectionTimeout":  "10000",
-                       "user":  "${SMTP_USER}"
-                   },
+    "smtpServer":  {},
     "eventsEnabled":  false,
     "eventsListeners":  [
                             "jboss-logging"
@@ -186,6 +189,39 @@
 
                                         ]
                        },
+    "roles":  {
+                  "realm":  [
+                                {
+                                    "id":  "c1d2e3f4-a5b6-7890-cdef-012345678901",
+                                    "name":  "admin",
+                                    "description":  "System administrator",
+                                    "composite":  false,
+                                    "clientRole":  false,
+                                    "containerId":  "0c07a9a6-0c3d-47d1-8c7b-53d672545a9e"
+                                }
+                            ]
+              },
+    "users":  [
+                  {
+                      "id":  "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                      "username":  "nedux",
+                      "enabled":  true,
+                      "emailVerified":  true,
+                      "firstName":  "Nedim",
+                      "lastName":  "Omanovic",
+                      "email":  "nedux@demo.local",
+                      "credentials":  [
+                                          {
+                                              "type":  "password",
+                                              "value":  "Nedim123",
+                                              "temporary":  false
+                                          }
+                                      ],
+                      "realmRoles":  [
+                                         "admin"
+                                     ]
+                  }
+              ],
     "clients":  [
                     {
                         "fullScopeAllowed":  true,

@@ -1124,7 +1124,7 @@ describe("PBI-004 interventions route", () => {
     });
 
     expect(response.body).toMatchObject({
-      message: "Historija intervencija je uspješno dohvaćena.",
+      message: "Intervention history loaded successfully.",
       data: [
         {
           id: "11",

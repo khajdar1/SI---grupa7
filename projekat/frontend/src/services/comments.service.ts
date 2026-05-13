@@ -16,7 +16,7 @@ export interface Comment {
 export const getComments = async (interventionId: string): Promise<Comment[]> => {
   return getResponseData(
     () => api.get<Comment[]>(`/api/v1/comments/intervention/${interventionId}`),
-    'Greška pri učitavanju komentara.',
+    'Failed to load comments.',
   );
 };
 
@@ -31,6 +31,6 @@ export const createComment = async (
       `/api/v1/comments/intervention/${interventionId}`,
       payload,
     ),
-    'Greška pri slanju komentara.',
+    'Failed to send comment.',
   );
 };

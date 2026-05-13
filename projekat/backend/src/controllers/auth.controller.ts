@@ -3,8 +3,8 @@ import { ZodError } from "zod";
 
 import { loginKeycloakUser, logoutKeycloakUser } from "../clients/keycloak.client";
 import { HTTP_STATUS } from "../constants";
-import { registerSchema } from "../modules/auth/auth.schema";
-import { AuthService, ConflictError, KeycloakError } from "../services/auth.service";
+import { confirmPasswordResetSchema, registerSchema } from "../modules/auth/auth.schema";
+import { AuthService, ConflictError, KeycloakError, PasswordResetTokenError } from "../services/auth.service";
 
 const authService = new AuthService();
 const DISABLED_ACCOUNT_LOGIN_MESSAGE =
@@ -139,6 +139,45 @@ export const resetPasswordController = async (
     });
   } catch (error: unknown) {
     console.error("[ResetPasswordController] Unexpected error:", error);
+    res.status(HTTP_STATUS.INTERNAL).json({
+      message: "An internal server error occurred.",
+    });
+  }
+};
+
+export const confirmPasswordResetController = async (
+  req: Request,
+  res: Response,
+): Promise<void> => {
+  try {
+    const input = confirmPasswordResetSchema.parse(req.body);
+    await authService.confirmPasswordReset(input);
+
+    res.status(HTTP_STATUS.OK).json({
+      message: "Password has been reset successfully.",
+    });
+  } catch (error: unknown) {
+    if (error instanceof ZodError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({
+        message: "Validation error.",
+        errors: error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    if (error instanceof PasswordResetTokenError) {
+      res.status(HTTP_STATUS.BAD_REQUEST).json({ message: error.message });
+      return;
+    }
+
+    if (error instanceof KeycloakError) {
+      res.status(HTTP_STATUS.EXTERNAL_SERVICE_ERROR).json({
+        message: "An external service error occurred. Please try again.",
+      });
+      return;
+    }
+
+    console.error("[ConfirmPasswordResetController] Unexpected error:", error);
     res.status(HTTP_STATUS.INTERNAL).json({
       message: "An internal server error occurred.",
     });
