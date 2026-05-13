@@ -614,3 +614,20 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Ko je koristio alat:** Iman Šehić
 
 ---
+
+- **Datum:** 13.05.2026.
+- **Sprint broj:** Sprint 7
+- **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.4 mini
+- **Svrha korištenja:** Implementacija i naknadna ispravka PBI-020 (Kalendarski prikaz intervencija) uz pripadaću provjeru kroz frontend testove i typecheck.
+- **Kratak opis zadatka ili upita:** Dodavanje kalendarskog prikaza za intervencije, prebacivanje između listnog i kalendarskog prikaza u zaglavlju stranice, prikaz intervencija po `dueAt` datumu uz fallback na `startedAt`, proširenje prikaza na day/week/month modove, lokalno grupisanje po datumu bez UTC pomjeranja, vizualno razlikovanje po prioritetu i otvaranje detalja intervencije klikom na događaj.
+- **Šta je AI predložio ili generisao:**
+    - `MonthCalendar` komponentu za kalendarski prikaz sa Month, Week i Day modovima i navigacijom između perioda.
+    - Toggle u `PageHeader` za prebacivanje između listnog i kalendarskog prikaza.
+    - Mapiranje intervencija na lokalne kalendarske datume uz isključivanje zapisa bez definisanog datuma i bez UTC pomjeranja.
+    - Vizualno označavanje prioriteta kroz obojene indikatore i navigaciju na detalj intervencije pri kliku.
+    - Ažurirane Vitest i React Testing Library testove za prebacivanje prikaza, navigaciju, prioritetne boje, overflow i filtriranje neispravnih datuma.
+- **Šta je tim prihvatio:** Mjesečni prikaz, day/week/month modove, toggle u zaglavlju, `dueAt` kao primarni datum sa `startedAt` fallbackom, klik kroz detalj intervencije i mock-data test pristup.
+- **Šta je tim izmijenio:** Test okruženje je prilagođeno za frontend Vitest pokretanje uz `jsdom`, `@testing-library/jest-dom` i alias za `@shared`; dodan je lokalni datum kao izvor istine u kalendarskom prikazu, te je potvrđeno da klik na događaj i dalje vodi na detalj intervencije.
+- **Šta je tim odbacio:** Dodatne promjene van kalendarskog prikaza nisu rađene jer nisu bile dio ovog updatea.
+- **Rizici, problemi ili greške koje su uočene:** Tokom verifikacije je uočeno da frontend testovi zahtijevaju dodatne dev dependency pakete i odgovarajući alias setup; takođe je potvrđeno da UTC oslanjanje pri grupisanju datuma može pomjeriti događaje između dana u različitim vremenskim zonama, pa je ostavljen lokalni datum kao izvor istine.
+- **Ko je koristio alat:** Ismail Mujanović
