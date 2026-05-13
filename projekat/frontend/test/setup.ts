@@ -11,8 +11,11 @@ afterEach(() => {
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
-    pathname: '/',
-    query: {},
+    replace: vi.fn(),
+    prefetch: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    refresh: vi.fn(),
   }),
   useParams: () => ({}),
 }));
