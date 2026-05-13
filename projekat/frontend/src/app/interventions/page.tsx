@@ -56,7 +56,6 @@ import {
 } from "@/services/interventions.service";
 import { getCategories } from "@/services/categories.service";
 import { getPriorityLabel } from "@/services/sla.service";
-import type { ModuleShellResponse } from "@/services/types";
 import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
 
@@ -252,9 +251,6 @@ export default function InterventionsPage() {
     faultReports: [],
   });
   const [rows, setRows] = useState<InterventionListItem[]>([]);
-  const [moduleInfo, setModuleInfo] = useState<ModuleShellResponse | null>(
-    null,
-  );
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
   const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
   const [selectedType, setSelectedType] = useState(ALL_TYPE);
@@ -288,11 +284,10 @@ export default function InterventionsPage() {
           canLoadPlanningOptions
             ? getInterventionOptions()
             : Promise.resolve(EMPTY_OPTIONS),
-        ]);
+      ]);
 
       setCategories(categoryList);
       setRows(interventionsResult.items);
-      setModuleInfo(interventionsResult.moduleInfo);
       setOptions(formOptions);
       return interventionsResult.items;
     } catch (requestError) {
@@ -413,9 +408,7 @@ export default function InterventionsPage() {
     setSelectedServicer(ALL_SERVICERS);
   };
 
-  const emptyDescription = moduleInfo
-    ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(", ")}`
-    : "No intervention records available yet.";
+  const emptyDescription = "No intervention records available yet.";
   const activeViewMode = canPlanInterventions ? viewMode : "list";
 
   const clearError = (field: string) => {
