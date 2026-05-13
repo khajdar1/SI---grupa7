@@ -56,8 +56,6 @@ const FEATURES = [
   },
 ];
 
-const STACK = ['Next.js 15', 'React 19', 'TypeScript', 'Express', 'MySQL', 'Socket.IO', 'Tailwind CSS'];
-
 const HIGHLIGHTS = [
   'Real-time updates via Socket.IO',
   'Role-based access for admins, coordinators, and technicians',
@@ -225,25 +223,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Tech stack */}
-      <section className="bg-muted/20">
-        <div className="mx-auto max-w-[var(--content-max-width)] px-4 py-10 md:px-6">
-          <p className="mb-5 text-center text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-            Tech stack
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {STACK.map((tech, i) => (
-              <span
-                key={tech}
-                className="tech-pill rounded-full bg-background/90 px-4 py-1.5 text-xs font-semibold text-muted-foreground animate-fade-in-up"
-                style={{ animationDelay: `${i * 55}ms` }}
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

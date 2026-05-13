@@ -5,35 +5,14 @@ import Link from 'next/link';
 
 import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
-import { api } from '@/lib/api';
-
-type InterventionHistoryItem = {
-  id: string;
-  date: string;
-  status: string;
-  priority: string;
-  location: string;
-  categoryId: number;
-  categoryName: string;
-  summary: string;
-  servicer: string;
-};
-
-type HistoryPagination = {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-};
-
-type InterventionHistoryResponse = {
-  message: string;
-  data: InterventionHistoryItem[];
-  pagination: HistoryPagination;
-};
+import {
+  getInterventionHistory,
+  type InterventionHistoryItem,
+  type InterventionHistoryPagination,
+} from '@/services/interventions.service';
 
 const PAGE_SIZE = 10;
-const INITIAL_PAGINATION: HistoryPagination = {
+const INITIAL_PAGINATION: InterventionHistoryPagination = {
   page: 1,
   pageSize: PAGE_SIZE,
   total: 0,
@@ -46,7 +25,7 @@ export default function HistoryPage() {
   const [items, setItems] = useState<InterventionHistoryItem[]>([]);
   const [message, setMessage] = useState('');
   const [page, setPage] = useState(1);
-  const [pagination, setPagination] = useState<HistoryPagination>(INITIAL_PAGINATION);
+  const [pagination, setPagination] = useState<InterventionHistoryPagination>(INITIAL_PAGINATION);
   const [isLoading, setIsLoading] = useState(false);
 
   async function loadHistory(nextPage = page) {
@@ -54,31 +33,18 @@ export default function HistoryPage() {
     setMessage('');
 
     try {
-      const params = new URLSearchParams({
-        page: String(nextPage),
-        pageSize: String(PAGE_SIZE),
+      const normalizedCategory = category.trim();
+      const response = await getInterventionHistory({
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+        location,
+        categoryId: /^\d+$/.test(normalizedCategory) ? normalizedCategory : undefined,
+        category: /^\d+$/.test(normalizedCategory) ? undefined : normalizedCategory,
       });
 
-      if (location.trim()) {
-        params.set('location', location.trim());
-      }
-
-      if (category.trim()) {
-        const normalizedCategory = category.trim();
-        if (/^\d+$/.test(normalizedCategory)) {
-          params.set('categoryId', normalizedCategory);
-        } else {
-          params.set('category', normalizedCategory);
-        }
-      }
-
-      const response = await api.get<InterventionHistoryResponse>(
-        `/api/v1/interventions/history?${params.toString()}`,
-      );
-
-      setItems(response.data.data);
-      setMessage(response.data.message);
-      setPagination(response.data.pagination);
+      setItems(response.data);
+      setMessage(response.message);
+      setPagination(response.pagination);
     } catch {
       setItems([]);
       setPagination(INITIAL_PAGINATION);
