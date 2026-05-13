@@ -65,14 +65,37 @@ const HISTORY_ROLE_NAMES = new Set([
   'admin',
   'administrator',
 ]);
+const REPORT_ROLE_NAMES = new Set([
+  'serviser',
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
+]);
 const MANAGEMENT_ROLE_NAMES = new Set(['menadzment', 'management', 'admin', 'administrator']);
-const OPERATION_ROLE_NAMES = new Set([
+const ASSIGNMENT_MANAGEMENT_ROLE_NAMES = new Set([
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
+]);
+const INTERVENTION_ACCESS_ROLE_NAMES = new Set([
   'korisnik',
   'serviser',
   'koordinator',
   'coordinator',
   'management',
   'menadzment',
+  'admin',
+  'administrator',
+]);
+const INTERVENTION_CREATE_ROLE_NAMES = new Set([
+  'koordinator',
+  'coordinator',
   'admin',
   'administrator',
 ]);
@@ -146,6 +169,46 @@ function getTokenRoles(token: string | null): string[] {
 
 function hasRole(token: string | null, allowedRoles: Set<string>): boolean {
   return getTokenRoles(token).some((role) => allowedRoles.has(role));
+}
+
+function hasAnyRole(roles: readonly string[], allowedRoles: Set<string>): boolean {
+  return roles.some((role) => allowedRoles.has(role));
+}
+
+function canViewPrimaryRoute(route: string, roles: readonly string[]): boolean {
+  if (route === ROUTES.HOME || route === ROUTES.DASHBOARD || route === ROUTES.FAULT_REPORTS) {
+    return true;
+  }
+
+  if (route === ROUTES.INTERVENTIONS) {
+    return hasAnyRole(roles, INTERVENTION_ACCESS_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.ASSIGNMENTS) {
+    return hasAnyRole(roles, ASSIGNMENT_MANAGEMENT_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.REPORTS) {
+    return hasAnyRole(roles, REPORT_ROLE_NAMES);
+  }
+
+  return true;
+}
+
+function canViewOperationsRoute(route: string, roles: readonly string[]): boolean {
+  if (route === ROUTES.INTERVENTION_NEW) {
+    return hasAnyRole(roles, INTERVENTION_CREATE_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.HISTORY) {
+    return hasAnyRole(roles, HISTORY_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.MAP || route === ROUTES.TICKETS) {
+    return hasAnyRole(roles, ASSIGNMENT_MANAGEMENT_ROLE_NAMES);
+  }
+
+  return true;
 }
 
 function NavLink({ item, pathname, showIcon = true }: { item: NavItem; pathname: string; showIcon?: boolean }) {
@@ -223,9 +286,8 @@ export function AppNavigation() {
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
-  const [canUseOperations, setCanUseOperations] = useState(false);
-  const [canViewHistory, setCanViewHistory] = useState(false);
   const [isManagement, setIsManagement] = useState(false);
+  const [sessionRoles, setSessionRoles] = useState<string[]>([]);
 
   useEffect(() => {
     const readAuthState = () => {
@@ -238,17 +300,15 @@ export function AppNavigation() {
         setSessionUser(parsedUser);
         setIsAdmin(hasRole(token, ADMIN_ROLE_NAMES));
         setIsCompanyAdmin(hasRole(token, COMPANY_ADMIN_ROLE_NAMES));
-        setCanUseOperations(roles.some((role) => OPERATION_ROLE_NAMES.has(role)));
-        setCanViewHistory(roles.some((role) => HISTORY_ROLE_NAMES.has(role)));
         setIsManagement(hasRole(token, MANAGEMENT_ROLE_NAMES));
+        setSessionRoles(roles);
         setAuthState(token ? 'authenticated' : 'guest');
       } catch {
         setSessionUser(null);
         setIsAdmin(false);
         setIsCompanyAdmin(false);
-        setCanUseOperations(false);
-        setCanViewHistory(false);
         setIsManagement(false);
+        setSessionRoles([]);
         setAuthState('guest');
       }
     };
@@ -274,12 +334,8 @@ export function AppNavigation() {
       return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
     }
 
-    if (!canUseOperations) {
-      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD);
-    }
-
-    return PRIMARY_NAV_ITEMS;
-  }, [canUseOperations, isAdmin, isAuthenticated, isCompanyAdmin]);
+    return PRIMARY_NAV_ITEMS.filter((item) => canViewPrimaryRoute(item.to, sessionRoles));
+  }, [isAdmin, isAuthenticated, isCompanyAdmin, sessionRoles]);
 
   const visibleAccountItems = useMemo(
     () => ACCOUNT_NAV_ITEMS.filter((item) => (item.to === ROUTES.COMPANY ? isCompanyAdmin : true)),
@@ -287,14 +343,14 @@ export function AppNavigation() {
   );
 
   const operationsItems = useMemo(() => {
-    if (!canUseOperations || (isCompanyAdmin && !isAdmin)) {
+    if (isCompanyAdmin && !isAdmin) {
       return [];
     }
 
-    const items = OPERATIONS_NAV_ITEMS.filter((item) => (item.to === ROUTES.HISTORY ? canViewHistory : true));
+    const items = OPERATIONS_NAV_ITEMS.filter((item) => canViewOperationsRoute(item.to, sessionRoles));
 
     return isManagement ? [...items, ...MANAGEMENT_NAV_ITEMS] : items;
-  }, [canUseOperations, canViewHistory, isAdmin, isCompanyAdmin, isManagement]);
+  }, [isAdmin, isCompanyAdmin, isManagement, sessionRoles]);
 
   const initials = sessionUser?.username ? sessionUser.username.slice(0, 2).toUpperCase() : '?';
 
