@@ -4,11 +4,6 @@ import { useRouter } from 'next/navigation';
 import MonthCalendar from './MonthCalendar';
 import { PRIORITY } from '@shared/enums';
 
-// Mock useRouter
-vi.mock('next/navigation', () => ({
-  useRouter: vi.fn(),
-}));
-
 type TestEvent = {
   id: string;
   title: string;
