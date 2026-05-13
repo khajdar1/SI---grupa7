@@ -480,4 +480,23 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 - **Rizici, problemi ili greške koje su uočene:**  Nisu uočeni značajni rizici, problemi niti greške tokom implementacije i testiranja funkcionalnosti. 
 - **Ko je koristio alat:** Dalila Tanković
 
+---
+
+- **Datum:** 07.05.2026.
+- **Sprint broj:** Sprint 5
+- **Alat koji je korišten:** ChatGPT (GPT-5.5)
+- **Svrha korištenja:** Implementacija i testiranje PBI-007 (Active Interventions List) uz integraciju frontend filtera, backend query logike i autentifikacije putem Keycloak-a.
+- **Kratak opis zadatka ili upita:** Implementacija prikaza aktivnih intervencija sa filterima po statusu, tipu i assignment stanju, usklađivanje enum vrijednosti između Prisma modela i frontend/backend logike, debugging autentifikacije i testiranje pristupa za autorizovane korisnike.
+- **Šta je AI predložio ili generisao:**
+    - Izmjene u `interventions.route.ts` za filtriranje aktivnih intervencija (`OPEN`, `IN_PROGRESS`, `assigned/unassigned`).
+    - Ispravku greške `req is not defined` u backend route handleru.
+    - Uputstva za konfiguraciju `.env` varijabli za Railway bazu i Keycloak integraciju.
+    - Korake za dodjelu Keycloak rola (`Admin`) i testiranje autorizacije.
+    - Git workflow korake za feature branch, commit i Pull Request proces.
+- **Šta je tim prihvatio:** Backend i frontend izmjene za PBI-007, filter logiku, enum usklađivanje i autentifikacione konfiguracije potrebne za testiranje modula.
+- **Šta je tim izmijenio:** Enum vrijednosti prioriteta i statusa prilagođene su postojećoj Prisma i aplikacijskoj strukturi (`URGENT`, `HIGH`, `NORMAL`, `LOW` i `OPEN`, `IN_PROGRESS`, `DONE`, `CANCELED`).
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Konflikti između feature i develop grane zbog paralelnih izmjena u `interventions.route.ts` i `page.tsx`; problemi sa autorizacijom i expired tokenima tokom testiranja; greška `Data truncated for column 'priority'` u fault reports modulu zbog neusaglašenih enum vrijednosti u drugim dijelovima sistema.
+- **Ko je koristio alat:** Emina Hadžić
+
 
