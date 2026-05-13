@@ -631,3 +631,37 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Šta je tim odbacio:** Dodatne promjene van kalendarskog prikaza nisu rađene jer nisu bile dio ovog updatea.
 - **Rizici, problemi ili greške koje su uočene:** Tokom verifikacije je uočeno da frontend testovi zahtijevaju dodatne dev dependency pakete i odgovarajući alias setup; takođe je potvrđeno da UTC oslanjanje pri grupisanju datuma može pomjeriti događaje između dana u različitim vremenskim zonama, pa je ostavljen lokalni datum kao izvor istine.
 - **Ko je koristio alat:** Ismail Mujanović
+
+---
+
+- **Datum:** 13.05.2026.
+- **Sprint broj:** Sprint 7
+- **Alat koji je korišten:** Codex / GPT-5
+- **Svrha korištenja:** Kratka provjera i dorada role-based prikaza navigacije na frontendu.
+- **Kratak opis zadatka ili upita:** Provjera koje sekcije frontend prikazuje korisnicima u odnosu na backend ograničenja po rolama, te sakrivanje linkova i akcija koje korisnik ne smije koristiti.
+- **Šta je AI predložio ili generisao:**
+    - Sakrivanje sekcija u navigaciji prema ulozi korisnika.
+    - Ispravku stare unauthorized poruke koja se prikazivala na dozvoljenim stranicama.
+    - Ograničenje kalendarskog prikaza intervencija samo na koordinatora i admina.
+- **Šta je tim prihvatio:** Ciljane frontend izmjene za prikaz sekcija prema rolama.
+- **Šta je tim izmijenio:** Home stranica sada prijavljenom korisniku ne prikazuje Login/Register CTA.
+- **Šta je tim odbacio:** Šire refaktorisanje autorizacije i promjene backend pravila nisu rađene.
+- **Rizici, problemi ili greške koje su uočene:** Frontend typecheck i dalje pada zbog postojećeg nedostajućeg `@testing-library/react` dependencyja.
+- **Ko je koristio alat:** Lamija Bojić
+
+---
+
+- **Datum:** 13.05.2026.
+- **Sprint broj:** Sprint 7
+- **Alat koji je korišten:** Codex / GPT-5
+- **Svrha korištenja:** Provjera implementiranosti user storyja i razjašnjenje postojećih dashboard/report funkcionalnosti.
+- **Kratak opis zadatka ili upita:** Pregled koda i dokumentacije radi provjere da li su menadžment dashboard i izvještaji servisera implementirani, gdje se nalaze u aplikaciji i da li postoje placeholder rute koje zbunjuju korisnika.
+- **Šta je AI predložio ili generisao:**
+    - Analizu da je menadžment dashboard implementiran kroz `/management`, a ne kroz obični `/dashboard`.
+    - Analizu da su izvještaji servisera implementirani unutar detalja intervencije.
+    - Objašnjenje da je `/reports` trenutno shell/placeholder ruta.
+- **Šta je tim prihvatio:** Zaključke o stvarnom stanju implementacije.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** Implementacija novih backend funkcionalnosti nije rađena u ovoj provjeri.
+- **Rizici, problemi ili greške koje su uočene:** `/reports` ruta može zbuniti korisnike jer ne prikazuje stvarne izvještaje.
+- **Ko je koristio alat:** Lamija Bojić
