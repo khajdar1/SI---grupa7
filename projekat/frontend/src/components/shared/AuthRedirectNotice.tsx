@@ -23,11 +23,16 @@ export function AuthRedirectNotice() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const hasRedirectNotice = searchParams.has('unauthorized') || searchParams.has('redirected');
     const storedMessage = window.sessionStorage.getItem(AUTH_REDIRECT_MESSAGE_KEY);
-    if (storedMessage) {
+    if (storedMessage && hasRedirectNotice) {
       window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
       setMessage(storedMessage);
       return;
+    }
+
+    if (storedMessage) {
+      window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
     }
 
     setMessage(getFallbackMessage(searchParams));

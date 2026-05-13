@@ -416,6 +416,7 @@ export default function InterventionsPage() {
   const emptyDescription = moduleInfo
     ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(", ")}`
     : "No intervention records available yet.";
+  const activeViewMode = canPlanInterventions ? viewMode : "list";
 
   const clearError = (field: string) => {
     setFieldErrors((previous) => clearFieldError(previous, field));
@@ -614,12 +615,16 @@ export default function InterventionsPage() {
           { label: "Dashboard", href: ROUTES.DASHBOARD },
           { label: "Interventions" },
         ]}
-        secondaryActions={[
-          {
-            label: viewMode === 'list' ? 'Calendar' : 'List',
-            onClick: () => setViewMode((v) => (v === 'list' ? 'calendar' : 'list')),
-          },
-        ]}
+        secondaryActions={
+          canPlanInterventions
+            ? [
+                {
+                  label: activeViewMode === "list" ? "Calendar" : "List",
+                  onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
+                },
+              ]
+            : undefined
+        }
         primaryAction={
           canPlanInterventions
             ? {
@@ -674,7 +679,7 @@ export default function InterventionsPage() {
         onClear={clearFilters}
       />
 
-      {viewMode === 'list' ? (
+      {activeViewMode === 'list' ? (
         <DataTable<InterventionListItem>
         columns={[
           {
