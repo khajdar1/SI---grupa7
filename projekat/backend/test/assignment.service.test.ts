@@ -8,7 +8,14 @@ const {
   seedIntervention,
   seedUser,
   prismaMock,
+  getKeycloakAdminTokenMock,
+  getKeycloakUserRoleNamesMock,
 } = vi.hoisted(() => {
+  type TestExternalIdentity = {
+    provider: string;
+    providerSubject: string;
+  };
+
   type TestUser = {
     id: number;
     firstName: string;
@@ -17,6 +24,8 @@ const {
     email: string;
     active: boolean;
     companyId: number | null;
+    externalIdentities: TestExternalIdentity[];
+    keycloakRoles: string[];
   };
 
   type TestIntervention = {
@@ -63,6 +72,7 @@ const {
     email: user.email,
     active: user.active,
     companyId: user.companyId,
+    externalIdentities: user.externalIdentities.map((identity) => ({ ...identity })),
   });
 
   const cloneAssignment = (assignment: TestAssignment) => ({
@@ -73,7 +83,7 @@ const {
     user: { ...assignment.user },
   });
 
-  const applyUserSelect = (user: TestUser, select?: Record<string, boolean>) => {
+  const applyUserSelect = (user: TestUser, select?: Record<string, unknown>) => {
     if (!select) {
       return cloneUser(user);
     }
@@ -85,7 +95,10 @@ const {
       }
 
       if (key in user) {
-        selected[key] = user[key as keyof TestUser];
+        const value = user[key as keyof TestUser];
+        selected[key] = Array.isArray(value)
+          ? value.map((item) => ({ ...item }))
+          : value;
       }
     }
 
@@ -138,6 +151,10 @@ const {
       companyId: Object.prototype.hasOwnProperty.call(overrides, "companyId")
         ? overrides.companyId ?? null
         : 1,
+      externalIdentities: overrides.externalIdentities ?? [
+        { provider: "keycloak", providerSubject: `keycloak-user-${id}` },
+      ],
+      keycloakRoles: overrides.keycloakRoles ?? ["Serviser"],
     };
 
     state.users.push(user);
@@ -178,8 +195,38 @@ const {
     intervention: {
       findUnique: vi.fn(async ({ where }: { where: { id: number } }) => {
         const intervention = resolveIntervention(where.id);
-        return intervention ? { id: intervention.id, companyId: intervention.companyId } : null;
+        return intervention
+          ? {
+              id: intervention.id,
+              companyId: intervention.companyId,
+              status: intervention.status,
+            }
+          : null;
       }),
+      update: vi.fn(
+        async ({
+          where,
+          data,
+        }: {
+          where: { id: number };
+          data: { status?: string };
+        }) => {
+          const intervention = resolveIntervention(where.id);
+          if (!intervention) {
+            return null;
+          }
+
+          if (data.status) {
+            intervention.status = data.status;
+          }
+
+          return {
+            id: intervention.id,
+            companyId: intervention.companyId,
+            status: intervention.status,
+          };
+        },
+      ),
     },
     user: {
       findMany: vi.fn(
@@ -192,7 +239,7 @@ const {
             active?: boolean;
             companyId?: number;
           };
-          select?: Record<string, boolean>;
+          select?: Record<string, unknown>;
         }) => {
           let users = [...state.users];
 
@@ -223,7 +270,7 @@ const {
             active?: boolean;
             companyId?: number;
           };
-          select?: Record<string, boolean>;
+          select?: Record<string, unknown>;
         }) => {
           let users = [...state.users];
 
@@ -253,8 +300,8 @@ const {
           orderBy,
         }: {
           where?: { interventionId?: number };
-          select?: Record<string, boolean>;
-          include?: { user?: { select?: Record<string, boolean> } };
+          select?: Record<string, unknown>;
+          include?: { user?: { select?: Record<string, unknown> } };
           orderBy?: { assignedAt?: "asc" | "desc" };
         }) => {
           let assignments = [...state.assignments];
@@ -312,7 +359,7 @@ const {
           include,
         }: {
           where: { interventionId_userId: { interventionId: number; userId: number } };
-          include?: { user?: { select?: Record<string, boolean> } };
+          include?: { user?: { select?: Record<string, unknown> } };
         }) => {
           const assignment = state.assignments.find(
             (item) =>
@@ -426,6 +473,20 @@ const {
   };
 
   const auditRecordMock = vi.fn().mockResolvedValue(undefined);
+  const getKeycloakAdminTokenMock = vi.fn().mockResolvedValue("admin-token");
+  const getKeycloakUserRoleNamesMock = vi.fn(
+    async (_token: string, keycloakSubject: string) => {
+      const user = state.users.find((item) =>
+        item.externalIdentities.some(
+          (identity) =>
+            identity.provider === "keycloak" &&
+            identity.providerSubject === keycloakSubject,
+        ),
+      );
+
+      return user?.keycloakRoles ?? [];
+    },
+  );
 
   return {
     auditRecordMock,
@@ -435,6 +496,8 @@ const {
     seedIntervention,
     seedUser,
     prismaMock,
+    getKeycloakAdminTokenMock,
+    getKeycloakUserRoleNamesMock,
   };
 });
 
@@ -445,6 +508,14 @@ vi.mock("../src/config/database", () => ({
 vi.mock("../src/shared/audit.service", () => ({
   AuditService: {
     record: auditRecordMock,
+  },
+}));
+
+vi.mock("../src/clients/keycloak.client", () => ({
+  getKeycloakAdminToken: getKeycloakAdminTokenMock,
+  getKeycloakUserRoleNames: getKeycloakUserRoleNamesMock,
+  MANAGED_KEYCLOAK_ROLE_ALIASES: {
+    SERVISER: ["Serviser", "serviser"],
   },
 }));
 
@@ -522,6 +593,24 @@ describe("AssignmentService", () => {
       ).rejects.toBeInstanceOf(BadRequestError);
     });
 
+    it("should reject assignment of a user without the Serviser role", async () => {
+      seedIntervention(1, { companyId: 1 });
+      const coordinator = seedUser(1, {
+        active: true,
+        username: "coordinator.user",
+        keycloakRoles: ["Koordinator"],
+      });
+
+      await expect(
+        AssignmentService.assignServicesToIntervention(
+          1,
+          [coordinator.id],
+          coordinator.id,
+          coordinator.username,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestError);
+    });
+
     it("should not create duplicate assignments", async () => {
       seedIntervention(1, { companyId: 1 });
       const servicer = seedUser(1, { active: true });
@@ -537,6 +626,40 @@ describe("AssignmentService", () => {
 
       expect(result).toHaveLength(0);
       expect(prismaMock.assignment.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("should move a newly assigned open intervention to assigned status", async () => {
+      seedIntervention(1, { companyId: 1, status: "NEW" });
+      const servicer = seedUser(1, { active: true });
+
+      await AssignmentService.assignServicesToIntervention(
+        1,
+        [servicer.id],
+        servicer.id,
+        servicer.username,
+      );
+
+      expect(prismaMock.intervention.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { status: "ASSIGNED" },
+      });
+    });
+
+    it("should keep an in-progress intervention in progress when assigning servicers", async () => {
+      seedIntervention(1, { companyId: 1, status: "IN_PROGRESS" });
+      const servicer = seedUser(1, { active: true });
+
+      await AssignmentService.assignServicesToIntervention(
+        1,
+        [servicer.id],
+        servicer.id,
+        servicer.username,
+      );
+
+      expect(prismaMock.intervention.update).not.toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { status: "ASSIGNED" },
+      });
     });
   });
 
@@ -564,6 +687,39 @@ describe("AssignmentService", () => {
       await expect(
         AssignmentService.removeServicer(1, servicer.id, servicer.id, servicer.username),
       ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it("should move an assigned intervention back to open when the last servicer is removed", async () => {
+      seedIntervention(1, { companyId: 1, status: "ASSIGNED" });
+      const servicer = seedUser(1, { active: true });
+      seedAssignment(1, servicer.id);
+
+      await AssignmentService.removeServicer(1, servicer.id, servicer.id, servicer.username);
+
+      expect(prismaMock.intervention.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { status: "NEW" },
+      });
+    });
+
+    it("should keep assigned status while another servicer remains assigned", async () => {
+      seedIntervention(1, { companyId: 1, status: "ASSIGNED" });
+      const firstServicer = seedUser(1, { active: true });
+      const secondServicer = seedUser(2, { active: true });
+      seedAssignment(1, firstServicer.id);
+      seedAssignment(1, secondServicer.id);
+
+      await AssignmentService.removeServicer(
+        1,
+        firstServicer.id,
+        firstServicer.id,
+        firstServicer.username,
+      );
+
+      expect(prismaMock.intervention.update).not.toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { status: "NEW" },
+      });
     });
   });
 
@@ -631,6 +787,32 @@ describe("AssignmentService", () => {
 
       expect(servicers).toHaveLength(1);
       expect(servicers[0].active).toBe(true);
+    });
+
+    it("should only include users with the Serviser role", async () => {
+      seedCompany(1, "Servis Alfa");
+      const servicer = seedUser(1, {
+        active: true,
+        companyId: 1,
+        username: "real.servicer",
+        keycloakRoles: ["Serviser"],
+      });
+      seedUser(2, {
+        active: true,
+        companyId: 1,
+        username: "coordinator.user",
+        keycloakRoles: ["Koordinator"],
+      });
+      seedUser(3, {
+        active: true,
+        companyId: 1,
+        username: "customer.user",
+        keycloakRoles: ["Korisnik"],
+      });
+
+      const servicers = await AssignmentService.getAvailableServicersWithLoad(1);
+
+      expect(servicers.map((item) => item.username)).toEqual([servicer.username]);
     });
 
     it("should show zero active interventions for servicers with no assignments", async () => {

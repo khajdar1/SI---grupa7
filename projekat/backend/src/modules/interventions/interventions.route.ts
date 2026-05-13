@@ -1,5 +1,5 @@
 import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
-import type { Request } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
@@ -20,17 +20,46 @@ const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
 const ADMIN_ROLES = ["Administrator", "Admin", "administrator", "admin"];
 const SERVICER_ROLES = ["Serviser"];
+const COORDINATOR_ACTION_ROLES = [...COORDINATOR_ROLES, ...ADMIN_ROLES];
 
 const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES, ...ADMIN_ROLES];
 
 const INTERVENTION_HISTORY_ROLES = [
   ...COORDINATOR_ROLES,
   ...MANAGEMENT_ROLES,
+  ...ADMIN_ROLES,
   ...SERVICER_ROLES,
 ];
+const INTERVENTION_STATUS_ROLES = [...COORDINATOR_ACTION_ROLES, ...SERVICER_ROLES];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.NEW,
   InterventionStatus.IN_PROGRESS,
+]);
+const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
+  InterventionStatus,
+  ReadonlySet<InterventionStatus>
+> = new Map<InterventionStatus, ReadonlySet<InterventionStatus>>([
+  [
+    InterventionStatus.NEW,
+    new Set<InterventionStatus>([
+      InterventionStatus.IN_PROGRESS,
+      InterventionStatus.CANCELLED,
+    ]),
+  ],
+  [
+    InterventionStatus.ASSIGNED,
+    new Set<InterventionStatus>([
+      InterventionStatus.IN_PROGRESS,
+      InterventionStatus.CANCELLED,
+    ]),
+  ],
+  [
+    InterventionStatus.IN_PROGRESS,
+    new Set<InterventionStatus>([
+      InterventionStatus.RESOLVED,
+      InterventionStatus.CANCELLED,
+    ]),
+  ],
 ]);
 
 function getCurrentMinute(): Date {
@@ -39,26 +68,27 @@ function getCurrentMinute(): Date {
   return now;
 }
 
-const interventionPayloadSchema = z
-  .object({
-    name: z
-      .string()
-      .trim()
-      .min(3, "Name must contain at least 3 characters.")
-      .max(150),
-    description: z.string().trim().min(1, "Description is required.").max(2000),
-    location: z
-      .string()
-      .trim()
-      .min(3, "Location must contain at least 3 characters.")
-      .max(255),
-    startedAt: z.coerce.date().optional(),
-    dueAt: z.coerce.date().optional(),
-    faultReportId: z.coerce.number().int().positive().nullable().optional(),
-    companyId: z.coerce.number().int().positive().optional(),
-    categoryId: z.coerce.number().int().positive().optional(),
-    priority: z.nativeEnum(Priority),
-  })
+const interventionPayloadBaseSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(3, "Name must contain at least 3 characters.")
+    .max(150),
+  description: z.string().trim().min(1, "Description is required.").max(2000),
+  location: z
+    .string()
+    .trim()
+    .min(3, "Location must contain at least 3 characters.")
+    .max(255),
+  startedAt: z.coerce.date().optional(),
+  dueAt: z.coerce.date().optional(),
+  faultReportId: z.coerce.number().int().positive().nullable().optional(),
+  companyId: z.coerce.number().int().positive().optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+  priority: z.nativeEnum(Priority),
+});
+
+const interventionPayloadSchema = interventionPayloadBaseSchema
   .refine(
     (value) => !value.startedAt || value.startedAt >= getCurrentMinute(),
     {
@@ -79,9 +109,24 @@ const interventionPayloadSchema = z
     }
   );
 
+const interventionUpdatePayloadSchema = interventionPayloadBaseSchema.refine(
+  (value) => !value.dueAt || !value.startedAt || value.dueAt >= value.startedAt,
+  {
+    path: ["dueAt"],
+    message: "Due date must be after or equal to the planned start date.",
+  }
+);
+
 const interventionHistoryQuerySchema = z.object({
   location: z.string().trim().min(3).optional(),
   categoryId: z.coerce.number().int().positive().optional(),
+  category: z.string().trim().min(2).optional(),
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(50).default(10),
+});
+
+const interventionStatusUpdateSchema = z.object({
+  status: z.nativeEnum(InterventionStatus),
 });
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
@@ -101,6 +146,57 @@ function parseInterventionId(rawId: string | string[] | undefined): number {
 
   return id;
 }
+
+function hasAnyRole(req: Request, roles: string[]): boolean {
+  const allowedRoles = new Set(roles.map((role) => role.toLowerCase()));
+  return (req.user?.roles ?? []).some((role) =>
+    allowedRoles.has(role.toLowerCase()),
+  );
+}
+
+const authorizeInterventionAccess = asyncHandler(
+  async (req: Request, _res: Response, next: NextFunction) => {
+    if (hasAnyRole(req, INTERVENTION_VIEW_ROLES)) {
+      return next();
+    }
+
+    const localUserId = req.user?.localUserId;
+
+    if (!localUserId) {
+      throw new ForbiddenError("You do not have permission to access this intervention.");
+    }
+
+    const id = parseInterventionId(req.params.id);
+    const accessibleIntervention = await prisma.intervention.findFirst({
+      where: {
+        id,
+        OR: [
+          {
+            faultReport: {
+              is: {
+                userId: localUserId,
+              },
+            },
+          },
+          {
+            assignments: {
+              some: {
+                userId: localUserId,
+              },
+            },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+
+    if (!accessibleIntervention) {
+      throw new ForbiddenError("You do not have permission to access this intervention.");
+    }
+
+    return next();
+  },
+);
 
 async function resolveCreator(req: Request) {
   const username = req.user?.username?.trim();
@@ -253,6 +349,18 @@ function mapIntervention(intervention: {
   company: { id: number; name: string };
   creator: { username: string; id: number };
   faultReport: { id: number; description: string; reportedAt: Date } | null;
+  assignments?: Array<{
+    id: number;
+    userId: number;
+    assignedAt: Date;
+    user: {
+      id: number;
+      firstName: string;
+      lastName: string;
+      username: string;
+      email: string;
+    };
+  }>;
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -281,6 +389,19 @@ function mapIntervention(intervention: {
           reportedAt: intervention.faultReport.reportedAt.toISOString(),
         }
       : null,
+    assignments:
+      intervention.assignments?.map((assignment) => ({
+        id: assignment.id,
+        userId: assignment.userId,
+        user: {
+          id: assignment.user.id,
+          firstName: assignment.user.firstName,
+          lastName: assignment.user.lastName,
+          username: assignment.user.username,
+          email: assignment.user.email,
+        },
+        assignedAt: assignment.assignedAt.toISOString(),
+      })) ?? [],
   };
 }
 
@@ -327,7 +448,7 @@ const interventionInclude = {
 
 interventionsRouter.get(
   "/options",
-  authorizeRoles(COORDINATOR_ROLES),
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
   asyncHandler(async (_req, res) => {
     const [companies, categories, faultReports] = await Promise.all([
       prisma.company.findMany({
@@ -365,8 +486,14 @@ interventionsRouter.get(
 
 interventionsRouter.get(
   "/",
-  authorizeRoles(INTERVENTION_VIEW_ROLES),
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const localUserId = req.user?.localUserId;
+    const hasOperationalView = hasAnyRole(req, INTERVENTION_VIEW_ROLES);
+
+    if (!hasOperationalView && !localUserId) {
+      throw new ForbiddenError("You do not have permission to access interventions.");
+    }
+
     const interventions = await prisma.intervention.findMany({
       where: {
         archived: false,
@@ -377,6 +504,26 @@ interventionsRouter.get(
             InterventionStatus.IN_PROGRESS,
           ],
         },
+        ...(hasOperationalView
+          ? {}
+          : {
+              OR: [
+                {
+                  faultReport: {
+                    is: {
+                      userId: localUserId,
+                    },
+                  },
+                },
+                {
+                  assignments: {
+                    some: {
+                      userId: localUserId,
+                    },
+                  },
+                },
+              ],
+            }),
       },
       include: interventionInclude,
     });
@@ -409,67 +556,77 @@ interventionsRouter.get(
   authorizeRoles(INTERVENTION_HISTORY_ROLES),
   asyncHandler(async (req, res) => {
     const query = interventionHistoryQuerySchema.parse(req.query);
-
-    if (!query.location && !query.categoryId) {
-      throw new BadRequestError("Location or category is required.", [
+    const page = query.page;
+    const pageSize = query.pageSize;
+    const where = {
+      AND: [
         {
-          field: "location",
-          message: "Provide location or categoryId to search history.",
+          OR: [
+            { status: InterventionStatus.RESOLVED },
+            { archived: true },
+          ],
         },
-      ]);
-    }
-
-    const history = await prisma.intervention.findMany({
-      where: {
-        AND: [
-          {
-            OR: [
-              { status: InterventionStatus.RESOLVED },
-              { archived: true },
-            ],
-          },
-          query.location
-            ? {
-                location: {
-                  contains: query.location,
+        query.location
+          ? {
+              location: {
+                contains: query.location,
+              },
+            }
+          : {},
+        query.categoryId ? { categoryId: query.categoryId } : {},
+        query.category
+          ? {
+              category: {
+                is: {
+                  name: {
+                    contains: query.category,
+                  },
                 },
-              }
-            : {},
-          query.categoryId ? { categoryId: query.categoryId } : {},
-        ],
-      },
-      orderBy: [{ createdAt: "desc" }],
-      select: {
-        id: true,
-        description: true,
-        location: true,
-        status: true,
-        priority: true,
-        createdAt: true,
-        category: {
-          select: {
-            id: true,
-            name: true,
+              },
+            }
+          : {},
+      ],
+    };
+
+    const [history, total] = await Promise.all([
+      prisma.intervention.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: {
+          id: true,
+          description: true,
+          location: true,
+          status: true,
+          priority: true,
+          createdAt: true,
+          category: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
-        },
-        assignments: {
-          select: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
+          assignments: {
+            select: {
+              user: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+      prisma.intervention.count({ where }),
+    ]);
 
     res.json({
       message:
         history.length === 0
-          ? "Nema prethodnih intervencija za odabranu lokaciju ili kategoriju."
-          : "Historija intervencija je uspješno dohvaćena.",
+          ? "No previous interventions match the selected location or category."
+          : "Intervention history loaded successfully.",
       data: history.map((intervention) => ({
         id: String(intervention.id),
         date: intervention.createdAt.toISOString(),
@@ -490,15 +647,21 @@ interventionsRouter.get(
                     `${assignment.user.firstName} ${assignment.user.lastName}`,
                 )
                 .join(", ")
-            : "Nije dodijeljen",
+            : "Unassigned",
       })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      },
     });
   }),
 );
 
 interventionsRouter.post(
   "/",
-  authorizeRoles(COORDINATOR_ROLES),
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
   validate(interventionPayloadSchema),
   asyncHandler(async (req, res) => {
     const input = req.body as z.infer<typeof interventionPayloadSchema>;
@@ -543,9 +706,58 @@ interventionsRouter.post(
 );
 
 interventionsRouter.patch(
+  "/:id/status",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(interventionStatusUpdateSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof interventionStatusUpdateSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
+
+    if (!allowedTargets?.has(input.status)) {
+      throw new ForbiddenError(
+        "Intervention status cannot be changed in the requested direction.",
+      );
+    }
+
+    const actor = await resolveCreator(req);
+
+    const [intervention] = await prisma.$transaction([
+      prisma.intervention.update({
+        where: { id },
+        data: {
+          status: input.status,
+        },
+        include: interventionInclude,
+      }),
+      prisma.statusHistory.create({
+        data: {
+          interventionId: id,
+          authorId: actor.id,
+          oldStatus: existing.status,
+          newStatus: input.status,
+        },
+      }),
+    ]);
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.patch(
   "/:id",
-  authorizeRoles(COORDINATOR_ROLES),
-  validate(interventionPayloadSchema),
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(interventionUpdatePayloadSchema),
   asyncHandler(async (req, res) => {
     const id = parseInterventionId(req.params.id);
     const input = req.body as z.infer<typeof interventionPayloadSchema>;
@@ -606,7 +818,7 @@ interventionsRouter.patch(
 
 interventionsRouter.get(
   "/:id",
-  authorizeRoles(INTERVENTION_VIEW_ROLES),
+  authorizeInterventionAccess,
   asyncHandler(async (req, res) => {
     const id = parseInterventionId(req.params.id);
 
@@ -621,25 +833,13 @@ interventionsRouter.get(
 
     res.json({
       ...mapIntervention(intervention),
-      assignments: intervention.assignments.map((a) => ({
-        id: a.id,
-        userId: a.userId,
-        user: {
-          id: a.user.id,
-          firstName: a.user.firstName,
-          lastName: a.user.lastName,
-          username: a.user.username,
-          email: a.user.email,
-        },
-        assignedAt: a.assignedAt.toISOString(),
-      })),
     });
   }),
 );
 
 interventionsRouter.get(
   '/:id/attachments',
-  authorizeRoles(INTERVENTION_VIEW_ROLES),
+  authorizeInterventionAccess,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {

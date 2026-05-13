@@ -2,7 +2,7 @@ import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
 import { getCategories } from './categories.service';
-import { ServiceError, getErrorMessage } from './errors';
+import { withServiceError } from './errors';
 import { getModuleShell } from './module-shell.service';
 import { getSlaConfigurations } from './sla.service';
 
@@ -34,7 +34,7 @@ function isForbiddenError(error: unknown): boolean {
 }
 
 export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
-  try {
+  return withServiceError(async () => {
     const [categories, slaConfigsResult, health, interventionsModule] = await Promise.all([
       getCategories(),
       getSlaConfigurations().catch((error) => {
@@ -45,7 +45,13 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
         throw error;
       }),
       api.get<HealthResponse>(API_ENDPOINTS.HEALTH.BASE),
-      getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE),
+      getModuleShell(API_ENDPOINTS.INTERVENTIONS.BASE).catch((error) => {
+        if (isForbiddenError(error)) {
+          return null;
+        }
+
+        throw error;
+      }),
     ]);
 
     const activeCategories = categories.filter((category) => category.active).length;
@@ -66,12 +72,7 @@ export async function getDashboardSnapshot(): Promise<DashboardSnapshot> {
       stats,
       activity,
     };
-  } catch (error) {
-    throw new ServiceError(
-      getErrorMessage(error, 'Failed to load dashboard snapshot.'),
-      error,
-    );
-  }
+  }, 'Failed to load dashboard snapshot.');
 }
 
 export type { DashboardSnapshot, DashboardStat };

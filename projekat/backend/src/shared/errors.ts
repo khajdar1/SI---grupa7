@@ -38,6 +38,13 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class ConflictError extends AppError {
+  constructor(message = 'Resource already exists.') {
+    super(HTTP_STATUS.CONFLICT, message, 'CONFLICT');
+    this.name = 'ConflictError';
+  }
+}
+
 export class NotFoundError extends AppError {
   constructor(message = 'Resource not found.') {
     super(HTTP_STATUS.NOT_FOUND, message, 'NOT_FOUND');

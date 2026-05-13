@@ -1,13 +1,14 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { getResponseData, withServiceError } from './errors';
 
 export const MANAGED_USER_ROLES = [
   'KORISNIK',
   'SERVISER',
   'KOORDINATOR',
   'MENADZMENT',
+  'KOMPANIJA_ADMIN',
   'ADMIN',
 ] as const;
 
@@ -46,54 +47,45 @@ export interface UpdateManagedUserInput {
 }
 
 export async function getUsers(): Promise<ManagedUser[]> {
-  try {
-    const response = await api.get<ManagedUser[]>(API_ENDPOINTS.USERS.BASE);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load users.'), error);
-  }
+  return getResponseData(
+    () => api.get<ManagedUser[]>(API_ENDPOINTS.USERS.BASE),
+    'Failed to load users.',
+  );
 }
 
 export async function createUser(input: CreateManagedUserInput): Promise<ManagedUser> {
-  try {
-    const response = await api.post<ManagedUser>(API_ENDPOINTS.USERS.BASE, input);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to create user.'), error);
-  }
+  return getResponseData(
+    () => api.post<ManagedUser>(API_ENDPOINTS.USERS.BASE, input),
+    'Failed to create user.',
+  );
 }
 
 export async function updateUser(id: number, input: UpdateManagedUserInput): Promise<ManagedUser> {
-  try {
-    const response = await api.patch<ManagedUser>(API_ENDPOINTS.USERS.BY_ID(id), input);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to update user.'), error);
-  }
+  return getResponseData(
+    () => api.patch<ManagedUser>(API_ENDPOINTS.USERS.BY_ID(id), input),
+    'Failed to update user.',
+  );
 }
 
 export async function activateUser(id: number): Promise<ManagedUser> {
-  try {
-    const response = await api.patch<ManagedUser>(API_ENDPOINTS.USERS.ACTIVATE(id));
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to reactivate user.'), error);
-  }
+  return getResponseData(
+    () => api.patch<ManagedUser>(API_ENDPOINTS.USERS.ACTIVATE(id)),
+    'Failed to reactivate user.',
+  );
 }
 
 export async function deactivateUser(id: number): Promise<ManagedUser> {
-  try {
-    const response = await api.patch<ManagedUser>(API_ENDPOINTS.USERS.DEACTIVATE(id));
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to deactivate user.'), error);
-  }
+  return getResponseData(
+    () => api.patch<ManagedUser>(API_ENDPOINTS.USERS.DEACTIVATE(id)),
+    'Failed to deactivate user.',
+  );
 }
 
 export async function deleteUser(id: number): Promise<void> {
-  try {
-    await api.delete(API_ENDPOINTS.USERS.BY_ID(id));
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to delete user.'), error);
-  }
+  return withServiceError(
+    async () => {
+      await api.delete(API_ENDPOINTS.USERS.BY_ID(id));
+    },
+    'Failed to delete user.',
+  );
 }

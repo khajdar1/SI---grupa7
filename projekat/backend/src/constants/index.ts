@@ -70,4 +70,5 @@ export const BACKEND_ROUTES = {
   BLOCKING: `${API_PREFIX}/blocking`,
   SYSTEM_CONFIG: `${API_PREFIX}/system-config`,
   MAPS: `${API_PREFIX}/maps`,
+  MANAGEMENT: `${API_PREFIX}/management`,
 } as const;

@@ -1,4 +1,6 @@
+export { AccessDenied } from './AccessDenied';
 export { AppNavigation } from './AppNavigation';
+export { AuthRedirectNotice } from './AuthRedirectNotice';
 export { CommentsSection } from './CommentsSection';
 export { ConfirmDialog } from './ConfirmDialog';
 export { DataTable } from './DataTable';
@@ -9,8 +11,10 @@ export { ModuleSummaryCard } from './ModuleSummaryCard';
 export { PageHeader } from './PageHeader';
 export { PageLayout } from './PageLayout';
 export { PriorityBadge } from './PriorityBadge';
+export { default as MonthCalendar } from './MonthCalendar';
 export { StatCard } from './StatCard';
 
+export type { AccessDeniedProps } from './AccessDenied';
 export type { ConfirmDialogProps } from './ConfirmDialog';
 export type { Column, DataTableProps } from './DataTable';
 export type { EmptyStateProps } from './EmptyState';

@@ -1,4 +1,9 @@
 import { prisma } from "../../config/database";
+import {
+  getKeycloakAdminToken,
+  getKeycloakUserRoleNames,
+  MANAGED_KEYCLOAK_ROLE_ALIASES,
+} from "../../clients/keycloak.client";
 import { AuditService } from "../../shared/audit.service";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
 
@@ -26,6 +31,63 @@ export interface AssignmentRecord {
   };
 }
 
+type RoleCheckedUser = Omit<ServicerAvailabilityInfo, "activeInterventionCount"> & {
+  externalIdentities: Array<{
+    provider: string;
+    providerSubject: string;
+  }>;
+};
+
+const SERVICER_ROLE_ALIASES = new Set(
+  MANAGED_KEYCLOAK_ROLE_ALIASES.SERVISER.map((role) => role.toLowerCase()),
+);
+
+function getKeycloakSubject(user: RoleCheckedUser): string | null {
+  const identity = user.externalIdentities.find(
+    (item) => item.provider === "keycloak",
+  );
+
+  return identity?.providerSubject ?? null;
+}
+
+async function filterServicersByRole<TUser extends RoleCheckedUser>(
+  users: TUser[],
+): Promise<TUser[]> {
+  const usersWithKeycloakIdentity = users
+    .map((user) => ({
+      user,
+      keycloakSubject: getKeycloakSubject(user),
+    }))
+    .filter((item): item is { user: TUser; keycloakSubject: string } =>
+      Boolean(item.keycloakSubject),
+    );
+
+  if (usersWithKeycloakIdentity.length === 0) {
+    return [];
+  }
+
+  const adminToken = await getKeycloakAdminToken();
+  const roleChecks = await Promise.all(
+    usersWithKeycloakIdentity.map(async ({ user, keycloakSubject }) => {
+      const roles = await getKeycloakUserRoleNames(adminToken, keycloakSubject);
+      const hasServicerRole = roles.some((role) =>
+        SERVICER_ROLE_ALIASES.has(role.toLowerCase()),
+      );
+
+      return hasServicerRole ? user : null;
+    }),
+  );
+
+  const servicers: TUser[] = [];
+  for (const user of roleChecks) {
+    if (user) {
+      servicers.push(user);
+    }
+  }
+
+  return servicers;
+}
+
 /**
  * AssignmentService
  * Handles all assignment operations: creation, removal, and querying servicer availability
@@ -50,7 +112,7 @@ export class AssignmentService {
     // Validate intervention exists
     const intervention = await prisma.intervention.findUnique({
       where: { id: interventionId },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, status: true },
     });
 
     if (!intervention) {
@@ -60,8 +122,21 @@ export class AssignmentService {
     // Validate all users exist and are active servicers
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, active: true, firstName: true, lastName: true },
-    });
+      select: {
+        id: true,
+        active: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        externalIdentities: {
+          select: {
+            provider: true,
+            providerSubject: true,
+          },
+        },
+      },
+    }) as RoleCheckedUser[];
 
     if (users.length !== userIds.length) {
       throw new BadRequestError("One or more servicers not found.", [
@@ -79,6 +154,13 @@ export class AssignmentService {
           message: `Servicer ${u.firstName} ${u.lastName} is deactivated.`,
         })),
       );
+    }
+
+    const servicerUsers = await filterServicersByRole(users);
+    if (servicerUsers.length !== users.length) {
+      throw new BadRequestError("Only users with the Technician role can be assigned.", [
+        { field: "userIds", message: "Selected users must have the Technician role." },
+      ]);
     }
 
     // Get existing assignments to calculate which are new
@@ -133,6 +215,16 @@ export class AssignmentService {
       });
     }
 
+    if (
+      intervention.status === "NEW" &&
+      (newUserIds.length > 0 || existingAssignments.length > 0)
+    ) {
+      await prisma.intervention.update({
+        where: { id: interventionId },
+        data: { status: "ASSIGNED" },
+      });
+    }
+
     return createdAssignments;
   }
 
@@ -180,6 +272,24 @@ export class AssignmentService {
         },
       },
     });
+
+    const [intervention, remainingAssignments] = await Promise.all([
+      prisma.intervention.findUnique({
+        where: { id: interventionId },
+        select: { status: true },
+      }),
+      prisma.assignment.findMany({
+        where: { interventionId },
+        select: { userId: true },
+      }),
+    ]);
+
+    if (intervention?.status === "ASSIGNED" && remainingAssignments.length === 0) {
+      await prisma.intervention.update({
+        where: { id: interventionId },
+        data: { status: "NEW" },
+      });
+    }
 
     // Audit log the removal
     await AuditService.record({
@@ -236,7 +346,7 @@ export class AssignmentService {
     const activeStatuses = ["NEW", "ASSIGNED", "IN_PROGRESS"];
 
     // Get all active users in the company
-    const servicers = await prisma.user.findMany({
+    const users = await prisma.user.findMany({
       where: {
         companyId,
         active: true,
@@ -248,8 +358,16 @@ export class AssignmentService {
         username: true,
         email: true,
         active: true,
+        externalIdentities: {
+          select: {
+            provider: true,
+            providerSubject: true,
+          },
+        },
       },
-    });
+    }) as RoleCheckedUser[];
+
+    const servicers = await filterServicersByRole(users);
 
     // Get assignment counts for each servicer, filtered to active interventions
     const servicersWithLoad: ServicerAvailabilityInfo[] = await Promise.all(
@@ -265,7 +383,12 @@ export class AssignmentService {
         });
 
         return {
-          ...servicer,
+          id: servicer.id,
+          firstName: servicer.firstName,
+          lastName: servicer.lastName,
+          username: servicer.username,
+          email: servicer.email,
+          active: servicer.active,
           activeInterventionCount: count,
         };
       }),

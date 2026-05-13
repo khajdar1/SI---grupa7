@@ -4,7 +4,7 @@ import helmet from 'helmet';
 
 import { env } from './config/env';
 import { BACKEND_ROUTES } from './constants';
-import { authenticate } from './middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from './middleware/auth.middleware';
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware';
 import { requestLoggerMiddleware } from './middleware/request-logger.middleware';
 import healthRouter from './routes/health.route';
@@ -29,6 +29,7 @@ import profileRouter from './modules/profile/profile.route';
 import blockingRouter from './modules/blocking/blocking.route';
 import systemConfigRouter from './modules/system-config/system-config.route';
 import mapsRouter from './modules/maps/maps.route';
+import managementRouter from './modules/management/management.route';
 
 export function createApp() {
   const app = express();
@@ -42,14 +43,24 @@ export function createApp() {
   app.use(requestLoggerMiddleware);
 
   app.use(BACKEND_ROUTES.HEALTH, healthRouter);
-  app.use(BACKEND_ROUTES.FAULT_REPORTS, faultReportsRouter);
+  app.use(BACKEND_ROUTES.FAULT_REPORTS, optionalAuthenticate, faultReportsRouter);
   app.use(BACKEND_ROUTES.AUTH, authRouter);
   app.use(BACKEND_ROUTES.USERS, authenticate, usersRouter);
-  app.use(BACKEND_ROUTES.COMPANIES, companiesRouter);
+  app.use(BACKEND_ROUTES.COMPANIES, optionalAuthenticate, companiesRouter);
   app.use(BACKEND_ROUTES.CATEGORIES, categoriesRouter);
-  app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
   app.use(BACKEND_ROUTES.ASSIGNMENTS, authenticate, assignmentsRouter);
-  app.use(BACKEND_ROUTES.REPORTS, authenticate, reportsRouter);
+  app.get(BACKEND_ROUTES.REPORTS, authenticate, (_req, res) => {
+    res.json({
+      module: 'reports',
+      endpoints: [
+        'GET /interventions/:interventionId/reports',
+        'POST /interventions/:interventionId/reports',
+        'PATCH /interventions/:interventionId/reports/:reportId',
+      ],
+    });
+  });
+  app.use(`${BACKEND_ROUTES.INTERVENTIONS}/:interventionId/reports`, authenticate, reportsRouter);
+  app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
   app.use(BACKEND_ROUTES.ATTACHMENTS, authenticate, attachmentsRouter);
   app.use(BACKEND_ROUTES.NOTIFICATIONS, authenticate, notificationsRouter);
   app.use(BACKEND_ROUTES.SLA, authenticate, slaRouter);
@@ -63,6 +74,7 @@ export function createApp() {
   app.use(BACKEND_ROUTES.BLOCKING, authenticate, blockingRouter);
   app.use(BACKEND_ROUTES.SYSTEM_CONFIG, authenticate, systemConfigRouter);
   app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
+  app.use(BACKEND_ROUTES.MANAGEMENT, authenticate, managementRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
   

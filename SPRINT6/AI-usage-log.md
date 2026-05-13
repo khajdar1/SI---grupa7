@@ -361,6 +361,100 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 
 - **Datum:** 07.05.2026.
 - **Sprint broj:** Sprint 6
+- **Alat koji je koristen:** Codex / GPT-5
+- **Svrha koristenja:** Implementacija i provjera PBI-013 (upravljanje korisnickim racunima - Admin).
+- **Prompt koji je koristen:** Implementiraj PBI-013 tako da administrator moze kreirati nove korisnicke racune, izmijeniti postojece podatke, dodijeliti ulogu i firmu, deaktivirati i reaktivirati korisnika, sprijeciti brisanje korisnika sa aktivnim intervencijama i sprijeciti admina da deaktivira ili obrise vlastiti racun. Sacuvaj postojece poslovne tokove, koristi postojece backend/frontend obrasce, dodaj audit log i validaciju, te pokreni dostupne testove, typecheck i build.
+- **Kratak opis zadatka ili upita:** Razvoj admin modula za upravljanje lokalnim korisnicima i povezanim Keycloak nalozima, ukljucujuci RBAC za admin pristup, dodjelu rola, dodjelu firme, deaktivaciju/reaktivaciju i zastitu integriteta podataka.
+- **Sta je AI predlozio ili generisao:**
+    - `UserManagementService` s repository i identity-provider apstrakcijama radi testabilnosti.
+    - Backend rute za `GET /users`, `POST /users`, `PATCH /users/:id`, `PATCH /users/:id/deactivate`, `PATCH /users/:id/activate` i `DELETE /users/:id`.
+    - Integraciju s Keycloak admin API-jem za kreiranje naloga, azuriranje podataka, enable/disable status i dodjelu kontrolisanih rola.
+    - Validaciju forme za ime, email, username, privremenu lozinku, rolu i firmu.
+    - Frontend admin ekran za listu korisnika, kreiranje, izmjenu, deaktivaciju, reaktivaciju i brisanje.
+    - Audit log zapise za kreiranje, izmjenu, deaktivaciju, reaktivaciju i brisanje korisnika.
+    - Unit testove za mapiranje rola, business pravila i zabrane nad vlastitim admin nalogom.
+- **Sta je tim prihvatio:** Backend servis i rute za administraciju korisnika, frontend admin ekran, Keycloak integraciju, audit log i zastite za self-deactivate/self-delete i korisnike povezane s aktivnim intervencijama.
+- **Sta je tim izmijenio:** Admin pristup je dodat i u druge operativne tokove gdje admin treba imati prava koordinatora, npr. intervencije, dodjele, komentari i historija.
+- **Sta je tim odbacio:** Brisanje historijskih podataka korisnika nije implementirano; korisnici se deaktiviraju/reactiviraju kako bi historijat ostao sacuvan.
+- **Rizici, problemi ili greske koje su uocene:** Tok zavisi od ispravne Keycloak konfiguracije i lokalne veze korisnika preko `ExternalIdentity`; stari korisnici bez povezane Keycloak identity veze mogu biti orphaned i zahtijevaju rucnu provjeru ili ponovni seed.
+- **Ko je koristio alat:** Kerim Hajdar
+
+---
+
+- **Datum:** 07.05.2026.
+- **Sprint broj:** Sprint 6
+- **Alat koji je koristen:** Codex / GPT-5
+- **Svrha koristenja:** Zavrsni refaktoring, provjera Sprint 6 scope-a i ispravke regresija prije deploya.
+- **Prompt koji je koristen:** Refaktorisi postojece izmjene bez promjene business logike, prodji kroz Sprint 6 sprint goal i backlog, potvrdi po kodu da su PBI-004, PBI-005, PBI-006, PBI-007, PBI-011, PBI-013, PBI-016 i PBI-033 implementirani, popravi male regresije koje sprjecavaju prihvatne kriterije, posebno admin pristup, komentare, historiju, SLA, assignment filtraciju, status ASSIGNED i attachment ovlastenja. Pokreni relevantne build, typecheck i test komande i navedi sta treba rucno provjeriti prije deploya.
+- **Kratak opis zadatka ili upita:** Pregled kompletnog Sprint 6 toka kroz backend i frontend kod, uklanjanje regresija u rutama i UI tokovima, uskladjivanje pristupa po rolama i validacija kljucnih user storyja prije deploya.
+- **Sta je AI predlozio ili generisao:**
+    - Prosirenje admin pristupa za intervencije, komentare i historiju gdje admin treba imati operativna prava.
+    - Historiju intervencija koja se ucitava odmah, ima paginaciju i filtere po lokaciji i tipu/kategoriji kvara.
+    - Link iz historije na reports shell za intervenciju.
+    - Pristup korisnika vlastitim prijavljenim intervencijama i komentarima kroz URL i intervencije tab.
+    - Popravku SLA rute tako da backend prihvata `PATCH /api/v1/sla` i payload `{ configurations: [...] }`.
+    - Filtere na listi intervencija za status, tip, dodijeljenog servisera i nedodijeljene intervencije.
+    - Vracanje `assignments` podataka u `GET /interventions` response radi filtera po serviseru.
+    - Automatski prelaz statusa `NEW -> ASSIGNED` pri dodjeli servisera i `ASSIGNED -> NEW` kada se ukloni zadnji serviser.
+    - Ogranicenje brisanja attachmenta na admin rolu, dok koordinator/admin mogu pregledati i preuzeti fajlove.
+    - Dodatne route/service testove za SLA, historiju, komentare, dodjele i intervencije.
+- **Sta je tim prihvatio:** Male ciljane ispravke koje zatvaraju prihvatne kriterije Sprinta 6 bez promjene baze, ruta ili javnih API-ja osim kompatibilnog dodavanja `PATCH /sla`.
+- **Sta je tim izmijenio:** Tok dodjele servisera sada mijenja status intervencije u `ASSIGNED` kada je intervencija bila `NEW`; uklanjanje zadnjeg servisera iz `ASSIGNED` intervencije vraca status na `NEW`.
+- **Sta je tim odbacio:** Potpuna implementacija servisnog izvjestaja/rezolucije nije dodana jer je dogovoreno da je reports dio shell, a stvarni izvjestaj nije bio eksplicitno planiran za ovaj sprint.
+- **Rizici, problemi ili greske koje su uocene:** Frontend build i dalje prikazuje postojece warninge za multiple lockfiles i edge runtime; nisu vezani za refaktoring. Stari zapisi u bazi bez `faultReport.userId` ne mogu se retroaktivno tretirati kao korisnicke vlastite intervencije bez migracije ili ponovnog seeda.
+- **Ko je koristio alat:** Kerim Hajdar
+
+---
+
+- **Datum:** 07.05.2026.
+- **Sprint broj:** Sprint 6
+- **Alat koji je koristen:** Codex / GPT-5
+- **Svrha koristenja:** Implementacija i provjera PBI-013 (upravljanje korisnickim racunima - Admin).
+- **Prompt koji je koristen:** Implementiraj PBI-013 tako da administrator moze kreirati nove korisnicke racune, izmijeniti postojece podatke, dodijeliti ulogu i firmu, deaktivirati i reaktivirati korisnika, sprijeciti brisanje korisnika sa aktivnim intervencijama i sprijeciti admina da deaktivira ili obrise vlastiti racun. Sacuvaj postojece poslovne tokove, koristi postojece backend/frontend obrasce, dodaj audit log i validaciju, te pokreni dostupne testove, typecheck i build.
+- **Kratak opis zadatka ili upita:** Razvoj admin modula za upravljanje lokalnim korisnicima i povezanim Keycloak nalozima, ukljucujuci RBAC za admin pristup, dodjelu rola, dodjelu firme, deaktivaciju/reaktivaciju i zastitu integriteta podataka.
+- **Sta je AI predlozio ili generisao:**
+    - `UserManagementService` s repository i identity-provider apstrakcijama radi testabilnosti.
+    - Backend rute za `GET /users`, `POST /users`, `PATCH /users/:id`, `PATCH /users/:id/deactivate`, `PATCH /users/:id/activate` i `DELETE /users/:id`.
+    - Integraciju s Keycloak admin API-jem za kreiranje naloga, azuriranje podataka, enable/disable status i dodjelu kontrolisanih rola.
+    - Validaciju forme za ime, email, username, privremenu lozinku, rolu i firmu.
+    - Frontend admin ekran za listu korisnika, kreiranje, izmjenu, deaktivaciju, reaktivaciju i brisanje.
+    - Audit log zapise za kreiranje, izmjenu, deaktivaciju, reaktivaciju i brisanje korisnika.
+    - Unit testove za mapiranje rola, business pravila i zabrane nad vlastitim admin nalogom.
+- **Sta je tim prihvatio:** Backend servis i rute za administraciju korisnika, frontend admin ekran, Keycloak integraciju, audit log i zastite za self-deactivate/self-delete i korisnike povezane s aktivnim intervencijama.
+- **Sta je tim izmijenio:** Admin pristup je dodat i u druge operativne tokove gdje admin treba imati prava koordinatora, npr. intervencije, dodjele, komentari i historija.
+- **Sta je tim odbacio:** Brisanje historijskih podataka korisnika nije implementirano; korisnici se deaktiviraju/reactiviraju kako bi historijat ostao sacuvan.
+- **Rizici, problemi ili greske koje su uocene:** Tok zavisi od ispravne Keycloak konfiguracije i lokalne veze korisnika preko `ExternalIdentity`; stari korisnici bez povezane Keycloak identity veze mogu biti orphaned i zahtijevaju rucnu provjeru ili ponovni seed.
+- **Ko je koristio alat:** Kerim Hajdar
+
+---
+
+- **Datum:** 07.05.2026.
+- **Sprint broj:** Sprint 6
+- **Alat koji je koristen:** Codex / GPT-5
+- **Svrha koristenja:** Zavrsni refaktoring, provjera Sprint 6 scope-a i ispravke regresija prije deploya.
+- **Prompt koji je koristen:** Refaktorisi postojece izmjene bez promjene business logike, prodji kroz Sprint 6 sprint goal i backlog, potvrdi po kodu da su PBI-004, PBI-005, PBI-006, PBI-007, PBI-011, PBI-013, PBI-016 i PBI-033 implementirani, popravi male regresije koje sprjecavaju prihvatne kriterije, posebno admin pristup, komentare, historiju, SLA, assignment filtraciju, status ASSIGNED i attachment ovlastenja. Pokreni relevantne build, typecheck i test komande i navedi sta treba rucno provjeriti prije deploya.
+- **Kratak opis zadatka ili upita:** Pregled kompletnog Sprint 6 toka kroz backend i frontend kod, uklanjanje regresija u rutama i UI tokovima, uskladjivanje pristupa po rolama i validacija kljucnih user storyja prije deploya.
+- **Sta je AI predlozio ili generisao:**
+    - Prosirenje admin pristupa za intervencije, komentare i historiju gdje admin treba imati operativna prava.
+    - Historiju intervencija koja se ucitava odmah, ima paginaciju i filtere po lokaciji i tipu/kategoriji kvara.
+    - Link iz historije na reports shell za intervenciju.
+    - Pristup korisnika vlastitim prijavljenim intervencijama i komentarima kroz URL i intervencije tab.
+    - Popravku SLA rute tako da backend prihvata `PATCH /api/v1/sla` i payload `{ configurations: [...] }`.
+    - Filtere na listi intervencija za status, tip, dodijeljenog servisera i nedodijeljene intervencije.
+    - Vracanje `assignments` podataka u `GET /interventions` response radi filtera po serviseru.
+    - Automatski prelaz statusa `NEW -> ASSIGNED` pri dodjeli servisera i `ASSIGNED -> NEW` kada se ukloni zadnji serviser.
+    - Ogranicenje brisanja attachmenta na admin rolu, dok koordinator/admin mogu pregledati i preuzeti fajlove.
+    - Dodatne route/service testove za SLA, historiju, komentare, dodjele i intervencije.
+- **Sta je tim prihvatio:** Male ciljane ispravke koje zatvaraju prihvatne kriterije Sprinta 6 bez promjene baze, ruta ili javnih API-ja osim kompatibilnog dodavanja `PATCH /sla`.
+- **Sta je tim izmijenio:** Tok dodjele servisera sada mijenja status intervencije u `ASSIGNED` kada je intervencija bila `NEW`; uklanjanje zadnjeg servisera iz `ASSIGNED` intervencije vraca status na `NEW`.
+- **Sta je tim odbacio:** Potpuna implementacija servisnog izvjestaja/rezolucije nije dodana jer je dogovoreno da je reports dio shell, a stvarni izvjestaj nije bio eksplicitno planiran za ovaj sprint.
+- **Rizici, problemi ili greske koje su uocene:** Frontend build i dalje prikazuje postojece warninge za multiple lockfiles i edge runtime; nisu vezani za refaktoring. Stari zapisi u bazi bez `faultReport.userId` ne mogu se retroaktivno tretirati kao korisnicke vlastite intervencije bez migracije ili ponovnog seeda.
+- **Ko je koristio alat:** Kerim Hajdar
+
+---
+
+- **Datum:** 07.05.2026.
+- **Sprint broj:** Sprint 6
 - **Alat koji je korišten:** GitHub Copilot (LLM) / GPT-5.4 mini
 - **Svrha korištenja:** Implementacija PBI-006 (dodjela servisera intervencijama) i pripadajuce verifikacije backend/frontend toka.
 - **Kratak opis zadatka ili upita:** Razvoj backend i frontend podrške za dodjelu jednog ili vise servisera otvorenoj intervenciji, prikaz serviser liste sortirane po broju aktivnih intervencija, mogucnost izmjene/uklanjanja dodjele, audit evidentiranje i integracija UI elementa unutar detalja intervencije.
@@ -483,20 +577,19 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 ---
 
 - **Datum:** 07.05.2026.
-- **Sprint broj:** Sprint 5
-- **Alat koji je korišten:** ChatGPT (GPT-5.5)
-- **Svrha korištenja:** Implementacija i testiranje PBI-007 (Active Interventions List) uz integraciju frontend filtera, backend query logike i autentifikacije putem Keycloak-a.
-- **Kratak opis zadatka ili upita:** Implementacija prikaza aktivnih intervencija sa filterima po statusu, tipu i assignment stanju, usklađivanje enum vrijednosti između Prisma modela i frontend/backend logike, debugging autentifikacije i testiranje pristupa za autorizovane korisnike.
-- **Šta je AI predložio ili generisao:**
-    - Izmjene u `interventions.route.ts` za filtriranje aktivnih intervencija (`OPEN`, `IN_PROGRESS`, `assigned/unassigned`).
-    - Ispravku greške `req is not defined` u backend route handleru.
-    - Uputstva za konfiguraciju `.env` varijabli za Railway bazu i Keycloak integraciju.
-    - Korake za dodjelu Keycloak rola (`Admin`) i testiranje autorizacije.
-    - Git workflow korake za feature branch, commit i Pull Request proces.
-- **Šta je tim prihvatio:** Backend i frontend izmjene za PBI-007, filter logiku, enum usklađivanje i autentifikacione konfiguracije potrebne za testiranje modula.
-- **Šta je tim izmijenio:** Enum vrijednosti prioriteta i statusa prilagođene su postojećoj Prisma i aplikacijskoj strukturi (`URGENT`, `HIGH`, `NORMAL`, `LOW` i `OPEN`, `IN_PROGRESS`, `DONE`, `CANCELED`).
-- **Šta je tim odbacio:** /
-- **Rizici, problemi ili greške koje su uočene:** Konflikti između feature i develop grane zbog paralelnih izmjena u `interventions.route.ts` i `page.tsx`; problemi sa autorizacijom i expired tokenima tokom testiranja; greška `Data truncated for column 'priority'` u fault reports modulu zbog neusaglašenih enum vrijednosti u drugim dijelovima sistema.
-- **Ko je koristio alat:** Emina Hadžić
+- **Sprint** broj: Sprint 6
+- **Alat koji je korišten:** Claude (Anthropic) – claude-sonnet-4-6
+- **Svrha korištenja:** Implementacija PBI-016 (Komentari intervencije) — backend ruta, frontend komponenta, seed podaci i testovi.
+- **Kratak opis zadatka ili upita:** Razvoj kompletnog modula za komentare na intervencijama: backend API (GET i POST), frontend CommentsSection komponenta uključena u stranicu detalja intervencije, proširenje seed skripte s demo komentarima, te 28 unit/integration testova za backend rutu.
+- **Sta je AI predložio ili generisao:**
+Backend comments.route.ts s GET /intervention/:id i POST /intervention/:id; autorizacija se oslanja na req.user.localUserId i req.user.roles iz auth middlewarea (koordinator i serviser), bez povjerenja u client-supplied polja.
+Frontend CommentsSection.tsx komponentu s prikazom liste komentara (Avatar, ime, username, datum/vrijeme, tekst), formom za unos s Ctrl+Enter prečicom i brojačem preostalih znakova.
+Integraciju komponente u /interventions/[id]/page.tsx.
+Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, provjera rola autora, zabrana praznih komentara, nepostojeća intervencija, nedostatak localUserId, DB greške, case-insensitive uloge.
+- **Sta je tim prihvatio:** Kompletan backend i frontend tok za komentare, prošireni seed, ažurirani shared index i svi testovi.
+- **Sta je tim izmijenio:**/
+- **Sta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Frontend nije prikazivao podatke nakon pokretanja zbog nedostatka Keycloak korisnika s odgovarajućim ulogama — riješeno uputama za kreiranje test korisnika u Keycloak admin panelu i dodjelu uloge koordinator. Seed kreira korisnike samo u MySQL bazi; Keycloak mora imati iste korisnike kako bi se JWT token s ulogom mogao koristiti za login i prikaz podataka.
+- **Ko je koristio alat:** Lejla Gičević
 
 

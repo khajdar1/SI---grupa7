@@ -123,6 +123,7 @@ function createService(repo = new MockUserRepository(), identity = new MockIdent
 test('deriveManagedRoleFromKeycloakRoles maps admin aliases', () => {
   expect(deriveManagedRoleFromKeycloakRoles(['administrator'])).toBe('ADMIN');
   expect(deriveManagedRoleFromKeycloakRoles(['management'])).toBe('MENADZMENT');
+  expect(deriveManagedRoleFromKeycloakRoles(['CompanyAdmin'])).toBe('KOMPANIJA_ADMIN');
   expect(deriveManagedRoleFromKeycloakRoles(['unknown'])).toBeNull();
 });
 
@@ -156,6 +157,25 @@ test('UserManagementService rejects non-admin user creation without company', as
         email: 'marko.serviser@example.com',
         password: 'Password1',
         role: 'SERVISER',
+        companyId: null,
+      },
+      { id: 1, username: 'ana.admin' },
+    ),
+  ).rejects.toBeInstanceOf(UserValidationError);
+});
+
+test('UserManagementService rejects company admin creation without company', async () => {
+  const { service } = createService();
+
+  await expect(
+    service.createUser(
+      {
+        firstName: 'Amina',
+        lastName: 'Kompanija',
+        username: 'amina.kompanija',
+        email: 'amina.kompanija@example.com',
+        password: 'Password1',
+        role: 'KOMPANIJA_ADMIN',
         companyId: null,
       },
       { id: 1, username: 'ana.admin' },

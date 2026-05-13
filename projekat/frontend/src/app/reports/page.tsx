@@ -11,6 +11,7 @@ import { getModuleShell } from '@/services/module-shell.service';
 
 export default function ReportsPage() {
   const [endpoints, setEndpoints] = useState<string[]>([]);
+  const [interventionId, setInterventionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +29,10 @@ export default function ReportsPage() {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const selectedInterventionId = params.get('interventionId');
+
+    setInterventionId(selectedInterventionId?.trim() || null);
     void loadModule();
   }, []);
 
@@ -47,7 +52,7 @@ export default function ReportsPage() {
         <StatCard title="Endpoints available" value={endpoints.length} isLoading={isLoading} />
         <StatCard title="Read operations" value={endpoints.filter((e) => e.startsWith('GET')).length} isLoading={isLoading} />
         <StatCard title="Write operations" value={endpoints.filter((e) => e.startsWith('POST')).length} isLoading={isLoading} />
-        <StatCard title="Module state" value={endpoints.length > 0 ? 'READY' : 'EMPTY'} isLoading={isLoading} />
+        <StatCard title="Intervention" value={interventionId ? `#${interventionId}` : '-'} isLoading={isLoading} />
       </section>
 
       <Card>

@@ -43,6 +43,7 @@ import {
   validateRequired,
   validateSafeText,
 } from "@/lib/form-validation";
+import MonthCalendar from '@/components/shared/MonthCalendar';
 import type { Category } from "@/models/Category";
 import {
   createIntervention,
@@ -60,11 +61,17 @@ import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
 
 const ALL_CATEGORY = "ALL";
+const ALL_STATUS = "ALL";
+const ALL_TYPE = "ALL";
+const ALL_SERVICERS = "ALL";
+const UNASSIGNED_SERVICERS = "UNASSIGNED";
 const NO_FAULT_REPORT = "NONE";
 const COORDINATOR_ROLES = new Set([
   "koordinator",
   "coordinator",
   "Koordinator",
+  "admin",
+  "administrator",
 ]);
 const MANAGEMENT_ROLES = new Set(["menadzment", "management"]);
 const ADMIN_ROLES = new Set(["admin", "administrator"]);
@@ -203,7 +210,7 @@ function formatDateTime(value: string | null) {
     return "";
   }
 
-  return new Intl.DateTimeFormat("bs-BA", {
+  return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -237,6 +244,7 @@ function buildFormFromIntervention(
 
 export default function InterventionsPage() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [categories, setCategories] = useState<Category[]>([]);
   const [options, setOptions] = useState<InterventionOptions>({
     companies: [],
@@ -248,6 +256,9 @@ export default function InterventionsPage() {
     null,
   );
   const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORY);
+  const [selectedStatus, setSelectedStatus] = useState(ALL_STATUS);
+  const [selectedType, setSelectedType] = useState(ALL_TYPE);
+  const [selectedServicer, setSelectedServicer] = useState(ALL_SERVICERS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canPlanInterventions, setCanPlanInterventions] = useState(false);
@@ -304,13 +315,6 @@ export default function InterventionsPage() {
     setCanPlanInterventions(hasPlanningAccess);
     setCanViewInterventions(hasViewAccess);
 
-    if (!hasViewAccess) {
-      setRows([]);
-      setIsLoading(false);
-      setError("Access restricted to coordinators and management.");
-      return;
-    }
-
     void loadData(hasPlanningAccess);
   }, []);
 
@@ -323,19 +327,40 @@ export default function InterventionsPage() {
   );
 
   const filteredRows = useMemo(() => {
-    if (selectedCategory === ALL_CATEGORY) {
-      return rows;
-    }
+    return rows.filter((row) => {
+      if (selectedCategory !== ALL_CATEGORY) {
+        const category = categories.find(
+          (item) => String(item.id) === selectedCategory,
+        );
 
-    const category = categories.find(
-      (item) => String(item.id) === selectedCategory,
-    );
-    if (!category) {
-      return [];
-    }
+        if (!category || row.categoryName !== category.name) {
+          return false;
+        }
+      }
 
-    return rows.filter((row) => row.categoryName === category.name);
-  }, [categories, rows, selectedCategory]);
+      if (selectedStatus !== ALL_STATUS && row.status !== selectedStatus) {
+        return false;
+      }
+
+      if (selectedType !== ALL_TYPE && row.type !== selectedType) {
+        return false;
+      }
+
+      if (selectedServicer === UNASSIGNED_SERVICERS) {
+        return !row.assignments || row.assignments.length === 0;
+      }
+
+      if (selectedServicer !== ALL_SERVICERS) {
+        return Boolean(
+          row.assignments?.some(
+            (assignment) => String(assignment.userId) === selectedServicer,
+          ),
+        );
+      }
+
+      return true;
+    });
+  }, [categories, rows, selectedCategory, selectedServicer, selectedStatus, selectedType]);
 
   const filterOptions = [
     { value: ALL_CATEGORY, label: "All categories" },
@@ -344,10 +369,54 @@ export default function InterventionsPage() {
       label: category.name,
     })),
   ];
+  const statusFilterOptions = [
+    { value: ALL_STATUS, label: "All statuses" },
+    { value: "NEW", label: "Open" },
+    { value: "ASSIGNED", label: "Assigned" },
+    { value: "IN_PROGRESS", label: "In progress" },
+  ];
+  const typeFilterOptions = [
+    { value: ALL_TYPE, label: "All types" },
+    { value: "ISSUE", label: "Issue" },
+    { value: "PREVENTIVE", label: "Preventive" },
+  ];
+  const servicerFilterOptions = useMemo(() => {
+    const servicers = new Map<string, string>();
+
+    rows.forEach((row) => {
+      row.assignments?.forEach((assignment) => {
+        servicers.set(
+          String(assignment.userId),
+          `${assignment.user.firstName} ${assignment.user.lastName}`,
+        );
+      });
+    });
+
+    return [
+      { value: ALL_SERVICERS, label: "All servicers" },
+      { value: UNASSIGNED_SERVICERS, label: "Unassigned" },
+      ...Array.from(servicers.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], "en"))
+        .map(([value, label]) => ({ value, label })),
+    ];
+  }, [rows]);
+  const isFiltered =
+    selectedCategory !== ALL_CATEGORY ||
+    selectedStatus !== ALL_STATUS ||
+    selectedType !== ALL_TYPE ||
+    selectedServicer !== ALL_SERVICERS;
+
+  const clearFilters = () => {
+    setSelectedCategory(ALL_CATEGORY);
+    setSelectedStatus(ALL_STATUS);
+    setSelectedType(ALL_TYPE);
+    setSelectedServicer(ALL_SERVICERS);
+  };
 
   const emptyDescription = moduleInfo
     ? `Backend shell endpoint(s): ${moduleInfo.endpoints.join(", ")}`
     : "No intervention records available yet.";
+  const activeViewMode = canPlanInterventions ? viewMode : "list";
 
   const clearError = (field: string) => {
     setFieldErrors((previous) => clearFieldError(previous, field));
@@ -546,11 +615,21 @@ export default function InterventionsPage() {
           { label: "Dashboard", href: ROUTES.DASHBOARD },
           { label: "Interventions" },
         ]}
+        secondaryActions={
+          canPlanInterventions
+            ? [
+                {
+                  label: activeViewMode === "list" ? "Calendar" : "List",
+                  onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
+                },
+              ]
+            : undefined
+        }
         primaryAction={
           canPlanInterventions
             ? {
                 label: "New Intervention",
-                onClick: openCreateDialog,
+                href: ROUTES.INTERVENTION_NEW,
                 icon: <Plus className="mr-2 h-4 w-4" />,
               }
             : undefined
@@ -574,12 +653,34 @@ export default function InterventionsPage() {
             value: selectedCategory,
             onChange: setSelectedCategory,
           },
+          {
+            key: "status",
+            label: "Status",
+            options: statusFilterOptions,
+            value: selectedStatus,
+            onChange: setSelectedStatus,
+          },
+          {
+            key: "type",
+            label: "Type",
+            options: typeFilterOptions,
+            value: selectedType,
+            onChange: setSelectedType,
+          },
+          {
+            key: "servicer",
+            label: "Servicer",
+            options: servicerFilterOptions,
+            value: selectedServicer,
+            onChange: setSelectedServicer,
+          },
         ]}
-        isFiltered={selectedCategory !== ALL_CATEGORY}
-        onClear={() => setSelectedCategory(ALL_CATEGORY)}
+        isFiltered={isFiltered}
+        onClear={clearFilters}
       />
 
-      <DataTable<InterventionListItem>
+      {activeViewMode === 'list' ? (
+        <DataTable<InterventionListItem>
         columns={[
           {
             key: "id",
@@ -650,7 +751,7 @@ export default function InterventionsPage() {
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
                     <TriangleAlert className="mr-1 h-3 w-3" />
-                    Zakašnjenje
+                    Overdue
                   </Badge>
                 )}
               </div>
@@ -697,21 +798,33 @@ export default function InterventionsPage() {
                   key: "actions",
                   header: "",
                   align: "right" as const,
-                  render: (_value: unknown, row: InterventionListItem) => (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      disabled={!EDITABLE_STATUSES.has(row.status)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditDialog(row);
-                      }}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                  ),
+                  render: (_value: unknown, row: InterventionListItem) => {
+                    const isEditable = EDITABLE_STATUSES.has(row.status);
+
+                    if (!isEditable) {
+                      return (
+                        <Button type="button" variant="ghost" size="sm" disabled>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </Button>
+                      );
+                    }
+
+                    return (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        asChild
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <Link href={ROUTES.INTERVENTION_EDIT(row.id)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </Link>
+                      </Button>
+                    );
+                  },
                 },
               ]
             : []),
@@ -724,7 +837,15 @@ export default function InterventionsPage() {
         onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
         emptyTitle="No interventions in this category"
         emptyDescription={emptyDescription}
-      />
+        />
+      ) : (
+        <MonthCalendar
+          events={filteredRows
+            .map((r) => ({ id: r.id, title: r.title ?? r.name, date: r.dueAt ?? r.startedAt ?? '', priority: r.priority }))
+            .filter((e) => !!e.date)
+          }
+        />
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
@@ -866,7 +987,7 @@ export default function InterventionsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Prioritet</Label>
+                <Label htmlFor="priority">Priority</Label>
                 <Select
                   value={formState.priority}
                   onValueChange={(value) => updateField("priority", value ?? "")}
@@ -878,7 +999,7 @@ export default function InterventionsPage() {
                       fieldErrors.priority ? "priority-error" : undefined
                     }
                   >
-                    <SelectValue placeholder="Odaberi prioritet">
+                    <SelectValue placeholder="Select priority">
                       {formState.priority
                         ? getPriorityLabel(formState.priority as any)
                         : undefined}

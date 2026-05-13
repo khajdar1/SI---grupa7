@@ -1,7 +1,7 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { getResponseData, withServiceError } from './errors';
 
 interface LoginInput {
   username: string;
@@ -37,49 +37,54 @@ interface LogoutInput {
 }
 
 export async function login(input: LoginInput): Promise<LoginResponse> {
-  try {
-    const response = await api.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, input);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(
-      getErrorMessage(error, 'Login failed. Please check your credentials.'),
-      error,
-    );
-  }
+  return getResponseData(
+    () => api.post<LoginResponse>(API_ENDPOINTS.AUTH.LOGIN, input),
+    'Login failed. Please check your credentials.',
+  );
 }
 
 export async function register(input: RegisterInput): Promise<void> {
-  try {
-    await api.post(API_ENDPOINTS.AUTH.REGISTER, input);
-  } catch (error) {
-    throw new ServiceError(
-      getErrorMessage(error, 'Registration failed. Please try again.'),
-      error,
-    );
-  }
+  return withServiceError(
+    async () => {
+      await api.post(API_ENDPOINTS.AUTH.REGISTER, input);
+    },
+    'Registration failed. Please try again.',
+  );
 }
 
 export async function logout(input: LogoutInput): Promise<void> {
-  try {
-    await api.post(
-      API_ENDPOINTS.AUTH.LOGOUT,
-      { refreshToken: input.refreshToken },
-      { headers: { Authorization: `Bearer ${input.token}` } },
-    );
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Logout request failed.'), error);
-  }
+  return withServiceError(
+    async () => {
+      await api.post(
+        API_ENDPOINTS.AUTH.LOGOUT,
+        { refreshToken: input.refreshToken },
+        { headers: { Authorization: `Bearer ${input.token}` } },
+      );
+    },
+    'Logout request failed.',
+  );
 }
 
 export async function requestPasswordReset(email: string): Promise<void> {
-  try {
-    await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, { email });
-  } catch (error) {
-    throw new ServiceError(
-      getErrorMessage(error, 'Failed to request reset. Please try again later.'),
-      error,
-    );
-  }
+  return withServiceError(
+    async () => {
+      await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD, { email });
+    },
+    'Failed to request reset. Please try again later.',
+  );
+}
+
+export async function confirmPasswordReset(input: {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}): Promise<void> {
+  return withServiceError(
+    async () => {
+      await api.post(API_ENDPOINTS.AUTH.RESET_PASSWORD_CONFIRM, input);
+    },
+    'Failed to reset password. Please request a new reset link.',
+  );
 }
 
 export type { LoginResponse, RegisterInput, LoginInput, LoginUser };

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
-import { ServiceError, getErrorMessage } from './errors';
+
+import { getResponseData } from './errors';
 
 export interface Comment {
   id: number;
@@ -13,29 +14,23 @@ export interface Comment {
 }
 
 export const getComments = async (interventionId: string): Promise<Comment[]> => {
-  try {
-    const response = await api.get<Comment[]>(`/api/v1/comments/intervention/${interventionId}`);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Greška pri učitavanju komentara.'), error);
-  }
+  return getResponseData(
+    () => api.get<Comment[]>(`/api/v1/comments/intervention/${interventionId}`),
+    'Failed to load comments.',
+  );
 };
 
 export const createComment = async (
   interventionId: string,
   payload: {
     text: string;
-    authorId: number;
-    role: string;
   },
 ): Promise<Comment> => {
-  try {
-    const response = await api.post<Comment>(
+  return getResponseData(
+    () => api.post<Comment>(
       `/api/v1/comments/intervention/${interventionId}`,
       payload,
-    );
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Greška pri slanju komentara.'), error);
-  }
+    ),
+    'Failed to send comment.',
+  );
 };

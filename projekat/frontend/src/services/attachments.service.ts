@@ -1,7 +1,7 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
-import { ServiceError, getErrorMessage } from './errors';
+import { getResponseData, withServiceError } from './errors';
 
 export interface AttachmentListItem {
   id: number;
@@ -19,16 +19,14 @@ export interface AttachmentConfig {
 }
 
 export async function getInterventionAttachments(interventionId: number): Promise<AttachmentListItem[]> {
-  try {
-    const response = await api.get<AttachmentListItem[]>(API_ENDPOINTS.INTERVENTIONS.ATTACHMENTS(interventionId));
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load attachments.'), error);
-  }
+  return getResponseData(
+    () => api.get<AttachmentListItem[]>(API_ENDPOINTS.INTERVENTIONS.ATTACHMENTS(interventionId)),
+    'Failed to load attachments.',
+  );
 }
 
 export async function downloadAttachment(attachmentId: number, fileName: string): Promise<void> {
-  try {
+  return withServiceError(async () => {
     const response = await api.get<Blob>(API_ENDPOINTS.ATTACHMENTS.DOWNLOAD(attachmentId), {
       responseType: 'blob',
     });
@@ -40,35 +38,27 @@ export async function downloadAttachment(attachmentId: number, fileName: string)
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to download attachment.'), error);
-  }
+  }, 'Failed to download attachment.');
 }
 
 export async function deleteAttachment(attachmentId: number): Promise<void> {
-  try {
+  return withServiceError(async () => {
     await api.delete(API_ENDPOINTS.ATTACHMENTS.BY_ID(attachmentId));
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to delete attachment.'), error);
-  }
+  }, 'Failed to delete attachment.');
 }
 
 export async function getAttachmentConfig(): Promise<AttachmentConfig> {
-  try {
-    const response = await api.get<AttachmentConfig>(API_ENDPOINTS.ATTACHMENTS.CONFIG);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to load attachment configuration.'), error);
-  }
+  return getResponseData(
+    () => api.get<AttachmentConfig>(API_ENDPOINTS.ATTACHMENTS.CONFIG),
+    'Failed to load attachment configuration.',
+  );
 }
 
 export async function updateAttachmentConfig(config: AttachmentConfig): Promise<AttachmentConfig> {
-  try {
-    const response = await api.put<AttachmentConfig>(API_ENDPOINTS.ATTACHMENTS.CONFIG, config);
-    return response.data;
-  } catch (error) {
-    throw new ServiceError(getErrorMessage(error, 'Failed to update attachment configuration.'), error);
-  }
+  return getResponseData(
+    () => api.put<AttachmentConfig>(API_ENDPOINTS.ATTACHMENTS.CONFIG, config),
+    'Failed to update attachment configuration.',
+  );
 }
 
 export function formatFileSize(bytes: number): string {
