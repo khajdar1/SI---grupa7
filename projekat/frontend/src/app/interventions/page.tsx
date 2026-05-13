@@ -43,6 +43,7 @@ import {
   validateRequired,
   validateSafeText,
 } from "@/lib/form-validation";
+import MonthCalendar from '@/components/shared/MonthCalendar';
 import type { Category } from "@/models/Category";
 import {
   createIntervention,
@@ -243,6 +244,7 @@ function buildFormFromIntervention(
 
 export default function InterventionsPage() {
   const router = useRouter();
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [categories, setCategories] = useState<Category[]>([]);
   const [options, setOptions] = useState<InterventionOptions>({
     companies: [],
@@ -612,6 +614,12 @@ export default function InterventionsPage() {
           { label: "Dashboard", href: ROUTES.DASHBOARD },
           { label: "Interventions" },
         ]}
+        secondaryActions={[
+          {
+            label: viewMode === 'list' ? 'Calendar' : 'List',
+            onClick: () => setViewMode((v) => (v === 'list' ? 'calendar' : 'list')),
+          },
+        ]}
         primaryAction={
           canPlanInterventions
             ? {
@@ -666,7 +674,8 @@ export default function InterventionsPage() {
         onClear={clearFilters}
       />
 
-      <DataTable<InterventionListItem>
+      {viewMode === 'list' ? (
+        <DataTable<InterventionListItem>
         columns={[
           {
             key: "id",
@@ -823,7 +832,15 @@ export default function InterventionsPage() {
         onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
         emptyTitle="No interventions in this category"
         emptyDescription={emptyDescription}
-      />
+        />
+      ) : (
+        <MonthCalendar
+          events={filteredRows
+            .map((r) => ({ id: r.id, title: r.title ?? r.name, date: r.dueAt ?? r.startedAt ?? '', priority: r.priority }))
+            .filter((e) => !!e.date)
+          }
+        />
+      )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">

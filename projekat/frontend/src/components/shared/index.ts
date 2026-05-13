@@ -11,6 +11,7 @@ export { ModuleSummaryCard } from './ModuleSummaryCard';
 export { PageHeader } from './PageHeader';
 export { PageLayout } from './PageLayout';
 export { PriorityBadge } from './PriorityBadge';
+export { default as MonthCalendar } from './MonthCalendar';
 export { StatCard } from './StatCard';
 
 export type { AccessDeniedProps } from './AccessDenied';
