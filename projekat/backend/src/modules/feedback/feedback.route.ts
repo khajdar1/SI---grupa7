@@ -1,12 +1,8 @@
-import { Router } from 'express';
+import { createModuleInfoRouter } from '../../shared/module-info-router';
 
-const feedbackRouter = Router();
-
-feedbackRouter.get('/', (_req, res) => {
-  res.json({
-    module: 'feedback',
-    endpoints: ['GET /:interventionId', 'POST /:interventionId'],
-  });
+const feedbackRouter = createModuleInfoRouter({
+  module: 'feedback',
+  endpoints: ['GET /:interventionId', 'POST /:interventionId'],
 });
 
 export default feedbackRouter;

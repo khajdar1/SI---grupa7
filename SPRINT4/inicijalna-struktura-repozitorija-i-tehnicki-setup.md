@@ -224,86 +224,80 @@ File storage je predviđen kroz attachments modul u backendu.
 | --- | --- | --- |
 | `attachments` modul | početni file-storage stub | da postoji jasno mjesto za upload logiku i metapodatke |
 | Cloud storage | Cloudflare R2 free tier | da se binarni fajlovi drže van aplikacijskog servera i da storage ostane besplatan u okviru projekta |
-| Upload način | backend izdaje upload URL, frontend šalje fajl direktno u storage | da backend ne prenosi teške fajlove kroz vlastiti proces |
+| Upload | Fajlovi se čuvaju lokalno u `backend/uploads/` | - |
 | Metapodaci u bazi | MySQL | da fajlovi ostanu pretraživi i povezani s aplikacijskim entitetima |
 | Pristup bucketu | privatni bucket sa kontrolisanim pristupom | da fajlovi ne budu javni po defaultu |
 
 ### 3.8 CI/CD i deploy
 
-GitHub Actions je planiran za build i typecheck prije merge-a.
+GitHub Actions se koristi za automatske provjere i release isporuku.
 
 | Stavka | Vrijednost | Zašto |
 | --- | --- | --- |
-| CI alat | GitHub Actions | da se provjere build i typecheck prije merge-a |
-| Deploy grana | `master` | produkcija ide samo iz stabilne grane |
-| Deploy target | isti stack kao lokalni, ali s javnim hostom | da se razvojni i produkcijski model ne razlikuju previše |
+| CI alat | GitHub Actions | automatizovane provjere prije merge-a |
+| CI workflow (`ci.yml`) | Pokreće se na svim PR granama prema `develop` | build i typecheck provjera za svaki PR |
+| Release workflow (`release.yml`) | Pokreće se na push prema `release/*` i  `master` | release validacija i deploy u ciljana okruženja |
+| Verzija builda | git tag ili `build-<shortsha>` | svaki release ima jasnu oznaku |
+| Frontend deploy | Cloudflare Pages | besplatan hosting za Next.js |
+| Backend deploy | Railway (GitHub integracija) | jednostavan Node deploy |
+| Database | MySQL (Railway managed ili eksterni) | standardni `DATABASE_URL` workflow |
+
+Frontend se isporučuje na Cloudflare Pages sa release grana, a backend se deploya kroz Railway GitHub integraciju na isti set grana.
 
 ### 3.9 Produkcijska infrastruktura i serveri
 
-Za ovaj projekat je optimalno da produkcija krene na jednom Linux VPS-u, a ne na više fizičkih ili virtuelnih mašina. Time se smanjuju trošak, operativna složenost i vrijeme održavanja, a i dalje ostaje dovoljno jasno razdvajanje kroz Docker kontejnere.
+Produkcija koristi managed hosting umjesto VPS-a kako bi se smanjilo operativno održavanje i ubrzao deploy.
 
 | Stavka | Naš odabir | Zašto |
 | --- | --- | --- |
-| Tip servera | jedna virtuelna mašina / VPS | najjednostavniji i najisplativiji start za projekat ovog obima |
-| Operativni sistem | Ubuntu 24.04 LTS | stabilan Linux, dobra podrška za Docker i dugoročno održavanje |
-| Resursi VPS-a | minimalno 2 vCPU i 4 GB RAM | dovoljno za frontend, backend i MySQL bez nepotrebnog stezanja resursa |
-| Broj VM-ova | 1 | dovoljno za MVP i lakše administriranje |
-| Broj Docker kontejnera u produkciji | 3 osnovna kontejnera | frontend, backend i baza pokrivaju cijeli sistem |
-| Database server | isti VPS kao backend, ali odvojen u svom Docker kontejneru | separation of concerns se postiže kroz kontejnere, a ne kroz zaseban server |
-| Poseban DB server | nije potreban u prvoj fazi | uvodi se tek ako poraste opterećenje ili sigurnosni zahtjevi |
+| Frontend hosting | Cloudflare Pages | free tier i jednostavan Next.js deploy |
+| Backend hosting | Railway | brzi Node runtime bez VPS održavanja |
+| Baza podataka | Railway MySQL ili eksterni MySQL | standardni `DATABASE_URL` bez lokalnih docker kontenera |
+| File storage | Lokalno - Cloudfare R2 (planirano)| binarni fajlovi van aplikacijskog servera |
+| Infra model | Managed cloud | manje ops posla i brze isporuke |
 
-U ovoj postavci frontend i backend su na istoj VPS mašini, baza je također na istoj mašini, ali u zasebnom kontejneru, a file storage je izvan servera kroz Cloudflare R2 free tier. To je najbolji odnos između jednostavnosti, troška i održavanja za projekat ovog tipa.
+U ovoj postavci frontend i backend su na odvojenim servisima, a komunikacija ide preko javnog API hosta definisanog kroz environment varijable.
 
 ### 3.10 Kako izgleda deploy
 
-Deploy se radi na istu tu VPS mašinu, preko Dockera i jednog compose fajla. GitHub Actions služi za provjeru koda prije release-a, a nakon toga se na serveru podiže nova verzija stacka.
+Deploy je podijeljen na CI provjere i release isporuku kroz Cloudflare Pages i Railway.
 
 | Korak | Opis | Zašto |
 | --- | --- | --- |
-| 1 | CI provjera u GitHub Actions | da se build i typecheck uhvate prije produkcije |
-| 2 | server povuče novu verziju repozitorija i uradi `docker compose up -d --build` | da produkcija uvijek koristi svežu verziju koda |
-| 3 | Compose zamijeni stare kontejnere novim verzijama | da se nova verzija aktivira bez ručnog pokretanja servisa |
-| 4 | provjera health endpointa i osnovnih ruta | da se odmah vidi da je deploy prošao ispravno |
-
-Za naš projekat je dovoljno da se deploy radi na jednoj VPS mašini sa Dockerom, bez dodatne fizičke infrastrukture.
+| 1 | PR prema `develop` pokreće `ci.yml` - build i typecheck | da se greške uhvate prije merge-a |
+| 2 | Push na `release/*` ili `master` pokreće release.yml | verzionisani build i release provjere |
+| 3 | Cloudflare Pages preuzima frontend output | automatski deploy UI-a |
+| 4 | Railway GitHub integracija deploya backend | backend se isporučuje bez ručnog builda |
+| 5 | Postavljaju se env varijable (API host, JWT, DB, Keycloak) | da frontend i backend budu povezani |
+| 6 | Provjera `health` endpointa i osnovnih ruta | brza validacija da je release stabilan |
 
 ### 3.11 Dijagram deploy topologije
 
 ```mermaid
 flowchart TB
-	dev["Developer / GitHub repo"] --> gha["GitHub Actions\nbuild + typecheck"]
-	gha --> deploy["Deploy on VPS\nSSH + docker compose up -d --build"]
+    dev["Developer / GitHub repo"] --> gha["GitHub Actions\nci.yml + release.yml (release/* + master)"]
+    gha --> cf["Cloudflare Pages\nFrontend deploy"]
+    gha --> rail["Railway\nGitHub deploy"]
 
-	subgraph vps["1x VPS: Ubuntu 24.04 LTS"]
-		compose["Docker Compose"]
+    rail --> be["Backend service\nNode.js 20 + Express + Keycloak client"]
+    be --> db["MySQL\nRailway managed"]
+    be --> kc["Keycloak\nExterni identity provider"]
 
-		subgraph net["Docker network"]
-			fe["Frontend container\nNext.js 15 + React 18\nport 3000"]
-			be["Backend container\nNode.js 20 + Express\nport 4000"]
-			db["MySQL container\nport 3306"]
-		end
-	end
-
-	deploy --> compose
-	compose --> fe
-	compose --> be
-	compose --> db
-
-	browser["Browser / end user"] -->|HTTP 3000| fe
-	fe -->|API 4000/api/v1| be
-	fe -->|Socket.IO| be
-	be -->|SQL over internal network| db
-	be -->|signed upload URL| r2["Cloudflare R2\nfree tier object storage"]
-	fe -->|direct upload| r2
-	be -.->|health check / logs| ops["Ops check"]
+    browser["Browser / end user"] --> cf
+    cf -->|API /api/v1| be
+    cf -->|Socket.IO| be
+    be -->|SQL| db
+    be -->|lokalni upload (privremeno)| uploads["backend/uploads/\n(lokalni fajlovi)"]
 ```
 
 ## 4. Šta je trenutno otvoreno za dalji razvoj
 
 | Otvoreno pitanje | Trenutno stanje | Šta još treba uraditi |
 | --- | --- | --- |
-| CI/CD workflow | nije implementiran | definisati i povezati build i typecheck korake |
-| Migracije i seed | nisu formalizovane | opisati i standardizovati početne skripte za bazu |
-| Auth model | još nije zaključen | precizirati konačni tok autentikacije i autorizacije |
+| CI/CD workflow | Implementiran | održavati i prilagođavati CI i deploy targete |
+| Migracije i seed | Implementirane | održavati seed sinhronizovan s promjenama schema.prisma |
+| Auth model | Zaključen i implementiran (Keycloak, JWT, HTTP kolačići) | Implementirati kriptografsku validaciju JWT potpisa |
+| Reset lozinke (SMTP) | Implementirano u kodu, ali SMTP nije dostupan na Railway free planu | Riješiti SMTP konfiguraciju u Sprint 6 |
 | Cloud storage detalji | nisu implementirani | definisati bucket politiku i testno okruženje za free-tier storage |
+| File storage | Lokalno čuvanje u `backend/uploads/` | definisati bucket politiku i testno okruženje |
 | Dokumentacija scaffolda | prati trenutno stanje | dopunjavati kako se otvaraju ili zatvaraju tehnički detalji |

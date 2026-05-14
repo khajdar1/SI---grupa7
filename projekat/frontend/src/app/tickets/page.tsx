@@ -1,33 +1,28 @@
-import Link from 'next/link';
+'use client';
+export const runtime = 'edge';
 
-export default function Page() {
+import { ROUTES } from '@/constants';
+import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
+
+export default function TicketsPage() {
   return (
-    <section className="page stack">
-      <article className="panel stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Support operations</span>
-          <h1 className="section-title">Tickets shell</h1>
-          <p className="section-copy">
-            This route covers support tickets, message threads, and the handoff between users and coordinators.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Tickets"
+        subtitle="Support tickets."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Tickets' }]}
+      />
 
-        <div className="tag-row">
-          <span className="tag">Ticketing</span>
-          <span className="tag">Messages</span>
-          <span className="tag">PBI-027</span>
-          <span className="tag">PBI-028</span>
-        </div>
-
-        <div className="button-row">
-          <Link className="button button--solid" href="/fault-reports">
-            Open fault intake
-          </Link>
-          <Link className="button button--ghost" href="/dashboard">
-            Back to dashboard
-          </Link>
-        </div>
-      </article>
-    </section>
+      <EmptyState
+        title="Ticket workspace is not implemented"
+        description="Fault intake is available for new service requests."
+        action={{
+          label: 'Open fault intake',
+          onClick: () => {
+            window.location.href = ROUTES.FAULT_REPORTS;
+          },
+        }}
+      />
+    </PageLayout>
   );
 }
