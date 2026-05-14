@@ -331,7 +331,7 @@ export function AppNavigation() {
     }
 
     if (isCompanyAdmin && !isAdmin) {
-      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
+      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD);
     }
 
     return PRIMARY_NAV_ITEMS.filter((item) => canViewPrimaryRoute(item.to, sessionRoles));
