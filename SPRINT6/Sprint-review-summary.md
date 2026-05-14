@@ -49,5 +49,5 @@ Za Sprint 7 planiran je nastavak implementacije sljedećih funkcionalnosti:
 - Menadžment dashboard
 - Upravljanje korisničkim profilom
 - Kalendarski prikaz intervencija
-- Placeholder - Kreacija kompanija(Admin, samoprijava), Kompanija page etc...
+- Upravljanje kompanijama i uloga KompanijaAdmin
 - Evidencija izvještaja o intervenciji
