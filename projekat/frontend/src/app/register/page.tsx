@@ -1,79 +1,189 @@
-"use client";
+'use client';
 
 import Link from 'next/link';
 
-export default function Page() {
+import { PageHeader, PageLayout } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ROUTES } from '@/constants';
+
+import { getPasswordStrength } from './register.validation';
+import { useRegister } from './useRegister';
+
+export default function RegisterPage() {
+  const {
+    formData,
+    errors,
+    submitting,
+    serverError,
+    success,
+    handleChange,
+    handleSubmit,
+  } = useRegister();
+
+  const strength = getPasswordStrength(formData.password);
+  const strengthColorClass =
+    strength.level <= 1
+      ? 'text-destructive'
+      : strength.level === 2
+        ? 'text-amber-600'
+        : strength.level === 3
+          ? 'text-blue-600'
+          : 'text-emerald-600';
+
   return (
-    <section className="auth-layout auth-layout--wide">
-      <article className="auth-card panel">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Onboarding</span>
-          <h1 className="section-title">Registration shell</h1>
-          <p className="section-copy">
-            The self-registration flow keeps the default role limited to a regular user, while administrators will get
-            separate account management tools in the admin area.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Create Account"
+        subtitle="Register to access the service intervention platform."
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Register' }]}
+      />
 
-        <form className="form-grid form-grid--two-columns" onSubmit={(event) => event.preventDefault()}>
-          <label className="field">
-            <span>First name</span>
-            <input type="text" name="firstName" autoComplete="given-name" />
-          </label>
+      <Card className="max-w-3xl">
+        <CardHeader className="space-y-1">
+          <CardTitle>Create account</CardTitle>
+          <CardDescription>Enter user details and set secure credentials.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
+          {success ? <p className="text-sm text-emerald-600">Registration successful. Redirecting...</p> : null}
 
-          <label className="field">
-            <span>Last name</span>
-            <input type="text" name="lastName" autoComplete="family-name" />
-          </label>
+          <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First name</Label>
+              <Input
+                id="firstName"
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.firstName)}
+                aria-describedby={errors.firstName ? 'register-firstName-error' : undefined}
+              />
+              {errors.firstName ? (
+                <p id="register-firstName-error" className="text-xs text-destructive">
+                  {errors.firstName}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span>Username</span>
-            <input type="text" name="username" autoComplete="username" />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last name</Label>
+              <Input
+                id="lastName"
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.lastName)}
+                aria-describedby={errors.lastName ? 'register-lastName-error' : undefined}
+              />
+              {errors.lastName ? (
+                <p id="register-lastName-error" className="text-xs text-destructive">
+                  {errors.lastName}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span>Email</span>
-            <input type="email" name="email" autoComplete="email" />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.username)}
+                aria-describedby={errors.username ? 'register-username-error' : undefined}
+              />
+              {errors.username ? (
+                <p id="register-username-error" className="text-xs text-destructive">
+                  {errors.username}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span>Password</span>
-            <input type="password" name="password" autoComplete="new-password" />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.email)}
+                aria-describedby={errors.email ? 'register-email-error' : undefined}
+              />
+              {errors.email ? (
+                <p id="register-email-error" className="text-xs text-destructive">
+                  {errors.email}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field">
-            <span>Confirm password</span>
-            <input type="password" name="confirmPassword" autoComplete="new-password" />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.password)}
+                aria-describedby={
+                  errors.password
+                    ? 'register-password-error'
+                    : formData.password
+                      ? 'register-password-help'
+                      : undefined
+                }
+              />
+              {formData.password ? (
+                <p id="register-password-help" className={`text-xs ${strengthColorClass}`}>
+                  Password strength: {strength.label}
+                </p>
+              ) : null}
+              {errors.password ? (
+                <p id="register-password-error" className="text-xs text-destructive">
+                  {errors.password}
+                </p>
+              ) : null}
+            </div>
 
-          <label className="field field--full">
-            <span>Company / organization</span>
-            <input type="text" name="company" placeholder="Selected during onboarding" />
-          </label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                aria-invalid={Boolean(errors.confirmPassword)}
+                aria-describedby={errors.confirmPassword ? 'register-confirmPassword-error' : undefined}
+              />
+              {errors.confirmPassword ? (
+                <p id="register-confirmPassword-error" className="text-xs text-destructive">
+                  {errors.confirmPassword}
+                </p>
+              ) : null}
+            </div>
 
-          <div className="form-actions field--full">
-            <button className="button button--solid" type="submit">
-              Create account
-            </button>
-            <Link className="button button--ghost" href="/login">
-              Back to login
-            </Link>
-          </div>
-        </form>
-      </article>
-
-      <aside className="panel panel--soft stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">Rules from the backlog</span>
-          <h2 className="section-title">Registration is not a free-for-all.</h2>
-        </div>
-
-        <ul className="quick-facts">
-          <li>Passwords and usernames will be validated before the account is created.</li>
-          <li>Admin-managed roles and company bindings will stay outside self-registration.</li>
-          <li>The backend will own the final decision on duplicates and role assignment.</li>
-        </ul>
-      </aside>
-    </section>
+            <div className="col-span-full flex flex-wrap gap-2">
+              <Button
+                type="submit"
+                disabled={submitting || success}
+              >
+                {submitting ? 'Creating...' : 'Create account'}
+              </Button>
+              <Button asChild type="button" variant="outline">
+                <Link href={ROUTES.LOGIN}>Back to login</Link>
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </PageLayout>
   );
 }

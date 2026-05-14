@@ -1,34 +1,28 @@
-import Link from 'next/link';
+'use client';
+export const runtime = 'edge';
 
-export default function Page() {
+import { ROUTES } from '@/constants';
+import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
+
+export default function SettingsPage() {
   return (
-    <section className="page stack">
-      <article className="panel stack-tight">
-        <div className="section-heading section-heading--compact">
-          <span className="section-kicker">System control</span>
-          <h1 className="section-title">Settings shell</h1>
-          <p className="section-copy">
-            This screen will host SLA configuration, language preferences, notification settings, and other admin
-            controls from the backlog.
-          </p>
-        </div>
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title="Settings"
+        subtitle="Workspace settings."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Settings' }]}
+      />
 
-        <div className="tag-row">
-          <span className="tag">PBI-031</span>
-          <span className="tag">PBI-035</span>
-          <span className="tag">Language</span>
-          <span className="tag">SLA</span>
-        </div>
-
-        <div className="button-row">
-          <Link className="button button--solid" href="/admin">
-            Open admin area
-          </Link>
-          <Link className="button button--ghost" href="/dashboard">
-            Back to dashboard
-          </Link>
-        </div>
-      </article>
-    </section>
+      <EmptyState
+        title="Settings are not implemented"
+        description="SLA and attachment configuration are available in the admin area."
+        action={{
+          label: 'Open admin area',
+          onClick: () => {
+            window.location.href = ROUTES.ADMIN;
+          },
+        }}
+      />
+    </PageLayout>
   );
 }

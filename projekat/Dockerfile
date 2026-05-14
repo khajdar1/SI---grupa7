@@ -4,10 +4,17 @@ FROM node:20-bookworm-slim AS base
 WORKDIR /app
 ENV DATABASE_URL=mysql://service_app:service_app@localhost:3306/service_interventions
 
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends openssl ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
+	
 COPY package.json package-lock.json ./
 COPY backend/package.json backend/package.json
 COPY frontend/package.json frontend/package.json
+COPY shared/ shared/
 COPY backend/prisma backend/prisma
+COPY backend/prisma.config.ts backend/prisma.config.ts
+COPY backend/src/config/database-url.ts backend/src/config/database-url.ts
 
 RUN npm ci
 RUN npm run prisma:generate --workspace backend
@@ -25,18 +32,14 @@ ENV NEXT_PUBLIC_SOCKET_URL=${NEXT_PUBLIC_SOCKET_URL}
 COPY frontend/ frontend/
 RUN npm run build --workspace frontend
 
-FROM node:20-bookworm-slim AS backend-runtime
-WORKDIR /app
+FROM base AS backend-runtime
+WORKDIR /app/backend
 ENV NODE_ENV=production
 
-COPY --from=base /app/node_modules /app/node_modules
-COPY --from=base /app/package.json /app/package.json
-COPY --from=base /app/package-lock.json /app/package-lock.json
-COPY backend/package.json backend/package.json
-COPY --from=backend-build /app/backend/dist backend/dist
+COPY --from=backend-build /app/backend/dist dist
 
 EXPOSE 4000
-CMD ["npm", "run", "start", "--workspace", "backend"]
+CMD ["npm", "run", "start"]
 
 FROM node:20-bookworm-slim AS frontend-runtime
 WORKDIR /app

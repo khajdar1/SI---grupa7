@@ -3,6 +3,10 @@ import express from 'express';
 import helmet from 'helmet';
 
 import { env } from './config/env';
+import { BACKEND_ROUTES } from './constants';
+import { authenticate, optionalAuthenticate } from './middleware/auth.middleware';
+import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware';
+import { requestLoggerMiddleware } from './middleware/request-logger.middleware';
 import healthRouter from './routes/health.route';
 import faultReportsRouter from './modules/fault-reports/fault-reports.route';
 import authRouter from './modules/auth/auth.route';
@@ -25,6 +29,7 @@ import profileRouter from './modules/profile/profile.route';
 import blockingRouter from './modules/blocking/blocking.route';
 import systemConfigRouter from './modules/system-config/system-config.route';
 import mapsRouter from './modules/maps/maps.route';
+import managementRouter from './modules/management/management.route';
 
 export function createApp() {
   const app = express();
@@ -33,37 +38,46 @@ export function createApp() {
   app.disable('x-powered-by');
   app.use(helmet());
   app.use(cors({ origin: allowedOrigins, credentials: true }));
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.json({ limit: '15mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+  app.use(requestLoggerMiddleware);
 
-  app.use('/api/v1/health', healthRouter);
-  app.use('/api/v1/fault-reports', faultReportsRouter);
-  app.use('/api/v1/auth', authRouter);
-  app.use('/api/v1/users', usersRouter);
-  app.use('/api/v1/companies', companiesRouter);
-  app.use('/api/v1/categories', categoriesRouter);
-  app.use('/api/v1/interventions', interventionsRouter);
-  app.use('/api/v1/assignments', assignmentsRouter);
-  app.use('/api/v1/reports', reportsRouter);
-  app.use('/api/v1/attachments', attachmentsRouter);
-  app.use('/api/v1/notifications', notificationsRouter);
-  app.use('/api/v1/sla', slaRouter);
-  app.use('/api/v1/audit', auditRouter);
-  app.use('/api/v1/comments', commentsRouter);
-  app.use('/api/v1/feedback', feedbackRouter);
-  app.use('/api/v1/history', historyRouter);
-  app.use('/api/v1/tickets', ticketsRouter);
-  app.use('/api/v1/messages', messagesRouter);
-  app.use('/api/v1/profile', profileRouter);
-  app.use('/api/v1/blocking', blockingRouter);
-  app.use('/api/v1/system-config', systemConfigRouter);
-  app.use('/api/v1/maps', mapsRouter);
-
-  app.use((_req, res) => {
-    res.status(404).json({
-      message: 'Route not found',
+  app.use(BACKEND_ROUTES.HEALTH, healthRouter);
+  app.use(BACKEND_ROUTES.FAULT_REPORTS, optionalAuthenticate, faultReportsRouter);
+  app.use(BACKEND_ROUTES.AUTH, authRouter);
+  app.use(BACKEND_ROUTES.USERS, authenticate, usersRouter);
+  app.use(BACKEND_ROUTES.COMPANIES, optionalAuthenticate, companiesRouter);
+  app.use(BACKEND_ROUTES.CATEGORIES, categoriesRouter);
+  app.use(BACKEND_ROUTES.ASSIGNMENTS, authenticate, assignmentsRouter);
+  app.get(BACKEND_ROUTES.REPORTS, authenticate, (_req, res) => {
+    res.json({
+      module: 'reports',
+      endpoints: [
+        'GET /interventions/:interventionId/reports',
+        'POST /interventions/:interventionId/reports',
+        'PATCH /interventions/:interventionId/reports/:reportId',
+      ],
     });
   });
+  app.use(`${BACKEND_ROUTES.INTERVENTIONS}/:interventionId/reports`, authenticate, reportsRouter);
+  app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
+  app.use(BACKEND_ROUTES.ATTACHMENTS, authenticate, attachmentsRouter);
+  app.use(BACKEND_ROUTES.NOTIFICATIONS, authenticate, notificationsRouter);
+  app.use(BACKEND_ROUTES.SLA, authenticate, slaRouter);
+  app.use(BACKEND_ROUTES.AUDIT, authenticate, auditRouter);
+  app.use(BACKEND_ROUTES.COMMENTS, authenticate, commentsRouter);
+  app.use(BACKEND_ROUTES.FEEDBACK, authenticate, feedbackRouter);
+  app.use(BACKEND_ROUTES.HISTORY, authenticate, historyRouter);
+  app.use(BACKEND_ROUTES.TICKETS, authenticate, ticketsRouter);
+  app.use(BACKEND_ROUTES.MESSAGES, authenticate, messagesRouter);
+  app.use(BACKEND_ROUTES.PROFILE, authenticate, profileRouter);
+  app.use(BACKEND_ROUTES.BLOCKING, authenticate, blockingRouter);
+  app.use(BACKEND_ROUTES.SYSTEM_CONFIG, authenticate, systemConfigRouter);
+  app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
+  app.use(BACKEND_ROUTES.MANAGEMENT, authenticate, managementRouter);
+  app.use(notFoundMiddleware);
+  app.use(errorMiddleware);
+  
 
   return app;
 }

@@ -11,10 +11,18 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
+    "gmail:authorize": "npm run gmail:authorize --workspace backend",
     "compose:up": "docker compose up -d --build",
     "compose:down": "docker compose down"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@floating-ui/react-dom": "2.1.8",
+    "@swc/helpers": "0.5.15"
+  },
+  "devDependencies": {
+    "wrangler": "^3.114.17"
   }
 }

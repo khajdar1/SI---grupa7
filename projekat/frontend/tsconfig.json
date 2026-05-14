@@ -22,10 +22,23 @@
     ],
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": {
+      "@prisma/client": [
+        "../backend/node_modules/@prisma/client"
+      ],
+      "@shared/*": [
+        "../shared/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
   "include": [
     "next-env.d.ts",
+    "../shared/**/*.ts",
+    "src/**/*.d.ts",
     "src/**/*.ts",
     "src/**/*.tsx",
     ".next/types/**/*.ts"

@@ -1,67 +1,842 @@
-export default function Page() {
-  const stats = [
-    { label: 'Open interventions', value: '18' },
-    { label: 'In progress', value: '09' },
-    { label: 'Overdue', value: '02' },
-    { label: 'Unread notifications', value: '06' },
-  ];
+'use client';
 
-  const activity = [
-    'New fault report created from public intake form',
-    'Coordinator changed priority for a critical intervention',
-    'Technician updated status to in progress',
-    'Admin adjusted SLA limits for urgent cases',
-  ];
+import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  BarChart2,
+  Building2,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Factory,
+  FileText,
+  HeartPulse,
+  LayoutDashboard,
+  Map,
+  Paperclip,
+  Plus,
+  RefreshCw,
+  Settings,
+  Shield,
+  Tag,
+  Ticket,
+  User,
+  UserCheck,
+  Users,
+  Wrench,
+} from 'lucide-react';
+
+import { EmptyState, PageHeader, PageLayout, StatCard } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ROUTES } from '@/constants';
+import type { Company } from '@/models/Company';
+import { getMyCompany } from '@/services/companies.service';
+import { getDashboardSnapshot, type DashboardSnapshot } from '@/services/dashboard.service';
+import {
+  getInterventions,
+  type InterventionListItem,
+} from '@/services/interventions.service';
+import {
+  getManagementDashboard,
+  type ManagementDashboardStats,
+} from '@/services/management.service';
+import { getUsers, type ManagedUser } from '@/services/users.service';
+
+type DashboardRole = 'ADMIN' | 'KOMPANIJA_ADMIN' | 'MENADZMENT' | 'KOORDINATOR' | 'SERVISER' | 'KORISNIK';
+
+type SessionUser = {
+  id?: number;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+  roles?: string[];
+};
+
+type DashboardAction = {
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ReactNode;
+};
+
+type ActivityItem = {
+  title: string;
+  description: string;
+  href: string;
+  meta: string;
+};
+
+type RoleDashboardConfig = {
+  label: string;
+  title: string;
+  subtitle: string;
+  primaryAction: { label: string; href: string; icon: React.ReactNode };
+  focusTitle: string;
+  focusItems: string[];
+  actions: DashboardAction[];
+};
+
+const ROLE_ALIASES: Record<DashboardRole, readonly string[]> = {
+  ADMIN: ['admin', 'administrator'],
+  KOMPANIJA_ADMIN: ['kompanijaadmin', 'companyadmin'],
+  MENADZMENT: ['menadzment', 'management'],
+  KOORDINATOR: ['koordinator', 'coordinator'],
+  SERVISER: ['serviser'],
+  KORISNIK: ['korisnik'],
+};
+
+const ROLE_PRIORITY: readonly DashboardRole[] = [
+  'ADMIN',
+  'KOMPANIJA_ADMIN',
+  'MENADZMENT',
+  'KOORDINATOR',
+  'SERVISER',
+  'KORISNIK',
+];
+
+const ACTIVE_STATUSES = new Set(['NEW', 'ASSIGNED', 'IN_PROGRESS']);
+
+const ROLE_CONFIG: Record<DashboardRole, RoleDashboardConfig> = {
+  ADMIN: {
+    label: 'Admin',
+    title: 'Admin Dashboard',
+    subtitle: 'System governance, configuration, and account control from one place.',
+    primaryAction: {
+      label: 'Manage users',
+      href: ROUTES.ADMIN,
+      icon: <Users className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Administration focus',
+    focusItems: [
+      'Keep account roles and company ownership current.',
+      'Review active categories, SLA profiles, and attachment rules.',
+      'Use reports and management metrics to spot operational risk.',
+    ],
+    actions: [
+      {
+        title: 'Users',
+        description: 'Create accounts, assign roles, and activate or deactivate users.',
+        href: ROUTES.ADMIN,
+        icon: <Users className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Companies',
+        description: 'Approve registrations and assign company administrators.',
+        href: ROUTES.ADMIN_COMPANIES,
+        icon: <Building2 className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Categories',
+        description: 'Maintain the fault categories used by intake and interventions.',
+        href: ROUTES.ADMIN_CATEGORY,
+        icon: <Tag className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Attachment rules',
+        description: 'Control upload limits and allowed file types.',
+        href: ROUTES.ADMIN_ATTACHMENT_CONFIG,
+        icon: <Paperclip className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+    ],
+  },
+  KOMPANIJA_ADMIN: {
+    label: 'Company Admin',
+    title: 'Company Dashboard',
+    subtitle: 'Company profile, fault intake, and service request follow-up.',
+    primaryAction: {
+      label: 'Company profile',
+      href: ROUTES.COMPANY,
+      icon: <Factory className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Company focus',
+    focusItems: [
+      'Keep contact, address, and identification data up to date.',
+      'Submit service requests with enough location and category detail.',
+      'Track accessible interventions connected to your reports.',
+    ],
+    actions: [
+      {
+        title: 'Company profile',
+        description: 'Update the profile connected to your company admin account.',
+        href: ROUTES.COMPANY,
+        icon: <Factory className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Fault intake',
+        description: 'Report a regular issue or emergency service request.',
+        href: ROUTES.FAULT_REPORTS,
+        icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Profile',
+        description: 'Review your account information and password settings.',
+        href: ROUTES.PROFILE,
+        icon: <User className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+    ],
+  },
+  MENADZMENT: {
+    label: 'Management',
+    title: 'Management Dashboard',
+    subtitle: 'Executive overview of intervention volume, completion, and service quality.',
+    primaryAction: {
+      label: 'Open analytics',
+      href: ROUTES.MANAGEMENT_DASHBOARD,
+      icon: <BarChart2 className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Management focus',
+    focusItems: [
+      'Monitor active work, completed interventions, and resolution time.',
+      'Use reports to evaluate SLA compliance and operational throughput.',
+      'Review intervention history for recurring locations or categories.',
+    ],
+    actions: [
+      {
+        title: 'Analytics',
+        description: 'Open the detailed management metrics workspace.',
+        href: ROUTES.MANAGEMENT_DASHBOARD,
+        icon: <BarChart2 className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Reports',
+        description: 'Review intervention reports and service performance.',
+        href: ROUTES.REPORTS,
+        icon: <FileText className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'History',
+        description: 'Inspect completed and archived intervention records.',
+        href: ROUTES.HISTORY,
+        icon: <Clock className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+    ],
+  },
+  KOORDINATOR: {
+    label: 'Coordinator',
+    title: 'Coordinator Dashboard',
+    subtitle: 'Plan interventions, assign servicers, and keep urgent work moving.',
+    primaryAction: {
+      label: 'New intervention',
+      href: ROUTES.INTERVENTION_NEW,
+      icon: <Plus className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Coordination focus',
+    focusItems: [
+      'Convert requests into planned work with clear priority and deadlines.',
+      'Assign servicers before open work becomes overdue.',
+      'Use map and reports views when triaging field operations.',
+    ],
+    actions: [
+      {
+        title: 'Plan work',
+        description: 'Create planned maintenance or schedule new intervention work.',
+        href: ROUTES.INTERVENTION_NEW,
+        icon: <Plus className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Assignments',
+        description: 'Balance workload and assign technicians.',
+        href: ROUTES.ASSIGNMENTS,
+        icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Map',
+        description: 'Review intervention locations spatially.',
+        href: ROUTES.MAP,
+        icon: <Map className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Fault intake',
+        description: 'Open reported faults that need operational follow-up.',
+        href: ROUTES.FAULT_REPORTS,
+        icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+    ],
+  },
+  SERVISER: {
+    label: 'Technician',
+    title: 'Technician Dashboard',
+    subtitle: 'Your assigned interventions, deadlines, and field reporting shortcuts.',
+    primaryAction: {
+      label: 'My interventions',
+      href: ROUTES.INTERVENTIONS,
+      icon: <Wrench className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Field focus',
+    focusItems: [
+      'Start assigned work and keep intervention status current.',
+      'Submit service reports when work is completed.',
+      'Use history for context from similar previous interventions.',
+    ],
+    actions: [
+      {
+        title: 'Assigned work',
+        description: 'Open your active intervention queue.',
+        href: ROUTES.INTERVENTIONS,
+        icon: <Wrench className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Reports',
+        description: 'Write or update intervention reports.',
+        href: ROUTES.REPORTS,
+        icon: <FileText className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'History',
+        description: 'Review resolved interventions and prior field notes.',
+        href: ROUTES.HISTORY,
+        icon: <Clock className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+    ],
+  },
+  KORISNIK: {
+    label: 'User',
+    title: 'User Dashboard',
+    subtitle: 'Submit faults and follow the interventions connected to your requests.',
+    primaryAction: {
+      label: 'Report a fault',
+      href: ROUTES.FAULT_REPORTS,
+      icon: <AlertTriangle className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'User focus',
+    focusItems: [
+      'Report service problems with location, category, and attachments.',
+      'Follow active interventions created from your reports.',
+      'Keep your profile data current for service communication.',
+    ],
+    actions: [
+      {
+        title: 'Fault report',
+        description: 'Submit a regular report or emergency request.',
+        href: ROUTES.FAULT_REPORTS,
+        icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+      {
+        title: 'My interventions',
+        description: 'Track interventions you are allowed to view.',
+        href: ROUTES.INTERVENTIONS,
+        icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Profile',
+        description: 'Update your personal account details.',
+        href: ROUTES.PROFILE,
+        icon: <User className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+    ],
+  },
+};
+
+function decodeJwtPayload(token: string): {
+  realm_access?: { roles?: string[] };
+  resource_access?: Record<string, { roles?: string[] }>;
+} | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+
+    return JSON.parse(window.atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function readSession(): { user: SessionUser | null; roles: string[] } {
+  if (typeof window === 'undefined') {
+    return { user: null, roles: [] };
+  }
+
+  const roles = new Set<string>();
+  const rawUser = window.localStorage.getItem('user');
+  const token = window.localStorage.getItem('token');
+  let user: SessionUser | null = null;
+
+  try {
+    user = rawUser ? (JSON.parse(rawUser) as SessionUser) : null;
+    if (user?.role) {
+      roles.add(user.role.toLowerCase());
+    }
+    user?.roles?.forEach((role) => roles.add(role.toLowerCase()));
+  } catch {
+    user = null;
+  }
+
+  if (token) {
+    const payload = decodeJwtPayload(token);
+    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    Object.values(payload?.resource_access ?? {}).forEach((clientAccess) => {
+      clientAccess.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    });
+  }
+
+  return { user, roles: Array.from(roles) };
+}
+
+function resolveDashboardRole(roles: readonly string[]): DashboardRole {
+  const normalizedRoles = new Set(roles.map((role) => role.toLowerCase()));
 
   return (
-    <div className="page stack">
-      <section className="section-heading">
-        <span className="section-kicker">Operations view</span>
-        <h1 className="section-title">Dashboard shell</h1>
-        <p className="section-copy">
-          This page will eventually aggregate the most relevant status signals for coordinators, management, and
-          administrators.
-        </p>
-      </section>
+    ROLE_PRIORITY.find((role) =>
+      ROLE_ALIASES[role].some((alias) => normalizedRoles.has(alias)),
+    ) ?? 'KORISNIK'
+  );
+}
 
-      <section className="metric-grid">
-        {stats.map((stat) => (
-          <article key={stat.label} className="metric-card metric-card--large">
-            <strong>{stat.value}</strong>
-            <span>{stat.label}</span>
-          </article>
+function hasRole(roles: readonly string[], role: DashboardRole): boolean {
+  const normalizedRoles = new Set(roles.map((item) => item.toLowerCase()));
+  return ROLE_ALIASES[role].some((alias) => normalizedRoles.has(alias));
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return 'No deadline';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function formatHours(hours: number | null): string {
+  if (hours === null) {
+    return '-';
+  }
+
+  if (hours < 1) {
+    return `${Math.round(hours * 60)} min`;
+  }
+
+  return `${hours.toFixed(1)} h`;
+}
+
+function getInterventionSummary(interventions: InterventionListItem[], currentUserId?: number) {
+  const now = new Date();
+  const dueSoonLimit = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const activeInterventions = interventions.filter((item) => ACTIVE_STATUSES.has(item.status));
+  const assignedToMe = currentUserId
+    ? activeInterventions.filter((item) =>
+        item.assignments?.some((assignment) => assignment.userId === currentUserId),
+      )
+    : activeInterventions;
+
+  return {
+    active: activeInterventions.length,
+    newItems: activeInterventions.filter((item) => item.status === 'NEW').length,
+    assigned: activeInterventions.filter((item) => item.status === 'ASSIGNED').length,
+    inProgress: activeInterventions.filter((item) => item.status === 'IN_PROGRESS').length,
+    highPriority: activeInterventions.filter((item) => item.priority === 'HIGH' || item.priority === 'CRITICAL').length,
+    overdue: activeInterventions.filter((item) => item.isOverdue).length,
+    unassigned: activeInterventions.filter((item) => (item.assignments?.length ?? 0) === 0).length,
+    assignedToMe: assignedToMe.length,
+    dueSoon: assignedToMe.filter((item) => {
+      if (!item.dueAt) {
+        return false;
+      }
+
+      const dueAt = new Date(item.dueAt);
+      return dueAt >= now && dueAt <= dueSoonLimit;
+    }).length,
+  };
+}
+
+function getRecentItems(interventions: InterventionListItem[]): ActivityItem[] {
+  return interventions.slice(0, 5).map((item) => ({
+    title: item.name,
+    description: `${item.companyName} - ${item.location}`,
+    href: ROUTES.INTERVENTION(item.id),
+    meta: `${item.priority} / ${item.status} / ${formatDateTime(item.dueAt)}`,
+  }));
+}
+
+function StatSkeletonGrid() {
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading dashboard statistics">
+      {[...Array(4)].map((_, index) => (
+        <StatCard key={index} title="Loading" value="-" isLoading />
+      ))}
+    </section>
+  );
+}
+
+function QuickActionCard({ action }: { action: DashboardAction }) {
+  return (
+    <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
+      <CardContent className="flex h-full flex-col gap-4 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="icon-bg-primary flex size-11 items-center justify-center rounded-xl">
+            {action.icon}
+          </div>
+          <ArrowRight className="size-4 text-muted-foreground" aria-hidden="true" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-semibold tracking-tight">{action.title}</h3>
+          <p className="text-sm leading-relaxed text-muted-foreground">{action.description}</p>
+        </div>
+        <Button asChild variant="outline" className="mt-auto justify-between">
+          <Link href={action.href}>
+            Open
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function FocusPanel({ config }: { config: RoleDashboardConfig }) {
+  return (
+    <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)]">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HeartPulse className="size-5 text-primary" aria-hidden="true" />
+          {config.focusTitle}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 md:grid-cols-3">
+          {config.focusItems.map((item) => (
+            <div key={item} className="flex gap-3 rounded-lg border border-slate-100 bg-slate-50/70 p-3">
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+              <p className="text-sm leading-relaxed text-muted-foreground">{item}</p>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ActivityList({
+  items,
+  isLoading,
+}: {
+  items: ActivityItem[];
+  isLoading: boolean;
+}) {
+  return (
+    <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)]">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Clock className="size-5 text-primary" aria-hidden="true" />
+          Recent active work
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, index) => (
+              <Skeleton key={index} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : items.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {items.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex flex-col gap-1 py-3 transition-colors hover:text-primary sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-medium text-foreground">{item.title}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
+                </span>
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">{item.meta}</span>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            title="No active work"
+            description="There are no active interventions in this dashboard scope right now."
+            className="min-h-40"
+          />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function buildRoleStats(params: {
+  role: DashboardRole;
+  snapshot: DashboardSnapshot | null;
+  interventions: InterventionListItem[];
+  managementStats: ManagementDashboardStats | null;
+  users: ManagedUser[];
+  company: Company | null;
+  currentUserId?: number;
+}) {
+  const { role, snapshot, interventions, managementStats, users, company, currentUserId } = params;
+  const summary = getInterventionSummary(interventions, currentUserId);
+
+  if (role === 'ADMIN') {
+    const activeUsers = users.filter((user) => user.active).length;
+    return [
+      { title: 'Users', value: users.length, icon: <Users className="size-5 text-primary" aria-hidden="true" /> },
+      { title: 'Active users', value: activeUsers, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: 'Active interventions', value: summary.active, icon: <Wrench className="size-5 text-violet-600" aria-hidden="true" /> },
+      {
+        title: 'API status',
+        value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
+        icon: <Shield className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+    ];
+  }
+
+  if (role === 'MENADZMENT') {
+    return [
+      {
+        title: 'Active interventions',
+        value: managementStats?.activeCount ?? summary.active,
+        icon: <Wrench className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Completed',
+        value: managementStats?.completedCount ?? '-',
+        icon: <CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Avg. resolution',
+        value: managementStats ? formatHours(managementStats.averageResolutionHours) : '-',
+        icon: <Clock className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+      {
+        title: 'High priority active',
+        value: summary.highPriority,
+        icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+    ];
+  }
+
+  if (role === 'KOORDINATOR') {
+    return [
+      { title: 'Open work', value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
+      { title: 'Unassigned', value: summary.unassigned, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: 'Overdue', value: summary.overdue, icon: <Clock className="size-5 text-rose-600" aria-hidden="true" /> },
+      { title: 'New requests', value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
+    ];
+  }
+
+  if (role === 'SERVISER') {
+    return [
+      { title: 'Assigned to me', value: summary.assignedToMe, icon: <Wrench className="size-5 text-primary" aria-hidden="true" /> },
+      { title: 'In progress', value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: 'Due soon', value: summary.dueSoon, icon: <Clock className="size-5 text-amber-600" aria-hidden="true" /> },
+      { title: 'High priority', value: summary.highPriority, icon: <AlertTriangle className="size-5 text-rose-600" aria-hidden="true" /> },
+    ];
+  }
+
+  if (role === 'KOMPANIJA_ADMIN') {
+    return [
+      {
+        title: 'Company status',
+        value: company?.status ?? '-',
+        icon: <Factory className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Open requests',
+        value: summary.active,
+        icon: <ClipboardList className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Active categories',
+        value: snapshot?.stats.find((stat) => stat.title === 'Active categories')?.value ?? '-',
+        icon: <Tag className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+      {
+        title: 'API status',
+        value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
+        icon: <Shield className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+    ];
+  }
+
+  return [
+    { title: 'My open requests', value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
+    { title: 'In progress', value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
+    { title: 'Assigned', value: summary.assigned, icon: <UserCheck className="size-5 text-violet-600" aria-hidden="true" /> },
+    { title: 'New', value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
+  ];
+}
+
+export default function DashboardPage() {
+  const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
+  const [sessionRoles, setSessionRoles] = useState<string[]>([]);
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [interventions, setInterventions] = useState<InterventionListItem[]>([]);
+  const [managementStats, setManagementStats] = useState<ManagementDashboardStats | null>(null);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const role = useMemo(() => resolveDashboardRole(sessionRoles), [sessionRoles]);
+  const config = ROLE_CONFIG[role];
+  const currentUserId = sessionUser?.id;
+
+  const loadDashboard = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const session = readSession();
+      const resolvedRole = resolveDashboardRole(session.roles);
+      const canLoadManagement = hasRole(session.roles, 'MENADZMENT') || hasRole(session.roles, 'ADMIN');
+      const canLoadAdmin = hasRole(session.roles, 'ADMIN');
+      const canLoadCompany = resolvedRole === 'KOMPANIJA_ADMIN';
+
+      setSessionUser(session.user);
+      setSessionRoles(session.roles);
+
+      const [
+        snapshotResult,
+        interventionsResult,
+        managementResult,
+        usersResult,
+        companyResult,
+      ] = await Promise.allSettled([
+        getDashboardSnapshot(),
+        getInterventions(),
+        canLoadManagement ? getManagementDashboard() : Promise.resolve(null),
+        canLoadAdmin ? getUsers() : Promise.resolve([]),
+        canLoadCompany ? getMyCompany() : Promise.resolve(null),
+      ]);
+
+      if (snapshotResult.status === 'fulfilled') {
+        setSnapshot(snapshotResult.value);
+      } else {
+        setSnapshot(null);
+        setError(snapshotResult.reason instanceof Error ? snapshotResult.reason.message : 'Failed to load dashboard snapshot.');
+      }
+
+      setInterventions(interventionsResult.status === 'fulfilled' ? interventionsResult.value.items : []);
+      setManagementStats(managementResult.status === 'fulfilled' ? managementResult.value : null);
+      setUsers(usersResult.status === 'fulfilled' ? usersResult.value : []);
+      setCompany(companyResult.status === 'fulfilled' ? companyResult.value : null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboard();
+  }, []);
+
+  const roleStats = useMemo(
+    () =>
+      buildRoleStats({
+        role,
+        snapshot,
+        interventions,
+        managementStats,
+        users,
+        company,
+        currentUserId,
+      }),
+    [company, currentUserId, interventions, managementStats, role, snapshot, users],
+  );
+  const recentItems = useMemo(() => getRecentItems(interventions), [interventions]);
+  const displayName = sessionUser?.firstName
+    ? `${sessionUser.firstName}${sessionUser.lastName ? ` ${sessionUser.lastName}` : ''}`
+    : sessionUser?.username;
+
+  return (
+    <PageLayout className="space-y-6">
+      <PageHeader
+        title={config.title}
+        subtitle={displayName ? `${config.subtitle} Signed in as ${displayName}.` : config.subtitle}
+        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Dashboard' }]}
+        primaryAction={{
+          ...config.primaryAction,
+        }}
+        secondaryActions={[
+          {
+            label: 'Refresh',
+            onClick: () => void loadDashboard(),
+            variant: 'outline',
+            icon: <RefreshCw className="size-4" aria-hidden="true" />,
+            isLoading,
+          },
+        ]}
+      />
+
+      {error ? (
+        <EmptyState title="System snapshot unavailable" description={error} action={{ label: 'Retry', onClick: loadDashboard }} />
+      ) : null}
+
+      {isLoading ? (
+        <StatSkeletonGrid />
+      ) : (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label={`${config.label} dashboard statistics`}>
+          {roleStats.map((stat) => (
+            <StatCard
+              key={stat.title}
+              title={stat.title}
+              value={stat.value}
+              icon={stat.icon}
+              isLoading={isLoading}
+            />
+          ))}
+        </section>
+      )}
+
+      <FocusPanel config={config} />
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={`${config.label} dashboard shortcuts`}>
+        {config.actions.map((action) => (
+          <QuickActionCard key={action.title} action={action} />
         ))}
       </section>
 
-      <section className="split-grid">
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Recent activity</span>
-            <h2 className="section-title">The event feed will mirror the audit trail.</h2>
-          </div>
+      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+        <ActivityList items={recentItems} isLoading={isLoading} />
 
-          <ul className="quick-facts quick-facts--stacked">
-            {activity.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
+        <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)]">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LayoutDashboard className="size-5 text-primary" aria-hidden="true" />
+              System snapshot
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {[...Array(4)].map((_, index) => (
+                  <Skeleton key={index} className="h-9 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : snapshot?.stats.length ? (
+              <div className="space-y-2">
+                {snapshot.stats.map((stat) => (
+                  <div key={stat.title} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50/70 px-3 py-2">
+                    <span className="text-sm text-muted-foreground">{stat.title}</span>
+                    <span className="text-sm font-semibold tabular-nums">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No system snapshot data available.</p>
+            )}
 
-        <article className="panel stack-tight">
-          <div className="section-heading section-heading--compact">
-            <span className="section-kicker">Target users</span>
-            <h2 className="section-title">The same shell can surface different views by role.</h2>
-          </div>
-
-          <div className="tag-row">
-            {['Coordinator', 'Technician', 'Management', 'Admin'].map((role) => (
-              <span key={role} className="tag tag--muted">
-                {role}
-              </span>
-            ))}
-          </div>
-        </article>
-      </section>
-    </div>
+            <Button asChild className="mt-4 w-full justify-between" variant="outline">
+              <Link href={ROUTES.SETTINGS}>
+                Open settings
+                <Settings className="size-4" aria-hidden="true" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </PageLayout>
   );
 }
