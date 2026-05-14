@@ -1,7 +1,7 @@
 # Sprint 7 - Sprint Goal
 
 ## Sprint cilj
-Implementirati funkcionalnosti evidencije izvještaja o intervenciji, upravljanja korisničkim profilom i resetom lozinke, menadžment dashboard za pregled operativnih podataka, te kalendarski prikaz intervencija za koordinatore. Paralelno unaprijediti upravljanje kompanijama kroz ulogu `KompanijaAdmin`, samoregistraciju kompanija i zaštitu pristupa company management funkcionalnostima. :contentReference[oaicite:0]{index=0}
+Implementirati funkcionalnosti evidencije izvještaja o intervenciji, upravljanja korisničkim profilom i resetom lozinke, menadžment dashboard za pregled operativnih podataka, te kalendarski prikaz intervencija za koordinatore. Paralelno unaprijediti upravljanje kompanijama kroz ulogu `KompanijaAdmin`, samoregistraciju kompanija i zaštitu pristupa company management funkcionalnostima.
 
 ## Ključne stavke koje tim želi završiti
 
@@ -9,7 +9,7 @@ Implementirati funkcionalnosti evidencije izvještaja o intervenciji, upravljanj
 - Upravljanje korisničkim profilom i reset lozinke (PBI-015)
 - Menadžment dashboard (PBI-014)
 - Kalendarski prikaz intervencija (PBI-020)
-- Upravljanje kompanijama i uloga KompanijaAdmin (PBI-049) :contentReference[oaicite:1]{index=1}
+- Upravljanje kompanijama i uloga KompanijaAdmin (PBI-049)
 
 ## Rizici i zavisnosti
 
@@ -21,7 +21,7 @@ Implementirati funkcionalnosti evidencije izvještaja o intervenciji, upravljanj
 
 - Rizik: PBI-020 (Kalendarski prikaz intervencija) može zahtijevati dodatno frontend usklađivanje oko prikaza termina, filtera i rasporeda intervencija.
 
-- Rizik: PBI-049 uvodi novu rolu `KompanijaAdmin` i dodatna RBAC pravila; nepravilna implementacija može dovesti do IDOR sigurnosnih propusta i neovlaštenog pristupa podacima drugih kompanija. :contentReference[oaicite:2]{index=2}
+- Rizik: PBI-049 uvodi novu rolu `KompanijaAdmin` i dodatna RBAC pravila; nepravilna implementacija može dovesti do IDOR sigurnosnih propusta i neovlaštenog pristupa podacima drugih kompanija.
 
 - Rizik: PBI-049 ima veću složenost (8 SP) i uključuje backend, frontend, bazu i Keycloak integraciju; postoji mogućnost prelaska planiranog sprint kapaciteta.
 
@@ -35,8 +35,8 @@ Implementirati funkcionalnosti evidencije izvještaja o intervenciji, upravljanj
 
 - Zavisnost: PBI-015 zavisi od PBI-002 (Login), jer funkcionalnosti profila i promjene lozinke zahtijevaju autentifikovanog korisnika.
 
-- Zavisnost: PBI-049 zavisi od postojeće Keycloak autentifikacije i RBAC middleware-a (`authenticate` i `authorizeRoles`) zbog implementacije nove role `KompanijaAdmin`. :contentReference[oaicite:3]{index=3}
+- Zavisnost: PBI-049 zavisi od postojeće Keycloak autentifikacije i RBAC middleware-a (`authenticate` i `authorizeRoles`) zbog implementacije nove role `KompanijaAdmin`. 
 
-- Zavisnost: PBI-049 koristi postojeći `Company` model i postojeće company API rute kao osnovu za proširenje funkcionalnosti upravljanja kompanijama. :contentReference[oaicite:4]{index=4}
+- Zavisnost: PBI-049 koristi postojeći `Company` model i postojeće company API rute kao osnovu za proširenje funkcionalnosti upravljanja kompanijama.
 
 - Zavisnost: PBI-014 i PBI-010 povezani su sa PBI-023 (Export), iako export nije dio MVP implementacije u ovom sprintu.
