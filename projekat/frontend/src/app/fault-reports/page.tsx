@@ -2,7 +2,7 @@
 export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,17 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ROUTES, UI } from '@/constants';
 import { clearFieldError, getApiFieldErrors, validateRequired } from '@/lib/form-validation';
-import type { FaultReportCategoryOption, FaultReportCompanyOption } from '@/models/FaultReport';
-import { getFaultReportOptions, submitFaultReport } from '@/services/fault-reports.service';
+import type {
+  FaultReportCategoryOption,
+  FaultReportCompanyOption,
+  PotentialDuplicateItem,
+} from '@/models/FaultReport';
+import {
+  getFaultReportOptions,
+  submitFaultReport,
+  checkFaultReportDuplicates,
+} from '@/services/fault-reports.service';
+import { DuplicateWarningDialog } from '@/components/fault-reports/DuplicateWarningDialog';
 
 type ReportMode = 'regular' | 'emergency';
 
@@ -105,6 +114,11 @@ export default function FaultReportsPage() {
   const [createdInterventionId, setCreatedInterventionId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // PBI-025: stanje detekcije duplikata
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<PotentialDuplicateItem[]>([]);
+  const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   const selectedTemplate = useMemo(
     () => EMERGENCY_TEMPLATES.find((template) => template.id === templateId) ?? EMERGENCY_TEMPLATES[0],
@@ -242,19 +256,11 @@ export default function FaultReportsPage() {
     return nextErrors;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  /** Stvarno kreiranje prijave – poziva se nakon što korisnik potvrdi ili preskače duplikat upozorenje */
+  const doSubmit = async () => {
     setError('');
     setSuccessMessage('');
     setCreatedInterventionId(null);
-
-    const nextErrors = validateForm();
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      return;
-    }
-
-    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -334,10 +340,76 @@ export default function FaultReportsPage() {
     }
   };
 
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setCreatedInterventionId(null);
+
+    const nextErrors = validateForm();
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+
+    setFieldErrors({});
+
+    // PBI-025: Za autenticirane korisnike u regular načinu, provjeri duplikate
+    if (reportMode === 'regular' && isAuthenticated && companyId) {
+      try {
+        // Dohvati userId iz tokena (čuvan u localStorage kao JSON objekt)
+        let userId: number | null = null;
+        const raw = window.localStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw) as { id?: number };
+          userId = parsed.id ?? null;
+        }
+
+        if (userId) {
+          const checkResult = await checkFaultReportDuplicates({
+            userId,
+            companyId: Number(companyId),
+            location: location.trim(),
+            description: description.trim(),
+            latitude,
+            longitude,
+          });
+
+          if (checkResult.hasPotentialDuplicates) {
+            setPotentialDuplicates(checkResult.duplicates);
+            pendingSubmitRef.current = doSubmit;
+            setDuplicateWarningOpen(true);
+            return;
+          }
+        }
+      } catch {
+        // Greška pri provjeri duplikata ne smije blokirati prijavu
+      }
+    }
+
+    await doSubmit();
+  };
+
   const noIntakeOptions = companies.length === 0 || categories.length === 0;
 
   return (
     <PageLayout className="space-y-6">
+      {/* PBI-025: Dialog za upozorenje o duplikatima */}
+      <DuplicateWarningDialog
+        open={duplicateWarningOpen}
+        duplicates={potentialDuplicates}
+        onContinue={() => {
+          setDuplicateWarningOpen(false);
+          if (pendingSubmitRef.current) {
+            void pendingSubmitRef.current();
+            pendingSubmitRef.current = null;
+          }
+        }}
+        onCancel={() => {
+          setDuplicateWarningOpen(false);
+          pendingSubmitRef.current = null;
+        }}
+      />
       <PageHeader
         title="Fault Reports"
         subtitle="Report incidents quickly and route them into intervention workflow."

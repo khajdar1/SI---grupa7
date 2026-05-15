@@ -289,7 +289,7 @@ function buildDemoExternalIdentitySeeds(
   ];
 }
 
-function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedRecord & SeedCategoryInput>, userId: number): SeedFaultReportInput[] {
+function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedRecord & SeedCategoryInput>, userId: number, pbi025UserId: number): SeedFaultReportInput[] {
   const electrical = requireSeedCategory(categories, 'Elektricni kvar');
   const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
   const network = requireSeedCategory(categories, 'Mreza i internet');
@@ -324,7 +324,7 @@ function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedReco
       id: 101,
       description: 'Kvar na ulaznom osvjetljenju – lampe ne rade.',
       location: 'Glavni ulaz, objekat A',
-      userId,
+      userId: pbi025UserId,
       categoryId: electrical.id,
       companyId,
     },
@@ -333,7 +333,7 @@ function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedReco
       id: 103,
       description: 'Procurila voda ispod sudopere u kantini.',
       location: 'Kuhinja, prizemlje',
-      userId,
+      userId: pbi025UserId,
       categoryId: plumbing.id,
       companyId,
     },
@@ -709,9 +709,10 @@ async function seedFaultReports(
   companyId: number,
   categories: Array<SeedRecord & SeedCategoryInput>,
   userId: number,
+  pbi025UserId: number,
 ): Promise<Array<SeedRecord & SeedFaultReportInput>> {
   return Promise.all(
-    buildDemoFaultReportSeeds(companyId, categories, userId).map((faultReportSeed) =>
+    buildDemoFaultReportSeeds(companyId, categories, userId, pbi025UserId).map((faultReportSeed) =>
       client.faultReport.upsert({
         where: { id: faultReportSeed.id },
         create: faultReportSeed,
@@ -753,7 +754,7 @@ async function seedAssignment(
   });
 }
 
-export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
+export async function seedDatabase(client: SeedClient, prismaInstance?: PrismaClient): Promise<SeedSummary> {
   const company = await seedCompany(client);
   const categories = await seedCategories(client);
   const slaConfigurations = await seedSlaConfigurations(client);
@@ -763,7 +764,18 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   const customerUser = requireSeedUser(users, DemoUserPersona.USER);
   const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
   const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
-  const faultReports = await seedFaultReports(client, company.id, categories, customerUser.id);
+
+  // PBI-025: Za demo duplikata koristimo prvog korisnika u bazi (može biti i ranije kreiran)
+  let pbi025UserId = customerUser.id;
+  if (prismaInstance) {
+    const firstUser = await prismaInstance.user.findFirst({
+      orderBy: { id: 'asc' },
+      select: { id: true },
+    });
+    if (firstUser) pbi025UserId = firstUser.id;
+  }
+
+  const faultReports = await seedFaultReports(client, company.id, categories, customerUser.id, pbi025UserId);
   const interventions = await seedInterventions(client, company.id, categories, coordinatorUser.id, faultReports);
   await seedAssignment(client, interventions[0].id, servicerUser.id);
   const commentCount = await seedComments(client, coordinatorUser.id, servicerUser.id, interventions);
@@ -791,7 +803,7 @@ export async function main(): Promise<void> {
   });
 
   try {
-    const summary = await seedDatabase(createPrismaSeedClient(prisma));
+    const summary = await seedDatabase(createPrismaSeedClient(prisma), prisma);
 
     console.log(
       `Seed completed for ${summary.companyName}: ${summary.categoryCount} categories, ${summary.slaConfigurationCount} SLA rows, ${summary.userCount} users, ${summary.externalIdentityCount} external identities, ${summary.commentCount} comments.`,
