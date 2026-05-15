@@ -318,6 +318,25 @@ function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedReco
       categoryId: network.id,
       companyId,
     },
+    // PBI-025: Seed prijave za demonstraciju detekcije duplikata
+    // fr-101 i fr-102 su namjerno slični (ista lokacija, sličan opis) → treba aktivirati upozorenje
+    {
+      id: 101,
+      description: 'Kvar na ulaznom osvjetljenju – lampe ne rade.',
+      location: 'Glavni ulaz, objekat A',
+      userId,
+      categoryId: electrical.id,
+      companyId,
+    },
+    // fr-103: ista lokacija ali RAZLIČIT opis (kvar vodovodne instalacije) → ne smije biti duplikat fr-101
+    {
+      id: 103,
+      description: 'Procurila voda ispod sudopere u kantini.',
+      location: 'Kuhinja, prizemlje',
+      userId,
+      categoryId: plumbing.id,
+      companyId,
+    },
   ];
 }
 
@@ -418,6 +437,37 @@ function buildDemoInterventionSeeds(
       creatorId,
       companyId,
       faultReportId: fr3.id,
+    },
+    // PBI-025 seed: aktivna intervencija za fr-101 (ulazno osvjetljenje)
+    // Korisnik koji ponovo prijavi sličan kvar na istoj lokaciji treba dobiti upozorenje
+    {
+      id: 101,
+      name: 'Popravka osvjetljenja na ulazu – prijava #101',
+      description: 'Lampe na ulazu ne rade, prijavila korisnica. Intervencija u toku.',
+      location: 'Glavni ulaz, objekat A',
+      priority: Priority.HIGH,
+      status: InterventionStatus.ASSIGNED,
+      type: InterventionType.ISSUE,
+      archived: false,
+      categoryId: electrical.id,
+      creatorId,
+      companyId,
+      faultReportId: 101,
+    },
+    // PBI-025 seed: aktivna intervencija za fr-103 (vodovodna instalacija)
+    {
+      id: 103,
+      name: 'Popravka vodovodne instalacije u kantini',
+      description: 'Procurila voda u kantini, potrebna hitna intervencija.',
+      location: 'Kuhinja, prizemlje',
+      priority: Priority.MEDIUM,
+      status: InterventionStatus.NEW,
+      type: InterventionType.ISSUE,
+      archived: false,
+      categoryId: plumbing.id,
+      creatorId,
+      companyId,
+      faultReportId: 103,
     },
   ];
 }

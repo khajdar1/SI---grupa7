@@ -1,5 +1,97 @@
 import { BadRequestError } from "../../shared/errors";
 
+// Vremenski prozor (u satima) u kojem se traže potencijalni duplikati
+export const DUPLICATE_DETECTION_WINDOW_HOURS = 48;
+
+// Minimalni postotak sličnosti (Jaccard nad riječima) da bi se prijava smatrala duplikatom
+export const DUPLICATE_SIMILARITY_THRESHOLD = 0.25;
+
+// Maksimalna GPS udaljenost (km) da bi se lokacije smatrale "istim mjestom"
+export const DUPLICATE_LOCATION_RADIUS_KM = 0.5;
+
+export interface PotentialDuplicateItem {
+  interventionId: number;
+  faultReportId: number;
+  location: string;
+  description: string;
+  reportedAt: Date;
+  status: string;
+  similarityScore: number;
+}
+
+export interface DuplicateCheckInput {
+  userId: number;
+  companyId: number;
+  location: string;
+  description: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface DuplicateCheckResult {
+  hasPotentialDuplicates: boolean;
+  duplicates: PotentialDuplicateItem[];
+}
+
+/** Jaccard sličnost nad skupom riječi (case-insensitive, min 3 slova) */
+export function computeTextSimilarity(a: string, b: string): number {
+  const tokenize = (text: string): Set<string> =>
+    new Set(
+      text
+        .toLowerCase()
+        .split(/\W+/)
+        .filter((word) => word.length > 2),
+    );
+
+  const setA = tokenize(a);
+  const setB = tokenize(b);
+
+  if (setA.size === 0 && setB.size === 0) return 1;
+  if (setA.size === 0 || setB.size === 0) return 0;
+
+  let intersection = 0;
+  for (const word of setA) {
+    if (setB.has(word)) intersection++;
+  }
+
+  const union = setA.size + setB.size - intersection;
+  return intersection / union;
+}
+
+/** Haversine udaljenost u kilometrima */
+export function haversineKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Sličnost lokacije: GPS ili tekstualna fallback */
+export function computeLocationSimilarity(
+  locA: string,
+  latA: number | null | undefined,
+  lonA: number | null | undefined,
+  locB: string,
+  latB: number | null | undefined,
+  lonB: number | null | undefined,
+): number {
+  if (latA != null && lonA != null && latB != null && lonB != null) {
+    const distKm = haversineKm(latA, lonA, latB, lonB);
+    return distKm < DUPLICATE_LOCATION_RADIUS_KM ? 1 : 0;
+  }
+  return computeTextSimilarity(locA, locB);
+}
+
 export const ALLOWED_ATTACHMENT_MIME_TYPES = new Set([
   "image/jpeg",
   "image/png",
@@ -92,6 +184,17 @@ export interface FaultReportSubmissionPayload extends Omit<
   reporterUserId?: number | null;
 }
 
+export interface RecentFaultReportCandidate {
+  faultReportId: number;
+  interventionId: number;
+  location: string;
+  description: string;
+  latitude: number | null;
+  longitude: number | null;
+  reportedAt: Date;
+  interventionStatus: string;
+}
+
 export interface FaultReportRepository {
   listCompanies(): Promise<FaultReportCompanyOption[]>;
   listActiveCategories(): Promise<FaultReportCategoryOption[]>;
@@ -107,7 +210,15 @@ export interface FaultReportRepository {
     input: FaultReportSubmissionPayload,
   ): Promise<FaultReportSubmissionResult>;
   getConfig(): Promise<{ allowedMimeTypes: string[]; maxFileSizeMb: number }>;
+  findRecentFaultReports(
+    userId: number,
+    companyId: number,
+    windowHours: number,
+  ): Promise<RecentFaultReportCandidate[]>;
 }
+
+// Statusi koji znače da je intervencija završena – ne tretiraju se kao duplikat
+const TERMINAL_STATUSES = new Set(["RESOLVED", "CANCELLED", "REJECTED"]);
 
 export class FaultReportService {
   constructor(private readonly repository: FaultReportRepository) {}
@@ -122,6 +233,63 @@ export class FaultReportService {
 
   async listActiveInterventions(): Promise<FaultReportInterventionListItem[]> {
     return this.repository.listActiveInterventions();
+  }
+
+  async checkDuplicates(
+    input: DuplicateCheckInput,
+  ): Promise<DuplicateCheckResult> {
+    const candidates = await this.repository.findRecentFaultReports(
+      input.userId,
+      input.companyId,
+      DUPLICATE_DETECTION_WINDOW_HOURS,
+    );
+
+    const duplicates: PotentialDuplicateItem[] = [];
+
+    for (const candidate of candidates) {
+      // Preskoči završene intervencije
+      if (TERMINAL_STATUSES.has(candidate.interventionStatus)) continue;
+
+      const locationScore = computeLocationSimilarity(
+        input.location,
+        input.latitude,
+        input.longitude,
+        candidate.location,
+        candidate.latitude,
+        candidate.longitude,
+      );
+
+      // Ako su lokacije potpuno različite, preskoči
+      if (locationScore === 0) continue;
+
+      const descriptionScore = computeTextSimilarity(
+        input.description,
+        candidate.description,
+      );
+
+      // Kombinovani score: lokacija ima veću težinu (60%), opis (40%)
+      const combinedScore = locationScore * 0.6 + descriptionScore * 0.4;
+
+      if (combinedScore >= DUPLICATE_SIMILARITY_THRESHOLD) {
+        duplicates.push({
+          interventionId: candidate.interventionId,
+          faultReportId: candidate.faultReportId,
+          location: candidate.location,
+          description: candidate.description,
+          reportedAt: candidate.reportedAt,
+          status: candidate.interventionStatus,
+          similarityScore: Math.round(combinedScore * 100),
+        });
+      }
+    }
+
+    // Sortiraj po sličnosti silazno
+    duplicates.sort((a, b) => b.similarityScore - a.similarityScore);
+
+    return {
+      hasPotentialDuplicates: duplicates.length > 0,
+      duplicates,
+    };
   }
 
   async submitFaultReport(
