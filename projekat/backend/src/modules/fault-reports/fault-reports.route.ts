@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "../../config/database";
 import { authRateLimiter } from "../../middleware/rateLimit.middleware";
+import { emitToRole } from "../../realtime/socket";
 import { asyncHandler } from "../../shared/async-handler";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
 import {
@@ -305,6 +306,15 @@ faultReportsRouter.post(
       ...payload,
       isAuthenticated: Boolean(reporterUserId),
       reporterUserId,
+    });
+
+    const receivedAt = result.receivedAt.toLocaleString('bs-BA', { timeZone: 'Europe/Sarajevo' });
+    const location = (parsed.location ?? '').trim() || 'Nepoznata lokacija';
+    emitToRole('koordinator', 'notification:new', {
+      title: 'Nova prijava kvara',
+      text: `${receivedAt}, lokacija: ${location}`,
+      type: 'NEW_REPORT',
+      interventionId: result.interventionId,
     });
 
     res.status(201).json(result);

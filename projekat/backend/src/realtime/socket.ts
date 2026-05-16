@@ -18,6 +18,14 @@ export function initSocket(server: HttpServer) {
     socket.emit('system:connected', {
       socketId: socket.id,
     });
+
+    socket.on('user:join', (userId: number) => {
+      void socket.join(`user:${userId}`);
+    });
+
+    socket.on('role:join', (role: string) => {
+      void socket.join(`role:${role}`);
+    });
   });
 
   return socketServer;
@@ -25,4 +33,12 @@ export function initSocket(server: HttpServer) {
 
 export function getSocketServer() {
   return socketServer;
+}
+
+export function emitToUser(userId: number, event: string, data: unknown): void {
+  socketServer?.to(`user:${userId}`).emit(event, data);
+}
+
+export function emitToRole(role: string, event: string, data: unknown): void {
+  socketServer?.to(`role:${role}`).emit(event, data);
 }

@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart2,
+  Bell,
   ChevronDown,
   ClipboardList,
   Clock,
@@ -30,6 +31,7 @@ import {
   Wrench,
 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -40,6 +42,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ROUTES } from '@/constants';
+import { socket } from '@/lib/socket';
+import { getNotifications, markNotificationAsRead, type NotificationItem } from '@/services/notifications.service';
 import {
   ACCOUNT_NAV_ITEMS,
   ADMIN_NAV_ITEMS,
@@ -52,7 +56,7 @@ import {
 import { cn } from '@/lib/utils';
 
 type AuthState = 'unknown' | 'authenticated' | 'guest';
-type SessionUser = { username?: string };
+type SessionUser = { id?: number; username?: string };
 
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 const COMPANY_ADMIN_ROLE_NAMES = new Set(['kompanijaadmin', 'companyadmin']);
@@ -282,12 +286,17 @@ function NavDropdown({
 
 export function AppNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [isManagement, setIsManagement] = useState(false);
   const [sessionRoles, setSessionRoles] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const readAuthState = () => {
@@ -322,6 +331,54 @@ export function AppNavigation() {
       window.removeEventListener('focus', readAuthState);
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (authState !== 'authenticated' || !sessionUser?.id) {
+      return;
+    }
+
+    void getNotifications().then(setNotifications).catch(() => {});
+
+    socket.connect();
+    socket.emit('user:join', sessionUser.id);
+
+    const roles = getTokenRoles(window.localStorage.getItem('token'));
+    if (roles.some((r) => r === 'koordinator' || r === 'coordinator')) {
+      socket.emit('role:join', 'koordinator');
+    }
+
+    const handleNew = (notification: NotificationItem) => {
+      setNotifications((prev) => [notification, ...prev]);
+    };
+
+    socket.on('notification:new', handleNew);
+
+    return () => {
+      socket.off('notification:new', handleNew);
+      socket.disconnect();
+    };
+  }, [authState, sessionUser?.id]);
+
+  async function handleMarkRead(notificationId: number) {
+    try {
+      await markNotificationAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
+      );
+    } catch {
+      // silently fail — badge will be corrected on next load
+    }
+  }
+
+  function handleNotificationClick(notification: NotificationItem) {
+    void handleMarkRead(notification.id);
+    setNotifOpen(false);
+    if (notification.interventionId) {
+      router.push(`/interventions/${notification.interventionId}`);
+    } else if (notification.ticketId) {
+      router.push(`${ROUTES.TICKETS}/${notification.ticketId}`);
+    }
+  }
 
   const isAuthenticated = authState === 'authenticated';
 
@@ -389,7 +446,57 @@ export function AppNavigation() {
           </nav>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
+          {isAuthenticated ? (
+            <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative h-9 w-9 rounded-lg p-0 text-muted-foreground transition-all duration-200 hover:bg-slate-100/80 hover:text-foreground"
+                >
+                  <Bell className="size-4" />
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifikacije</span>
+                  {unreadCount > 0 ? (
+                    <Badge variant="secondary" className="text-xs">{unreadCount} nepročitano</Badge>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    Nema notifikacija.
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((notif) => (
+                    <DropdownMenuItem
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className="flex cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5"
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          {notif.title}
+                        </span>
+                        {!notif.read ? (
+                          <span className="size-2 shrink-0 rounded-full bg-primary" />
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{notif.text}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
