@@ -967,8 +967,6 @@ interventionsRouter.patch(
   }),
 );
 
-export default interventionsRouter;
-
 async function applyBulkStatusChange(
   id: number,
   targetStatus: InterventionStatus,
