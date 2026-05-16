@@ -72,3 +72,8 @@ export const BACKEND_ROUTES = {
   MAPS: `${API_PREFIX}/maps`,
   MANAGEMENT: `${API_PREFIX}/management`,
 } as const;
+
+export const BULK_ACTIONS = {
+  MIN_IDS: 1,
+  MAX_IDS: 100,
+} as const;
