@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart2,
+  Bell,
   ChevronDown,
   ClipboardList,
   Clock,
@@ -30,6 +31,7 @@ import {
   Wrench,
 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -40,6 +42,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ROUTES } from '@/constants';
+import { socket } from '@/lib/socket';
+import { getNotifications, markNotificationAsRead, type NotificationItem } from '@/services/notifications.service';
 import {
   ACCOUNT_NAV_ITEMS,
   ADMIN_NAV_ITEMS,
@@ -52,7 +56,7 @@ import {
 import { cn } from '@/lib/utils';
 
 type AuthState = 'unknown' | 'authenticated' | 'guest';
-type SessionUser = { username?: string };
+type SessionUser = { id?: number; username?: string };
 
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 const COMPANY_ADMIN_ROLE_NAMES = new Set(['kompanijaadmin', 'companyadmin']);
@@ -65,14 +69,37 @@ const HISTORY_ROLE_NAMES = new Set([
   'admin',
   'administrator',
 ]);
+const REPORT_ROLE_NAMES = new Set([
+  'serviser',
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
+]);
 const MANAGEMENT_ROLE_NAMES = new Set(['menadzment', 'management', 'admin', 'administrator']);
-const OPERATION_ROLE_NAMES = new Set([
+const ASSIGNMENT_MANAGEMENT_ROLE_NAMES = new Set([
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
+]);
+const INTERVENTION_ACCESS_ROLE_NAMES = new Set([
   'korisnik',
   'serviser',
   'koordinator',
   'coordinator',
   'management',
   'menadzment',
+  'admin',
+  'administrator',
+]);
+const INTERVENTION_CREATE_ROLE_NAMES = new Set([
+  'koordinator',
+  'coordinator',
   'admin',
   'administrator',
 ]);
@@ -148,6 +175,46 @@ function hasRole(token: string | null, allowedRoles: Set<string>): boolean {
   return getTokenRoles(token).some((role) => allowedRoles.has(role));
 }
 
+function hasAnyRole(roles: readonly string[], allowedRoles: Set<string>): boolean {
+  return roles.some((role) => allowedRoles.has(role));
+}
+
+function canViewPrimaryRoute(route: string, roles: readonly string[]): boolean {
+  if (route === ROUTES.HOME || route === ROUTES.DASHBOARD || route === ROUTES.FAULT_REPORTS) {
+    return true;
+  }
+
+  if (route === ROUTES.INTERVENTIONS) {
+    return hasAnyRole(roles, INTERVENTION_ACCESS_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.ASSIGNMENTS) {
+    return hasAnyRole(roles, ASSIGNMENT_MANAGEMENT_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.REPORTS) {
+    return hasAnyRole(roles, REPORT_ROLE_NAMES);
+  }
+
+  return true;
+}
+
+function canViewOperationsRoute(route: string, roles: readonly string[]): boolean {
+  if (route === ROUTES.INTERVENTION_NEW) {
+    return hasAnyRole(roles, INTERVENTION_CREATE_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.HISTORY) {
+    return hasAnyRole(roles, HISTORY_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.MAP || route === ROUTES.TICKETS) {
+    return hasAnyRole(roles, ASSIGNMENT_MANAGEMENT_ROLE_NAMES);
+  }
+
+  return true;
+}
+
 function NavLink({ item, pathname, showIcon = true }: { item: NavItem; pathname: string; showIcon?: boolean }) {
   const isActive = isRouteActive(pathname, item.to);
   const icon = NAV_ICONS[item.to];
@@ -219,13 +286,17 @@ function NavDropdown({
 
 export function AppNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
-  const [canUseOperations, setCanUseOperations] = useState(false);
-  const [canViewHistory, setCanViewHistory] = useState(false);
   const [isManagement, setIsManagement] = useState(false);
+  const [sessionRoles, setSessionRoles] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const readAuthState = () => {
@@ -238,17 +309,15 @@ export function AppNavigation() {
         setSessionUser(parsedUser);
         setIsAdmin(hasRole(token, ADMIN_ROLE_NAMES));
         setIsCompanyAdmin(hasRole(token, COMPANY_ADMIN_ROLE_NAMES));
-        setCanUseOperations(roles.some((role) => OPERATION_ROLE_NAMES.has(role)));
-        setCanViewHistory(roles.some((role) => HISTORY_ROLE_NAMES.has(role)));
         setIsManagement(hasRole(token, MANAGEMENT_ROLE_NAMES));
+        setSessionRoles(roles);
         setAuthState(token ? 'authenticated' : 'guest');
       } catch {
         setSessionUser(null);
         setIsAdmin(false);
         setIsCompanyAdmin(false);
-        setCanUseOperations(false);
-        setCanViewHistory(false);
         setIsManagement(false);
+        setSessionRoles([]);
         setAuthState('guest');
       }
     };
@@ -263,6 +332,54 @@ export function AppNavigation() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (authState !== 'authenticated' || !sessionUser?.id) {
+      return;
+    }
+
+    void getNotifications().then(setNotifications).catch(() => {});
+
+    socket.connect();
+    socket.emit('user:join', sessionUser.id);
+
+    const roles = getTokenRoles(window.localStorage.getItem('token'));
+    if (roles.some((r) => r === 'koordinator' || r === 'coordinator' || r === 'admin' || r === 'administrator')) {
+      socket.emit('role:join', 'koordinator');
+    }
+
+    const handleNew = (notification: NotificationItem) => {
+      setNotifications((prev) => [notification, ...prev]);
+    };
+
+    socket.on('notification:new', handleNew);
+
+    return () => {
+      socket.off('notification:new', handleNew);
+      socket.disconnect();
+    };
+  }, [authState, sessionUser?.id]);
+
+  async function handleMarkRead(notificationId: number) {
+    try {
+      await markNotificationAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
+      );
+    } catch {
+      // silently fail — badge will be corrected on next load
+    }
+  }
+
+  function handleNotificationClick(notification: NotificationItem) {
+    void handleMarkRead(notification.id);
+    setNotifOpen(false);
+    if (notification.interventionId) {
+      router.push(`/interventions/${notification.interventionId}`);
+    } else if (notification.ticketId) {
+      router.push(`${ROUTES.TICKETS}/${notification.ticketId}`);
+    }
+  }
+
   const isAuthenticated = authState === 'authenticated';
 
   const visiblePrimaryItems = useMemo(() => {
@@ -271,15 +388,11 @@ export function AppNavigation() {
     }
 
     if (isCompanyAdmin && !isAdmin) {
-      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
-    }
-
-    if (!canUseOperations) {
       return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD);
     }
 
-    return PRIMARY_NAV_ITEMS;
-  }, [canUseOperations, isAdmin, isAuthenticated, isCompanyAdmin]);
+    return PRIMARY_NAV_ITEMS.filter((item) => canViewPrimaryRoute(item.to, sessionRoles));
+  }, [isAdmin, isAuthenticated, isCompanyAdmin, sessionRoles]);
 
   const visibleAccountItems = useMemo(
     () => ACCOUNT_NAV_ITEMS.filter((item) => (item.to === ROUTES.COMPANY ? isCompanyAdmin : true)),
@@ -287,21 +400,21 @@ export function AppNavigation() {
   );
 
   const operationsItems = useMemo(() => {
-    if (!canUseOperations || (isCompanyAdmin && !isAdmin)) {
+    if (isCompanyAdmin && !isAdmin) {
       return [];
     }
 
-    const items = OPERATIONS_NAV_ITEMS.filter((item) => (item.to === ROUTES.HISTORY ? canViewHistory : true));
+    const items = OPERATIONS_NAV_ITEMS.filter((item) => canViewOperationsRoute(item.to, sessionRoles));
 
     return isManagement ? [...items, ...MANAGEMENT_NAV_ITEMS] : items;
-  }, [canUseOperations, canViewHistory, isAdmin, isCompanyAdmin, isManagement]);
+  }, [isAdmin, isCompanyAdmin, isManagement, sessionRoles]);
 
   const initials = sessionUser?.username ? sessionUser.username.slice(0, 2).toUpperCase() : '?';
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/80 shadow-[0_1px_28px_rgba(15,23,42,0.07)] backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center gap-4 px-4 py-2.5 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <Link href={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
             <div className="logo-mark flex size-8 items-center justify-center rounded-xl text-white">
               <Wrench className="size-4" />
@@ -333,7 +446,57 @@ export function AppNavigation() {
           </nav>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
+          {isAuthenticated ? (
+            <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative h-9 w-9 rounded-lg p-0 text-muted-foreground transition-all duration-200 hover:bg-slate-100/80 hover:text-foreground"
+                >
+                  <Bell className="size-4" />
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifikacije</span>
+                  {unreadCount > 0 ? (
+                    <Badge variant="secondary" className="text-xs">{unreadCount} nepročitano</Badge>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    Nema notifikacija.
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((notif) => (
+                    <DropdownMenuItem
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className="flex cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5"
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          {notif.title}
+                        </span>
+                        {!notif.read ? (
+                          <span className="size-2 shrink-0 rounded-full bg-primary" />
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{notif.text}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -396,7 +559,7 @@ export function AppNavigation() {
           ) : null}
         </div>
 
-        <div className="lg:hidden">
+        <div className="ml-auto lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

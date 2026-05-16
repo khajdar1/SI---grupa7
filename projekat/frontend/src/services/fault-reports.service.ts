@@ -4,6 +4,8 @@ import type {
   FaultReportOptionsResponse,
   FaultReportSubmissionPayload,
   FaultReportSubmissionResponse,
+  DuplicateCheckPayload,
+  DuplicateCheckResponse,
 } from '@/models/FaultReport';
 
 import { getResponseData } from './errors';
@@ -24,5 +26,17 @@ export async function submitFaultReport(
       payload,
     ),
     'Failed to submit fault report.',
+  );
+}
+
+export async function checkFaultReportDuplicates(
+  payload: DuplicateCheckPayload,
+): Promise<DuplicateCheckResponse> {
+  return getResponseData(
+    () => api.post<DuplicateCheckResponse>(
+      API_ENDPOINTS.FAULT_REPORTS.CHECK_DUPLICATES,
+      payload,
+    ),
+    'Failed to check for duplicates.',
   );
 }

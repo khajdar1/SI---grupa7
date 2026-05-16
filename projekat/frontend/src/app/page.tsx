@@ -1,4 +1,7 @@
+'use client';
+
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   BarChart2,
@@ -53,8 +56,6 @@ const FEATURES = [
   },
 ];
 
-const STACK = ['Next.js 15', 'React 19', 'TypeScript', 'Express', 'MySQL', 'Socket.IO', 'Tailwind CSS'];
-
 const HIGHLIGHTS = [
   'Real-time updates via Socket.IO',
   'Role-based access for admins, coordinators, and technicians',
@@ -62,6 +63,23 @@ const HIGHLIGHTS = [
 ];
 
 export default function HomePage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    const readAuthState = () => {
+      setIsAuthenticated(Boolean(window.localStorage.getItem('token')));
+    };
+
+    readAuthState();
+    window.addEventListener('storage', readAuthState);
+    window.addEventListener('focus', readAuthState);
+
+    return () => {
+      window.removeEventListener('storage', readAuthState);
+      window.removeEventListener('focus', readAuthState);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col overflow-x-hidden">
 
@@ -112,19 +130,30 @@ export default function HomePage() {
             style={{ animationDelay: '260ms' }}
           >
             <Button asChild size="lg" className="btn-glow h-12 px-7 text-base rounded-xl gap-2">
-              <Link href={ROUTES.LOGIN}>
-                Login
+              <Link href={isAuthenticated ? ROUTES.DASHBOARD : ROUTES.LOGIN}>
+                {isAuthenticated ? 'Dashboard' : 'Login'}
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button
-              asChild
-              size="lg"
-              variant="outline"
-              className="h-12 px-7 text-base rounded-xl glass-card border-0 hover:shadow-md"
-            >
-              <Link href={ROUTES.FAULT_REPORTS}>Report a Fault</Link>
-            </Button>
+            {isAuthenticated ? (
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-12 px-7 text-base rounded-xl glass-card border-0 hover:shadow-md"
+              >
+                <Link href={ROUTES.INTERVENTIONS}>View Interventions</Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-12 px-7 text-base rounded-xl glass-card border-0 hover:shadow-md"
+              >
+                <Link href={ROUTES.FAULT_REPORTS}>Report a Fault</Link>
+              </Button>
+            )}
           </div>
         </div>
       </section>
@@ -175,38 +204,25 @@ export default function HomePage() {
               style={{ animationDelay: '180ms' }}
             >
               <Button asChild size="lg" className="btn-glow h-12 px-8 rounded-xl gap-2">
-                <Link href={ROUTES.LOGIN}>
-                  Login
+                <Link href={isAuthenticated ? ROUTES.DASHBOARD : ROUTES.LOGIN}>
+                  {isAuthenticated ? 'Dashboard' : 'Login'}
                   <ArrowRight className="size-4" />
                 </Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="h-12 px-8 rounded-xl glass-card border-0">
-                <Link href={ROUTES.REGISTER}>Register</Link>
-              </Button>
+              {isAuthenticated ? (
+                <Button asChild size="lg" variant="outline" className="h-12 px-8 rounded-xl glass-card border-0">
+                  <Link href={ROUTES.PROFILE}>Profile</Link>
+                </Button>
+              ) : (
+                <Button asChild size="lg" variant="outline" className="h-12 px-8 rounded-xl glass-card border-0">
+                  <Link href={ROUTES.REGISTER}>Register</Link>
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* Tech stack */}
-      <section className="bg-muted/20">
-        <div className="mx-auto max-w-[var(--content-max-width)] px-4 py-10 md:px-6">
-          <p className="mb-5 text-center text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground">
-            Tech stack
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-2.5">
-            {STACK.map((tech, i) => (
-              <span
-                key={tech}
-                className="tech-pill rounded-full bg-background/90 px-4 py-1.5 text-xs font-semibold text-muted-foreground animate-fade-in-up"
-                style={{ animationDelay: `${i * 55}ms` }}
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   );
 }

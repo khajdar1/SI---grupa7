@@ -50,3 +50,28 @@ export interface FaultReportSubmissionResponse {
   referenceNumber: string;
   receivedAt: string;
 }
+
+// PBI-025: Detekcija duplikata prijave kvara
+export interface DuplicateCheckPayload {
+  userId: number;
+  companyId: number;
+  location: string;
+  description: string;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
+export interface PotentialDuplicateItem {
+  interventionId: number;
+  faultReportId: number;
+  location: string;
+  description: string;
+  reportedAt: string;
+  status: string;
+  similarityScore: number;
+}
+
+export interface DuplicateCheckResponse {
+  hasPotentialDuplicates: boolean;
+  duplicates: PotentialDuplicateItem[];
+}

@@ -119,10 +119,6 @@ api.interceptors.response.use(
           typeof window !== 'undefined' &&
           (window.location.pathname === '/dashboard' || window.location.pathname === '/company')
         ) {
-          window.sessionStorage.setItem(
-            AUTH_REDIRECT_MESSAGE_KEY,
-            'That action is not available for your role.',
-          );
           return Promise.reject(error);
         }
 

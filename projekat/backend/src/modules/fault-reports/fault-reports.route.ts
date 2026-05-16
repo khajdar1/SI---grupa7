@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { prisma } from "../../config/database";
 import { authRateLimiter } from "../../middleware/rateLimit.middleware";
+import { emitToRole } from "../../realtime/socket";
 import { asyncHandler } from "../../shared/async-handler";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
 import {
@@ -11,6 +12,8 @@ import {
   FaultReportService,
   type FaultReportRepository,
   type FaultReportSubmissionInput,
+  type DuplicateCheckInput,
+  DUPLICATE_DETECTION_WINDOW_HOURS,
 } from "./fault-reports.service";
 import { buildFaultReportSubmissionPayload } from "./fault-reports.payload";
 import fs from "node:fs/promises";
@@ -240,9 +243,59 @@ const faultReportsRepository: FaultReportRepository = {
         receivedAt: faultReport.reportedAt,
       };
     }),
+
+  findRecentFaultReports: async (userId, companyId, windowHours) => {
+    const since = new Date(Date.now() - windowHours * 60 * 60 * 1000);
+    const reports = await prisma.faultReport.findMany({
+      where: {
+        userId,
+        companyId,
+        reportedAt: { gte: since },
+      },
+      include: {
+        interventions: {
+          select: { id: true, status: true },
+          take: 1,
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    return reports
+      .filter((r) => r.interventions.length > 0)
+      .map((r) => ({
+        faultReportId: r.id,
+        interventionId: r.interventions[0].id,
+        location: r.location,
+        description: r.description,
+        latitude: r.latitude ? Number(r.latitude) : null,
+        longitude: r.longitude ? Number(r.longitude) : null,
+        reportedAt: r.reportedAt,
+        interventionStatus: r.interventions[0].status,
+      }));
+  },
 };
 
 const faultReportService = new FaultReportService(faultReportsRepository);
+
+// PBI-025: Endpoint za provjeru duplikata prijave kvara
+const duplicateCheckSchema = z.object({
+  userId: z.coerce.number().int().positive(),
+  companyId: z.coerce.number().int().positive(),
+  location: z.string().trim().default(""),
+  description: z.string().trim().default(""),
+  latitude: z.coerce.number().finite().nullable().optional(),
+  longitude: z.coerce.number().finite().nullable().optional(),
+});
+
+faultReportsRouter.post(
+  "/check-duplicates",
+  asyncHandler(async (req, res) => {
+    const parsed = duplicateCheckSchema.parse(req.body);
+    const result = await faultReportService.checkDuplicates(parsed as DuplicateCheckInput);
+    res.json(result);
+  }),
+);
 
 faultReportsRouter.get(
   "/options",
@@ -305,6 +358,15 @@ faultReportsRouter.post(
       ...payload,
       isAuthenticated: Boolean(reporterUserId),
       reporterUserId,
+    });
+
+    const receivedAt = result.receivedAt.toLocaleString('bs-BA', { timeZone: 'Europe/Sarajevo' });
+    const location = (parsed.location ?? '').trim() || 'Nepoznata lokacija';
+    emitToRole('koordinator', 'notification:new', {
+      title: 'Nova prijava kvara',
+      text: `${receivedAt}, lokacija: ${location}`,
+      type: 'NEW_REPORT',
+      interventionId: result.interventionId,
     });
 
     res.status(201).json(result);
