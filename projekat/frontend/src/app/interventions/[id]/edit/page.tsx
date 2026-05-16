@@ -36,6 +36,7 @@ import type { Priority } from '@shared/enums';
 import {
   getInterventionById,
   updateIntervention,
+  updateRecurrence,
   type InterventionDetail,
 } from '@/services/interventions.service';
 
@@ -53,6 +54,13 @@ const TYPE_OPTIONS = [
   { value: 'PREVENTIVE', label: 'Preventive maintenance' },
 ] as const;
 
+const RECURRING_PERIOD_OPTIONS = [
+  { value: '', label: 'No recurrence' },
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+] as const;
+
 interface FormState {
   name: string;
   description: string;
@@ -64,6 +72,7 @@ interface FormState {
   startedAt: string;
   dueAt: string;
   faultReportId: string;
+  recurringPeriod: string;
 }
 
 function isoDateToInput(iso: string | null): string {
@@ -93,10 +102,14 @@ export default function EditInterventionPage() {
     startedAt: '',
     dueAt: '',
     faultReportId: '',
+    recurringPeriod: '',
   });
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isUpdatingRecurrence, setIsUpdatingRecurrence] = useState(false);
+  const [recurrenceSuccess, setRecurrenceSuccess] = useState<string | null>(null);
 
   const loadData = async () => {
     if (!Number.isInteger(interventionId) || interventionId <= 0) {
@@ -128,6 +141,7 @@ export default function EditInterventionPage() {
         startedAt: isoDateToInput(detail.startedAt),
         dueAt: isoDateToInput(detail.dueAt),
         faultReportId: detail.faultReport ? String(detail.faultReport.id) : '',
+        recurringPeriod: detail.recurringPeriod ?? '',
       });
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : 'Failed to load intervention.');
@@ -258,6 +272,31 @@ export default function EditInterventionPage() {
       setSubmitError(err instanceof Error ? err.message : 'Failed to update intervention.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleRecurrenceUpdate = async () => {
+    if (!intervention) return;
+    setIsUpdatingRecurrence(true);
+    setSubmitError(null);
+    setRecurrenceSuccess(null);
+
+    try {
+      await updateRecurrence(
+        interventionId,
+        form.recurringPeriod || null,
+      );
+      setRecurrenceSuccess(
+        form.recurringPeriod
+          ? `Recurrence updated to: ${form.recurringPeriod.toLowerCase()}.`
+          : 'Recurrence stopped. No new instances will be generated.',
+      );
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : 'Failed to update recurrence.',
+      );
+    } finally {
+      setIsUpdatingRecurrence(false);
     }
   };
 
@@ -493,6 +532,36 @@ export default function EditInterventionPage() {
                 {fieldErrors.faultReportId ? (
                   <p id="faultReportId-error" className="text-xs text-destructive">{fieldErrors.faultReportId}</p>
                 ) : null}
+              </div>
+
+             <div className="space-y-2">
+                <Label htmlFor="recurringPeriod">Recurrence</Label>
+                <Select
+                  value={form.recurringPeriod}
+                  onValueChange={(v) => handleChange('recurringPeriod', v ?? '')}
+                >
+                  <SelectTrigger id="recurringPeriod">
+                    <SelectValue placeholder="No recurrence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RECURRING_PERIOD_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {recurrenceSuccess ? (
+                  <p className="text-xs text-emerald-600">{recurrenceSuccess}</p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isUpdatingRecurrence}
+                  onClick={() => { void handleRecurrenceUpdate(); }}
+                >
+                  {isUpdatingRecurrence ? 'Saving...' : 'Update Recurrence'}
+                </Button>
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">

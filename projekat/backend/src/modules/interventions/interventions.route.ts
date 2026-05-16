@@ -1,4 +1,4 @@
-import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
+import { InterventionStatus, InterventionType, Priority, RecurringPeriod } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -14,6 +14,7 @@ import {
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import { computeNextGenerationAt } from "../../services/recurring.service";
 
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
@@ -86,6 +87,7 @@ const interventionPayloadBaseSchema = z.object({
   companyId: z.coerce.number().int().positive().optional(),
   categoryId: z.coerce.number().int().positive().optional(),
   priority: z.nativeEnum(Priority),
+  recurringPeriod: z.nativeEnum(RecurringPeriod).nullable().optional(),
 });
 
 const interventionPayloadSchema = interventionPayloadBaseSchema
@@ -345,6 +347,7 @@ function mapIntervention(intervention: {
   createdAt: Date;
   startedAt: Date | null;
   dueAt: Date | null;
+  recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
   creator: { username: string; id: number };
@@ -361,6 +364,7 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
+  
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -389,6 +393,7 @@ function mapIntervention(intervention: {
           reportedAt: intervention.faultReport.reportedAt.toISOString(),
         }
       : null,
+    recurringPeriod: intervention.recurringPeriod ?? null,
     assignments:
       intervention.assignments?.map((assignment) => ({
         id: assignment.id,
@@ -681,7 +686,13 @@ interventionsRouter.post(
     const creator = await resolveCreator(req);
     const context = await resolvePlanningContext(input);
 
-    const intervention = await prisma.intervention.create({
+    const recurringPeriod = input.recurringPeriod ?? null;
+    const startedAt = input.startedAt ?? new Date();
+    const nextGenerationAt = recurringPeriod
+      ? computeNextGenerationAt(startedAt, recurringPeriod)
+      : null;
+
+const intervention = await prisma.intervention.create({
       data: {
         name: input.name,
         description: input.description,
@@ -691,8 +702,10 @@ interventionsRouter.post(
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt: input.startedAt ?? new Date(),
+        startedAt,
         dueAt: input.dueAt ?? await calculateDueAt(input.priority, input.startedAt),
+        recurringPeriod,
+        nextGenerationAt,
         categoryId: context.categoryId,
         companyId: context.companyId,
         creatorId: creator.id,
@@ -895,6 +908,45 @@ interventionsRouter.get(
     });
 
     res.json(combined);
+  }),
+);
+
+const recurrenceUpdateSchema = z.object({
+  recurringPeriod: z.nativeEnum(RecurringPeriod).nullable(),
+});
+
+interventionsRouter.patch(
+  "/:id/recurrence",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(recurrenceUpdateSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof recurrenceUpdateSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: { id: true, startedAt: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const nextGenerationAt =
+      input.recurringPeriod && existing.startedAt
+        ? computeNextGenerationAt(existing.startedAt, input.recurringPeriod)
+        : null;
+
+    const intervention = await prisma.intervention.update({
+      where: { id },
+      data: {
+        recurringPeriod: input.recurringPeriod,
+        nextGenerationAt,
+      },
+      include: interventionInclude,
+    });
+
+    res.json(mapIntervention(intervention));
   }),
 );
 

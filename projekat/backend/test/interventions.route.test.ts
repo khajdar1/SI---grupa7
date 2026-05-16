@@ -1218,4 +1218,113 @@ describe("PBI-004 interventions route", () => {
     });
   });
 });
+
+describe("PBI-022 recurring interventions", () => {
+    it("creates intervention with recurringPeriod and sets nextGenerationAt", async () => {
+      const recurringPayload = {
+        ...basePayload,
+        recurringPeriod: "MONTHLY",
+      };
+
+      const response = await request("POST", "/interventions", {
+        body: recurringPayload,
+      });
+
+      expect(response.status).toBe(201);
+      expect(interventionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recurringPeriod: "MONTHLY",
+          nextGenerationAt: expect.any(Date),
+        }),
+        include: expect.any(Object),
+      });
+    });
+
+    it("creates intervention without recurrence when recurringPeriod is null", async () => {
+      const response = await request("POST", "/interventions", {
+        body: { ...basePayload, recurringPeriod: null },
+      });
+
+      expect(response.status).toBe(201);
+      expect(interventionCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          recurringPeriod: null,
+          nextGenerationAt: null,
+        }),
+        include: expect.any(Object),
+      });
+    });
+
+    it("rejects invalid recurringPeriod value", async () => {
+      const response = await request("POST", "/interventions", {
+        body: { ...basePayload, recurringPeriod: "HOURLY" },
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionCreateMock).not.toHaveBeenCalled();
+    });
+
+    it("updates recurringPeriod on existing intervention", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 21,
+        startedAt: new Date("2026-05-16T10:00:00.000Z"),
+      });
+
+      const response = await request("PATCH", "/interventions/21/recurrence", {
+        body: { recurringPeriod: "WEEKLY" },
+      });
+
+      expect(response.status).toBe(200);
+      expect(interventionUpdateMock).toHaveBeenCalledWith({
+        where: { id: 21 },
+        data: expect.objectContaining({
+          recurringPeriod: "WEEKLY",
+          nextGenerationAt: expect.any(Date),
+        }),
+        include: expect.any(Object),
+      });
+    });
+
+    it("stops recurrence by setting recurringPeriod to null", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 21,
+        startedAt: new Date("2026-05-16T10:00:00.000Z"),
+      });
+
+      const response = await request("PATCH", "/interventions/21/recurrence", {
+        body: { recurringPeriod: null },
+      });
+
+      expect(response.status).toBe(200);
+      expect(interventionUpdateMock).toHaveBeenCalledWith({
+        where: { id: 21 },
+        data: expect.objectContaining({
+          recurringPeriod: null,
+          nextGenerationAt: null,
+        }),
+        include: expect.any(Object),
+      });
+    });
+
+    it("returns 404 when updating recurrence for missing intervention", async () => {
+      interventionFindUniqueMock.mockResolvedValue(null);
+
+      const response = await request("PATCH", "/interventions/999/recurrence", {
+        body: { recurringPeriod: "MONTHLY" },
+      });
+
+      expect(response.status).toBe(404);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects recurrence update for non-coordinator roles", async () => {
+      const response = await request("PATCH", "/interventions/21/recurrence", {
+        body: { recurringPeriod: "MONTHLY" },
+        roles: ["Korisnik"],
+      });
+
+      expect(response.status).toBe(403);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+  });
 });
