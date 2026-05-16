@@ -200,11 +200,11 @@ export class AssignmentService {
       createdAssignments.push(assignment);
 
       // Notify the newly assigned servicer in real time
-      const notificationText = `Intervencija: ${intervention.name}, Prioritet: ${intervention.priority}, Lokacija: ${intervention.location}`;
+      const notificationText = `Intervention: ${intervention.name}, Priority: ${intervention.priority}, Location: ${intervention.location}`;
       const notification = await prisma.notification.create({
         data: {
           userId,
-          title: 'Dodijeljena vam je nova intervencija',
+          title: 'You have been assigned a new intervention',
           text: notificationText,
           type: 'INTERVENTION_ASSIGNED',
           interventionId,

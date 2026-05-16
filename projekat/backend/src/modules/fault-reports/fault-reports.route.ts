@@ -3,10 +3,11 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { prisma } from "../../config/database";
+import { authorizeRoles } from "../../middleware/auth.middleware";
 import { authRateLimiter } from "../../middleware/rateLimit.middleware";
 import { emitToRole } from "../../realtime/socket";
 import { asyncHandler } from "../../shared/async-handler";
-import { BadRequestError, NotFoundError } from "../../shared/errors";
+import { BadRequestError, ForbiddenError, NotFoundError } from "../../shared/errors";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   FaultReportService,
@@ -20,9 +21,31 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const faultReportsRouter = Router();
+const SUPPORT_AGENT_ROLES = [
+  "SupportAgent",
+  "supportagent",
+  "AgentPodrske",
+  "agentpodrske",
+];
+const FAULT_REPORT_VIEW_ROLES = [
+  "Koordinator",
+  "Coordinator",
+  "Menadzment",
+  "Management",
+  "Administrator",
+  "Admin",
+  "administrator",
+  "admin",
+  ...SUPPORT_AGENT_ROLES,
+];
 
 const SYSTEM_USER_EMAIL = "system.fault-reports@si-grupa7.local";
 const SYSTEM_USER_USERNAME = "system.fault-reports";
+
+function hasSupportAgentRole(req: { user?: { roles?: string[] } }): boolean {
+  const supportRoles = new Set(SUPPORT_AGENT_ROLES.map((role) => role.toLowerCase()));
+  return (req.user?.roles ?? []).some((role) => supportRoles.has(role.toLowerCase()));
+}
 
 const faultReportSubmissionSchema = z.object({
   companyId: z.coerce.number().int().positive().optional(),
@@ -278,7 +301,7 @@ const faultReportsRepository: FaultReportRepository = {
 
 const faultReportService = new FaultReportService(faultReportsRepository);
 
-// PBI-025: Endpoint za provjeru duplikata prijave kvara
+// PBI-025: Endpoint for checking duplicate fault reports.
 const duplicateCheckSchema = z.object({
   userId: z.coerce.number().int().positive(),
   companyId: z.coerce.number().int().positive(),
@@ -311,6 +334,7 @@ faultReportsRouter.get(
 
 faultReportsRouter.get(
   "/",
+  authorizeRoles(FAULT_REPORT_VIEW_ROLES),
   asyncHandler(async (_req, res) => {
     const faultReports = await prisma.faultReport.findMany({
       orderBy: [{ reportedAt: "desc" }],
@@ -347,6 +371,10 @@ faultReportsRouter.post(
   "/",
   authRateLimiter,
   asyncHandler(async (req, res) => {
+    if (hasSupportAgentRole(req)) {
+      throw new ForbiddenError("Support agents cannot submit fault reports.");
+    }
+
     const parsed = faultReportSubmissionSchema.parse(req.body);
 
     const payload = buildFaultReportSubmissionPayload(
@@ -360,11 +388,11 @@ faultReportsRouter.post(
       reporterUserId,
     });
 
-    const receivedAt = result.receivedAt.toLocaleString('bs-BA', { timeZone: 'Europe/Sarajevo' });
-    const location = (parsed.location ?? '').trim() || 'Nepoznata lokacija';
+    const receivedAt = result.receivedAt.toLocaleString('en-US', { timeZone: 'Europe/Sarajevo' });
+    const location = (parsed.location ?? '').trim() || 'Unknown location';
     emitToRole('koordinator', 'notification:new', {
-      title: 'Nova prijava kvara',
-      text: `${receivedAt}, lokacija: ${location}`,
+      title: 'New fault report',
+      text: `${receivedAt}, location: ${location}`,
       type: 'NEW_REPORT',
       interventionId: result.interventionId,
     });
@@ -375,6 +403,7 @@ faultReportsRouter.post(
 
 faultReportsRouter.get(
   "/:id",
+  authorizeRoles(FAULT_REPORT_VIEW_ROLES),
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
 

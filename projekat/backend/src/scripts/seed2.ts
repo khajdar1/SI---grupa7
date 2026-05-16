@@ -151,30 +151,30 @@ function buildDemoCompanySeed(): SeedCompanyInput {
   return {
     name: 'Servis Alfa d.o.o.',
     contact: 'demo@servis-alfa.local',
-    type: 'servisna kompanija',
+    type: 'service company',
   };
 }
 
 function buildDemoCategorySeeds(): SeedCategoryInput[] {
   return [
     {
-      name: 'Elektricni kvar',
-      description: 'Kvarovi na elektroinstalacijama, osvetljenju i napajanju.',
+      name: 'Electrical issue',
+      description: 'Electrical wiring, lighting, and power supply issues.',
       active: true,
     },
     {
-      name: 'Vodovodni kvar',
-      description: 'Kvarovi na vodovodnim i kanalizacionim instalacijama.',
+      name: 'Plumbing issue',
+      description: 'Water supply and drainage installation issues.',
       active: true,
     },
     {
-      name: 'Mreza i internet',
-      description: 'Problemi sa lokalnom mrežom, pristupom i povezivanjem.',
+      name: 'Network and internet',
+      description: 'Local network, access, and connectivity issues.',
       active: true,
     },
     {
-      name: 'Opste odrzavanje',
-      description: 'Redovni ili manji operativni zahtjevi koji nisu hitni kvarovi.',
+      name: 'General maintenance',
+      description: 'Regular or minor operational requests that are not urgent faults.',
       active: true,
     },
   ];
@@ -214,7 +214,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Milan',
-      lastName: 'Koordinator',
+      lastName: 'Coordinator',
       username: 'milan.koordinator',
       email: 'milan.koordinator@demo.local',
       active: true,
@@ -223,7 +223,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Marko',
-      lastName: 'Serviser',
+      lastName: 'Technician',
       username: 'marko.serviser',
       email: 'marko.serviser@demo.local',
       active: true,
@@ -232,7 +232,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Lejla',
-      lastName: 'Menadzment',
+      lastName: 'Management',
       username: 'lejla.menadzment',
       email: 'lejla.menadzment@demo.local',
       active: true,
@@ -241,7 +241,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Jelena',
-      lastName: 'Korisnik',
+      lastName: 'User',
       username: 'jelena.korisnik',
       email: 'jelena.korisnik@demo.local',
       active: true,
@@ -290,49 +290,49 @@ function buildDemoExternalIdentitySeeds(
 }
 
 function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedRecord & SeedCategoryInput>, userId: number, pbi025UserId: number): SeedFaultReportInput[] {
-  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
-  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
-  const network = requireSeedCategory(categories, 'Mreza i internet');
+  const electrical = requireSeedCategory(categories, 'Electrical issue');
+  const plumbing = requireSeedCategory(categories, 'Plumbing issue');
+  const network = requireSeedCategory(categories, 'Network and internet');
   return [
     {
       id: 1,
-      description: 'Kvar na ulaznom osvetljenju u prizemlju.',
-      location: 'Glavni ulaz, objekat A',
+      description: 'Entrance lighting issue on the ground floor.',
+      location: 'Main entrance, building A',
       userId,
       categoryId: electrical.id,
       companyId,
     },
     {
       id: 2,
-      description: 'Pukla cijev u kupatilu na 2. spratu.',
-      location: 'Sprat 2, kupatilo B',
+      description: 'Burst pipe in the bathroom on the 2nd floor.',
+      location: 'Floor 2, bathroom B',
       userId,
       categoryId: plumbing.id,
       companyId,
     },
     {
       id: 3,
-      description: 'Internet veza pala u cijeloj zgradi.',
-      location: 'Server soba, prizemlje',
+      description: 'Internet connection is down across the entire building.',
+      location: 'Server room, ground floor',
       userId,
       categoryId: network.id,
       companyId,
     },
-    // PBI-025: Seed prijave za demonstraciju detekcije duplikata
-    // fr-101 i fr-102 su namjerno slični (ista lokacija, sličan opis) → treba aktivirati upozorenje
+    // PBI-025: Seed reports for duplicate detection demo
+    // fr-101 and fr-102 are intentionally similar (same location, similar description) -> should trigger a warning
     {
       id: 101,
-      description: 'Kvar na ulaznom osvjetljenju – lampe ne rade.',
-      location: 'Glavni ulaz, objekat A',
+      description: 'Entrance lighting issue - lamps are not working.',
+      location: 'Main entrance, building A',
       userId: pbi025UserId,
       categoryId: electrical.id,
       companyId,
     },
-    // fr-103: ista lokacija ali RAZLIČIT opis (kvar vodovodne instalacije) → ne smije biti duplikat fr-101
+    // fr-103: same location but DIFFERENT description (plumbing issue) -> should not be a duplicate of fr-101
     {
       id: 103,
-      description: 'Procurila voda ispod sudopere u kantini.',
-      location: 'Kuhinja, prizemlje',
+      description: 'Water is leaking under the cafeteria sink.',
+      location: 'Kitchen, ground floor',
       userId: pbi025UserId,
       categoryId: plumbing.id,
       companyId,
@@ -346,19 +346,19 @@ function buildDemoInterventionSeeds(
   creatorId: number,
   faultReports: Array<SeedRecord & SeedFaultReportInput>,
 ): SeedInterventionInput[] {
-  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
-  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
-  const network = requireSeedCategory(categories, 'Mreza i internet');
-  const maintenance = requireSeedCategory(categories, 'Opste odrzavanje');
+  const electrical = requireSeedCategory(categories, 'Electrical issue');
+  const plumbing = requireSeedCategory(categories, 'Plumbing issue');
+  const network = requireSeedCategory(categories, 'Network and internet');
+  const maintenance = requireSeedCategory(categories, 'General maintenance');
   const fr1 = faultReports.find((f) => f.id === 1)!;
   const fr2 = faultReports.find((f) => f.id === 2)!;
   const fr3 = faultReports.find((f) => f.id === 3)!;
   return [
     {
       id: 1,
-      name: 'Uklanjanje kvara na ulaznom osvjetljenju',
-      description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
-      location: 'Glavni ulaz, objekat A',
+      name: 'Fix entrance lighting issue',
+      description: 'The coordinator created an intervention from the fault report.',
+      location: 'Main entrance, building A',
       priority: Priority.HIGH,
       status: InterventionStatus.NEW,
       type: InterventionType.ISSUE,
@@ -370,9 +370,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 20,
-      name: 'Popravak vodovodne instalacije',
-      description: 'Majstor na terenu, radovi u toku.',
-      location: 'Sprat 2, kupatilo B',
+      name: 'Plumbing repair',
+      description: 'Technician is on site and work is in progress.',
+      location: 'Floor 2, bathroom B',
       priority: Priority.HIGH,
       status: InterventionStatus.IN_PROGRESS,
       type: InterventionType.ISSUE,
@@ -384,9 +384,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 21,
-      name: 'Preventivni pregled mreze',
-      description: 'Kvartalini pregled LAN infrastrukture.',
-      location: 'Server soba, prizemlje',
+      name: 'Preventive network inspection',
+      description: 'Quarterly LAN infrastructure inspection.',
+      location: 'Server room, ground floor',
       priority: Priority.MEDIUM,
       status: InterventionStatus.IN_PROGRESS,
       type: InterventionType.PREVENTIVE,
@@ -398,9 +398,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 22,
-      name: 'Zamjena sigurnosnih kamera',
-      description: 'Zamijenjene 3 kamere na ulazu.',
-      location: 'Glavni ulaz',
+      name: 'Security camera replacement',
+      description: 'Replaced 3 cameras at the entrance.',
+      location: 'Main entrance',
       priority: Priority.LOW,
       status: InterventionStatus.RESOLVED,
       type: InterventionType.PREVENTIVE,
@@ -412,9 +412,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 23,
-      name: 'Instalacija novog rashladnog uredjaja',
-      description: 'Otkazano - budzet odbijen.',
-      location: 'Server soba',
+      name: 'New cooling unit installation',
+      description: 'Cancelled - budget rejected.',
+      location: 'Server room',
       priority: Priority.CRITICAL,
       status: InterventionStatus.CANCELLED,
       type: InterventionType.PREVENTIVE,
@@ -426,9 +426,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 24,
-      name: 'Popravka internet konekcije',
-      description: 'Internet veza nestabilna, potrebna dijagnostika.',
-      location: 'Server soba, prizemlje',
+      name: 'Internet connection repair',
+      description: 'Internet connection is unstable and needs diagnostics.',
+      location: 'Server room, ground floor',
       priority: Priority.CRITICAL,
       status: InterventionStatus.NEW,
       type: InterventionType.ISSUE,
@@ -438,13 +438,13 @@ function buildDemoInterventionSeeds(
       companyId,
       faultReportId: fr3.id,
     },
-    // PBI-025 seed: aktivna intervencija za fr-101 (ulazno osvjetljenje)
-    // Korisnik koji ponovo prijavi sličan kvar na istoj lokaciji treba dobiti upozorenje
+    // PBI-025 seed: active intervention for fr-101 (entrance lighting)
+    // A user who reports a similar issue at the same location should receive a warning
     {
       id: 101,
-      name: 'Popravka osvjetljenja na ulazu – prijava #101',
-      description: 'Lampe na ulazu ne rade, prijavila korisnica. Intervencija u toku.',
-      location: 'Glavni ulaz, objekat A',
+      name: 'Entrance lighting repair - report #101',
+      description: 'Entrance lamps are not working, reported by the user. Intervention is in progress.',
+      location: 'Main entrance, building A',
       priority: Priority.HIGH,
       status: InterventionStatus.ASSIGNED,
       type: InterventionType.ISSUE,
@@ -454,12 +454,12 @@ function buildDemoInterventionSeeds(
       companyId,
       faultReportId: 101,
     },
-    // PBI-025 seed: aktivna intervencija za fr-103 (vodovodna instalacija)
+    // PBI-025 seed: active intervention for fr-103 (plumbing installation)
     {
       id: 103,
-      name: 'Popravka vodovodne instalacije u kantini',
-      description: 'Procurila voda u kantini, potrebna hitna intervencija.',
-      location: 'Kuhinja, prizemlje',
+      name: 'Cafeteria plumbing repair',
+      description: 'Water is leaking in the cafeteria and urgent intervention is needed.',
+      location: 'Kitchen, ground floor',
       priority: Priority.MEDIUM,
       status: InterventionStatus.NEW,
       type: InterventionType.ISSUE,
@@ -576,17 +576,17 @@ function buildDemoCommentSeeds(
       {
         interventionId: first.id,
         authorId: coordinatorId,
-        text: 'Intervencija je prioritetna - molim servisera da odmah izadje na teren i provjeri stanje ulaznog osvjetljenja.',
+        text: 'This intervention is high priority - please go on site immediately and check the entrance lighting.',
       },
       {
         interventionId: first.id,
         authorId: servicerId,
-        text: 'Na terenu sam. Ustanovio sam da su pregorjele 3 od 5 sijalica. Narudjba materijala u toku, ocekujem isporuku sutra.',
+        text: 'I am on site. I found that 3 of 5 bulbs burned out. Material order is in progress and I expect delivery tomorrow.',
       },
       {
         interventionId: first.id,
         authorId: coordinatorId,
-        text: 'Hvala na azuriranju. Obavijesti me kada stigne materijal kako bismo odobrili nastavak radova.',
+        text: 'Thanks for the update. Notify me when the material arrives so we can approve continuing the work.',
       },
     );
   }
@@ -596,12 +596,12 @@ function buildDemoCommentSeeds(
       {
         interventionId: second.id,
         authorId: coordinatorId,
-        text: 'Provjeriti i zamijeniti sve dotrajale cijevi u podrumu. Stanari su vec prijavili vlagu na zidovima.',
+        text: 'Check and replace all worn pipes in the basement. Residents have already reported moisture on the walls.',
       },
       {
         interventionId: second.id,
         authorId: servicerId,
-        text: 'Kasnjenje zbog nedostatka odgovarajucih cijevi na lageru. Novi dolazak materijala ocekujem za 2 dana.',
+        text: 'Delay due to missing suitable pipes in stock. I expect the new material delivery in 2 days.',
       },
     );
   }
@@ -611,12 +611,12 @@ function buildDemoCommentSeeds(
       {
         interventionId: third.id,
         authorId: servicerId,
-        text: 'Kvar lociran - ruter u serveru se pregrijava. Privremeno rjesenje postavljeno, trajna zamjena se planira.',
+        text: 'Fault located - the server room router is overheating. Temporary fix is in place and permanent replacement is planned.',
       },
       {
         interventionId: third.id,
         authorId: coordinatorId,
-        text: 'Dobro. Naruci novi ruter i zakazemo zamjenu za subotu kako ne bismo ometali radni proces.',
+        text: 'Good. Order a new router and schedule replacement for Saturday so we do not disrupt work.',
       },
     );
   }
@@ -625,7 +625,7 @@ function buildDemoCommentSeeds(
     seeds.push({
       interventionId: fourth.id,
       authorId: coordinatorId,
-      text: 'Hitna intervencija! Internet veza potpuno pala u cijeloj zgradi. Molim servisera da odmah reaguje.',
+      text: 'Urgent intervention! Internet connection is completely down across the building. Please respond immediately.',
     });
   }
 
@@ -760,12 +760,12 @@ export async function seedDatabase(client: SeedClient, prismaInstance?: PrismaCl
   const slaConfigurations = await seedSlaConfigurations(client);
   const users = await seedUsers(client, company.id);
   const externalIdentities = await seedExternalIdentities(client, users);
-  const electricalCategory = requireSeedCategory(categories, 'Elektricni kvar');
+  const electricalCategory = requireSeedCategory(categories, 'Electrical issue');
   const customerUser = requireSeedUser(users, DemoUserPersona.USER);
   const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
   const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);
 
-  // PBI-025: Za demo duplikata koristimo prvog korisnika u bazi (može biti i ranije kreiran)
+  // PBI-025: For the duplicate demo, use the first user in the database (it may already exist)
   let pbi025UserId = customerUser.id;
   if (prismaInstance) {
     const firstUser = await prismaInstance.user.findFirst({

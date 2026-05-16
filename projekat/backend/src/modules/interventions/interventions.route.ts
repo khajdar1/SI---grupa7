@@ -20,15 +20,22 @@ const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
 const ADMIN_ROLES = ["Administrator", "Admin", "administrator", "admin"];
 const SERVICER_ROLES = ["Serviser"];
+const SUPPORT_AGENT_ROLES = ["SupportAgent", "supportagent", "AgentPodrske", "agentpodrske"];
 const COORDINATOR_ACTION_ROLES = [...COORDINATOR_ROLES, ...ADMIN_ROLES];
 
-const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES, ...ADMIN_ROLES];
+const INTERVENTION_VIEW_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...ADMIN_ROLES,
+  ...SUPPORT_AGENT_ROLES,
+];
 
 const INTERVENTION_HISTORY_ROLES = [
   ...COORDINATOR_ROLES,
   ...MANAGEMENT_ROLES,
   ...ADMIN_ROLES,
   ...SERVICER_ROLES,
+  ...SUPPORT_AGENT_ROLES,
 ];
 const INTERVENTION_STATUS_ROLES = [...COORDINATOR_ACTION_ROLES, ...SERVICER_ROLES];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([

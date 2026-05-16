@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,10 +24,12 @@ import { clearFieldError, getApiFieldErrors, validateRequired } from '@/lib/form
 import type {
   FaultReportCategoryOption,
   FaultReportCompanyOption,
+  FaultReportListItem,
   PotentialDuplicateItem,
 } from '@/models/FaultReport';
 import {
   getFaultReportOptions,
+  getFaultReports,
   submitFaultReport,
   checkFaultReportDuplicates,
 } from '@/services/fault-reports.service';
@@ -64,6 +67,63 @@ const EMERGENCY_TEMPLATES: readonly EmergencyTemplate[] = [
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
+
+function decodeJwtPayload(token: string): {
+  realm_access?: { roles?: string[] };
+  resource_access?: Record<string, { roles?: string[] }>;
+} | null {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
+
+    return JSON.parse(window.atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function getSessionRoles(): string[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const roles = new Set<string>();
+  const rawUser = window.localStorage.getItem('user');
+  const token = window.localStorage.getItem('token');
+
+  try {
+    const user = rawUser ? (JSON.parse(rawUser) as { role?: string; roles?: string[] }) : null;
+    if (user?.role) {
+      roles.add(user.role.toLowerCase());
+    }
+    user?.roles?.forEach((role) => roles.add(role.toLowerCase()));
+  } catch {
+    // Ignore malformed local session data and rely on the token roles below.
+  }
+
+  if (token) {
+    const payload = decodeJwtPayload(token);
+    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    Object.values(payload?.resource_access ?? {}).forEach((clientAccess) => {
+      clientAccess.roles?.forEach((role) => roles.add(role.toLowerCase()));
+    });
+  }
+
+  return Array.from(roles);
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
 
 async function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -91,6 +151,8 @@ function inferMimeType(file: File): string {
 export default function FaultReportsPage() {
   const [reportMode, setReportMode] = useState<ReportMode>('emergency');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSupportAgent, setIsSupportAgent] = useState(false);
+  const [faultReports, setFaultReports] = useState<FaultReportListItem[]>([]);
 
   const [companies, setCompanies] = useState<FaultReportCompanyOption[]>([]);
   const [categories, setCategories] = useState<FaultReportCategoryOption[]>([]);
@@ -115,7 +177,7 @@ export default function FaultReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // PBI-025: stanje detekcije duplikata
+  // PBI-025: duplicate detection state
   const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
   const [potentialDuplicates, setPotentialDuplicates] = useState<PotentialDuplicateItem[]>([]);
   const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
@@ -149,11 +211,33 @@ export default function FaultReportsPage() {
     }
   };
 
+  const loadFaultReports = async () => {
+    try {
+      setIsLoading(true);
+      const reports = await getFaultReports();
+      setFaultReports(reports);
+      setError('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load fault reports.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const token = window.localStorage.getItem('token');
     const authenticated = Boolean(token);
+    const supportAgent = getSessionRoles().some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
+
     setIsAuthenticated(authenticated);
+    setIsSupportAgent(supportAgent);
     setReportMode(authenticated ? 'regular' : 'emergency');
+
+    if (supportAgent) {
+      void loadFaultReports();
+      return;
+    }
+
     void loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -256,7 +340,7 @@ export default function FaultReportsPage() {
     return nextErrors;
   };
 
-  /** Stvarno kreiranje prijave – poziva se nakon što korisnik potvrdi ili preskače duplikat upozorenje */
+  /** Performs the actual report creation after duplicate confirmation or when no warning is needed. */
   const doSubmit = async () => {
     setError('');
     setSuccessMessage('');
@@ -354,10 +438,10 @@ export default function FaultReportsPage() {
 
     setFieldErrors({});
 
-    // PBI-025: Za autenticirane korisnike u regular načinu, provjeri duplikate
+    // PBI-025: Check duplicates for authenticated users in regular mode.
     if (reportMode === 'regular' && isAuthenticated && companyId) {
       try {
-        // Dohvati userId iz tokena (čuvan u localStorage kao JSON objekt)
+        // Read userId from the localStorage user object.
         let userId: number | null = null;
         const raw = window.localStorage.getItem('user');
         if (raw) {
@@ -383,7 +467,7 @@ export default function FaultReportsPage() {
           }
         }
       } catch {
-        // Greška pri provjeri duplikata ne smije blokirati prijavu
+        // Duplicate-check failures should not block report submission.
       }
     }
 
@@ -392,9 +476,81 @@ export default function FaultReportsPage() {
 
   const noIntakeOptions = companies.length === 0 || categories.length === 0;
 
+  if (isSupportAgent) {
+    return (
+      <PageLayout className="space-y-6">
+        <PageHeader
+          title="Fault Reports"
+          subtitle="Review submitted fault reports and related intervention status."
+          breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Fault Reports' }]}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Submitted Reports</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton key={index} className="h-24 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : error ? (
+              <EmptyState
+                title="Fault reports unavailable"
+                description={error}
+                action={{ label: 'Retry', onClick: () => void loadFaultReports() }}
+              />
+            ) : faultReports.length === 0 ? (
+              <EmptyState
+                title="No fault reports"
+                description="There are no submitted fault reports to review right now."
+              />
+            ) : (
+              <div className="space-y-3">
+                {faultReports.map((report) => {
+                  const latestIntervention = report.interventions[0];
+
+                  return (
+                    <div key={report.id} className="rounded-lg border bg-card p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold">FR-{String(report.id).padStart(5, '0')}</span>
+                            <Badge variant="outline">{report.category.name}</Badge>
+                            {latestIntervention ? (
+                              <Badge variant="secondary">{latestIntervention.status.replace(/_/g, ' ')}</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {report.company.name} - {report.location || 'No location'} - {formatDateTime(report.reportedAt)}
+                          </p>
+                        </div>
+
+                        {latestIntervention ? (
+                          <Button asChild variant="outline" size="sm" className="shrink-0">
+                            <Link href={ROUTES.INTERVENTION(String(latestIntervention.id))}>
+                              Open intervention
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </PageLayout>
+    );
+  }
+
   return (
     <PageLayout className="space-y-6">
-      {/* PBI-025: Dialog za upozorenje o duplikatima */}
+      {/* PBI-025: Duplicate warning dialog */}
       <DuplicateWarningDialog
         open={duplicateWarningOpen}
         duplicates={potentialDuplicates}

@@ -1,9 +1,9 @@
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors';
 
 export const TICKET_CATEGORIES = [
-  'Tehničko pitanje',
-  'Prijava greške u aplikaciji',
-  'Ostalo',
+  'Technical question',
+  'Application bug report',
+  'Other',
 ] as const;
 
 export type TicketCategory = typeof TICKET_CATEGORIES[number];
@@ -27,6 +27,7 @@ export interface TicketListItem {
   title: string;
   category: string;
   status: string;
+  userBlocked: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,9 @@ export interface TicketMessage {
 }
 
 export interface TicketDetail extends TicketListItem {
+  user: {
+    active: boolean;
+  };
   messages: TicketMessage[];
 }
 

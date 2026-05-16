@@ -51,7 +51,29 @@ export interface FaultReportSubmissionResponse {
   receivedAt: string;
 }
 
-// PBI-025: Detekcija duplikata prijave kvara
+export interface FaultReportListItem {
+  id: number;
+  description: string;
+  location: string;
+  reportedAt: string;
+  category: {
+    id: number;
+    name: string;
+  };
+  company: {
+    id: number;
+    name: string;
+  };
+  interventions: Array<{
+    id: number;
+    name: string;
+    status: string;
+    priority: string;
+    createdAt: string;
+  }>;
+}
+
+// PBI-025: Duplicate fault report detection.
 export interface DuplicateCheckPayload {
   userId: number;
   companyId: number;
