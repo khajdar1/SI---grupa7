@@ -343,7 +343,7 @@ export function AppNavigation() {
     socket.emit('user:join', sessionUser.id);
 
     const roles = getTokenRoles(window.localStorage.getItem('token'));
-    if (roles.some((r) => r === 'koordinator' || r === 'coordinator')) {
+    if (roles.some((r) => r === 'koordinator' || r === 'coordinator' || r === 'admin' || r === 'administrator')) {
       socket.emit('role:join', 'koordinator');
     }
 
@@ -413,8 +413,8 @@ export function AppNavigation() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/80 shadow-[0_1px_28px_rgba(15,23,42,0.07)] backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center gap-4 px-4 py-2.5 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <Link href={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
             <div className="logo-mark flex size-8 items-center justify-center rounded-xl text-white">
               <Wrench className="size-4" />
@@ -559,7 +559,7 @@ export function AppNavigation() {
           ) : null}
         </div>
 
-        <div className="lg:hidden">
+        <div className="ml-auto lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
