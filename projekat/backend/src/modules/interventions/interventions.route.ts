@@ -4,7 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { prisma } from "../../config/database";
-import { HTTP_STATUS } from "../../constants";
+import { BULK_ACTIONS, HTTP_STATUS } from "../../constants";
 import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
@@ -14,6 +14,12 @@ import {
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import {
+  bulkActionSchema,
+  type BulkActionInput,
+  type BulkActionItemResult,
+  type BulkActionResponse,
+} from "./interventions.bulk.schema";
 
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
@@ -60,6 +66,11 @@ const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
       InterventionStatus.CANCELLED,
     ]),
   ],
+]);
+
+const ARCHIVABLE_STATUSES = new Set<InterventionStatus>([
+  InterventionStatus.RESOLVED,
+  InterventionStatus.CANCELLED,
 ]);
 
 function getCurrentMinute(): Date {
@@ -123,6 +134,10 @@ const interventionHistoryQuerySchema = z.object({
   category: z.string().trim().min(2).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(50).default(10),
+  showArchived: z.preprocess(
+    (val) => val === 'true' || val === '1' || val === true,
+    z.boolean(),
+  ).default(false),
 });
 
 const interventionStatusUpdateSchema = z.object({
@@ -563,9 +578,10 @@ interventionsRouter.get(
         {
           OR: [
             { status: InterventionStatus.RESOLVED },
-            { archived: true },
+            { status: InterventionStatus.CANCELLED },
           ],
         },
+        query.showArchived ? {} : { archived: false },
         query.location
           ? {
               location: {
@@ -601,6 +617,7 @@ interventionsRouter.get(
           status: true,
           priority: true,
           createdAt: true,
+          archived: true,
           category: {
             select: {
               id: true,
@@ -635,6 +652,7 @@ interventionsRouter.get(
         location: intervention.location,
         categoryId: intervention.category.id,
         categoryName: intervention.category.name,
+        archived: intervention.archived,
         summary:
           intervention.description.length > 120
             ? `${intervention.description.slice(0, 120)}...`
@@ -883,7 +901,6 @@ interventionsRouter.get(
       throw new NotFoundError('Intervention not found.');
     }
 
-    // Combine direct attachments with fault-report attachments, deduplicating by id
     const direct = intervention.attachments;
     const fromFaultReport = intervention.faultReport?.attachments ?? [];
     const seenIds = new Set<number>();
@@ -895,6 +912,279 @@ interventionsRouter.get(
     });
 
     res.json(combined);
+  }),
+);
+
+
+async function applyBulkStatusChange(
+  id: number,
+  targetStatus: InterventionStatus,
+  actorId: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+  }
+
+  const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
+
+  if (!allowedTargets?.has(targetStatus)) {
+    return {
+      id,
+      success: false,
+      reason: `Status transition from ${existing.status} to ${targetStatus} is not allowed.`,
+    };
+  }
+
+  await prisma.$transaction([
+    prisma.intervention.update({
+      where: { id },
+      data: { status: targetStatus },
+    }),
+    prisma.statusHistory.create({
+      data: {
+        interventionId: id,
+        authorId: actorId,
+        oldStatus: existing.status,
+        newStatus: targetStatus,
+      },
+    }),
+  ]);
+
+  return { id, success: true };
+}
+
+async function applyBulkAssignServicer(
+  id: number,
+  userId: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is archived and cannot be modified." };
+  }
+
+  if (
+    existing.status === InterventionStatus.RESOLVED ||
+    existing.status === InterventionStatus.CANCELLED
+  ) {
+    return {
+      id,
+      success: false,
+      reason: `Cannot assign servicer to an intervention with status ${existing.status}.`,
+    };
+  }
+
+  const existingAssignment = await prisma.assignment.findFirst({
+    where: { interventionId: id, userId },
+    select: { id: true },
+  });
+
+  if (existingAssignment) {
+    return { id, success: false, reason: "Servicer is already assigned to this intervention." };
+  }
+
+  await prisma.$transaction([
+    prisma.assignment.create({
+      data: { interventionId: id, userId },
+    }),
+    ...(existing.status === InterventionStatus.NEW
+      ? [
+          prisma.intervention.update({
+            where: { id },
+            data: { status: InterventionStatus.ASSIGNED },
+          }),
+        ]
+      : []),
+  ]);
+
+  return { id, success: true };
+}
+
+async function applyBulkArchive(
+  id: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is already archived." };
+  }
+
+  if (!ARCHIVABLE_STATUSES.has(existing.status)) {
+    return {
+      id,
+      success: false,
+      reason: `Only resolved or cancelled interventions can be archived. Current status: ${existing.status}.`,
+    };
+  }
+
+  await prisma.intervention.update({
+    where: { id },
+    data: { archived: true },
+  });
+
+  return { id, success: true };
+}
+
+interventionsRouter.post(
+  "/bulk-actions",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(bulkActionSchema),
+  asyncHandler(async (req, res) => {
+    const input = req.body as BulkActionInput;
+    const actor = await resolveCreator(req);
+
+    const { interventionIds } = input;
+
+    const existing = await prisma.intervention.findMany({
+      where: { id: { in: interventionIds } },
+      select: { id: true, status: true, archived: true },
+    });
+
+    const existingMap = new Map(existing.map((i) => [i.id, i]));
+
+    if (input.action === "ASSIGN_SERVICER") {
+      const servicer = await prisma.user.findUnique({
+        where: { id: input.payload.userId },
+        select: { id: true, active: true },
+      });
+
+      if (!servicer || !servicer.active) {
+        throw new BadRequestError("Selected servicer does not exist or is inactive.", [
+          { field: "payload.userId", message: "Servicer not found or inactive." },
+        ]);
+      }
+    }
+
+    const preflightResults: BulkActionItemResult[] = await Promise.all(
+      interventionIds.map(async (id): Promise<BulkActionItemResult> => {
+        const record = existingMap.get(id);
+
+        if (!record) {
+          return { id, success: false, reason: "Intervention not found." };
+        }
+
+        switch (input.action) {
+          case "STATUS_CHANGE": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+            }
+            const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(record.status);
+            if (!allowedTargets?.has(input.payload.status)) {
+              return {
+                id,
+                success: false,
+                reason: `Status transition from ${record.status} to ${input.payload.status} is not allowed.`,
+              };
+            }
+            return { id, success: true };
+          }
+
+          case "ASSIGN_SERVICER": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is archived and cannot be modified." };
+            }
+            if (
+              record.status === InterventionStatus.RESOLVED ||
+              record.status === InterventionStatus.CANCELLED
+            ) {
+              return {
+                id,
+                success: false,
+                reason: `Cannot assign servicer to an intervention with status ${record.status}.`,
+              };
+            }
+            const existingAssignment = await prisma.assignment.findFirst({
+              where: { interventionId: id, userId: input.payload.userId },
+              select: { id: true },
+            });
+            if (existingAssignment) {
+              return { id, success: false, reason: "Servicer is already assigned to this intervention." };
+            }
+            return { id, success: true };
+          }
+
+          case "ARCHIVE": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is already archived." };
+            }
+            if (!ARCHIVABLE_STATUSES.has(record.status)) {
+              return {
+                id,
+                success: false,
+                reason: `Only resolved or cancelled interventions can be archived. Current status: ${record.status}.`,
+              };
+            }
+            return { id, success: true };
+          }
+        }
+      }),
+    );
+
+    const preflightFailed = preflightResults.filter((r) => !r.success);
+    if (preflightFailed.length > 0) {
+      const atomicFailResponse: BulkActionResponse = {
+        totalRequested: interventionIds.length,
+        totalSucceeded: 0,
+        totalSkipped: preflightFailed.length,
+        results: preflightResults,
+      };
+
+      AuditService.log({
+        action: `BULK_${input.action}`,
+        entity: "Intervention",
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Bulk action ${input.action} aborted (atomic): ${preflightFailed.length}/${interventionIds.length} failed pre-flight.`,
+        newValues: {
+          action: input.action,
+          payload: input.payload,
+          succeededIds: [],
+          skippedIds: preflightFailed.map((r) => r.id),
+        },
+      });
+
+      return res.status(422).json(atomicFailResponse);
+    }
+
+    const results: BulkActionItemResult[] = await Promise.all(
+      interventionIds.map(async (id) => {
+        const record = existingMap.get(id)!;
+
+        switch (input.action) {
+          case "STATUS_CHANGE":
+            return applyBulkStatusChange(id, input.payload.status, actor.id, record);
+          case "ASSIGN_SERVICER":
+            return applyBulkAssignServicer(id, input.payload.userId, record);
+          case "ARCHIVE":
+            return applyBulkArchive(id, record);
+        }
+      }),
+    );
+
+    const succeeded = results.filter((r) => r.success);
+    const skipped = results.filter((r) => !r.success);
+
+    AuditService.log({
+      action: `BULK_${input.action}`,
+      entity: "Intervention",
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Bulk action ${input.action}: ${succeeded.length}/${interventionIds.length} succeeded.`,
+      newValues: {
+        action: input.action,
+        payload: input.payload,
+        succeededIds: succeeded.map((r) => r.id),
+        skippedIds: skipped.map((r) => r.id),
+      },
+    });
+
+    const response: BulkActionResponse = {
+      totalRequested: interventionIds.length,
+      totalSucceeded: succeeded.length,
+      totalSkipped: skipped.length,
+      results,
+    };
+
+    res.status(HTTP_STATUS.OK).json(response);
   }),
 );
 

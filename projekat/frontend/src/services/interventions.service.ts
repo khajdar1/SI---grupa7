@@ -4,8 +4,6 @@ import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
 
 import { getResponseData, withServiceError } from './errors';
-import { toModuleShellResponse } from './module-shell.service';
-import type { ModuleShellResponse } from './types';
 
 export interface InterventionFaultReportLink {
   id: number;
@@ -78,9 +76,41 @@ export interface InterventionOptions {
   faultReports: InterventionFaultReportOption[];
 }
 
+export interface InterventionHistoryItem {
+  id: string;
+  date: string;
+  status: InterventionStatus;
+  priority: Priority;
+  location: string;
+  categoryId: number;
+  categoryName: string;
+  summary: string;
+  servicer: string;
+}
+
+export interface InterventionHistoryPagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface InterventionHistoryResponse {
+  message: string;
+  data: InterventionHistoryItem[];
+  pagination: InterventionHistoryPagination;
+}
+
+export interface InterventionHistoryQuery {
+  location?: string;
+  category?: string;
+  categoryId?: number | string;
+  page?: number;
+  pageSize?: number;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
-  moduleInfo: ModuleShellResponse | null;
 }
 
 function isInterventionListItem(payload: unknown): payload is InterventionListItem {
@@ -140,6 +170,45 @@ export interface InterventionDetail {
   }>;
 }
 
+export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE';
+ 
+export interface BulkActionItemResult {
+  id: number;
+  success: boolean;
+  reason?: string;
+}
+ 
+export interface BulkActionResponse {
+  totalRequested: number;
+  totalSucceeded: number;
+  totalSkipped: number;
+  results: BulkActionItemResult[];
+}
+ 
+type BulkStatusChangePayload = {
+  action: 'STATUS_CHANGE';
+  interventionIds: number[];
+  payload: { status: InterventionStatus };
+};
+ 
+type BulkAssignServicerPayload = {
+  action: 'ASSIGN_SERVICER';
+  interventionIds: number[];
+  payload: { userId: number };
+};
+ 
+type BulkArchivePayload = {
+  action: 'ARCHIVE';
+  interventionIds: number[];
+  payload: Record<string, never>;
+};
+ 
+export type BulkActionPayload =
+  | BulkStatusChangePayload
+  | BulkAssignServicerPayload
+  | BulkArchivePayload;
+ 
+
 export async function getInterventionById(id: number): Promise<InterventionDetail> {
   return getResponseData(
     () => api.get<InterventionDetail>(API_ENDPOINTS.INTERVENTIONS.BY_ID(id)),
@@ -155,20 +224,10 @@ export async function getInterventions(): Promise<InterventionsResult> {
       const items = response.data.filter(isInterventionListItem);
       return {
         items,
-        moduleInfo: null,
       };
     }
 
-    const moduleInfo = toModuleShellResponse(response.data);
-
-    if (moduleInfo) {
-      return {
-        items: [],
-        moduleInfo,
-      };
-    }
-
-    return { items: [], moduleInfo: null };
+    return { items: [] };
   }, 'Failed to load interventions.');
 }
 
@@ -176,6 +235,39 @@ export async function getInterventionOptions(): Promise<InterventionOptions> {
   return getResponseData(
     () => api.get<InterventionOptions>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/options`),
     'Failed to load intervention options.',
+  );
+}
+
+export async function getInterventionHistory(
+  query: InterventionHistoryQuery = {},
+): Promise<InterventionHistoryResponse> {
+  const params = new URLSearchParams();
+
+  if (query.location?.trim()) {
+    params.set('location', query.location.trim());
+  }
+
+  if (query.categoryId !== undefined && query.categoryId !== '') {
+    params.set('categoryId', String(query.categoryId));
+  } else if (query.category?.trim()) {
+    params.set('category', query.category.trim());
+  }
+
+  if (query.page) {
+    params.set('page', String(query.page));
+  }
+
+  if (query.pageSize) {
+    params.set('pageSize', String(query.pageSize));
+  }
+
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<InterventionHistoryResponse>(
+      `${API_ENDPOINTS.INTERVENTIONS.BASE}/history${suffix}`,
+    ),
+    'Failed to load intervention history.',
   );
 }
 
@@ -210,4 +302,64 @@ export async function updateInterventionStatus(
     ),
     'Failed to update intervention status.',
   );
+}
+
+export async function executeBulkAction(
+  payload: BulkActionPayload,
+): Promise<BulkActionResponse> {
+  try {
+    const response = await api.post<BulkActionResponse>(
+      API_ENDPOINTS.INTERVENTIONS.BULK_ACTIONS,
+      payload,
+    );
+
+    return response.data;
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error
+    ) {
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: BulkActionResponse;
+        };
+      };
+
+      if (
+        axiosError.response?.status === 422 &&
+        axiosError.response.data
+      ) {
+        return axiosError.response.data;
+      }
+    }
+
+    throw new Error('Bulk action failed. Please try again.');
+  }
+}
+ 
+export function buildBulkStatusChange(
+  interventionIds: number[],
+  status: InterventionStatus,
+): BulkStatusChangePayload {
+  return { action: 'STATUS_CHANGE', interventionIds, payload: { status } };
+}
+ 
+export function buildBulkAssignServicer(
+  interventionIds: number[],
+  userId: number,
+): BulkAssignServicerPayload {
+  return { action: 'ASSIGN_SERVICER', interventionIds, payload: { userId } };
+}
+ 
+export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload {
+  return { action: 'ARCHIVE', interventionIds, payload: {} as Record<string, never> };
+}
+ 
+export function formatBulkResultSummary(result: BulkActionResponse): string {
+  if (result.totalSkipped === 0) {
+    return `${result.totalSucceeded} of ${result.totalRequested} interventions successfully updated.`;
+  }
+  return `${result.totalSucceeded} of ${result.totalRequested} interventions updated. ${result.totalSkipped} skipped.`;
 }
