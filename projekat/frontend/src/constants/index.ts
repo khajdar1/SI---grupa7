@@ -51,6 +51,7 @@ export const API_ENDPOINTS = {
   FAULT_REPORTS: {
     BASE: '/api/v1/fault-reports',
     OPTIONS: '/api/v1/fault-reports/options',
+    CHECK_DUPLICATES: '/api/v1/fault-reports/check-duplicates',
   },
   COMPANIES: {
     BASE: '/api/v1/companies',
