@@ -173,6 +173,45 @@ export interface InterventionDetail {
   }>;
 }
 
+export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE';
+ 
+export interface BulkActionItemResult {
+  id: number;
+  success: boolean;
+  reason?: string;
+}
+ 
+export interface BulkActionResponse {
+  totalRequested: number;
+  totalSucceeded: number;
+  totalSkipped: number;
+  results: BulkActionItemResult[];
+}
+ 
+type BulkStatusChangePayload = {
+  action: 'STATUS_CHANGE';
+  interventionIds: number[];
+  payload: { status: InterventionStatus };
+};
+ 
+type BulkAssignServicerPayload = {
+  action: 'ASSIGN_SERVICER';
+  interventionIds: number[];
+  payload: { userId: number };
+};
+ 
+type BulkArchivePayload = {
+  action: 'ARCHIVE';
+  interventionIds: number[];
+  payload: Record<string, never>;
+};
+ 
+export type BulkActionPayload =
+  | BulkStatusChangePayload
+  | BulkAssignServicerPayload
+  | BulkArchivePayload;
+ 
+
 export async function getInterventionById(id: number): Promise<InterventionDetail> {
   return getResponseData(
     () => api.get<InterventionDetail>(API_ENDPOINTS.INTERVENTIONS.BY_ID(id)),
@@ -279,4 +318,63 @@ export async function updateRecurrence(
     ),
     'Failed to update recurrence.',
   );
+}
+export async function executeBulkAction(
+  payload: BulkActionPayload,
+): Promise<BulkActionResponse> {
+  try {
+    const response = await api.post<BulkActionResponse>(
+      API_ENDPOINTS.INTERVENTIONS.BULK_ACTIONS,
+      payload,
+    );
+
+    return response.data;
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error
+    ) {
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: BulkActionResponse;
+        };
+      };
+
+      if (
+        axiosError.response?.status === 422 &&
+        axiosError.response.data
+      ) {
+        return axiosError.response.data;
+      }
+    }
+
+    throw new Error('Bulk action failed. Please try again.');
+  }
+}
+ 
+export function buildBulkStatusChange(
+  interventionIds: number[],
+  status: InterventionStatus,
+): BulkStatusChangePayload {
+  return { action: 'STATUS_CHANGE', interventionIds, payload: { status } };
+}
+ 
+export function buildBulkAssignServicer(
+  interventionIds: number[],
+  userId: number,
+): BulkAssignServicerPayload {
+  return { action: 'ASSIGN_SERVICER', interventionIds, payload: { userId } };
+}
+ 
+export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload {
+  return { action: 'ARCHIVE', interventionIds, payload: {} as Record<string, never> };
+}
+ 
+export function formatBulkResultSummary(result: BulkActionResponse): string {
+  if (result.totalSkipped === 0) {
+    return `${result.totalSucceeded} of ${result.totalRequested} interventions successfully updated.`;
+  }
+  return `${result.totalSucceeded} of ${result.totalRequested} interventions updated. ${result.totalSkipped} skipped.`;
 }

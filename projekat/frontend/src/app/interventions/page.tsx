@@ -1,7 +1,7 @@
 "use client";
 // export const runtime = "edge";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
@@ -50,6 +50,7 @@ import {
   getInterventionOptions,
   getInterventions,
   updateIntervention,
+  type BulkActionResponse,
   type InterventionFormPayload,
   type InterventionListItem,
   type InterventionOptions,
@@ -58,6 +59,8 @@ import { getCategories } from "@/services/categories.service";
 import { getPriorityLabel } from "@/services/sla.service";
 import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
+import { BulkActionToolbar } from "@/components/interventions/BulkActionToolbar";
+import { BulkResultSummary } from "@/components/interventions/BulkResultSummary";
 
 const ALL_CATEGORY = "ALL";
 const ALL_STATUS = "ALL";
@@ -115,6 +118,12 @@ type KeycloakTokenPayload = {
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
 };
+
+interface SelectAllCheckboxProps {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: () => void;
+}
 
 function decodeTokenPayload(token: string): KeycloakTokenPayload | null {
   const [, payload] = token.split(".");
@@ -241,6 +250,27 @@ function buildFormFromIntervention(
   };
 }
 
+function SelectAllCheckbox({ checked, indeterminate, onChange }: SelectAllCheckboxProps) {
+  const ref = useRef<HTMLInputElement>(null);
+ 
+  useEffect(() => {
+    if (ref.current) {
+      ref.current.indeterminate = indeterminate;
+    }
+  }, [indeterminate]);
+ 
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label="Select all interventions"
+      checked={checked}
+      onChange={onChange}
+      className="h-4 w-4 cursor-pointer rounded border-border"
+    />
+  );
+}
+
 export default function InterventionsPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
@@ -271,6 +301,10 @@ export default function InterventionsPage() {
 
   const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
   const [assignedServicerIds, setAssignedServicerIds] = useState<number[]>([]);
+
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkResult, setBulkResult] = useState<BulkActionResponse | null>(null);
+
 
   const loadData = async (canLoadPlanningOptions = canPlanInterventions) => {
     try {
@@ -356,6 +390,10 @@ export default function InterventionsPage() {
       return true;
     });
   }, [categories, rows, selectedCategory, selectedServicer, selectedStatus, selectedType]);
+
+  const allFilteredSelected = filteredRows.length > 0 && selectedIds.length === filteredRows.length;
+ 
+  const someFilteredSelected = selectedIds.length > 0 && selectedIds.length < filteredRows.length;
 
   const filterOptions = [
     { value: ALL_CATEGORY, label: "All categories" },
@@ -599,6 +637,33 @@ export default function InterventionsPage() {
     }
   };
 
+  const toggleSelectAll = () => {
+    if (selectedIds.length === filteredRows.length && filteredRows.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(filteredRows.map((row) => Number(row.id)));
+    }
+  };
+ 
+  const toggleSelectRow = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const clearSelection = () => setSelectedIds([]);
+ 
+const handleBulkActionComplete = async (
+  result: BulkActionResponse,
+  _action: 'STATUS_CHANGE' | 'ASSIGN_SERVICER',) => {
+      setBulkResult(result);
+      await loadData();
+  };
+ 
+  const handleBulkError = (message: string) => {
+    setError(message);
+  };
+
   return (
     <PageLayout className="space-y-6">
       <PageHeader
@@ -672,9 +737,51 @@ export default function InterventionsPage() {
         onClear={clearFilters}
       />
 
+      {canPlanInterventions && (
+        <BulkActionToolbar
+          selectedIds={selectedIds}
+          selectedRows={rows.filter((r) => selectedIds.includes(Number(r.id)))}
+          onClearSelection={clearSelection}
+          onActionComplete={handleBulkActionComplete}
+          onError={handleBulkError}
+        />
+      )}
+ 
+      {bulkResult && (
+        <BulkResultSummary
+          result={bulkResult}
+          onDismiss={() => setBulkResult(null)}
+        />
+      )}
+
       {activeViewMode === 'list' ? (
         <DataTable<InterventionListItem>
         columns={[
+         ...(canPlanInterventions
+          ? [
+              {
+                key: "select" as keyof InterventionListItem,
+                header: (
+                  <SelectAllCheckbox
+                    checked={allFilteredSelected}
+                    indeterminate={someFilteredSelected}
+                    onChange={toggleSelectAll}
+                  />
+                ) as unknown as string,
+                width: "48px",
+                render: (_value: unknown, row: InterventionListItem) => (
+                  <input
+                    type="checkbox"
+                    aria-label={`Select intervention ${row.id}`}
+                    checked={selectedIds.includes(Number(row.id))}
+                    onChange={(e) => { e.stopPropagation(); toggleSelectRow(Number(row.id)); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-4 w-4 cursor-pointer rounded border-border"
+                  />
+                ),
+              },
+            ]
+          : []),
           {
             key: "id",
             header: "ID",
