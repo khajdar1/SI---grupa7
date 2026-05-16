@@ -89,6 +89,17 @@ export const API_ENDPOINTS = {
   MANAGEMENT: {
     DASHBOARD: '/api/v1/management/dashboard',
   },
+  TICKETS: {
+    BASE: '/api/v1/tickets',
+    BY_ID: (id: number | string) => `/api/v1/tickets/${id}`,
+    STATUS: (id: number | string) => `/api/v1/tickets/${id}/status`,
+    MESSAGES: (id: number | string) => `/api/v1/tickets/${id}/messages`,
+  },
+  NOTIFICATIONS: {
+    BASE: '/api/v1/notifications',
+    UNREAD: '/api/v1/notifications/unread',
+    MARK_READ: (id: number | string) => `/api/v1/notifications/${id}/read`,
+  },
 } as const;
 
 export const NETWORK = {
