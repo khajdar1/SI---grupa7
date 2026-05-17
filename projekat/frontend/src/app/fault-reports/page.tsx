@@ -510,7 +510,11 @@ export default function FaultReportsPage() {
             ) : (
               <div className="space-y-3">
                 {faultReports.map((report) => {
-                  const latestIntervention = report.interventions[0];
+                  const latestIntervention = [...report.interventions].sort(
+                    (leftIntervention, rightIntervention) =>
+                      new Date(rightIntervention.createdAt).getTime() -
+                      new Date(leftIntervention.createdAt).getTime(),
+                  )[0];
 
                   return (
                     <div key={report.id} className="rounded-lg border bg-card p-4">
