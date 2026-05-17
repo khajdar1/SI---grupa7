@@ -129,7 +129,7 @@ test("should seed the demo dataset with local profiles and external identities",
   const company = state.companies.get("Servis Alfa d.o.o.");
   assert.ok(company);
 
-  const electricalCategory = state.categories.get("Electrical issue");
+  const electricalCategory = state.categories.get("Elektricni kvar");
   assert.ok(electricalCategory);
 
   const admin = state.users.get("ana.admin@demo.local");
