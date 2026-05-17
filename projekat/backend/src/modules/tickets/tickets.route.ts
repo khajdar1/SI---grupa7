@@ -112,6 +112,7 @@ const ticketRepository: TicketRepository = {
 
 const ADMIN_ROLES = new Set(['admin', 'administrator']);
 const SUPPORT_AGENT_ROLES = new Set(['supportagent', 'agentpodrske']);
+const ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY = 5;
 
 function hasAnyRole(req: { user?: { roles?: string[] } }, roles: Set<string>): boolean {
   return (req.user?.roles ?? []).some((role) => roles.has(role.toLowerCase()));
@@ -131,6 +132,36 @@ function canManageTickets(req: { user?: { roles?: string[] } }): boolean {
 
 function hasAdminRole(roleNames: readonly string[]): boolean {
   return roleNames.some((role) => ADMIN_ROLES.has(role.toLowerCase()));
+}
+
+async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<{ providerSubject: string }> }>(
+  users: T[],
+  adminToken: string,
+): Promise<T[]> {
+  // Run role checks in bounded batches to avoid overloading Keycloak with one request per user at once.
+  const admins: T[] = [];
+
+  for (let index = 0; index < users.length; index += ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY) {
+    const batch = users.slice(index, index + ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY);
+    const checkedBatch = await Promise.all(
+      batch.map(async (user) => {
+        const keycloakSub = user.externalIdentities[0]?.providerSubject;
+        if (!keycloakSub) {
+          return null;
+        }
+        const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
+        return hasAdminRole(roleNames) ? user : null;
+      }),
+    );
+
+    for (const user of checkedBatch) {
+      if (user) {
+        admins.push(user);
+      }
+    }
+  }
+
+  return admins;
 }
 
 const ticketService = new TicketService(ticketRepository);
@@ -212,29 +243,18 @@ ticketsRouter.get(
     });
 
     const adminToken = await getKeycloakAdminToken();
-    const admins = [];
+    const keycloakUsers = users.filter((user) => user.externalIdentities[0]?.providerSubject);
+    const admins = await filterAdminsByKeycloakRole(keycloakUsers, adminToken);
 
-    for (const user of users) {
-      const keycloakSub = user.externalIdentities[0]?.providerSubject;
-      if (!keycloakSub) {
-        continue;
-      }
-
-      const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
-      if (!hasAdminRole(roleNames)) {
-        continue;
-      }
-
-      admins.push({
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        username: user.username,
-        email: user.email,
-      });
-    }
-
-    res.json(admins);
+    res.json(
+      admins.map((admin) => ({
+        id: admin.id,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        username: admin.username,
+        email: admin.email,
+      })),
+    );
   }),
 );
 
@@ -303,10 +323,11 @@ ticketsRouter.patch(
         },
       });
       emitToUser(ticket.userId, 'notification:new', notification);
-      emitToUser(ticket.userId, 'ticket:statusChanged', updated);
-      emitToRole('supportagent', 'ticket:statusChanged', updated);
-      emitToRole('admin', 'ticket:statusChanged', updated);
     }
+
+    emitToUser(ticket.userId, 'ticket:statusChanged', updated);
+    emitToRole('supportagent', 'ticket:statusChanged', updated);
+    emitToRole('admin', 'ticket:statusChanged', updated);
 
     res.json(updated);
   }),
@@ -417,12 +438,6 @@ ticketsRouter.post(
       select: {
         id: true,
         title: true,
-        user: {
-          select: {
-            username: true,
-            email: true,
-          },
-        },
       },
     });
 
@@ -464,7 +479,7 @@ ticketsRouter.post(
       data: {
         userId: admin.id,
         title: 'Admin review requested',
-        text: `Ticket #${ticket.id}: ${ticket.title}. User: ${ticket.user.username} <${ticket.user.email}>. Reason: ${reason}`,
+        text: `Ticket #${ticket.id}: ${ticket.title}. Reason: ${reason}`,
         type: 'TICKET_REPLY',
         ticketId,
       },

@@ -24,6 +24,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
+import { getSessionRoles } from '@/lib/auth';
 import {
   TICKET_CATEGORIES,
   TICKET_CATEGORY_LABELS,
@@ -49,55 +50,6 @@ const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructi
 
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
-
-function decodeJwtPayload(token: string): {
-  realm_access?: { roles?: string[] };
-  resource_access?: Record<string, { roles?: string[] }>;
-} | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) {
-      return null;
-    }
-
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-
-    return JSON.parse(window.atob(padded));
-  } catch {
-    return null;
-  }
-}
-
-function getSessionRoles(): string[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const roles = new Set<string>();
-  const rawUser = window.localStorage.getItem('user');
-  const token = window.localStorage.getItem('token');
-
-  try {
-    const user = rawUser ? (JSON.parse(rawUser) as { role?: string; roles?: string[] }) : null;
-    if (user?.role) {
-      roles.add(user.role.toLowerCase());
-    }
-    user?.roles?.forEach((role) => roles.add(role.toLowerCase()));
-  } catch {
-    // Ignore malformed local session data and rely on the token roles below.
-  }
-
-  if (token) {
-    const payload = decodeJwtPayload(token);
-    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    Object.values(payload?.resource_access ?? {}).forEach((clientAccess) => {
-      clientAccess.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    });
-  }
-
-  return Array.from(roles);
-}
 
 function TicketStatusBadge({ status, blocked }: { status: TicketStatus; blocked?: boolean }) {
   if (blocked) {
@@ -129,17 +81,15 @@ function TicketsPageContent() {
   const [form, setForm] = useState<CreateTicketFormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [sessionRoles, setSessionRoles] = useState<string[]>([]);
-
   const canCreateTicket = useMemo(() => {
-    const isSupportAgent = sessionRoles.some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
-    const isAdmin = sessionRoles.some((role) => ADMIN_ROLE_NAMES.has(role));
+    const sessionRoles = getSessionRoles();
+    const isSupportAgent = Array.from(sessionRoles).some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
+    const isAdmin = Array.from(sessionRoles).some((role) => ADMIN_ROLE_NAMES.has(role));
 
     return !isSupportAgent || isAdmin;
-  }, [sessionRoles]);
+  }, []);
 
   useEffect(() => {
-    setSessionRoles(getSessionRoles());
     void loadTickets();
   }, []);
 

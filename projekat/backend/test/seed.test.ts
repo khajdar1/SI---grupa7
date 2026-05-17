@@ -129,7 +129,7 @@ test("should seed the demo dataset with local profiles and external identities",
   const company = state.companies.get("Servis Alfa d.o.o.");
   assert.ok(company);
 
-  const electricalCategory = state.categories.get("Elektricni kvar");
+  const electricalCategory = state.categories.get("Electrical issue");
   assert.ok(electricalCategory);
 
   const admin = state.users.get("ana.admin@demo.local");
@@ -230,4 +230,3 @@ test("should remain idempotent when the seed runs twice", async () => {
   assert.equal(state.assignments.size, 1);
   assert.equal(firstCompanyId, secondCompanyId);
 });
-
