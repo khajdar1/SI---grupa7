@@ -138,17 +138,14 @@ async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<
   users: T[],
   adminToken: string,
 ): Promise<T[]> {
+  // Run role checks in bounded batches to avoid overloading Keycloak with one request per user at once.
   const admins: T[] = [];
 
   for (let index = 0; index < users.length; index += ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY) {
     const batch = users.slice(index, index + ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY);
     const checkedBatch = await Promise.all(
       batch.map(async (user) => {
-        const keycloakSub = user.externalIdentities[0]?.providerSubject;
-        if (!keycloakSub) {
-          return null;
-        }
-
+        const keycloakSub = user.externalIdentities[0]!.providerSubject;
         const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
         return hasAdminRole(roleNames) ? user : null;
       }),
