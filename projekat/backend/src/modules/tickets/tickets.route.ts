@@ -303,10 +303,11 @@ ticketsRouter.patch(
         },
       });
       emitToUser(ticket.userId, 'notification:new', notification);
-      emitToUser(ticket.userId, 'ticket:statusChanged', updated);
-      emitToRole('supportagent', 'ticket:statusChanged', updated);
-      emitToRole('admin', 'ticket:statusChanged', updated);
     }
+
+    emitToUser(ticket.userId, 'ticket:statusChanged', updated);
+    emitToRole('supportagent', 'ticket:statusChanged', updated);
+    emitToRole('admin', 'ticket:statusChanged', updated);
 
     res.json(updated);
   }),
