@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Download, Pencil, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { ROUTES, UI, VALIDATION } from "@/constants";
@@ -47,6 +47,7 @@ import MonthCalendar from '@/components/shared/MonthCalendar';
 import type { Category } from "@/models/Category";
 import {
   createIntervention,
+  downloadInterventionsPdf,
   getInterventionOptions,
   getInterventions,
   updateIntervention,
@@ -306,6 +307,7 @@ export default function InterventionsPage() {
 
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [bulkResult, setBulkResult] = useState<BulkActionResponse | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
 
   const loadData = async (canLoadPlanningOptions = canPlanInterventions) => {
@@ -666,6 +668,44 @@ const handleBulkActionComplete = async (
     setError(message);
   };
 
+  const handleExportPdf = async () => {
+    try {
+      setIsExportingPdf(true);
+      setError(null);
+      await downloadInterventionsPdf();
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Failed to export interventions to PDF.",
+      );
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const pageSecondaryActions = [
+    ...(canViewInterventions
+      ? [
+          {
+            label: "Export PDF",
+            onClick: handleExportPdf,
+            icon: <Download className="mr-2 h-4 w-4" />,
+            variant: "outline" as const,
+            isLoading: isExportingPdf,
+          },
+        ]
+      : []),
+    ...(canPlanInterventions
+      ? [
+          {
+            label: activeViewMode === "list" ? "Calendar" : "List",
+            onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <PageLayout className="space-y-6">
       <PageHeader
@@ -675,16 +715,7 @@ const handleBulkActionComplete = async (
           { label: "Dashboard", href: ROUTES.DASHBOARD },
           { label: "Interventions" },
         ]}
-        secondaryActions={
-          canPlanInterventions
-            ? [
-                {
-                  label: activeViewMode === "list" ? "Calendar" : "List",
-                  onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
-                },
-              ]
-            : undefined
-        }
+        secondaryActions={pageSecondaryActions.length > 0 ? pageSecondaryActions : undefined}
         primaryAction={
           canPlanInterventions
             ? {
