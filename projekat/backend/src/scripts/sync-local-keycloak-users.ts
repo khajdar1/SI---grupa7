@@ -223,9 +223,9 @@ function getKeycloakSettings() {
     url: trimTrailingSlash(requiredEnv("KEYCLOAK_URL", "http://localhost:8080")),
     realm: requiredEnv("KEYCLOAK_REALM", "service-system"),
     clientId: requiredEnv("KEYCLOAK_CLIENT_ID", "backend-service"),
-    clientSecret: requiredEnv("KEYCLOAK_CLIENT_SECRET", "backend-service-secret"),
+    clientSecret: requiredEnv("KEYCLOAK_CLIENT_SECRET"),
     adminUsername: requiredEnv("KC_ADMIN_USERNAME", "service_app_admin"),
-    adminPassword: requiredEnv("KC_ADMIN_PASSWORD", "service_admin"),
+    adminPassword: requiredEnv("KC_ADMIN_PASSWORD"),
   };
 }
 
