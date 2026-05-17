@@ -679,7 +679,7 @@ async function syncUsers(): Promise<void> {
   }
 
   console.log(
-    `[KeycloakSync] Done. Local login password for synced users: ${requiredEnv("LOCAL_KEYCLOAK_DEFAULT_PASSWORD", "Password123!")}`,
+    "[KeycloakSync] Done. Synced users can log in with the password configured via LOCAL_KEYCLOAK_DEFAULT_PASSWORD (or the script default if unset).",
   );
 }
 
