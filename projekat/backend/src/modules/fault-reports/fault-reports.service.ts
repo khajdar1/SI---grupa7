@@ -1,4 +1,5 @@
 import { BadRequestError } from "../../shared/errors";
+import { resolvePersistableLocation } from "../../services/geocoding.service";
 
 // Vremenski prozor (u satima) u kojem se traže potencijalni duplikati
 export const DUPLICATE_DETECTION_WINDOW_HOURS = 48;
@@ -361,6 +362,12 @@ export class FaultReportService {
       }
 
       // Attachments are optional for regular reports now. If provided, they will be validated above.
+      const resolvedLocation = await resolvePersistableLocation({
+        location: input.location,
+        latitude: input.latitude,
+        longitude: input.longitude,
+        required: true,
+      });
 
       // verify provided company and category
       const [company, category, systemUser] = await Promise.all([
@@ -394,7 +401,9 @@ export class FaultReportService {
         ...input,
         companyId: company.id,
         categoryId: category.id,
-        location: input.location!.trim(),
+        location: resolvedLocation.location,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
         description: input.description!.trim(),
         reporterName: input.reporterName?.trim() ?? "",
         reporterEmail: input.reporterEmail?.trim() ?? "",
@@ -497,11 +506,20 @@ export class FaultReportService {
       }
     }
 
+    const resolvedLocation = await resolvePersistableLocation({
+      location: input.location,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      required: false,
+    });
+
     return this.repository.createSubmission({
       ...input,
       companyId: companyIdToUse!,
       categoryId: categoryIdToUse!,
-      location: input.location?.trim() ?? "",
+      location: resolvedLocation.location,
+      latitude: resolvedLocation.latitude,
+      longitude: resolvedLocation.longitude,
       description: input.description?.trim() ?? "",
       reporterName: input.reporterName?.trim() ?? "",
       reporterEmail: input.reporterEmail?.trim() ?? "",

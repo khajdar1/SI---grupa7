@@ -3,7 +3,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil, Plus, TriangleAlert } from "lucide-react";
+import { Map as MapIcon, Pencil, Plus, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 
 import { ROUTES, UI, VALIDATION } from "@/constants";
@@ -676,6 +676,12 @@ const handleBulkActionComplete = async (
         secondaryActions={
           canPlanInterventions
             ? [
+                {
+                  label: "Map",
+                  href: ROUTES.MAP,
+                  variant: "outline" as const,
+                  icon: <MapIcon className="mr-2 h-4 w-4" />,
+                },
                 {
                   label: activeViewMode === "list" ? "Calendar" : "List",
                   onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),

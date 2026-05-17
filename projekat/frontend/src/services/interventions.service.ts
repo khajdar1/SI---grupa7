@@ -17,6 +17,8 @@ export interface InterventionListItem {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   categoryId: number;
   categoryName: string;
   companyId: number;
@@ -49,6 +51,8 @@ export interface InterventionFormPayload {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   startedAt?: string;
   dueAt?: string;
   faultReportId?: number | null;
@@ -145,6 +149,8 @@ export interface InterventionDetail {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   categoryId: number;
   categoryName: string;
   companyId: number;
