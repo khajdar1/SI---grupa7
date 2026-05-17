@@ -234,6 +234,24 @@ export async function getInterventions(): Promise<InterventionsResult> {
   }, 'Failed to load interventions.');
 }
 
+export async function downloadInterventionsPdf(): Promise<void> {
+  return withServiceError(async () => {
+    const response = await api.get<Blob>(API_ENDPOINTS.INTERVENTIONS.EXPORT_PDF, {
+      responseType: 'blob',
+    });
+
+    const fileName = `interventions-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 'Failed to export interventions to PDF.');
+}
+
 export async function getInterventionOptions(): Promise<InterventionOptions> {
   return getResponseData(
     () => api.get<InterventionOptions>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/options`),
