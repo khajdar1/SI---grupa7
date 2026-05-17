@@ -4,13 +4,19 @@ import { api } from '@/lib/api';
 import { getResponseData, withServiceError } from './errors';
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-export type TicketCategory = 'Technical question' | 'Application bug report' | 'Other';
+export type TicketCategory = 'Tehničko pitanje' | 'Prijava greške u aplikaciji' | 'Ostalo';
 
 export const TICKET_CATEGORIES: TicketCategory[] = [
-  'Technical question',
-  'Application bug report',
-  'Other',
+  'Tehničko pitanje',
+  'Prijava greške u aplikaciji',
+  'Ostalo',
 ];
+
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  'Tehničko pitanje': 'Technical question',
+  'Prijava greške u aplikaciji': 'Application bug report',
+  Ostalo: 'Other',
+};
 
 export interface TicketListItem {
   id: number;

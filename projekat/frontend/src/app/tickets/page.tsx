@@ -26,6 +26,7 @@ import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
 import {
   TICKET_CATEGORIES,
+  TICKET_CATEGORY_LABELS,
   createTicket,
   getUserTickets,
   type TicketListItem,
@@ -272,7 +273,7 @@ function TicketsPageContent() {
                 <SelectContent>
                   {TICKET_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
-                      {cat}
+                      {TICKET_CATEGORY_LABELS[cat]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -351,7 +352,9 @@ function TicketsPageContent() {
                   <Ticket className="mt-0.5 size-4 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-sm">{ticket.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{ticket.category}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {TICKET_CATEGORY_LABELS[ticket.category as keyof typeof TICKET_CATEGORY_LABELS] ?? ticket.category}
+                    </p>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">

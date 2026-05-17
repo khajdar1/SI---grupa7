@@ -1,9 +1,9 @@
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors';
 
 export const TICKET_CATEGORIES = [
-  'Technical question',
-  'Application bug report',
-  'Other',
+  'Tehničko pitanje',
+  'Prijava greške u aplikaciji',
+  'Ostalo',
 ] as const;
 
 export type TicketCategory = typeof TICKET_CATEGORIES[number];

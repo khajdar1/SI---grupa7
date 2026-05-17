@@ -147,30 +147,30 @@ function buildDemoCompanySeed(): SeedCompanyInput {
   return {
     name: 'Servis Alfa d.o.o.',
     contact: 'demo@servis-alfa.local',
-    type: 'service company',
+    type: 'servisna kompanija',
   };
 }
 
 function buildDemoCategorySeeds(): SeedCategoryInput[] {
   return [
     {
-      name: 'Electrical issue',
-      description: 'Electrical wiring, lighting, and power supply issues.',
+      name: 'Elektricni kvar',
+      description: 'Kvarovi na elektroinstalacijama, osvetljenju i napajanju.',
       active: true,
     },
     {
-      name: 'Plumbing issue',
-      description: 'Water supply and drainage installation issues.',
+      name: 'Vodovodni kvar',
+      description: 'Kvarovi na vodovodnim i kanalizacionim instalacijama.',
       active: true,
     },
     {
-      name: 'Network and internet',
-      description: 'Local network, access, and connectivity issues.',
+      name: 'Mreza i internet',
+      description: 'Problemi sa lokalnom mrežom, pristupom i povezivanjem.',
       active: true,
     },
     {
-      name: 'General maintenance',
-      description: 'Regular or minor operational requests that are not urgent faults.',
+      name: 'Opste odrzavanje',
+      description: 'Redovni ili manji operativni zahtjevi koji nisu hitni kvarovi.',
       active: true,
     },
   ];
@@ -210,7 +210,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Milan',
-      lastName: 'Coordinator',
+      lastName: 'Koordinator',
       username: 'milan.koordinator',
       email: 'milan.koordinator@demo.local',
       active: true,
@@ -219,7 +219,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Marko',
-      lastName: 'Technician',
+      lastName: 'Serviser',
       username: 'marko.serviser',
       email: 'marko.serviser@demo.local',
       active: true,
@@ -228,7 +228,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Lejla',
-      lastName: 'Management',
+      lastName: 'Menadzment',
       username: 'lejla.menadzment',
       email: 'lejla.menadzment@demo.local',
       active: true,
@@ -237,7 +237,7 @@ function buildDemoUserSeeds(companyId: number): SeedUserSeed[] {
     },
     {
       firstName: 'Jelena',
-      lastName: 'User',
+      lastName: 'Korisnik',
       username: 'jelena.korisnik',
       email: 'jelena.korisnik@demo.local',
       active: false,
@@ -286,30 +286,30 @@ function buildDemoExternalIdentitySeeds(
 }
 
 function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedRecord & SeedCategoryInput>, userId: number): SeedFaultReportInput[] {
-  const electrical = requireSeedCategory(categories, 'Electrical issue');
-  const plumbing = requireSeedCategory(categories, 'Plumbing issue');
-  const network = requireSeedCategory(categories, 'Network and internet');
+  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
+  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
+  const network = requireSeedCategory(categories, 'Mreza i internet');
   return [
     {
       id: 1,
-      description: 'Entrance lighting issue on the ground floor.',
-      location: 'Main entrance, building A',
+      description: 'Kvar na ulaznom osvetljenju u prizemlju.',
+      location: 'Glavni ulaz, objekat A',
       userId,
       categoryId: electrical.id,
       companyId,
     },
     {
       id: 2,
-      description: 'Burst pipe in the bathroom on the 2nd floor.',
-      location: 'Floor 2, bathroom B',
+      description: 'Pukla cijev u kupatilu na 2. spratu.',
+      location: 'Sprat 2, kupatilo B',
       userId,
       categoryId: plumbing.id,
       companyId,
     },
     {
       id: 3,
-      description: 'Internet connection is down across the entire building.',
-      location: 'Server room, ground floor',
+      description: 'Internet veza pala u cijeloj zgradi.',
+      location: 'Server soba, prizemlje',
       userId,
       categoryId: network.id,
       companyId,
@@ -323,19 +323,19 @@ function buildDemoInterventionSeeds(
   creatorId: number,
   faultReports: Array<SeedRecord & SeedFaultReportInput>,
 ): SeedInterventionInput[] {
-  const electrical = requireSeedCategory(categories, 'Electrical issue');
-  const plumbing = requireSeedCategory(categories, 'Plumbing issue');
-  const network = requireSeedCategory(categories, 'Network and internet');
-  const maintenance = requireSeedCategory(categories, 'General maintenance');
+  const electrical = requireSeedCategory(categories, 'Elektricni kvar');
+  const plumbing = requireSeedCategory(categories, 'Vodovodni kvar');
+  const network = requireSeedCategory(categories, 'Mreza i internet');
+  const maintenance = requireSeedCategory(categories, 'Opste odrzavanje');
   const fr1 = faultReports.find((f) => f.id === 1)!;
   const fr2 = faultReports.find((f) => f.id === 2)!;
   const fr3 = faultReports.find((f) => f.id === 3)!;
   return [
     {
       id: 1,
-      name: 'Fix entrance lighting issue',
-      description: 'The coordinator created an intervention from the fault report.',
-      location: 'Main entrance, building A',
+      name: 'Uklanjanje kvara na ulaznom osvjetljenju',
+      description: 'Koordinator je kreirao intervenciju na osnovu prijave kvara.',
+      location: 'Glavni ulaz, objekat A',
       priority: Priority.HIGH,
       status: InterventionStatus.NEW,
       type: InterventionType.ISSUE,
@@ -347,9 +347,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 20,
-      name: 'Plumbing repair',
-      description: 'Technician is on site and work is in progress.',
-      location: 'Floor 2, bathroom B',
+      name: 'Popravak vodovodne instalacije',
+      description: 'Majstor na terenu, radovi u toku.',
+      location: 'Sprat 2, kupatilo B',
       priority: Priority.HIGH,
       status: InterventionStatus.IN_PROGRESS,
       type: InterventionType.ISSUE,
@@ -361,9 +361,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 21,
-      name: 'Preventive network inspection',
-      description: 'Quarterly LAN infrastructure inspection.',
-      location: 'Server room, ground floor',
+      name: 'Preventivni pregled mreze',
+      description: 'Kvartalini pregled LAN infrastrukture.',
+      location: 'Server soba, prizemlje',
       priority: Priority.MEDIUM,
       status: InterventionStatus.IN_PROGRESS,
       type: InterventionType.PREVENTIVE,
@@ -375,9 +375,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 22,
-      name: 'Security camera replacement',
-      description: 'Replaced 3 cameras at the entrance.',
-      location: 'Main entrance',
+      name: 'Zamjena sigurnosnih kamera',
+      description: 'Zamijenjene 3 kamere na ulazu.',
+      location: 'Glavni ulaz',
       priority: Priority.LOW,
       status: InterventionStatus.RESOLVED,
       type: InterventionType.PREVENTIVE,
@@ -389,9 +389,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 23,
-      name: 'New cooling unit installation',
-      description: 'Cancelled - budget rejected.',
-      location: 'Server room',
+      name: 'Instalacija novog rashladnog uredjaja',
+      description: 'Otkazano - budzet odbijen.',
+      location: 'Server soba',
       priority: Priority.CRITICAL,
       status: InterventionStatus.CANCELLED,
       type: InterventionType.PREVENTIVE,
@@ -403,9 +403,9 @@ function buildDemoInterventionSeeds(
     },
     {
       id: 24,
-      name: 'Internet connection repair',
-      description: 'Internet connection is unstable and needs diagnostics.',
-      location: 'Server room, ground floor',
+      name: 'Popravka internet konekcije',
+      description: 'Internet veza nestabilna, potrebna dijagnostika.',
+      location: 'Server soba, prizemlje',
       priority: Priority.CRITICAL,
       status: InterventionStatus.NEW,
       type: InterventionType.ISSUE,
@@ -630,7 +630,7 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   const slaConfigurations = await seedSlaConfigurations(client);
   const users = await seedUsers(client, company.id);
   const externalIdentities = await seedExternalIdentities(client, users);
-  const electricalCategory = requireSeedCategory(categories, 'Electrical issue');
+  const electricalCategory = requireSeedCategory(categories, 'Elektricni kvar');
   const customerUser = requireSeedUser(users, DemoUserPersona.USER);
   const coordinatorUser = requireSeedUser(users, DemoUserPersona.COORDINATOR);
   const servicerUser = requireSeedUser(users, DemoUserPersona.SERVICER);

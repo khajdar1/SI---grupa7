@@ -30,6 +30,7 @@ function makeTicket(overrides: Partial<TicketListItem> = {}): TicketListItem {
     title: 'Problem sa prijavom',
     category: 'Tehničko pitanje',
     status: 'OPEN',
+    userBlocked: false,
     createdAt: NOW,
     updatedAt: NOW,
     ...overrides,
@@ -39,6 +40,7 @@ function makeTicket(overrides: Partial<TicketListItem> = {}): TicketListItem {
 function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
   return {
     ...makeTicket(),
+    user: { active: true },
     messages: [makeMessage()],
     ...overrides,
   };
