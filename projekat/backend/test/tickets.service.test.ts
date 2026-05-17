@@ -28,7 +28,7 @@ function makeTicket(overrides: Partial<TicketListItem> = {}): TicketListItem {
     id: 1,
     userId: 10,
     title: 'Problem sa prijavom',
-    category: 'Tehničko pitanje',
+    category: 'Technical question',
     status: 'OPEN',
     createdAt: NOW,
     updatedAt: NOW,
@@ -58,7 +58,7 @@ function createRepository(overrides: Partial<TicketRepository> = {}): TicketRepo
 const baseInput: CreateTicketInput = {
   userId: 10,
   title: 'Problem sa prijavom',
-  category: 'Tehničko pitanje',
+  category: 'Technical question',
   message: 'Aplikacija ne reaguje na klik na dugme za prijavu.',
 };
 
@@ -85,7 +85,7 @@ describe('TicketService.createTicket', () => {
 
     expect(result.status).toBe('OPEN');
     expect(createdTicketInput?.title).toBe('Problem sa prijavom');
-    expect(createdTicketInput?.category).toBe('Tehničko pitanje');
+    expect(createdTicketInput?.category).toBe('Technical question');
     expect(createdTicketInput?.userId).toBe(10);
     expect(createdMessageInput?.authorId).toBe(10);
     expect(createdMessageInput?.text).toBe('Aplikacija ne reaguje na klik na dugme za prijavu.');

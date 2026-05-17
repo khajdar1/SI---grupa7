@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ROUTES, UI } from '@/constants';
+import { hasSessionRole } from '@/lib/auth';
 import { clearFieldError, getApiFieldErrors, validateRequired } from '@/lib/form-validation';
 import type {
   FaultReportCategoryOption,
@@ -68,55 +69,6 @@ const EMERGENCY_TEMPLATES: readonly EmergencyTemplate[] = [
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
-
-function decodeJwtPayload(token: string): {
-  realm_access?: { roles?: string[] };
-  resource_access?: Record<string, { roles?: string[] }>;
-} | null {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) {
-      return null;
-    }
-
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), '=');
-
-    return JSON.parse(window.atob(padded));
-  } catch {
-    return null;
-  }
-}
-
-function getSessionRoles(): string[] {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  const roles = new Set<string>();
-  const rawUser = window.localStorage.getItem('user');
-  const token = window.localStorage.getItem('token');
-
-  try {
-    const user = rawUser ? (JSON.parse(rawUser) as { role?: string; roles?: string[] }) : null;
-    if (user?.role) {
-      roles.add(user.role.toLowerCase());
-    }
-    user?.roles?.forEach((role) => roles.add(role.toLowerCase()));
-  } catch {
-    // Ignore malformed local session data and rely on the token roles below.
-  }
-
-  if (token) {
-    const payload = decodeJwtPayload(token);
-    payload?.realm_access?.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    Object.values(payload?.resource_access ?? {}).forEach((clientAccess) => {
-      clientAccess.roles?.forEach((role) => roles.add(role.toLowerCase()));
-    });
-  }
-
-  return Array.from(roles);
-}
 
 function formatDateTime(value: string): string {
   return new Intl.DateTimeFormat('en-US', {
@@ -227,7 +179,7 @@ export default function FaultReportsPage() {
   useEffect(() => {
     const token = window.localStorage.getItem('token');
     const authenticated = Boolean(token);
-    const supportAgent = getSessionRoles().some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
+    const supportAgent = hasSessionRole(SUPPORT_AGENT_ROLE_NAMES);
 
     setIsAuthenticated(authenticated);
     setIsSupportAgent(supportAgent);
