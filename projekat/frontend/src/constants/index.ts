@@ -18,6 +18,7 @@ export const ROUTES = {
   SETTINGS: '/settings',
   FAULT_REPORTS: '/fault-reports',
   TICKETS: '/tickets',
+  TICKET_CREATE: '/tickets?create=1',
   ADMIN: '/admin',
   ADMIN_COMPANIES: '/admin/companies',
   ADMIN_CATEGORY: '/admin/categories',
@@ -96,6 +97,10 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number | string) => `/api/v1/tickets/${id}`,
     STATUS: (id: number | string) => `/api/v1/tickets/${id}/status`,
     MESSAGES: (id: number | string) => `/api/v1/tickets/${id}/messages`,
+    ADMIN_REVIEW: (id: number | string) => `/api/v1/tickets/${id}/admin-review`,
+    ADMIN_REVIEW_ADMINS: '/api/v1/tickets/admin-review/admins',
+    BLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/block-user`,
+    UNBLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/unblock-user`,
   },
   NOTIFICATIONS: {
     BASE: '/api/v1/notifications',

@@ -319,16 +319,16 @@ function buildDemoFaultReportSeeds(companyId: number, categories: Array<SeedReco
       companyId,
     },
     // PBI-025: Seed prijave za demonstraciju detekcije duplikata
-    // fr-101 i fr-102 su namjerno slični (ista lokacija, sličan opis) → treba aktivirati upozorenje
+    // fr-101 i fr-102 su namjerno slični (ista lokacija, sličan opis) -> treba aktivirati upozorenje
     {
       id: 101,
-      description: 'Kvar na ulaznom osvjetljenju – lampe ne rade.',
+      description: 'Kvar na ulaznom osvjetljenju - lampe ne rade.',
       location: 'Glavni ulaz, objekat A',
       userId: pbi025UserId,
       categoryId: electrical.id,
       companyId,
     },
-    // fr-103: ista lokacija ali RAZLIČIT opis (kvar vodovodne instalacije) → ne smije biti duplikat fr-101
+    // fr-103: ista lokacija ali RAZLIČIT opis (kvar vodovodne instalacije) -> ne smije biti duplikat fr-101
     {
       id: 103,
       description: 'Procurila voda ispod sudopere u kantini.',
@@ -442,7 +442,7 @@ function buildDemoInterventionSeeds(
     // Korisnik koji ponovo prijavi sličan kvar na istoj lokaciji treba dobiti upozorenje
     {
       id: 101,
-      name: 'Popravka osvjetljenja na ulazu – prijava #101',
+      name: 'Popravka osvjetljenja na ulazu - prijava #101',
       description: 'Lampe na ulazu ne rade, prijavila korisnica. Intervencija u toku.',
       location: 'Glavni ulaz, objekat A',
       priority: Priority.HIGH,

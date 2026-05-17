@@ -27,6 +27,7 @@ export interface TicketListItem {
   title: string;
   category: string;
   status: string;
+  userBlocked: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +44,9 @@ export interface TicketMessage {
 }
 
 export interface TicketDetail extends TicketListItem {
+  user: {
+    active: boolean;
+  };
   messages: TicketMessage[];
 }
 

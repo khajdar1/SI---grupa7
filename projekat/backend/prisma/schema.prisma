@@ -271,6 +271,10 @@ model Ticket {
   title       String
   category    String
   status      TicketStatus @default(OPEN)
+  userBlocked Boolean     @default(false)
+  userBlockedReason String? @db.LongText
+  userBlockedAt DateTime?
+  userBlockedById Int?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)

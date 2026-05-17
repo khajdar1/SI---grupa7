@@ -77,6 +77,7 @@ const COORDINATOR_ROLES = new Set([
 ]);
 const MANAGEMENT_ROLES = new Set(["menadzment", "management"]);
 const ADMIN_ROLES = new Set(["admin", "administrator"]);
+const SUPPORT_AGENT_ROLES = new Set(["supportagent", "agentpodrske"]);
 const EDITABLE_STATUSES = new Set(["NEW", "IN_PROGRESS"]);
 
 type FormState = {
@@ -185,7 +186,8 @@ function hasInterventionViewRole(roles: string[]) {
     return (
       COORDINATOR_ROLES.has(normalizedRole) ||
       MANAGEMENT_ROLES.has(normalizedRole) ||
-      ADMIN_ROLES.has(normalizedRole)
+      ADMIN_ROLES.has(normalizedRole) ||
+      SUPPORT_AGENT_ROLES.has(normalizedRole)
     );
   });
 }

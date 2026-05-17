@@ -23,7 +23,7 @@ interface DuplicateWarningDialogProps {
 }
 
 function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('bs-BA', {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
@@ -31,12 +31,12 @@ function formatDate(iso: string): string {
 
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
-    NEW: 'Nova',
-    ASSIGNED: 'Dodijeljena',
-    IN_PROGRESS: 'U toku',
-    RESOLVED: 'Završena',
-    CANCELLED: 'Otkazana',
-    REJECTED: 'Odbijena',
+    NEW: 'New',
+    ASSIGNED: 'Assigned',
+    IN_PROGRESS: 'In progress',
+    RESOLVED: 'Resolved',
+    CANCELLED: 'Cancelled',
+    REJECTED: 'Rejected',
   };
   return map[status] ?? status;
 }
@@ -64,16 +64,16 @@ export function DuplicateWarningDialog({
           <div className="flex items-center gap-2 text-amber-600">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <DialogTitle className="text-amber-700">
-              Potencijalni duplikat prijave
+              Potential duplicate report
             </DialogTitle>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
-            Sistem je detektovao{' '}
+            The system detected{' '}
             {duplicates.length === 1
-              ? 'sličnu prijavu'
-              : `${duplicates.length} slične prijave`}{' '}
-            na istoj lokaciji od istog korisnika u posljednjih 48 sati. Molimo provjerite
-            status prije kreiranja nove prijave.
+              ? 'a similar report'
+              : `${duplicates.length} similar reports`}{' '}
+            at the same location from the same user in the last 48 hours. Please check
+            the status before creating a new report.
           </DialogDescription>
         </DialogHeader>
 
@@ -85,20 +85,20 @@ export function DuplicateWarningDialog({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Intervencija #{dup.interventionId}
+                  Intervention #{dup.interventionId}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <Badge variant={statusVariant(dup.status)} className="text-xs">
                     {statusLabel(dup.status)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {dup.similarityScore}% podudaranje
+                    {dup.similarityScore}% match
                   </span>
                 </div>
               </div>
 
               <p className="text-sm font-medium truncate" title={dup.location}>
-                📍 {dup.location || '(lokacija nije navedena)'}
+                {dup.location || '(location not provided)'}
               </p>
 
               {dup.description && (
@@ -108,7 +108,7 @@ export function DuplicateWarningDialog({
               )}
 
               <p className="text-xs text-muted-foreground">
-                Prijavljeno: {formatDate(dup.reportedAt)}
+                Reported: {formatDate(dup.reportedAt)}
               </p>
             </div>
           ))}
@@ -118,20 +118,20 @@ export function DuplicateWarningDialog({
           {top && (
             <Button asChild variant="outline" size="sm">
               <Link href={ROUTES.INTERVENTION(String(top.interventionId))}>
-                Pogledaj postojeću intervenciju
+                View existing intervention
               </Link>
             </Button>
           )}
           <div className="flex gap-2 ml-auto">
             <Button variant="ghost" size="sm" onClick={onCancel}>
-              Odustani od prijave
+              Cancel report
             </Button>
             <Button
               size="sm"
               className="bg-amber-600 hover:bg-amber-700 text-white"
               onClick={onContinue}
             >
-              Ipak prijavi kvar
+              Submit anyway
             </Button>
           </div>
         </div>

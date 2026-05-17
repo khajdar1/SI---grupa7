@@ -1,12 +1,12 @@
 import { BadRequestError } from "../../shared/errors";
 
-// Vremenski prozor (u satima) u kojem se traže potencijalni duplikati
+// Time window in hours used to search for potential duplicates.
 export const DUPLICATE_DETECTION_WINDOW_HOURS = 48;
 
-// Minimalni postotak sličnosti (Jaccard nad riječima) da bi se prijava smatrala duplikatom
+// Minimum similarity percentage (word-level Jaccard) required to mark a report as a duplicate.
 export const DUPLICATE_SIMILARITY_THRESHOLD = 0.25;
 
-// Maksimalna GPS udaljenost (km) da bi se lokacije smatrale "istim mjestom"
+// Maximum GPS distance in kilometers for locations to be treated as the same place.
 export const DUPLICATE_LOCATION_RADIUS_KM = 0.5;
 
 export interface PotentialDuplicateItem {
@@ -33,7 +33,7 @@ export interface DuplicateCheckResult {
   duplicates: PotentialDuplicateItem[];
 }
 
-/** Jaccard sličnost nad skupom riječi (case-insensitive, min 3 slova) */
+/** Word-set Jaccard similarity (case-insensitive, minimum 3 letters). */
 export function computeTextSimilarity(a: string, b: string): number {
   const tokenize = (text: string): Set<string> =>
     new Set(
@@ -76,7 +76,7 @@ export function haversineKm(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** Sličnost lokacije: GPS ili tekstualna fallback */
+/** Location similarity: GPS first, then text fallback. */
 export function computeLocationSimilarity(
   locA: string,
   latA: number | null | undefined,
@@ -217,7 +217,7 @@ export interface FaultReportRepository {
   ): Promise<RecentFaultReportCandidate[]>;
 }
 
-// Statusi koji znače da je intervencija završena – ne tretiraju se kao duplikat
+// Statuses that mean the intervention is complete and should not be treated as a duplicate.
 const TERMINAL_STATUSES = new Set(["RESOLVED", "CANCELLED", "REJECTED"]);
 
 export class FaultReportService {
@@ -247,7 +247,7 @@ export class FaultReportService {
     const duplicates: PotentialDuplicateItem[] = [];
 
     for (const candidate of candidates) {
-      // Preskoči završene intervencije
+      // Skip completed interventions.
       if (TERMINAL_STATUSES.has(candidate.interventionStatus)) continue;
 
       const locationScore = computeLocationSimilarity(
@@ -259,7 +259,7 @@ export class FaultReportService {
         candidate.longitude,
       );
 
-      // Ako su lokacije potpuno različite, preskoči
+      // Skip when locations are completely different.
       if (locationScore === 0) continue;
 
       const descriptionScore = computeTextSimilarity(
@@ -267,7 +267,7 @@ export class FaultReportService {
         candidate.description,
       );
 
-      // Kombinovani score: lokacija ima veću težinu (60%), opis (40%)
+      // Combined score: location has higher weight (60%), description lower (40%).
       const combinedScore = locationScore * 0.6 + descriptionScore * 0.4;
 
       if (combinedScore >= DUPLICATE_SIMILARITY_THRESHOLD) {
@@ -283,7 +283,7 @@ export class FaultReportService {
       }
     }
 
-    // Sortiraj po sličnosti silazno
+    // Sort by similarity descending.
     duplicates.sort((a, b) => b.similarityScore - a.similarityScore);
 
     return {

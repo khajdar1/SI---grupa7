@@ -12,12 +12,19 @@ export const TICKET_CATEGORIES: TicketCategory[] = [
   'Ostalo',
 ];
 
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  'Tehničko pitanje': 'Technical question',
+  'Prijava greške u aplikaciji': 'Application bug report',
+  Ostalo: 'Other',
+};
+
 export interface TicketListItem {
   id: number;
   userId: number;
   title: string;
   category: string;
   status: TicketStatus;
+  userBlocked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,6 +41,9 @@ export interface TicketMessage {
 }
 
 export interface TicketDetail extends TicketListItem {
+  user: {
+    active: boolean;
+  };
   messages: TicketMessage[];
 }
 
@@ -45,6 +55,31 @@ export interface CreateTicketPayload {
 
 export interface AddMessagePayload {
   text: string;
+}
+
+export interface RequestAdminReviewPayload {
+  adminUserId: number;
+  reason: string;
+}
+
+export interface TicketAdminCandidate {
+  id: number;
+  firstName: string;
+  lastName: string;
+  username: string;
+  email: string;
+}
+
+export interface BlockTicketUserPayload {
+  reason: string;
+}
+
+export interface BlockedTicketUser {
+  id: number;
+  username: string;
+  email: string;
+  active: boolean;
+  ticketUserBlocked: boolean;
 }
 
 export async function getUserTickets(): Promise<TicketListItem[]> {
@@ -79,5 +114,35 @@ export async function updateTicketStatus(ticketId: number, status: TicketStatus)
   return getResponseData(
     () => api.patch<TicketListItem>(API_ENDPOINTS.TICKETS.STATUS(ticketId), { status }),
     'Failed to update ticket status.',
+  );
+}
+
+export async function getTicketAdminCandidates(): Promise<TicketAdminCandidate[]> {
+  return getResponseData(
+    () => api.get<TicketAdminCandidate[]>(API_ENDPOINTS.TICKETS.ADMIN_REVIEW_ADMINS),
+    'Failed to load admins.',
+  );
+}
+
+export async function requestTicketAdminReview(ticketId: number, payload: RequestAdminReviewPayload): Promise<void> {
+  return withServiceError(
+    async () => {
+      await api.post(API_ENDPOINTS.TICKETS.ADMIN_REVIEW(ticketId), payload);
+    },
+    'Failed to request admin review.',
+  );
+}
+
+export async function blockTicketUser(ticketId: number, payload: BlockTicketUserPayload): Promise<BlockedTicketUser> {
+  return getResponseData(
+    () => api.post<BlockedTicketUser>(API_ENDPOINTS.TICKETS.BLOCK_USER(ticketId), payload),
+    'Failed to block ticket user.',
+  );
+}
+
+export async function unblockTicketUser(ticketId: number): Promise<BlockedTicketUser> {
+  return getResponseData(
+    () => api.post<BlockedTicketUser>(API_ENDPOINTS.TICKETS.UNBLOCK_USER(ticketId)),
+    'Failed to unblock ticket user.',
   );
 }

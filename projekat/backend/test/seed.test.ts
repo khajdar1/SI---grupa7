@@ -230,4 +230,3 @@ test("should remain idempotent when the seed runs twice", async () => {
   assert.equal(state.assignments.size, 1);
   assert.equal(firstCompanyId, secondCompanyId);
 });
-
