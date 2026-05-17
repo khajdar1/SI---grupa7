@@ -661,6 +661,8 @@ export default function FaultReportsPage() {
                       value={location}
                       onChange={(event) => {
                         setLocation(event.target.value);
+                        setLatitude(null);
+                        setLongitude(null);
                         clearError('location');
                       }}
                       aria-invalid={Boolean(fieldErrors.location)}

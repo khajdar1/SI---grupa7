@@ -15,6 +15,7 @@ import {
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
 import { computeNextGenerationAt } from "../../services/recurring.service";
+import { resolvePersistableLocation } from "../../services/geocoding.service";
 import {
   bulkActionSchema,
   type BulkActionInput,
@@ -100,6 +101,8 @@ const interventionPayloadBaseSchema = z.object({
     .trim()
     .min(3, "Location must contain at least 3 characters.")
     .max(255),
+  latitude: z.coerce.number().finite().min(-90).max(90).nullable().optional(),
+  longitude: z.coerce.number().finite().min(-180).max(180).nullable().optional(),
   startedAt: z.coerce.date().optional(),
   dueAt: z.coerce.date().optional(),
   faultReportId: z.coerce.number().int().positive().nullable().optional(),
@@ -364,6 +367,8 @@ function mapIntervention(intervention: {
   name: string;
   description: string;
   location: string;
+  latitude?: any;
+  longitude?: any;
   priority: Priority;
   status: InterventionStatus;
   type: InterventionType;
@@ -396,6 +401,8 @@ function mapIntervention(intervention: {
     name: intervention.name,
     description: intervention.description,
     location: intervention.location,
+    latitude: intervention.latitude === null || intervention.latitude === undefined ? null : Number(intervention.latitude),
+    longitude: intervention.longitude === null || intervention.longitude === undefined ? null : Number(intervention.longitude),
     categoryId: intervention.category.id,
     categoryName: intervention.category.name,
     companyId: intervention.company.id,
@@ -785,6 +792,12 @@ interventionsRouter.post(
 
     const creator = await resolveCreator(req);
     const context = await resolvePlanningContext(input);
+    const resolvedLocation = await resolvePersistableLocation({
+      location: input.location,
+      latitude: input.latitude ?? (context.latitude === null ? null : Number(context.latitude)),
+      longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
+      required: true,
+    });
 
     const recurringPeriod = input.recurringPeriod ?? null;
     const startedAt = input.startedAt ?? new Date();
@@ -796,9 +809,9 @@ const intervention = await prisma.intervention.create({
       data: {
         name: input.name,
         description: input.description,
-        location: input.location,
-        latitude: context.latitude,
-        longitude: context.longitude,
+        location: resolvedLocation.location,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
@@ -891,14 +904,20 @@ interventionsRouter.patch(
     }
 
     const context = await resolvePlanningContext(input);
+    const resolvedLocation = await resolvePersistableLocation({
+      location: input.location,
+      latitude: input.latitude ?? (context.latitude === null ? null : Number(context.latitude)),
+      longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
+      required: true,
+    });
     const intervention = await prisma.intervention.update({
       where: { id },
       data: {
         name: input.name,
         description: input.description,
-        location: input.location,
-        latitude: context.latitude,
-        longitude: context.longitude,
+        location: resolvedLocation.location,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
         priority: input.priority,
         type: input.faultReportId
           ? InterventionType.ISSUE

@@ -93,6 +93,9 @@ export const API_ENDPOINTS = {
   MANAGEMENT: {
     DASHBOARD: '/api/v1/management/dashboard',
   },
+  MAPS: {
+    INTERVENTIONS: '/api/v1/maps/interventions',
+  },
   TICKETS: {
     BASE: '/api/v1/tickets',
     BY_ID: (id: number | string) => `/api/v1/tickets/${id}`,
