@@ -30,6 +30,7 @@ export interface InterventionListItem {
   dueAt: string | null;
   isOverdue?: boolean;
   faultReport: InterventionFaultReportLink | null;
+  recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -54,6 +55,7 @@ export interface InterventionFormPayload {
   companyId?: number;
   categoryId?: number;
   priority: Priority;
+  recurringPeriod?: string | null;
 }
 
 export interface InterventionOption {
@@ -156,6 +158,7 @@ export interface InterventionDetail {
   startedAt: string | null;
   dueAt: string | null;
   faultReport: { id: number } | null;
+  recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -304,6 +307,18 @@ export async function updateInterventionStatus(
   );
 }
 
+export async function updateRecurrence(
+  id: string | number,
+  recurringPeriod: string | null,
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.patch<InterventionDetail>(
+      `${API_ENDPOINTS.INTERVENTIONS.BASE}/${id}/recurrence`,
+      { recurringPeriod },
+    ),
+    'Failed to update recurrence.',
+  );
+}
 export async function executeBulkAction(
   payload: BulkActionPayload,
 ): Promise<BulkActionResponse> {
