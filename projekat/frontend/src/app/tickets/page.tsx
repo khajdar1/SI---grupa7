@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Plus, Ticket } from 'lucide-react';
 
@@ -24,7 +24,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
-import { hasSessionRole } from '@/lib/auth';
+import { getSessionRoles } from '@/lib/auth';
 import {
   TICKET_CATEGORIES,
   createTicket,
@@ -80,7 +80,13 @@ function TicketsPageContent() {
   const [form, setForm] = useState<CreateTicketFormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const canCreateTicket = !hasSessionRole(SUPPORT_AGENT_ROLE_NAMES) || hasSessionRole(ADMIN_ROLE_NAMES);
+  const canCreateTicket = useMemo(() => {
+    const sessionRoles = getSessionRoles();
+    const isSupportAgent = Array.from(sessionRoles).some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
+    const isAdmin = Array.from(sessionRoles).some((role) => ADMIN_ROLE_NAMES.has(role));
+
+    return !isSupportAgent || isAdmin;
+  }, []);
 
   useEffect(() => {
     void loadTickets();

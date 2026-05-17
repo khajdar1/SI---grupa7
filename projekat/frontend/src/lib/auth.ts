@@ -19,7 +19,7 @@ function decodeTokenPayload(token: string): KeycloakTokenPayload | null {
   }
 }
 
-function getSessionRoles(): Set<string> {
+export function getSessionRoles(): Set<string> {
   if (typeof window === 'undefined') return new Set();
 
   const roles = new Set<string>();

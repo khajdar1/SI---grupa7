@@ -145,7 +145,10 @@ async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<
     const batch = users.slice(index, index + ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY);
     const checkedBatch = await Promise.all(
       batch.map(async (user) => {
-        const keycloakSub = user.externalIdentities[0]!.providerSubject;
+        const keycloakSub = user.externalIdentities[0]?.providerSubject;
+        if (!keycloakSub) {
+          return null;
+        }
         const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
         return hasAdminRole(roleNames) ? user : null;
       }),
