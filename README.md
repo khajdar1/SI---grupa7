@@ -36,6 +36,7 @@ Razvojni workflow koristi GitFlow. `master` je rezervisan za stabilne release/ho
 3. Pokreni `npm install`.
 4. Pokreni `npm run prisma:generate --workspace backend` ako radiš lokalno ili ako si mijenjao Prisma schema fajl.
 5. Pokreni cijeli stack sa `npm run compose:up`.
+6. Za `projekat/backend/src/scripts/sync-local-keycloak-users.ts` obavezno postavi `KEYCLOAK_CLIENT_SECRET` i `KC_ADMIN_PASSWORD` u `.env` prije pokretanja skripte.
 
 Frontend, backend i MySQL se dižu iz istog `docker-compose.yml` fajla.
 

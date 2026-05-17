@@ -22,21 +22,29 @@ import {
   type BulkActionItemResult,
   type BulkActionResponse,
 } from "./interventions.bulk.schema";
+import { generateInterventionsPdf, InterventionPdfRow } from "../../shared/pdf.service";
 
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
 const ADMIN_ROLES = ["Administrator", "Admin", "administrator", "admin"];
 const SERVICER_ROLES = ["Serviser"];
+const SUPPORT_AGENT_ROLES = ["SupportAgent", "supportagent", "AgentPodrske", "agentpodrske"];
 const COORDINATOR_ACTION_ROLES = [...COORDINATOR_ROLES, ...ADMIN_ROLES];
 
-const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES, ...ADMIN_ROLES];
+const INTERVENTION_VIEW_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...ADMIN_ROLES,
+  ...SUPPORT_AGENT_ROLES,
+];
 
 const INTERVENTION_HISTORY_ROLES = [
   ...COORDINATOR_ROLES,
   ...MANAGEMENT_ROLES,
   ...ADMIN_ROLES,
   ...SERVICER_ROLES,
+  ...SUPPORT_AGENT_ROLES,
 ];
 const INTERVENTION_STATUS_ROLES = [...COORDINATOR_ACTION_ROLES, ...SERVICER_ROLES];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
@@ -575,6 +583,80 @@ interventionsRouter.get(
     });
 
     res.json(sortedInterventions.map(mapIntervention));
+  }),
+);
+
+interventionsRouter.get(
+  '/export/pdf',
+  asyncHandler(async (req, res) => {
+    const localUserId = req.user?.localUserId;
+    const hasOperationalView = hasAnyRole(req, INTERVENTION_VIEW_ROLES);
+
+    if (!hasOperationalView && !localUserId) {
+      throw new ForbiddenError('You do not have permission to export interventions.');
+    }
+
+    const where = {
+      archived: false,
+      status: {
+        in: [
+          InterventionStatus.NEW,
+          InterventionStatus.ASSIGNED,
+          InterventionStatus.IN_PROGRESS,
+        ],
+      },
+      ...(hasOperationalView
+        ? {}
+        : {
+            OR: [
+              { faultReport: { is: { userId: localUserId } } },
+              { assignments: { some: { userId: localUserId } } },
+            ],
+          }),
+    };
+
+    const interventions = await prisma.intervention.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        priority: true,
+        status: true,
+        location: true,
+        createdAt: true,
+        startedAt: true,
+        dueAt: true,
+        assignments: {
+          select: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+    });
+
+    const rows: InterventionPdfRow[] = interventions.map((i) => ({
+      name: i.name,
+      priority: String(i.priority),
+      status: String(i.status),
+      location: i.location,
+      servicers:
+        i.assignments && i.assignments.length > 0
+          ? i.assignments
+              .map((a) => `${a.user.firstName} ${a.user.lastName}`.trim())
+              .join(', ')
+          : 'Unassigned',
+      createdAt: i.createdAt?.toISOString() ?? null,
+      startedAt: i.startedAt?.toISOString() ?? null,
+      dueAt: i.dueAt?.toISOString() ?? null,
+    }));
+
+    const pdfBuffer = await generateInterventionsPdf(rows, { title: 'Interventions Export' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const filename = `interventions-${new Date().toISOString().slice(0,10)}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(pdfBuffer);
   }),
 );
 

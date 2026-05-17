@@ -6,6 +6,7 @@ export const MANAGED_USER_ROLES: readonly ManagedUserRole[] = [
   'KOORDINATOR',
   'MENADZMENT',
   'KOMPANIJA_ADMIN',
+  'SUPPORT_AGENT',
   'ADMIN',
 ] as const;
 
@@ -15,6 +16,7 @@ const ROLE_ALIASES: Record<ManagedUserRole, readonly string[]> = {
   KOORDINATOR: ['koordinator'],
   MENADZMENT: ['menadzment', 'management'],
   KOMPANIJA_ADMIN: ['kompanijaadmin', 'companyadmin'],
+  SUPPORT_AGENT: ['supportagent', 'agentpodrske'],
   ADMIN: ['admin', 'administrator'],
 };
 

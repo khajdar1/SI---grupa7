@@ -6,6 +6,7 @@ import type {
   FaultReportSubmissionResponse,
   DuplicateCheckPayload,
   DuplicateCheckResponse,
+  FaultReportListItem,
 } from '@/models/FaultReport';
 
 import { getResponseData } from './errors';
@@ -14,6 +15,13 @@ export async function getFaultReportOptions(): Promise<FaultReportOptionsRespons
   return getResponseData(
     () => api.get<FaultReportOptionsResponse>(API_ENDPOINTS.FAULT_REPORTS.OPTIONS),
     'Failed to load fault report options.',
+  );
+}
+
+export async function getFaultReports(): Promise<FaultReportListItem[]> {
+  return getResponseData(
+    () => api.get<FaultReportListItem[]>(API_ENDPOINTS.FAULT_REPORTS.BASE),
+    'Failed to load fault reports.',
   );
 }
 

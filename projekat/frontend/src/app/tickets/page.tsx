@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, Plus, Ticket } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +24,10 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
+import { getSessionRoles } from '@/lib/auth';
 import {
   TICKET_CATEGORIES,
+  TICKET_CATEGORY_LABELS,
   createTicket,
   getUserTickets,
   type TicketListItem,
@@ -33,10 +35,10 @@ import {
 } from '@/services/tickets.service';
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: 'Otvoren',
-  IN_PROGRESS: 'U tijeku',
-  RESOLVED: 'Riješen',
-  CLOSED: 'Zatvoren',
+  OPEN: 'Open',
+  IN_PROGRESS: 'In progress',
+  RESOLVED: 'Resolved',
+  CLOSED: 'Closed',
 };
 
 const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
@@ -46,7 +48,14 @@ const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructi
   CLOSED: 'outline',
 };
 
-function TicketStatusBadge({ status }: { status: TicketStatus }) {
+const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
+const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
+
+function TicketStatusBadge({ status, blocked }: { status: TicketStatus; blocked?: boolean }) {
+  if (blocked) {
+    return <Badge variant="destructive">Blocked</Badge>;
+  }
+
   return (
     <Badge variant={STATUS_VARIANTS[status]}>
       {STATUS_LABELS[status]}
@@ -62,8 +71,9 @@ interface CreateTicketFormState {
 
 const INITIAL_FORM: CreateTicketFormState = { title: '', category: '', message: '' };
 
-export default function TicketsPage() {
+function TicketsPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +81,30 @@ export default function TicketsPage() {
   const [form, setForm] = useState<CreateTicketFormState>(INITIAL_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const canCreateTicket = useMemo(() => {
+    const sessionRoles = getSessionRoles();
+    const isSupportAgent = Array.from(sessionRoles).some((role) => SUPPORT_AGENT_ROLE_NAMES.has(role));
+    const isAdmin = Array.from(sessionRoles).some((role) => ADMIN_ROLE_NAMES.has(role));
+
+    return !isSupportAgent || isAdmin;
+  }, []);
 
   useEffect(() => {
     void loadTickets();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('create') !== '1') {
+      return;
+    }
+
+    if (canCreateTicket) {
+      setDialogOpen(true);
+      return;
+    }
+
+    router.replace(ROUTES.TICKETS, { scroll: false });
+  }, [canCreateTicket, router, searchParams]);
 
   async function loadTickets() {
     try {
@@ -83,7 +113,7 @@ export default function TicketsPage() {
       const data = await getUserTickets();
       setTickets(data);
     } catch {
-      setError('Nije moguće učitati tikete. Pokušajte ponovo.');
+      setError('Unable to load tickets. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -98,17 +128,17 @@ export default function TicketsPage() {
     e.preventDefault();
 
     if (!form.title.trim() || form.title.trim().length < 3) {
-      setFormError('Naslov mora imati najmanje 3 karaktera.');
+      setFormError('Title must be at least 3 characters.');
       return;
     }
 
     if (!form.category) {
-      setFormError('Odaberite kategoriju upita.');
+      setFormError('Select a request category.');
       return;
     }
 
     if (!form.message.trim()) {
-      setFormError('Opis problema je obavezan.');
+      setFormError('Problem description is required.');
       return;
     }
 
@@ -124,7 +154,7 @@ export default function TicketsPage() {
       setForm(INITIAL_FORM);
       setDialogOpen(false);
     } catch {
-      setFormError('Kreiranje tiketa nije uspjelo. Pokušajte ponovo.');
+      setFormError('Unable to create ticket. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -135,26 +165,34 @@ export default function TicketsPage() {
     if (!open) {
       setForm(INITIAL_FORM);
       setFormError(null);
+      if (searchParams.get('create') === '1') {
+        router.replace(ROUTES.TICKETS, { scroll: false });
+      }
     }
   }
 
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Tiketi za podršku"
-        subtitle="Pratite vaše zahtjeve za korisničku podršku."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Tiketi' }]}
-        primaryAction={{
-          label: 'Novi tiket',
-          onClick: () => setDialogOpen(true),
-          icon: <Plus className="size-4" />,
-        }}
+        title="Support Tickets"
+        subtitle="Track your support requests."
+        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Tickets' }]}
+        primaryAction={
+          canCreateTicket
+            ? {
+                label: 'New ticket',
+                onClick: () => setDialogOpen(true),
+                icon: <Plus className="size-4" />,
+              }
+            : undefined
+        }
       />
 
+      {canCreateTicket ? (
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Kreiranje tiketa za podršku</DialogTitle>
+            <DialogTitle>Create support ticket</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleCreateTicket} className="space-y-4 pt-2">
@@ -166,10 +204,10 @@ export default function TicketsPage() {
             ) : null}
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-title">Naslov</Label>
+              <Label htmlFor="ticket-title">Title</Label>
               <Input
                 id="ticket-title"
-                placeholder="Kratki opis problema..."
+                placeholder="Short problem summary..."
                 value={form.title}
                 onChange={(e) => handleFormChange('title', e.target.value)}
                 maxLength={150}
@@ -177,15 +215,15 @@ export default function TicketsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-category">Kategorija upita</Label>
+              <Label htmlFor="ticket-category">Request category</Label>
               <Select value={form.category} onValueChange={(value) => handleFormChange('category', value ?? '')}>
                 <SelectTrigger id="ticket-category">
-                  <SelectValue placeholder="Odaberite kategoriju..." />
+                  <SelectValue placeholder="Select a category..." />
                 </SelectTrigger>
                 <SelectContent>
                   {TICKET_CATEGORIES.map((cat) => (
                     <SelectItem key={cat} value={cat}>
-                      {cat}
+                      {TICKET_CATEGORY_LABELS[cat]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -193,10 +231,10 @@ export default function TicketsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-message">Opis problema</Label>
+              <Label htmlFor="ticket-message">Problem description</Label>
               <Textarea
                 id="ticket-message"
-                placeholder="Detaljno opišite problem ili pitanje..."
+                placeholder="Describe the problem or question in detail..."
                 value={form.message}
                 onChange={(e) => handleFormChange('message', e.target.value)}
                 rows={5}
@@ -211,15 +249,16 @@ export default function TicketsPage() {
                 onClick={() => handleDialogOpenChange(false)}
                 disabled={submitting}
               >
-                Odustani
+                Cancel
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Kreiranje...' : 'Kreiraj tiket'}
+                {submitting ? 'Creating...' : 'Create ticket'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+      ) : null}
 
       {loading ? (
         <div className="space-y-3">
@@ -234,12 +273,20 @@ export default function TicketsPage() {
         </div>
       ) : tickets.length === 0 ? (
         <EmptyState
-          title="Nemate tiketa"
-          description="Kreirajte tiket kako biste postavili pitanje ili prijavili problem."
-          action={{
-            label: 'Novi tiket',
-            onClick: () => setDialogOpen(true),
-          }}
+          title="No tickets"
+          description={
+            canCreateTicket
+              ? 'Create a ticket to ask a question or report a problem.'
+              : 'There are no open tickets to process right now.'
+          }
+          action={
+            canCreateTicket
+              ? {
+                  label: 'New ticket',
+                  onClick: () => setDialogOpen(true),
+                }
+              : undefined
+          }
         />
       ) : (
         <div className="space-y-3">
@@ -255,11 +302,13 @@ export default function TicketsPage() {
                   <Ticket className="mt-0.5 size-4 shrink-0 text-primary" />
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-sm">{ticket.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{ticket.category}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {TICKET_CATEGORY_LABELS[ticket.category as keyof typeof TICKET_CATEGORY_LABELS] ?? ticket.category}
+                    </p>
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  <TicketStatusBadge status={ticket.status} />
+                  <TicketStatusBadge status={ticket.status} blocked={ticket.userBlocked} />
                   <span className="text-xs text-muted-foreground">
                     #{ticket.id}
                   </span>
@@ -270,5 +319,13 @@ export default function TicketsPage() {
         </div>
       )}
     </PageLayout>
+  );
+}
+
+export default function TicketsPage() {
+  return (
+    <Suspense fallback={null}>
+      <TicketsPageContent />
+    </Suspense>
   );
 }

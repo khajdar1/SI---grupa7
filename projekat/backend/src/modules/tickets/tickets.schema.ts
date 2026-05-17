@@ -14,5 +14,16 @@ export const addMessageSchema = z.object({
   text: z.string().trim().min(1, 'Message text is required.').max(2000, 'Message must be at most 2000 characters.'),
 });
 
+export const requestAdminReviewSchema = z.object({
+  adminUserId: z.number().int().positive('Admin user is required.'),
+  reason: z.string().trim().min(10, 'Reason must be at least 10 characters.').max(1000, 'Reason must be at most 1000 characters.'),
+});
+
+export const blockTicketUserSchema = z.object({
+  reason: z.string().trim().min(10, 'Reason must be at least 10 characters.').max(1000, 'Reason must be at most 1000 characters.'),
+});
+
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type AddMessageInput = z.infer<typeof addMessageSchema>;
+export type RequestAdminReviewInput = z.infer<typeof requestAdminReviewSchema>;
+export type BlockTicketUserInput = z.infer<typeof blockTicketUserSchema>;

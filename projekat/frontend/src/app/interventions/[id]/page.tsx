@@ -73,6 +73,8 @@ const REPORT_READ_ROLES = new Set([
   'menadzment',
   'management',
   'serviser',
+  'supportagent',
+  'agentpodrske',
 ]);
 
 const REPORT_WRITE_ROLES = new Set(['serviser']);
