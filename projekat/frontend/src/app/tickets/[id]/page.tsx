@@ -34,6 +34,7 @@ import {
   updateTicketStatus,
   type TicketAdminCandidate,
   type TicketDetail,
+  type TicketMessage,
   type TicketStatus,
 } from '@/services/tickets.service';
 
@@ -53,6 +54,11 @@ const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructi
 
 const SUPPORT_AGENT_ROLES = new Set(['supportagent', 'agentpodrske']);
 const ADMIN_ROLES = new Set(['admin', 'administrator']);
+
+type TicketMessageCreatedEvent = {
+  ticketId: number;
+  message: TicketMessage;
+};
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString('hr', {
@@ -114,6 +120,19 @@ export default function TicketDetailPage() {
   const canManageTicket = isSupportAgent || isAdmin;
   const isTicketUserBlocked = Boolean(blockedUserLabel) || ticket?.userBlocked === true;
 
+  function appendTicketMessage(message: TicketMessage) {
+    setTicket((previous) => {
+      if (!previous || previous.messages.some((existing) => existing.id === message.id)) {
+        return previous;
+      }
+
+      return {
+        ...previous,
+        messages: [...previous.messages, message],
+      };
+    });
+  }
+
   useEffect(() => {
     void loadTicket();
   }, [ticketId]);
@@ -121,6 +140,20 @@ export default function TicketDetailPage() {
   useEffect(() => {
     setCurrentUserId(getCurrentUserId());
   }, []);
+
+  useEffect(() => {
+    if (!currentUserId || !Number.isInteger(ticketId) || ticketId <= 0) {
+      return;
+    }
+
+    socket.connect();
+    socket.emit('user:join', currentUserId);
+    socket.emit('ticket:join', { ticketId, userId: currentUserId });
+
+    return () => {
+      socket.emit('ticket:leave', { ticketId, userId: currentUserId });
+    };
+  }, [currentUserId, ticketId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -143,10 +176,20 @@ export default function TicketDetailPage() {
       );
     };
 
+    const handleMessageCreated = (event: TicketMessageCreatedEvent) => {
+      if (event.ticketId !== ticketId) {
+        return;
+      }
+
+      appendTicketMessage(event.message);
+    };
+
     socket.on('ticket:statusChanged', handleStatusChanged);
+    socket.on('ticket:messageCreated', handleMessageCreated);
 
     return () => {
       socket.off('ticket:statusChanged', handleStatusChanged);
+      socket.off('ticket:messageCreated', handleMessageCreated);
     };
   }, [ticketId]);
 
@@ -193,7 +236,7 @@ export default function TicketDetailPage() {
       setSending(true);
       setSendError(null);
       const msg = await addTicketMessage(ticketId, { text: messageText.trim() });
-      setTicket((prev) => (prev ? { ...prev, messages: [...prev.messages, msg] } : prev));
+      appendTicketMessage(msg);
       setMessageText('');
     } catch (requestError) {
       setSendError(requestError instanceof Error ? requestError.message : 'Message could not be sent. Please try again.');

@@ -846,7 +846,19 @@ const handleBulkActionComplete = async (
               </Link>
             ),
           },
-          { key: "location", header: "Location" },
+          {
+            key: "location",
+            header: "Location",
+            width: "16rem",
+            render: (value) => {
+              const location = String(value ?? "");
+              return (
+                <span className="block max-w-64 truncate" title={location}>
+                  {location}
+                </span>
+              );
+            },
+          },
           { key: "categoryName", header: "Category" },
           {
             key: "priority",

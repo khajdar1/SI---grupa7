@@ -25,6 +25,8 @@ const ADDRESS_CACHE = new Map<string, ResolvedLocation>();
 const GEOCODING_TIMEOUT_MS = 6000;
 const DEFAULT_NOMINATIM_URL = 'https://nominatim.openstreetmap.org';
 const DEFAULT_COUNTRY_CODES = 'ba';
+const MAX_PERSISTED_LOCATION_LENGTH = 500;
+const MAX_DISPLAY_LOCATION_LENGTH = 140;
 
 function isGeocodingDisabled(): boolean {
   return process.env.NODE_ENV === 'test' || process.env.GEOCODING_DISABLED === 'true';
@@ -44,6 +46,116 @@ function getCountryCodes(): string {
 
 function normalizeAddress(value: string): string {
   return value.trim().replace(/\s+/g, ' ');
+}
+
+function appendUnique(parts: string[], value: string | undefined): void {
+  const normalized = normalizeAddress(value ?? '');
+  if (!normalized) {
+    return;
+  }
+
+  if (!parts.some((part) => part.toLowerCase() === normalized.toLowerCase())) {
+    parts.push(normalized);
+  }
+}
+
+function truncateLocation(value: string): string {
+  if (value.length <= MAX_PERSISTED_LOCATION_LENGTH) {
+    return value;
+  }
+
+  return value.slice(0, MAX_PERSISTED_LOCATION_LENGTH - 1).trimEnd();
+}
+
+function normalizeMojibake(value: string): string {
+  return value
+    .replaceAll('\u00c4\u008d', '\u010d')
+    .replaceAll('\u00c4\u0087', '\u0107')
+    .replaceAll('\u00c5\u00a1', '\u0161')
+    .replaceAll('\u00c5\u00be', '\u017e')
+    .replaceAll('\u00c4\u0091', '\u0111')
+    .replaceAll('\u00c4\u008c', '\u010c')
+    .replaceAll('\u00c4\u0086', '\u0106')
+    .replaceAll('\u00c5\u00a0', '\u0160')
+    .replaceAll('\u00c5\u00bd', '\u017d')
+    .replaceAll('\u00c4\u0090', '\u0110')
+    .replaceAll('\u00e2\u0080\u0093', '-')
+    .replaceAll('\u00e2\u0080\u0094', '-');
+}
+
+function removeNoisyLocationPart(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return (
+    /^\d{4,}$/.test(normalized) ||
+    normalized.includes('federacija bosne') ||
+    normalized.includes('mjesna zajednica') ||
+    normalized.startsWith('grad ') ||
+    normalized.startsWith('opcina ') ||
+    normalized.startsWith('op\u0107ina ')
+  );
+}
+
+function stripMunicipalityPrefix(value: string): string {
+  return value.replace(/^opcina\s+/i, '').replace(/^op\u0107ina\s+/i, '').trim();
+}
+
+export function compactStoredLocation(value: string): string {
+  const cleaned = normalizeMojibake(value)
+    .split('/')[0]
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) {
+    return '';
+  }
+
+  const parts = cleaned
+    .split(',')
+    .map((part) => stripMunicipalityPrefix(part.trim()))
+    .filter(Boolean)
+    .filter((part) => !removeNoisyLocationPart(part));
+
+  if (parts.length <= 4) {
+    return parts.join(', ') || cleaned.slice(0, MAX_DISPLAY_LOCATION_LENGTH);
+  }
+
+  const result: string[] = [];
+  appendUnique(result, parts[0]);
+
+  const secondPart = parts[1];
+  if (secondPart && !/kanton|canton|bosna|hercegovina/i.test(secondPart)) {
+    appendUnique(result, secondPart);
+  }
+
+  appendUnique(result, parts.find((part) => /kanton|canton/i.test(part)));
+  appendUnique(result, parts.find((part) => /centar|ilid/i.test(part) && !/kanton|canton/i.test(part)));
+  appendUnique(result, parts.find((part) => /sarajevo/i.test(part) && !/kanton|canton/i.test(part)));
+  appendUnique(result, parts.find((part) => /bosna|hercegovina|bosnia|herzegovina/i.test(part)));
+
+  const compact = result.join(', ') || parts.slice(0, 4).join(', ');
+  return compact.length > MAX_DISPLAY_LOCATION_LENGTH
+    ? `${compact.slice(0, MAX_DISPLAY_LOCATION_LENGTH - 1).trimEnd()}`
+    : compact;
+}
+
+export function formatPersistableLocation(
+  displayName: string | undefined,
+  address: Record<string, string | undefined> | undefined,
+): string {
+  const parts: string[] = [];
+  const street = [address?.road ?? address?.pedestrian ?? address?.footway, address?.house_number]
+    .filter(Boolean)
+    .join(' ');
+
+  appendUnique(parts, street);
+  appendUnique(parts, address?.building ?? address?.amenity ?? address?.neighbourhood ?? address?.suburb);
+  appendUnique(parts, address?.state ?? address?.county ?? address?.region);
+  appendUnique(parts, address?.municipality ?? address?.city ?? address?.town ?? address?.village);
+  appendUnique(parts, address?.country);
+
+  const compactLocation = parts.join(', ');
+  return truncateLocation(compactStoredLocation(compactLocation || normalizeAddress(displayName ?? '')));
 }
 
 function roundCoordinate(value: number): number {
@@ -163,7 +275,7 @@ async function geocodeAddress(address: string): Promise<ResolvedLocation> {
   assertCoordinateRange(latitude, longitude);
 
   const resolved = {
-    location: normalizeAddress(result.display_name),
+    location: formatPersistableLocation(result.display_name, result.address),
     latitude: roundCoordinate(latitude),
     longitude: roundCoordinate(longitude),
   };
@@ -183,7 +295,7 @@ async function reverseGeocode(latitude: number, longitude: number, fallbackLocat
 
   if (isGeocodingDisabled()) {
     return {
-      location: normalizeAddress(fallbackLocation) || `${roundedLatitude}, ${roundedLongitude}`,
+      location: truncateLocation(normalizeAddress(fallbackLocation) || `${roundedLatitude}, ${roundedLongitude}`),
       latitude: roundedLatitude,
       longitude: roundedLongitude,
     };
@@ -205,7 +317,7 @@ async function reverseGeocode(latitude: number, longitude: number, fallbackLocat
   }
 
   const resolved = {
-    location: normalizeAddress(result.display_name),
+    location: formatPersistableLocation(result.display_name, result.address),
     latitude: roundedLatitude,
     longitude: roundedLongitude,
   };
@@ -258,5 +370,5 @@ export async function resolvePersistableLocation(input: {
     throw buildGeocodingError();
   }
 
-  return geocodeAddress(location);
+  return geocodeAddress(truncateLocation(location));
 }

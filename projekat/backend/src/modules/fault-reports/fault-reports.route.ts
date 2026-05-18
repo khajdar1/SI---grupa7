@@ -53,6 +53,7 @@ const faultReportSubmissionSchema = z.object({
   location: z
     .string()
     .trim()
+    .max(500)
     .refine((val) => val.length === 0 || val.length >= 3, {
       message: "String must contain at least 3 character(s)",
     })

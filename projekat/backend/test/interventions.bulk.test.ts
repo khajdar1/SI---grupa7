@@ -685,6 +685,44 @@ describe('POST /interventions/bulk-actions – ARCHIVE', () => {
   });
 });
 
+describe('POST /interventions/bulk-actions – DEARCHIVE', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    seedActor();
+    interventionUpdateMock.mockResolvedValue({});
+  });
+
+  test('uspješno dearhivira arhiviranu intervenciju', async () => {
+    seedInterventions([{ id: 1, status: InterventionStatus.RESOLVED, archived: true }]);
+
+    const res = await request('POST', '/interventions/bulk-actions', {
+      body: { action: 'DEARCHIVE', interventionIds: [1], payload: {} },
+    });
+
+    expect(res.status).toBe(200);
+    expect(interventionUpdateMock).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: { archived: false },
+    });
+    const body = res.body as { totalSucceeded: number; totalSkipped: number };
+    expect(body.totalSucceeded).toBe(1);
+    expect(body.totalSkipped).toBe(0);
+  });
+
+  test('atomarno odbija dearhiviranje ako intervencija nije arhivirana', async () => {
+    seedInterventions([{ id: 1, status: InterventionStatus.RESOLVED, archived: false }]);
+
+    const res = await request('POST', '/interventions/bulk-actions', {
+      body: { action: 'DEARCHIVE', interventionIds: [1], payload: {} },
+    });
+
+    expect(res.status).toBe(422);
+    expect(interventionUpdateMock).not.toHaveBeenCalled();
+    const body = res.body as { results: { reason?: string }[] };
+    expect(body.results[0].reason).toMatch(/not archived/i);
+  });
+});
+
 describe('Atomarnost i audit log', () => {
   beforeEach(() => {
     vi.clearAllMocks();

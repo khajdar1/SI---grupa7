@@ -34,6 +34,11 @@ export interface SeedCategoryInput {
   readonly active: boolean;
 }
 
+export interface SeedTicketCategoryInput {
+  readonly name: string;
+  readonly active: boolean;
+}
+
 export interface SeedSlaConfigurationInput {
   readonly priority: Priority;
   readonly deadlineHours: number;
@@ -92,6 +97,7 @@ export interface SeedAssignmentInput {
 export interface SeedSummary {
   readonly companyName: string;
   readonly categoryCount: number;
+  readonly ticketCategoryCount: number;
   readonly slaConfigurationCount: number;
   readonly userCount: number;
   readonly externalIdentityCount: number;
@@ -135,6 +141,7 @@ interface IdUpsertModel<TData extends SeedRecord> {
 export interface SeedClient {
   company: UpsertModel<{ name: string }, SeedCompanyInput, SeedRecord & SeedCompanyInput>;
   category: UpsertModel<{ name: string }, SeedCategoryInput, SeedRecord & SeedCategoryInput>;
+  ticketCategory: UpsertModel<{ name: string }, SeedTicketCategoryInput, SeedRecord & SeedTicketCategoryInput>;
   slaConfiguration: UpsertModel<{ priority: Priority }, SeedSlaConfigurationInput, SeedRecord & SeedSlaConfigurationInput>;
   user: UpsertModel<{ email: string }, SeedUserInput, SeedRecord & SeedUserInput>;
   externalIdentity: UpsertModel<ExternalIdentityWhereUniqueInput, SeedExternalIdentityInput, SeedRecord & SeedExternalIdentityInput>;
@@ -171,6 +178,23 @@ function buildDemoCategorySeeds(): SeedCategoryInput[] {
     {
       name: 'Opste odrzavanje',
       description: 'Redovni ili manji operativni zahtjevi koji nisu hitni kvarovi.',
+      active: true,
+    },
+  ];
+}
+
+function buildDemoTicketCategorySeeds(): SeedTicketCategoryInput[] {
+  return [
+    {
+      name: 'Tehničko pitanje',
+      active: true,
+    },
+    {
+      name: 'Prijava greške u aplikaciji',
+      active: true,
+    },
+    {
+      name: 'Ostalo',
       active: true,
     },
   ];
@@ -483,6 +507,9 @@ export function createPrismaSeedClient(prisma: PrismaClient): SeedClient {
     category: {
       upsert: (args) => prisma.category.upsert(args),
     },
+    ticketCategory: {
+      upsert: (args) => prisma.ticketCategory.upsert(args),
+    },
     slaConfiguration: {
       upsert: (args) => prisma.slaConfiguration.upsert(args),
     },
@@ -534,6 +561,18 @@ async function seedCategories(client: SeedClient): Promise<Array<SeedRecord & Se
   return Promise.all(
     buildDemoCategorySeeds().map((categorySeed) =>
       client.category.upsert({
+        where: { name: categorySeed.name },
+        create: categorySeed,
+        update: categorySeed,
+      }),
+    ),
+  );
+}
+
+async function seedTicketCategories(client: SeedClient): Promise<Array<SeedRecord & SeedTicketCategoryInput>> {
+  return Promise.all(
+    buildDemoTicketCategorySeeds().map((categorySeed) =>
+      client.ticketCategory.upsert({
         where: { name: categorySeed.name },
         create: categorySeed,
         update: categorySeed,
@@ -627,6 +666,7 @@ async function seedAssignment(
 export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   const company = await seedCompany(client);
   const categories = await seedCategories(client);
+  const ticketCategories = await seedTicketCategories(client);
   const slaConfigurations = await seedSlaConfigurations(client);
   const users = await seedUsers(client, company.id);
   const externalIdentities = await seedExternalIdentities(client, users);
@@ -641,6 +681,7 @@ export async function seedDatabase(client: SeedClient): Promise<SeedSummary> {
   return {
     companyName: company.name,
     categoryCount: categories.length,
+    ticketCategoryCount: ticketCategories.length,
     slaConfigurationCount: slaConfigurations.length,
     userCount: users.length,
     externalIdentityCount: externalIdentities.length,
@@ -663,7 +704,7 @@ export async function main(): Promise<void> {
     const summary = await seedDatabase(createPrismaSeedClient(prisma));
 
     console.log(
-      `Seed completed for ${summary.companyName}: ${summary.categoryCount} categories, ${summary.slaConfigurationCount} SLA rows, ${summary.userCount} users, ${summary.externalIdentityCount} external identities.`,
+      `Seed completed for ${summary.companyName}: ${summary.categoryCount} categories, ${summary.ticketCategoryCount} ticket categories, ${summary.slaConfigurationCount} SLA rows, ${summary.userCount} users, ${summary.externalIdentityCount} external identities.`,
     );
   } finally {
     await prisma.$disconnect();

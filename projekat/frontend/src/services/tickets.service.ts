@@ -4,24 +4,18 @@ import { api } from '@/lib/api';
 import { getResponseData, withServiceError } from './errors';
 
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-export type TicketCategory = 'Tehničko pitanje' | 'Prijava greške u aplikaciji' | 'Ostalo';
 
-export const TICKET_CATEGORIES: TicketCategory[] = [
-  'Tehničko pitanje',
-  'Prijava greške u aplikaciji',
-  'Ostalo',
-];
-
-export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
-  'Tehničko pitanje': 'Technical question',
-  'Prijava greške u aplikaciji': 'Application bug report',
-  Ostalo: 'Other',
-};
+export interface TicketCategory {
+  id: number;
+  name: string;
+  active: boolean;
+}
 
 export interface TicketListItem {
   id: number;
   userId: number;
   title: string;
+  categoryId: number;
   category: string;
   status: TicketStatus;
   userBlocked: boolean;
@@ -49,7 +43,7 @@ export interface TicketDetail extends TicketListItem {
 
 export interface CreateTicketPayload {
   title: string;
-  category: string;
+  categoryId: number;
   message: string;
 }
 
@@ -86,6 +80,13 @@ export async function getUserTickets(): Promise<TicketListItem[]> {
   return getResponseData(
     () => api.get<TicketListItem[]>(API_ENDPOINTS.TICKETS.BASE),
     'Failed to load tickets.',
+  );
+}
+
+export async function getTicketCategories(): Promise<TicketCategory[]> {
+  return getResponseData(
+    () => api.get<TicketCategory[]>(API_ENDPOINTS.TICKETS.CATEGORIES),
+    'Failed to load ticket categories.',
   );
 }
 

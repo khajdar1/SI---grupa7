@@ -1,16 +1,46 @@
 import { Router } from 'express';
 
-import { getKeycloakAdminToken, getKeycloakUserRoleNames } from '../../clients/keycloak.client';
+import {
+  findKeycloakUserIdByUsernameOrEmail,
+  getKeycloakAdminToken,
+  getKeycloakUserRoleNames,
+} from '../../clients/keycloak.client';
 import { prisma } from '../../config/database';
 import { authenticate } from '../../middleware/auth.middleware';
 import { validate } from '../../middleware/validate.middleware';
-import { emitToRole, emitToUser } from '../../realtime/socket';
+import { emitToRole, emitToUser, isUserViewingTicket } from '../../realtime/socket';
 import { asyncHandler } from '../../shared/async-handler';
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from '../../shared/errors';
-import { TicketService, type TicketRepository } from './tickets.service';
+import { TicketService, type TicketDetail, type TicketListItem, type TicketMessage, type TicketRepository } from './tickets.service';
 import { addMessageSchema, blockTicketUserSchema, createTicketSchema, requestAdminReviewSchema } from './tickets.schema';
 
 const ticketsRouter = Router();
+
+type TicketRecord = Omit<TicketListItem, 'category'> & {
+  category: {
+    name: string;
+  };
+};
+
+type TicketDetailRecord = Omit<TicketDetail, 'category'> & {
+  category: {
+    name: string;
+  };
+};
+
+function mapTicketListItem(ticket: TicketRecord): TicketListItem {
+  return {
+    ...ticket,
+    category: ticket.category.name,
+  };
+}
+
+function mapTicketDetail(ticket: TicketDetailRecord): TicketDetail {
+  return {
+    ...ticket,
+    category: ticket.category.name,
+  };
+}
 
 const ticketRepository: TicketRepository = {
   create: async (input) =>
@@ -18,19 +48,22 @@ const ticketRepository: TicketRepository = {
       data: {
         userId: input.userId,
         title: input.title,
-        category: input.category,
+        categoryId: input.categoryId,
       },
       select: {
         id: true,
         userId: true,
         title: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: { name: true },
+        },
         status: true,
         userBlocked: true,
         createdAt: true,
         updatedAt: true,
       },
-    }),
+    }).then(mapTicketListItem),
 
   createMessage: async (input) =>
     prisma.message.create({
@@ -49,6 +82,16 @@ const ticketRepository: TicketRepository = {
       },
     }),
 
+  findCategoryById: async (categoryId) =>
+    prisma.ticketCategory.findUnique({
+      where: { id: categoryId },
+      select: {
+        id: true,
+        name: true,
+        active: true,
+      },
+    }),
+
   findAll: async () =>
     prisma.ticket.findMany({
       orderBy: { createdAt: 'desc' },
@@ -56,13 +99,16 @@ const ticketRepository: TicketRepository = {
         id: true,
         userId: true,
         title: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: { name: true },
+        },
         status: true,
         userBlocked: true,
         createdAt: true,
         updatedAt: true,
       },
-    }),
+    }).then((tickets) => tickets.map(mapTicketListItem)),
 
   findByUserId: async (userId) =>
     prisma.ticket.findMany({
@@ -72,13 +118,16 @@ const ticketRepository: TicketRepository = {
         id: true,
         userId: true,
         title: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: { name: true },
+        },
         status: true,
         userBlocked: true,
         createdAt: true,
         updatedAt: true,
       },
-    }),
+    }).then((tickets) => tickets.map(mapTicketListItem)),
 
   findById: async (ticketId) =>
     prisma.ticket.findUnique({
@@ -87,7 +136,10 @@ const ticketRepository: TicketRepository = {
         id: true,
         userId: true,
         title: true,
-        category: true,
+        categoryId: true,
+        category: {
+          select: { name: true },
+        },
         status: true,
         userBlocked: true,
         createdAt: true,
@@ -107,12 +159,20 @@ const ticketRepository: TicketRepository = {
           },
         },
       },
-    }),
+    }).then((ticket) => (ticket ? mapTicketDetail(ticket) : null)),
 };
 
 const ADMIN_ROLES = new Set(['admin', 'administrator']);
 const SUPPORT_AGENT_ROLES = new Set(['supportagent', 'agentpodrske']);
 const ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY = 5;
+const NEW_TICKET_ROLE_LOOKUP_CONCURRENCY = 5;
+
+type KeycloakRoleCandidate = {
+  id: number;
+  username?: string | null;
+  email?: string | null;
+  externalIdentities: Array<{ providerSubject: string }>;
+};
 
 function hasAnyRole(req: { user?: { roles?: string[] } }, roles: Set<string>): boolean {
   return (req.user?.roles ?? []).some((role) => roles.has(role.toLowerCase()));
@@ -134,7 +194,46 @@ function hasAdminRole(roleNames: readonly string[]): boolean {
   return roleNames.some((role) => ADMIN_ROLES.has(role.toLowerCase()));
 }
 
-async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<{ providerSubject: string }> }>(
+function hasNewTicketNotificationRole(roleNames: readonly string[]): boolean {
+  return roleNames.some((role) => {
+    const normalizedRole = role.toLowerCase();
+    return ADMIN_ROLES.has(normalizedRole) || SUPPORT_AGENT_ROLES.has(normalizedRole);
+  });
+}
+
+async function getRoleNamesForCandidate(
+  adminToken: string,
+  user: KeycloakRoleCandidate,
+  operation: string,
+): Promise<string[]> {
+  const keycloakSub = user.externalIdentities[0]?.providerSubject;
+
+  if (keycloakSub) {
+    try {
+      return await getKeycloakUserRoleNames(adminToken, keycloakSub);
+    } catch (error) {
+      console.warn(`[TicketsRoute] Could not load Keycloak roles for local user ${user.id} during ${operation}.`, error);
+    }
+  }
+
+  try {
+    const resolvedKeycloakUserId = await findKeycloakUserIdByUsernameOrEmail(adminToken, {
+      username: user.username,
+      email: user.email,
+    });
+
+    if (!resolvedKeycloakUserId || resolvedKeycloakUserId === keycloakSub) {
+      return [];
+    }
+
+    return await getKeycloakUserRoleNames(adminToken, resolvedKeycloakUserId);
+  } catch (error) {
+    console.warn(`[TicketsRoute] Could not resolve Keycloak roles for local user ${user.id} during ${operation}.`, error);
+    return [];
+  }
+}
+
+async function filterAdminsByKeycloakRole<T extends KeycloakRoleCandidate>(
   users: T[],
   adminToken: string,
 ): Promise<T[]> {
@@ -145,11 +244,7 @@ async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<
     const batch = users.slice(index, index + ADMIN_REVIEW_ROLE_LOOKUP_CONCURRENCY);
     const checkedBatch = await Promise.all(
       batch.map(async (user) => {
-        const keycloakSub = user.externalIdentities[0]?.providerSubject;
-        if (!keycloakSub) {
-          return null;
-        }
-        const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
+        const roleNames = await getRoleNamesForCandidate(adminToken, user, 'admin review candidate lookup');
         return hasAdminRole(roleNames) ? user : null;
       }),
     );
@@ -162,6 +257,91 @@ async function filterAdminsByKeycloakRole<T extends { externalIdentities: Array<
   }
 
   return admins;
+}
+
+async function findNewTicketNotificationRecipients(): Promise<Array<{ id: number }>> {
+  const users = await prisma.user.findMany({
+    where: { active: true },
+    select: {
+      id: true,
+      username: true,
+      email: true,
+      externalIdentities: {
+        where: { provider: 'keycloak' },
+        select: { providerSubject: true },
+        take: 1,
+      },
+    },
+  });
+
+  const adminToken = await getKeycloakAdminToken();
+  const recipients: Array<{ id: number }> = [];
+
+  for (let index = 0; index < users.length; index += NEW_TICKET_ROLE_LOOKUP_CONCURRENCY) {
+    const batch = users.slice(index, index + NEW_TICKET_ROLE_LOOKUP_CONCURRENCY);
+    const checkedBatch = await Promise.all(
+      batch.map(async (user) => {
+        const roleNames = await getRoleNamesForCandidate(adminToken, user, 'new ticket notification lookup');
+        return hasNewTicketNotificationRole(roleNames) ? { id: user.id } : null;
+      }),
+    );
+
+    for (const user of checkedBatch) {
+      if (user) {
+        recipients.push(user);
+      }
+    }
+  }
+
+  return recipients;
+}
+
+async function notifyTicketRecipients(
+  recipients: Array<{ id: number }>,
+  input: {
+    title: string;
+    text: string;
+    type: 'NEW_TICKET' | 'TICKET_REPLY';
+    ticketId: number;
+  },
+): Promise<void> {
+  const notifications = await Promise.all(
+    recipients
+      .filter((recipient) => !isUserViewingTicket(input.ticketId, recipient.id))
+      .map((recipient) =>
+      prisma.notification.create({
+        data: {
+          userId: recipient.id,
+          title: input.title,
+          text: input.text,
+          type: input.type,
+          ticketId: input.ticketId,
+        },
+      }),
+    ),
+  );
+
+  for (const notification of notifications) {
+    emitToUser(notification.userId, 'notification:new', notification);
+  }
+}
+
+async function notifyNewTicketRecipients(ticket: { id: number; title: string; category: string }): Promise<void> {
+  const recipients = await findNewTicketNotificationRecipients();
+
+  await notifyTicketRecipients(recipients, {
+    title: 'New support ticket',
+    text: `Ticket #${ticket.id}: ${ticket.title} (${ticket.category})`,
+    type: 'NEW_TICKET',
+    ticketId: ticket.id,
+  });
+}
+
+function emitTicketMessage(ticketId: number, ticketUserId: number, message: TicketMessage): void {
+  const payload = { ticketId, message };
+  emitToUser(ticketUserId, 'ticket:messageCreated', payload);
+  emitToRole('supportagent', 'ticket:messageCreated', payload);
+  emitToRole('admin', 'ticket:messageCreated', payload);
 }
 
 const ticketService = new TicketService(ticketRepository);
@@ -197,23 +377,31 @@ ticketsRouter.post(
     const ticket = await ticketService.createTicket({
       userId,
       title: req.body.title as string,
-      category: req.body.category as string,
+      categoryId: req.body.categoryId as number,
       message: req.body.message as string,
     });
 
-    emitToRole('supportagent', 'notification:new', {
-      id: -1,
-      userId: null,
-      title: 'New support ticket',
-      text: `Ticket #${ticket.id}: ${ticket.title} (${ticket.category})`,
-      type: 'NEW_TICKET',
-      read: false,
-      interventionId: null,
-      ticketId: ticket.id,
-      createdAt: new Date().toISOString(),
-    });
+    await notifyNewTicketRecipients(ticket);
 
     res.status(201).json(ticket);
+  }),
+);
+
+ticketsRouter.get(
+  '/categories',
+  authenticate,
+  asyncHandler(async (_req, res) => {
+    const categories = await prisma.ticketCategory.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        active: true,
+      },
+    });
+
+    res.json(categories);
   }),
 );
 
@@ -243,8 +431,7 @@ ticketsRouter.get(
     });
 
     const adminToken = await getKeycloakAdminToken();
-    const keycloakUsers = users.filter((user) => user.externalIdentities[0]?.providerSubject);
-    const admins = await filterAdminsByKeycloakRole(keycloakUsers, adminToken);
+    const admins = await filterAdminsByKeycloakRole(users, adminToken);
 
     res.json(
       admins.map((admin) => ({
@@ -309,10 +496,21 @@ ticketsRouter.patch(
     const updated = await prisma.ticket.update({
       where: { id: ticketId },
       data: { status: status as 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED' },
-      select: { id: true, userId: true, title: true, category: true, status: true, userBlocked: true, createdAt: true, updatedAt: true },
+      select: {
+        id: true,
+        userId: true,
+        title: true,
+        categoryId: true,
+        category: { select: { name: true } },
+        status: true,
+        userBlocked: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
+    const updatedTicket = mapTicketListItem(updated);
 
-    if (status === 'CLOSED') {
+    if (status === 'CLOSED' && !isUserViewingTicket(ticketId, ticket.userId)) {
       const notification = await prisma.notification.create({
         data: {
           userId: ticket.userId,
@@ -325,11 +523,11 @@ ticketsRouter.patch(
       emitToUser(ticket.userId, 'notification:new', notification);
     }
 
-    emitToUser(ticket.userId, 'ticket:statusChanged', updated);
-    emitToRole('supportagent', 'ticket:statusChanged', updated);
-    emitToRole('admin', 'ticket:statusChanged', updated);
+    emitToUser(ticket.userId, 'ticket:statusChanged', updatedTicket);
+    emitToRole('supportagent', 'ticket:statusChanged', updatedTicket);
+    emitToRole('admin', 'ticket:statusChanged', updatedTicket);
 
-    res.json(updated);
+    res.json(updatedTicket);
   }),
 );
 
@@ -383,7 +581,9 @@ ticketsRouter.post(
       text: (req.body as { text: string }).text,
     });
 
-    if (authorIsAgent && ticket.userId !== userId) {
+    emitTicketMessage(ticketId, ticket.userId, message);
+
+    if (authorIsAgent && ticket.userId !== userId && !isUserViewingTicket(ticketId, ticket.userId)) {
       // Agent replied → notify ticket owner via DB + socket
       const notification = await prisma.notification.create({
         data: {
@@ -396,17 +596,12 @@ ticketsRouter.post(
       });
       emitToUser(ticket.userId, 'notification:new', notification);
     } else if (!authorIsAgent) {
-      // User replied -> notify support agents via socket.
-      emitToRole('supportagent', 'notification:new', {
-        id: -1,
-        userId: null,
+      const recipients = (await findNewTicketNotificationRecipients()).filter((recipient) => recipient.id !== userId);
+      await notifyTicketRecipients(recipients, {
         title: 'New ticket reply',
         text: `The user replied to ticket #${ticketId}: ${ticket.title}`,
         type: 'TICKET_REPLY',
-        read: false,
-        interventionId: null,
         ticketId,
-        createdAt: new Date().toISOString(),
       });
     }
 
@@ -450,6 +645,8 @@ ticketsRouter.post(
       where: { id: adminUserId },
       select: {
         id: true,
+        username: true,
+        email: true,
         active: true,
         externalIdentities: {
           where: { provider: 'keycloak' },
@@ -463,29 +660,26 @@ ticketsRouter.post(
       throw new NotFoundError('Selected admin was not found.');
     }
 
-    const keycloakSub = admin.externalIdentities[0]?.providerSubject;
-    if (!keycloakSub) {
-      throw new BadRequestError('Selected admin is missing a Keycloak identity.');
-    }
-
     const adminToken = await getKeycloakAdminToken();
-    const roleNames = await getKeycloakUserRoleNames(adminToken, keycloakSub);
+    const roleNames = await getRoleNamesForCandidate(adminToken, admin, 'admin review request validation');
     if (!hasAdminRole(roleNames)) {
       throw new BadRequestError('Selected user is not an admin.');
     }
 
     const reason = rawReason.trim();
-    const notification = await prisma.notification.create({
-      data: {
-        userId: admin.id,
-        title: 'Admin review requested',
-        text: `Ticket #${ticket.id}: ${ticket.title}. Reason: ${reason}`,
-        type: 'TICKET_REPLY',
-        ticketId,
-      },
-    });
+    if (!isUserViewingTicket(ticketId, admin.id)) {
+      const notification = await prisma.notification.create({
+        data: {
+          userId: admin.id,
+          title: 'Admin review requested',
+          text: `Ticket #${ticket.id}: ${ticket.title}. Reason: ${reason}`,
+          type: 'TICKET_REPLY',
+          ticketId,
+        },
+      });
 
-    emitToUser(admin.id, 'notification:new', notification);
+      emitToUser(admin.id, 'notification:new', notification);
+    }
 
     res.status(201).json({ message: 'Admin review requested.' });
   }),

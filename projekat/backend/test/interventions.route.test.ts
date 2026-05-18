@@ -385,6 +385,20 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
+  it("does not set startedAt when creating a planned intervention", async () => {
+    const response = await request("POST", "/interventions", {
+      body: basePayload,
+    });
+
+    expect(response.status).toBe(201);
+    expect(interventionCreateMock).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        startedAt: null,
+      }),
+      include: expect.any(Object),
+    });
+  });
+
   it("rejects creation when fault report is provided", async () => {
     const response = await request("POST", "/interventions", {
       body: faultReportPayload,
@@ -764,7 +778,10 @@ describe("PBI-004 interventions route", () => {
     expect(response.status).toBe(200);
     expect(interventionUpdateMock).toHaveBeenCalledWith({
       where: { id: 21 },
-      data: { status: InterventionStatus.IN_PROGRESS },
+      data: {
+        status: InterventionStatus.IN_PROGRESS,
+        startedAt: expect.any(Date),
+      },
       include: expect.any(Object),
     });
     expect(statusHistoryCreateMock).toHaveBeenCalledWith({

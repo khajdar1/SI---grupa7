@@ -26,10 +26,10 @@ import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
 import { getSessionRoles } from '@/lib/auth';
 import {
-  TICKET_CATEGORIES,
-  TICKET_CATEGORY_LABELS,
   createTicket,
+  getTicketCategories,
   getUserTickets,
+  type TicketCategory,
   type TicketListItem,
   type TicketStatus,
 } from '@/services/tickets.service';
@@ -65,16 +65,17 @@ function TicketStatusBadge({ status, blocked }: { status: TicketStatus; blocked?
 
 interface CreateTicketFormState {
   title: string;
-  category: string;
+  categoryId: string;
   message: string;
 }
 
-const INITIAL_FORM: CreateTicketFormState = { title: '', category: '', message: '' };
+const INITIAL_FORM: CreateTicketFormState = { title: '', categoryId: '', message: '' };
 
 function TicketsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
+  const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -91,6 +92,7 @@ function TicketsPageContent() {
 
   useEffect(() => {
     void loadTickets();
+    void loadTicketCategories();
   }, []);
 
   useEffect(() => {
@@ -119,6 +121,15 @@ function TicketsPageContent() {
     }
   }
 
+  async function loadTicketCategories() {
+    try {
+      const data = await getTicketCategories();
+      setTicketCategories(data);
+    } catch {
+      setTicketCategories([]);
+    }
+  }
+
   function handleFormChange(field: keyof CreateTicketFormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     setFormError(null);
@@ -132,7 +143,8 @@ function TicketsPageContent() {
       return;
     }
 
-    if (!form.category) {
+    const categoryId = Number(form.categoryId);
+    if (!Number.isInteger(categoryId) || categoryId <= 0) {
       setFormError('Select a request category.');
       return;
     }
@@ -147,7 +159,7 @@ function TicketsPageContent() {
       setFormError(null);
       const newTicket = await createTicket({
         title: form.title.trim(),
-        category: form.category,
+        categoryId,
         message: form.message.trim(),
       });
       setTickets((prev) => [newTicket, ...prev]);
@@ -216,14 +228,18 @@ function TicketsPageContent() {
 
             <div className="space-y-1.5">
               <Label htmlFor="ticket-category">Request category</Label>
-              <Select value={form.category} onValueChange={(value) => handleFormChange('category', value ?? '')}>
+              <Select
+                value={form.categoryId}
+                onValueChange={(value) => handleFormChange('categoryId', value ?? '')}
+                disabled={ticketCategories.length === 0}
+              >
                 <SelectTrigger id="ticket-category">
-                  <SelectValue placeholder="Select a category..." />
+                  <SelectValue placeholder={ticketCategories.length === 0 ? 'No categories available' : 'Select a category...'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {TICKET_CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {TICKET_CATEGORY_LABELS[cat]}
+                  {ticketCategories.map((category) => (
+                    <SelectItem key={category.id} value={String(category.id)}>
+                      {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -303,7 +319,7 @@ function TicketsPageContent() {
                   <div className="min-w-0">
                     <p className="truncate font-semibold text-sm">{ticket.title}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {TICKET_CATEGORY_LABELS[ticket.category as keyof typeof TICKET_CATEGORY_LABELS] ?? ticket.category}
+                      {ticket.category}
                     </p>
                   </div>
                 </div>

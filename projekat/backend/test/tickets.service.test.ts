@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
-  TICKET_CATEGORIES,
   TicketService,
   type CreateTicketInput,
   type TicketDetail,
@@ -28,6 +27,7 @@ function makeTicket(overrides: Partial<TicketListItem> = {}): TicketListItem {
     id: 1,
     userId: 10,
     title: 'Problem sa prijavom',
+    categoryId: 1,
     category: 'Tehničko pitanje',
     status: 'OPEN',
     userBlocked: false,
@@ -49,9 +49,15 @@ function makeDetail(overrides: Partial<TicketDetail> = {}): TicketDetail {
 function createRepository(overrides: Partial<TicketRepository> = {}): TicketRepository {
   return {
     create: async (input) =>
-      makeTicket({ title: input.title, category: input.category, userId: input.userId }),
+      makeTicket({ title: input.title, categoryId: input.categoryId, userId: input.userId }),
     createMessage: async () => makeMessage(),
+    findCategoryById: async (categoryId) => ({
+      id: categoryId,
+      name: 'Tehničko pitanje',
+      active: true,
+    }),
     findByUserId: async () => [],
+    findAll: async () => [],
     findById: async () => null,
     ...overrides,
   };
@@ -60,7 +66,7 @@ function createRepository(overrides: Partial<TicketRepository> = {}): TicketRepo
 const baseInput: CreateTicketInput = {
   userId: 10,
   title: 'Problem sa prijavom',
-  category: 'Tehničko pitanje',
+  categoryId: 1,
   message: 'Aplikacija ne reaguje na klik na dugme za prijavu.',
 };
 
@@ -68,13 +74,13 @@ beforeEach(() => {});
 
 describe('TicketService.createTicket', () => {
   it('should create a ticket and attach the opening message', async () => {
-    let createdTicketInput: { userId: number; title: string; category: string } | undefined;
+    let createdTicketInput: { userId: number; title: string; categoryId: number } | undefined;
     let createdMessageInput: { ticketId: number; authorId: number; text: string } | undefined;
 
     const repository = createRepository({
       create: async (input) => {
         createdTicketInput = input;
-        return makeTicket({ userId: input.userId, title: input.title, category: input.category });
+        return makeTicket({ userId: input.userId, title: input.title, categoryId: input.categoryId });
       },
       createMessage: async (input) => {
         createdMessageInput = input;
@@ -87,7 +93,7 @@ describe('TicketService.createTicket', () => {
 
     expect(result.status).toBe('OPEN');
     expect(createdTicketInput?.title).toBe('Problem sa prijavom');
-    expect(createdTicketInput?.category).toBe('Tehničko pitanje');
+    expect(createdTicketInput?.categoryId).toBe(1);
     expect(createdTicketInput?.userId).toBe(10);
     expect(createdMessageInput?.authorId).toBe(10);
     expect(createdMessageInput?.text).toBe('Aplikacija ne reaguje na klik na dugme za prijavu.');
@@ -164,23 +170,39 @@ describe('TicketService.createTicket', () => {
     );
   });
 
-  it('should reject a category not in the predefined list', async () => {
+  it('should reject a missing category identifier', async () => {
     const service = new TicketService(createRepository());
 
     await expect(
-      service.createTicket({ ...baseInput, category: 'Nepostojeca kategorija' }),
+      service.createTicket({ ...baseInput, categoryId: 0 }),
     ).rejects.toBeInstanceOf(BadRequestError);
   });
 
-  it('should accept all three predefined categories', async () => {
+  it('should reject a category that does not exist', async () => {
     const repository = createRepository({
-      create: async (input) => makeTicket({ category: input.category }),
+      findCategoryById: async () => null,
     });
     const service = new TicketService(repository);
 
-    for (const category of TICKET_CATEGORIES) {
-      await expect(service.createTicket({ ...baseInput, category })).resolves.not.toThrow();
-    }
+    await expect(service.createTicket(baseInput)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('should reject an inactive category', async () => {
+    const repository = createRepository({
+      findCategoryById: async () => ({ id: 1, name: 'Tehničko pitanje', active: false }),
+    });
+    const service = new TicketService(repository);
+
+    await expect(service.createTicket(baseInput)).rejects.toBeInstanceOf(BadRequestError);
+  });
+
+  it('should accept an active category from the repository', async () => {
+    const repository = createRepository({
+      create: async (input) => makeTicket({ categoryId: input.categoryId }),
+    });
+    const service = new TicketService(repository);
+
+    await expect(service.createTicket(baseInput)).resolves.not.toThrow();
   });
 
   it('should not create a repository message when ticket creation fails', async () => {
@@ -215,7 +237,7 @@ describe('TicketService.createTicket', () => {
     const service = new TicketService(repository);
 
     await expect(
-      service.createTicket({ ...baseInput, category: 'Nevalidna' }),
+      service.createTicket({ ...baseInput, categoryId: 0 }),
     ).rejects.toBeInstanceOf(BadRequestError);
     expect(createCalled).toBe(false);
   });

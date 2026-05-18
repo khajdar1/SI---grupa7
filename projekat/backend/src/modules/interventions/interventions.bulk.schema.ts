@@ -32,6 +32,11 @@ export const bulkActionSchema = z.discriminatedUnion('action', [
     interventionIds: interventionIdsSchema,
     payload: z.object({}),
   }),
+  z.object({
+    action: z.literal('DEARCHIVE'),
+    interventionIds: interventionIdsSchema,
+    payload: z.object({}),
+  }),
 ]);
 
 export type BulkActionInput = z.infer<typeof bulkActionSchema>;
