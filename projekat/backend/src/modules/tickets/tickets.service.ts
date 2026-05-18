@@ -1,17 +1,9 @@
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../shared/errors';
 
-export const TICKET_CATEGORIES = [
-  'Tehničko pitanje',
-  'Prijava greške u aplikaciji',
-  'Ostalo',
-] as const;
-
-export type TicketCategory = typeof TICKET_CATEGORIES[number];
-
 export interface CreateTicketInput {
   userId: number;
   title: string;
-  category: string;
+  categoryId: number;
   message: string;
 }
 
@@ -25,6 +17,7 @@ export interface TicketListItem {
   id: number;
   userId: number;
   title: string;
+  categoryId: number;
   category: string;
   status: string;
   userBlocked: boolean;
@@ -50,9 +43,16 @@ export interface TicketDetail extends TicketListItem {
   messages: TicketMessage[];
 }
 
+export interface TicketCategoryRecord {
+  id: number;
+  name: string;
+  active: boolean;
+}
+
 export interface TicketRepository {
-  create(input: { userId: number; title: string; category: string }): Promise<TicketListItem>;
+  create(input: { userId: number; title: string; categoryId: number }): Promise<TicketListItem>;
   createMessage(input: { ticketId: number; authorId: number; text: string }): Promise<TicketMessage>;
+  findCategoryById(categoryId: number): Promise<TicketCategoryRecord | null>;
   findAll(): Promise<TicketListItem[]>;
   findByUserId(userId: number): Promise<TicketListItem[]>;
   findById(ticketId: number): Promise<TicketDetail | null>;
@@ -68,9 +68,9 @@ export class TicketService {
       ]);
     }
 
-    if (!TICKET_CATEGORIES.includes(input.category as TicketCategory)) {
-      throw new BadRequestError(`Category must be one of: ${TICKET_CATEGORIES.join(', ')}.`, [
-        { field: 'category', message: `Category must be one of: ${TICKET_CATEGORIES.join(', ')}.` },
+    if (!Number.isInteger(input.categoryId) || input.categoryId <= 0) {
+      throw new BadRequestError('Category is required.', [
+        { field: 'categoryId', message: 'Category is required.' },
       ]);
     }
 
@@ -80,10 +80,23 @@ export class TicketService {
       ]);
     }
 
+    const category = await this.repository.findCategoryById(input.categoryId);
+    if (!category) {
+      throw new BadRequestError('Selected category does not exist.', [
+        { field: 'categoryId', message: 'Selected category does not exist.' },
+      ]);
+    }
+
+    if (!category.active) {
+      throw new BadRequestError('Selected category is inactive.', [
+        { field: 'categoryId', message: 'Selected category is inactive.' },
+      ]);
+    }
+
     const ticket = await this.repository.create({
       userId: input.userId,
       title: input.title.trim(),
-      category: input.category,
+      categoryId: category.id,
     });
 
     await this.repository.createMessage({

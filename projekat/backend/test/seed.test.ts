@@ -13,6 +13,7 @@ import {
   type SeedInterventionInput,
   type SeedExternalIdentityInput,
   type SeedSlaConfigurationInput,
+  type SeedTicketCategoryInput,
   type SeedUserInput,
   Priority,
   seedDatabase,
@@ -23,6 +24,7 @@ type PriorityValue = (typeof Priority)[keyof typeof Priority];
 interface MemoryState {
   companies: Map<string, SeedCompanyInput & { id: number }>;
   categories: Map<string, SeedCategoryInput & { id: number }>;
+  ticketCategories: Map<string, SeedTicketCategoryInput & { id: number }>;
   slaConfigurations: Map<PriorityValue, SeedSlaConfigurationInput & { id: number }>;
   users: Map<string, SeedUserInput & { id: number }>;
   externalIdentities: Map<string, SeedExternalIdentityInput & { id: number }>;
@@ -37,6 +39,7 @@ function createMemorySeedClient(): { client: SeedClient; state: MemoryState } {
   const state: MemoryState = {
     companies: new Map(),
     categories: new Map(),
+    ticketCategories: new Map(),
     slaConfigurations: new Map(),
     users: new Map(),
     externalIdentities: new Map(),
@@ -72,6 +75,10 @@ function createMemorySeedClient(): { client: SeedClient; state: MemoryState } {
     category: {
       upsert: async ({ where, create, update }) =>
         upsertByKey(state.categories, where.name, create, update),
+    },
+    ticketCategory: {
+      upsert: async ({ where, create, update }) =>
+        upsertByKey(state.ticketCategories, where.name, create, update),
     },
     slaConfiguration: {
       upsert: async ({ where, create, update }) =>
@@ -111,6 +118,7 @@ test("should seed the demo dataset with local profiles and external identities",
 
   assert.equal(summary.companyName, "Servis Alfa d.o.o.");
   assert.equal(summary.categoryCount, 4);
+  assert.equal(summary.ticketCategoryCount, 3);
   assert.equal(summary.slaConfigurationCount, 4);
   assert.equal(summary.userCount, 5);
   assert.equal(summary.externalIdentityCount, 5);
@@ -119,6 +127,7 @@ test("should seed the demo dataset with local profiles and external identities",
   assert.equal(summary.assignmentCount, 1);
   assert.equal(state.companies.size, 1);
   assert.equal(state.categories.size, 4);
+  assert.equal(state.ticketCategories.size, 3);
   assert.equal(state.slaConfigurations.size, 4);
   assert.equal(state.users.size, 5);
   assert.equal(state.externalIdentities.size, 5);
@@ -131,6 +140,9 @@ test("should seed the demo dataset with local profiles and external identities",
 
   const electricalCategory = state.categories.get("Elektricni kvar");
   assert.ok(electricalCategory);
+  assert.ok(state.ticketCategories.get("Tehničko pitanje"));
+  assert.ok(state.ticketCategories.get("Prijava greške u aplikaciji"));
+  assert.ok(state.ticketCategories.get("Ostalo"));
 
   const admin = state.users.get("ana.admin@demo.local");
   const coordinator = state.users.get("milan.koordinator@demo.local");
@@ -218,10 +230,12 @@ test("should remain idempotent when the seed runs twice", async () => {
 
   assert.equal(firstSummary.companyName, secondSummary.companyName);
   assert.equal(firstSummary.categoryCount, secondSummary.categoryCount);
+  assert.equal(firstSummary.ticketCategoryCount, secondSummary.ticketCategoryCount);
   assert.equal(firstSummary.slaConfigurationCount, secondSummary.slaConfigurationCount);
   assert.equal(firstSummary.userCount, secondSummary.userCount);
   assert.equal(state.companies.size, 1);
   assert.equal(state.categories.size, 4);
+  assert.equal(state.ticketCategories.size, 3);
   assert.equal(state.slaConfigurations.size, 4);
   assert.equal(state.users.size, 5);
   assert.equal(state.externalIdentities.size, 5);

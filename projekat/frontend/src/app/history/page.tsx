@@ -54,6 +54,7 @@ export default function HistoryPage() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isArchiving, setIsArchiving] = useState(false);
+  const [pendingBulkAction, setPendingBulkAction] = useState<'ARCHIVE' | 'DEARCHIVE'>('ARCHIVE');
 
   async function loadHistory(nextPage = page) {
     setIsLoading(true);
@@ -112,6 +113,9 @@ export default function HistoryPage() {
   }, [page, showArchived]);
 
 
+  const selectedItems = items.filter((item) => selectedIds.includes(Number(item.id)));
+  const selectedHasArchived = selectedItems.some((item) => item.archived);
+  const selectedHasActive = selectedItems.some((item) => !item.archived);
   const allSelected = items.length > 0 && selectedIds.length === items.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
 
@@ -131,20 +135,29 @@ export default function HistoryPage() {
 
   const clearSelection = () => setSelectedIds([]);
 
-  const executeArchive = async () => {
+  const openBulkConfirm = (action: 'ARCHIVE' | 'DEARCHIVE') => {
+    setPendingBulkAction(action);
+    setIsConfirmOpen(true);
+  };
+
+  const executeBulkArchiveAction = async () => {
     setIsArchiving(true);
     try {
       await api.post('/api/v1/interventions/bulk-actions', {
-        action: 'ARCHIVE',
+        action: pendingBulkAction,
         interventionIds: selectedIds,
         payload: {},
       });
-      setMessage(`${selectedIds.length} intervention${selectedIds.length !== 1 ? 's' : ''} archived successfully.`);
+      setMessage(
+        `${selectedIds.length} intervention${selectedIds.length !== 1 ? 's' : ''} ${
+          pendingBulkAction === 'ARCHIVE' ? 'archived' : 'dearchived'
+        } successfully.`,
+      );
       clearSelection();
       await loadHistory(page);
     } catch (error: any) {
       setMessage(
-        error?.response?.data?.message || 'Failed to archive interventions. Please try again.',
+        error?.response?.data?.message || 'Failed to update archive state. Please try again.',
       );
     } finally {
       setIsArchiving(false);
@@ -224,10 +237,21 @@ export default function HistoryPage() {
           <div className="ml-auto flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsConfirmOpen(true)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              onClick={() => openBulkConfirm('ARCHIVE')}
+              disabled={selectedHasArchived}
+              title={selectedHasArchived ? 'Already archived interventions cannot be archived again.' : 'Archive selected interventions'}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Archive
+            </button>
+            <button
+              type="button"
+              onClick={() => openBulkConfirm('DEARCHIVE')}
+              disabled={selectedHasActive}
+              title={selectedHasActive ? 'Only archived interventions can be dearchived.' : 'Dearchive selected interventions'}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Dearchive
             </button>
             <button
               type="button"
@@ -241,8 +265,8 @@ export default function HistoryPage() {
       )}
 
       {/* ── Table ── */}
-      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="w-full border-collapse text-left text-sm">
+      <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[980px] w-full border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="w-10 px-4 py-3">
@@ -298,7 +322,11 @@ export default function HistoryPage() {
                     <td className="px-4 py-3">{new Date(item.date).toLocaleDateString('en-US')}</td>
                     <td className="px-4 py-3">{item.status}</td>
                     <td className="px-4 py-3">{item.priority}</td>
-                    <td className="px-4 py-3">{item.location}</td>
+                    <td className="max-w-64 px-4 py-3">
+                      <span className="block truncate" title={item.location}>
+                        {item.location}
+                      </span>
+                    </td>
                     <td className="px-4 py-3">{item.categoryName}</td>
                     <td className="px-4 py-3">{item.servicer}</td>
                     <td className="px-4 py-3">{item.summary}</td>
@@ -347,10 +375,14 @@ export default function HistoryPage() {
       <ConfirmDialog
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
-        onConfirm={() => { void executeArchive(); }}
-        title="Archive interventions"
-        description={`Archive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? Archived interventions will no longer appear in the history list but will remain in the database.`}
-        confirmLabel="Archive"
+        onConfirm={() => { void executeBulkArchiveAction(); }}
+        title={pendingBulkAction === 'ARCHIVE' ? 'Archive interventions' : 'Dearchive interventions'}
+        description={
+          pendingBulkAction === 'ARCHIVE'
+            ? `Archive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? Archived interventions will no longer appear in the history list unless archived items are shown.`
+            : `Dearchive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? They will appear in the regular history list again.`
+        }
+        confirmLabel={pendingBulkAction === 'ARCHIVE' ? 'Archive' : 'Dearchive'}
         cancelLabel="Cancel"
         variant="default"
         isLoading={isArchiving}

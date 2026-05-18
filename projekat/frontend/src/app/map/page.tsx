@@ -253,6 +253,7 @@ function InterventionMap({
               selected?.id === item.id && 'scale-125 ring-4 ring-primary/35',
             )}
             style={{ left, top, backgroundColor: item.priorityColor }}
+            onPointerDown={(event) => event.stopPropagation()}
             onClick={() => onSelect(item)}
           />
         ))}
@@ -264,6 +265,7 @@ function InterventionMap({
               left: clamp(selectedMarker.left + 14, 16, Math.max(16, size.width - 336)),
               top: clamp(selectedMarker.top - 14, 16, Math.max(16, size.height - 260)),
             }}
+            onPointerDown={(event) => event.stopPropagation()}
           >
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">

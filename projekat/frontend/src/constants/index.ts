@@ -98,6 +98,7 @@ export const API_ENDPOINTS = {
   },
   TICKETS: {
     BASE: '/api/v1/tickets',
+    CATEGORIES: '/api/v1/tickets/categories',
     BY_ID: (id: number | string) => `/api/v1/tickets/${id}`,
     STATUS: (id: number | string) => `/api/v1/tickets/${id}/status`,
     MESSAGES: (id: number | string) => `/api/v1/tickets/${id}/messages`,

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { prisma } from '../../config/database';
 import { authorizeRoles } from '../../middleware/auth.middleware';
+import { compactStoredLocation } from '../../services/geocoding.service';
 import { asyncHandler } from '../../shared/async-handler';
 
 const mapsRouter = Router();
@@ -91,7 +92,7 @@ mapsRouter.get(
       items: interventions.map((intervention) => ({
         id: String(intervention.id),
         name: intervention.name,
-        location: intervention.location,
+        location: compactStoredLocation(intervention.location),
         latitude: Number(intervention.latitude),
         longitude: Number(intervention.longitude),
         priority: intervention.priority,

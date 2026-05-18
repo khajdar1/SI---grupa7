@@ -317,7 +317,10 @@ export default function InterventionDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Started</p>
                   <p className="text-sm">
-                    {new Date(intervention.startedAt).toLocaleDateString('en-GB')}
+                    {new Date(intervention.startedAt).toLocaleString('en-GB', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
                   </p>
                 </div>
                 <div>

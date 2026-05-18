@@ -179,7 +179,7 @@ export interface InterventionDetail {
   }>;
 }
 
-export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE';
+export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
  
 export interface BulkActionItemResult {
   id: number;
@@ -211,11 +211,18 @@ type BulkArchivePayload = {
   interventionIds: number[];
   payload: Record<string, never>;
 };
+
+type BulkDearchivePayload = {
+  action: 'DEARCHIVE';
+  interventionIds: number[];
+  payload: Record<string, never>;
+};
  
 export type BulkActionPayload =
   | BulkStatusChangePayload
   | BulkAssignServicerPayload
-  | BulkArchivePayload;
+  | BulkArchivePayload
+  | BulkDearchivePayload;
  
 
 export async function getInterventionById(id: number): Promise<InterventionDetail> {
@@ -394,6 +401,10 @@ export function buildBulkAssignServicer(
  
 export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload {
   return { action: 'ARCHIVE', interventionIds, payload: {} as Record<string, never> };
+}
+
+export function buildBulkDearchive(interventionIds: number[]): BulkDearchivePayload {
+  return { action: 'DEARCHIVE', interventionIds, payload: {} as Record<string, never> };
 }
  
 export function formatBulkResultSummary(result: BulkActionResponse): string {

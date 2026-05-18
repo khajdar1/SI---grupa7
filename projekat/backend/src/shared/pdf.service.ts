@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
+import { existsSync } from 'node:fs';
 
 export interface InterventionPdfRow {
   name: string;
@@ -11,6 +12,79 @@ export interface InterventionPdfRow {
   dueAt: string | null;
 }
 
+type PdfFontNames = {
+  regular: string;
+  bold: string;
+};
+
+function resolveFontPath(candidates: Array<string | undefined>): string | null {
+  return candidates.find((candidate): candidate is string => Boolean(candidate && existsSync(candidate))) ?? null;
+}
+
+export function normalizePdfText(value: string): string {
+  if (!/[ÃÄÅâ]/.test(value)) {
+    return value;
+  }
+
+  const decoded = Buffer.from(value, 'latin1').toString('utf8');
+  if (decoded.includes('\uFFFD')) {
+    return value;
+  }
+
+  return /[čćšžđČĆŠŽĐ–—]/.test(decoded) ? decoded : value;
+}
+
+export function sanitizePdfText(value: string): string {
+  return value
+    .replaceAll('\u00c4\u008d', '\u010d')
+    .replaceAll('\u00c4\u0087', '\u0107')
+    .replaceAll('\u00c5\u00a1', '\u0161')
+    .replaceAll('\u00c5\u00be', '\u017e')
+    .replaceAll('\u00c4\u0091', '\u0111')
+    .replaceAll('\u00c4\u008c', '\u010c')
+    .replaceAll('\u00c4\u0086', '\u0106')
+    .replaceAll('\u00c5\u00a0', '\u0160')
+    .replaceAll('\u00c5\u00bd', '\u017d')
+    .replaceAll('\u00c4\u0090', '\u0110')
+    .replaceAll('\u00e2\u0080\u0093', '-')
+    .replaceAll('\u00e2\u0080\u0094', '-')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, '');
+}
+
+function configurePdfFonts(doc: any): PdfFontNames {
+  const regularFontPath = resolveFontPath([
+    process.env.PDF_FONT_PATH,
+    'C:\\Windows\\Fonts\\arial.ttf',
+    'C:\\Windows\\Fonts\\segoeui.ttf',
+    'C:\\Windows\\Fonts\\calibri.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+    '/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf',
+    '/usr/share/fonts/truetype/freefont/FreeSans.ttf',
+    '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+  ]);
+  const boldFontPath = resolveFontPath([
+    process.env.PDF_BOLD_FONT_PATH,
+    'C:\\Windows\\Fonts\\arialbd.ttf',
+    'C:\\Windows\\Fonts\\segoeuib.ttf',
+    'C:\\Windows\\Fonts\\calibrib.ttf',
+    '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+    '/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf',
+    '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
+    '/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf',
+  ]);
+
+  if (!regularFontPath) {
+    return { regular: 'Helvetica', bold: 'Helvetica-Bold' };
+  }
+
+  doc.registerFont('AppRegular', regularFontPath);
+  if (boldFontPath) {
+    doc.registerFont('AppBold', boldFontPath);
+  }
+
+  return { regular: 'AppRegular', bold: boldFontPath ? 'AppBold' : 'AppRegular' };
+}
+
 export async function generateInterventionsPdf(
   rows: InterventionPdfRow[],
   options?: { title?: string },
@@ -20,6 +94,7 @@ export async function generateInterventionsPdf(
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const PDFDocument = require('pdfkit');
   const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  const fonts = configurePdfFonts(doc);
 
   const chunks: Uint8Array[] = [];
   doc.on('data', (chunk: Uint8Array<ArrayBufferLike>) => chunks.push(chunk));
@@ -96,7 +171,7 @@ export async function generateInterventionsPdf(
   }
 
   function measureRowHeight(values: string[]): number {
-    doc.font('Helvetica').fontSize(rowFontSize);
+    doc.font(fonts.regular).fontSize(rowFontSize);
 
     const heights = values.map((value, index) => {
       const width = columns[index].width - 8;
@@ -115,16 +190,16 @@ export async function generateInterventionsPdf(
     pageNumber += 1;
     const generatedAt = formatDateTime(new Date());
     // Header title
-    doc.fontSize(16).font('Helvetica-Bold').fillColor('#333');
+    doc.fontSize(16).font(fonts.bold).fillColor('#333');
     doc.text(title, leftMargin, 40, { align: 'left' });
-    doc.fontSize(9).font('Helvetica').fillColor('#666');
+    doc.fontSize(9).font(fonts.regular).fillColor('#666');
     doc.text(`Generated: ${generatedAt}`, leftMargin, 40, { align: 'right' });
 
     // Thin divider
     doc.moveTo(leftMargin, 64).lineTo(pageWidth - rightMargin, 64).stroke('#CCCCCC');
 
     // Table header positions
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#000');
+    doc.fontSize(10).font(fonts.bold).fillColor('#000');
 
     let x = leftMargin;
     const headerY = 72;
@@ -146,7 +221,7 @@ export async function generateInterventionsPdf(
 
   function drawFooter() {
     const footerY = doc.page.height - 52;
-    doc.fontSize(9).fillColor('#666').font('Helvetica');
+    doc.fontSize(9).fillColor('#666').font(fonts.regular);
     doc.text(`Page ${pageNumber}`, leftMargin, footerY, {
       width: usableWidth,
       align: 'right',
@@ -161,11 +236,11 @@ export async function generateInterventionsPdf(
 
   for (const row of rows) {
     const values = [
-      row.name,
-      String(row.priority),
-      String(row.status),
-      String(row.location),
-      String(row.servicers),
+      sanitizePdfText(row.name),
+      sanitizePdfText(String(row.priority)),
+      sanitizePdfText(String(row.status)),
+      sanitizePdfText(String(row.location)),
+      sanitizePdfText(String(row.servicers)),
       ...getDateValues(row),
     ];
 
@@ -196,7 +271,7 @@ export async function generateInterventionsPdf(
 
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i];
-      doc.fillColor('#000').fontSize(rowFontSize).font('Helvetica');
+      doc.fillColor('#000').fontSize(rowFontSize).font(fonts.regular);
       doc.text(values[i], xPos + 4, currentY + rowPaddingY, {
         width: col.width - 8,
         lineBreak: false,

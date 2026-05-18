@@ -15,7 +15,7 @@ import {
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
 import { computeNextGenerationAt } from "../../services/recurring.service";
-import { resolvePersistableLocation } from "../../services/geocoding.service";
+import { compactStoredLocation, resolvePersistableLocation } from "../../services/geocoding.service";
 import {
   bulkActionSchema,
   type BulkActionInput,
@@ -100,7 +100,7 @@ const interventionPayloadBaseSchema = z.object({
     .string()
     .trim()
     .min(3, "Location must contain at least 3 characters.")
-    .max(255),
+    .max(500),
   latitude: z.coerce.number().finite().min(-90).max(90).nullable().optional(),
   longitude: z.coerce.number().finite().min(-180).max(180).nullable().optional(),
   startedAt: z.coerce.date().optional(),
@@ -400,7 +400,7 @@ function mapIntervention(intervention: {
     title: intervention.name,
     name: intervention.name,
     description: intervention.description,
-    location: intervention.location,
+    location: compactStoredLocation(intervention.location),
     latitude: intervention.latitude === null || intervention.latitude === undefined ? null : Number(intervention.latitude),
     longitude: intervention.longitude === null || intervention.longitude === undefined ? null : Number(intervention.longitude),
     categoryId: intervention.category.id,
@@ -639,7 +639,7 @@ interventionsRouter.get(
       name: i.name,
       priority: String(i.priority),
       status: String(i.status),
-      location: i.location,
+      location: compactStoredLocation(i.location),
       servicers:
         i.assignments && i.assignments.length > 0
           ? i.assignments
@@ -743,7 +743,7 @@ interventionsRouter.get(
         date: intervention.createdAt.toISOString(),
         status: intervention.status,
         priority: intervention.priority,
-        location: intervention.location,
+        location: compactStoredLocation(intervention.location),
         categoryId: intervention.category.id,
         categoryName: intervention.category.name,
         archived: intervention.archived,
@@ -800,9 +800,9 @@ interventionsRouter.post(
     });
 
     const recurringPeriod = input.recurringPeriod ?? null;
-    const startedAt = input.startedAt ?? new Date();
+    const plannedStart = input.startedAt ?? null;
     const nextGenerationAt = recurringPeriod
-      ? computeNextGenerationAt(startedAt, recurringPeriod)
+      ? computeNextGenerationAt(plannedStart ?? new Date(), recurringPeriod)
       : null;
 
 const intervention = await prisma.intervention.create({
@@ -815,8 +815,8 @@ const intervention = await prisma.intervention.create({
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt,
-        dueAt: input.dueAt ?? await calculateDueAt(input.priority, input.startedAt),
+        startedAt: null,
+        dueAt: input.dueAt ?? await calculateDueAt(input.priority, plannedStart),
         recurringPeriod,
         nextGenerationAt,
         categoryId: context.categoryId,
@@ -841,11 +841,15 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, archived: true },
     });
 
     if (!existing) {
       throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot have their status changed.");
     }
 
     const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
@@ -863,6 +867,9 @@ interventionsRouter.patch(
         where: { id },
         data: {
           status: input.status,
+          ...(input.status === InterventionStatus.IN_PROGRESS
+            ? { startedAt: new Date() }
+            : {}),
         },
         include: interventionInclude,
       }),
@@ -922,7 +929,6 @@ interventionsRouter.patch(
         type: input.faultReportId
           ? InterventionType.ISSUE
           : InterventionType.PREVENTIVE,
-        startedAt: input.startedAt,
         dueAt:
           input.dueAt ??
           await calculateDueAt(input.priority, input.startedAt || existing.startedAt),
@@ -1091,7 +1097,12 @@ async function applyBulkStatusChange(
   await prisma.$transaction([
     prisma.intervention.update({
       where: { id },
-      data: { status: targetStatus },
+      data: {
+        status: targetStatus,
+        ...(targetStatus === InterventionStatus.IN_PROGRESS
+          ? { startedAt: new Date() }
+          : {}),
+      },
     }),
     prisma.statusHistory.create({
       data: {
@@ -1171,6 +1182,22 @@ async function applyBulkArchive(
   await prisma.intervention.update({
     where: { id },
     data: { archived: true },
+  });
+
+  return { id, success: true };
+}
+
+async function applyBulkDearchive(
+  id: number,
+  existing: { archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (!existing.archived) {
+    return { id, success: false, reason: "Intervention is not archived." };
+  }
+
+  await prisma.intervention.update({
+    where: { id },
+    data: { archived: false },
   });
 
   return { id, success: true };
@@ -1267,6 +1294,13 @@ interventionsRouter.post(
             }
             return { id, success: true };
           }
+
+          case "DEARCHIVE": {
+            if (!record.archived) {
+              return { id, success: false, reason: "Intervention is not archived." };
+            }
+            return { id, success: true };
+          }
         }
       }),
     );
@@ -1308,6 +1342,8 @@ interventionsRouter.post(
             return applyBulkAssignServicer(id, input.payload.userId, record);
           case "ARCHIVE":
             return applyBulkArchive(id, record);
+          case "DEARCHIVE":
+            return applyBulkDearchive(id, record);
         }
       }),
     );
