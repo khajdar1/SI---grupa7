@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-var-requires */
 import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 export interface InterventionPdfRow {
   name: string;
@@ -19,6 +20,18 @@ type PdfFontNames = {
 
 function resolveFontPath(candidates: Array<string | undefined>): string | null {
   return candidates.find((candidate): candidate is string => Boolean(candidate && existsSync(candidate))) ?? null;
+}
+
+function resolveBundledFontPath(fileName: string): string | undefined {
+  return join(__dirname, 'fonts', fileName);
+}
+
+function resolveNodeModuleFontPath(modulePath: string): string | undefined {
+  try {
+    return require.resolve(modulePath);
+  } catch {
+    return undefined;
+  }
 }
 
 export function normalizePdfText(value: string): string {
@@ -54,6 +67,8 @@ export function sanitizePdfText(value: string): string {
 function configurePdfFonts(doc: any): PdfFontNames {
   const regularFontPath = resolveFontPath([
     process.env.PDF_FONT_PATH,
+    resolveBundledFontPath('dejavu-sans-latin-400-normal.woff'),
+    resolveNodeModuleFontPath('@fontsource/dejavu-sans/files/dejavu-sans-latin-400-normal.woff'),
     'C:\\Windows\\Fonts\\arial.ttf',
     'C:\\Windows\\Fonts\\segoeui.ttf',
     'C:\\Windows\\Fonts\\calibri.ttf',
@@ -64,6 +79,8 @@ function configurePdfFonts(doc: any): PdfFontNames {
   ]);
   const boldFontPath = resolveFontPath([
     process.env.PDF_BOLD_FONT_PATH,
+    resolveBundledFontPath('dejavu-sans-latin-700-normal.woff'),
+    resolveNodeModuleFontPath('@fontsource/dejavu-sans/files/dejavu-sans-latin-700-normal.woff'),
     'C:\\Windows\\Fonts\\arialbd.ttf',
     'C:\\Windows\\Fonts\\segoeuib.ttf',
     'C:\\Windows\\Fonts\\calibrib.ttf',
