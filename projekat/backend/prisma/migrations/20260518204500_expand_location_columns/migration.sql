@@ -1,0 +1,2 @@
+ALTER TABLE `FaultReport` MODIFY `location` VARCHAR(500) NOT NULL;
+ALTER TABLE `Intervention` MODIFY `location` VARCHAR(500) NOT NULL;

@@ -7,6 +7,7 @@ export const HTTP_STATUS = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  TOO_MANY_REQUESTS: 429,
   UNPROCESSABLE: 422,
   EXTERNAL_SERVICE_ERROR: 502,
   SERVICE_UNAVAILABLE: 503,
@@ -71,4 +72,9 @@ export const BACKEND_ROUTES = {
   SYSTEM_CONFIG: `${API_PREFIX}/system-config`,
   MAPS: `${API_PREFIX}/maps`,
   MANAGEMENT: `${API_PREFIX}/management`,
+} as const;
+
+export const BULK_ACTIONS = {
+  MIN_IDS: 1,
+  MAX_IDS: 100,
 } as const;

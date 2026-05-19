@@ -47,6 +47,13 @@ const TYPE_OPTIONS = [
   { value: 'PREVENTIVE', label: 'Preventive maintenance' },
 ] as const;
 
+const RECURRING_PERIOD_OPTIONS = [
+  { value: '', label: 'No recurrence' },
+  { value: 'DAILY', label: 'Daily' },
+  { value: 'WEEKLY', label: 'Weekly' },
+  { value: 'MONTHLY', label: 'Monthly' },
+] as const;
+
 interface FormState {
   name: string;
   description: string;
@@ -58,6 +65,7 @@ interface FormState {
   startedAt: string;
   dueAt: string;
   faultReportId: string;
+  recurringPeriod: string;
 }
 
 const INITIAL_FORM: FormState = {
@@ -71,6 +79,7 @@ const INITIAL_FORM: FormState = {
   startedAt: '',
   dueAt: '',
   faultReportId: '',
+  recurringPeriod: '',
 };
 
 export default function NewInterventionPage() {
@@ -201,6 +210,7 @@ export default function NewInterventionPage() {
         startedAt: form.startedAt.trim() || undefined,
         dueAt: form.dueAt.trim() || undefined,
         faultReportId: faultReportIdRaw ? parseInt(faultReportIdRaw, 10) : null,
+        recurringPeriod: form.recurringPeriod || null,
       });
 
       router.push(ROUTES.INTERVENTIONS);
@@ -442,6 +452,25 @@ export default function NewInterventionPage() {
                 {fieldErrors.faultReportId ? (
                   <p id="faultReportId-error" className="text-xs text-destructive">{fieldErrors.faultReportId}</p>
                 ) : null}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="recurringPeriod">Recurrence</Label>
+                <Select
+                  value={form.recurringPeriod}
+                  onValueChange={(v) => handleChange('recurringPeriod', v ?? '')}
+                >
+                  <SelectTrigger id="recurringPeriod">
+                    <SelectValue placeholder="No recurrence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {RECURRING_PERIOD_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
