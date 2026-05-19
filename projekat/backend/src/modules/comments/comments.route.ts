@@ -4,7 +4,18 @@ import { HTTP_STATUS } from '../../constants';
 
 const commentsRouter = Router();
 
-const STAFF_COMMENT_ROLES = [
+const COMMENT_VIEW_ROLES = [
+  'admin',
+  'administrator',
+  'coordinator',
+  'koordinator',
+  'servicer',
+  'serviser',
+  'supportagent',
+  'agentpodrske',
+];
+
+const COMMENT_WRITE_ROLES = [
   'admin',
   'administrator',
   'coordinator',
@@ -13,8 +24,8 @@ const STAFF_COMMENT_ROLES = [
   'serviser',
 ];
 
-function hasStaffCommentRole(roles: string[]): boolean {
-  return roles.some((role) => STAFF_COMMENT_ROLES.includes(role.toLowerCase()));
+function hasCommentRole(roles: string[], allowedRoles: string[]): boolean {
+  return roles.some((role) => allowedRoles.includes(role.toLowerCase()));
 }
 
 async function canAccessInterventionComments(interventionId: number, userId?: number | null) {
@@ -55,7 +66,7 @@ commentsRouter.get('/intervention/:id', async (req, res) => {
     const userRoles = req.user?.roles ?? [];
     const authorId = req.user?.localUserId;
     const hasAccess =
-      hasStaffCommentRole(userRoles) ||
+      hasCommentRole(userRoles, COMMENT_VIEW_ROLES) ||
       (await canAccessInterventionComments(interventionId, authorId));
 
     if (!hasAccess) {
@@ -101,7 +112,7 @@ commentsRouter.post('/intervention/:id', async (req, res) => {
     }
 
     const hasAllowedRole =
-      hasStaffCommentRole(userRoles) ||
+      hasCommentRole(userRoles, COMMENT_WRITE_ROLES) ||
       (await canAccessInterventionComments(interventionId, authorId));
 
     if (!hasAllowedRole) {

@@ -25,6 +25,7 @@
     "dotenv": "^16.4.7",
     "empathic": "^2.0.0",
     "express": "^4.21.2",
+    "pdfkit": "^0.13.0",
     "express-rate-limit": "^8.4.1",
     "fast-check": "^3.23.2",
     "helmet": "^8.0.0",

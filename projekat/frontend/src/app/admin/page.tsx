@@ -61,6 +61,7 @@ const ROLE_LABELS: Record<ManagedUserRole, string> = {
   KOORDINATOR: 'Coordinator',
   MENADZMENT: 'Management',
   KOMPANIJA_ADMIN: 'Company Admin',
+  SUPPORT_AGENT: 'Support Agent',
   ADMIN: 'Admin',
 };
 const NO_COMPANY_VALUE = 'NO_COMPANY';

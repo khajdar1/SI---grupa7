@@ -9,6 +9,7 @@ export const MANAGED_USER_ROLES = [
   'KOORDINATOR',
   'MENADZMENT',
   'KOMPANIJA_ADMIN',
+  'SUPPORT_AGENT',
   'ADMIN',
 ] as const;
 

@@ -6,6 +6,7 @@ export const MANAGED_USER_ROLES: readonly ManagedUserRole[] = [
   'KOORDINATOR',
   'MENADZMENT',
   'KOMPANIJA_ADMIN',
+  'SUPPORT_AGENT',
   'ADMIN',
 ] as const;
 
@@ -15,6 +16,7 @@ const ROLE_ALIASES: Record<ManagedUserRole, readonly string[]> = {
   KOORDINATOR: ['koordinator'],
   MENADZMENT: ['menadzment', 'management'],
   KOMPANIJA_ADMIN: ['kompanijaadmin', 'companyadmin'],
+  SUPPORT_AGENT: ['supportagent', 'agentpodrske'],
   ADMIN: ['admin', 'administrator'],
 };
 
@@ -79,6 +81,7 @@ export interface IUserIdentityProvider {
   updateUser(keycloakSub: string, input: Partial<Pick<CreateUserInput, 'firstName' | 'lastName' | 'email' | 'username'>> & { enabled?: boolean }): Promise<void>;
   deleteUser(keycloakSub: string): Promise<void>;
   getUserRoles(keycloakSub: string): Promise<string[]>;
+  getUsersRoles?(keycloakSubs: readonly string[]): Promise<Map<string, string[]>>;
   setUserRole(keycloakSub: string, role: ManagedUserRole): Promise<void>;
 }
 
@@ -171,6 +174,30 @@ function extractComparableUserValues(user: UserResponse) {
   };
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
+
 export class UserManagementService {
   constructor(
     private readonly repository: IUserRepository,
@@ -180,21 +207,37 @@ export class UserManagementService {
 
   async listUsers(): Promise<UserResponse[]> {
     const users = await this.repository.findMany();
+    const usersWithKeycloakSubjects = users
+      .map((user) => ({ user, keycloakSub: getPrimaryKeycloakSubject(user) }))
+      .filter((item): item is { user: UserRecord; keycloakSub: string } => Boolean(item.keycloakSub));
 
-    return Promise.all(
-      users.map(async (user) => {
+    if (this.identityProvider.getUsersRoles) {
+      const rolesBySubject = await this.identityProvider.getUsersRoles(
+        usersWithKeycloakSubjects.map((item) => item.keycloakSub),
+      );
+
+      return users.map((user) => {
         const keycloakSub = getPrimaryKeycloakSubject(user);
-        let roleNames: string[] = [];
-        if (keycloakSub) {
-          try {
-            roleNames = await this.identityProvider.getUserRoles(keycloakSub);
-          } catch (error) {
-            console.warn(`[UserManagement] Failed to fetch roles for orphaned Keycloak user ${keycloakSub}.`, error);
-          }
-        }
+        const roleNames = keycloakSub ? rolesBySubject.get(keycloakSub) ?? [] : [];
         return sanitizeUser(user, deriveManagedRoleFromKeycloakRoles(roleNames));
-      }),
-    );
+      });
+    }
+
+    const rolesBySubject = new Map<string, string[]>();
+    await mapWithConcurrency(usersWithKeycloakSubjects, 5, async ({ keycloakSub }) => {
+      try {
+        rolesBySubject.set(keycloakSub, await this.identityProvider.getUserRoles(keycloakSub));
+      } catch (error) {
+        console.warn(`[UserManagement] Failed to fetch roles for orphaned Keycloak user ${keycloakSub}.`, error);
+        rolesBySubject.set(keycloakSub, []);
+      }
+    });
+
+    return users.map((user) => {
+      const keycloakSub = getPrimaryKeycloakSubject(user);
+      const roleNames = keycloakSub ? rolesBySubject.get(keycloakSub) ?? [] : [];
+      return sanitizeUser(user, deriveManagedRoleFromKeycloakRoles(roleNames));
+    });
   }
 
   async createUser(input: CreateUserInput, actor: UserAuditActor): Promise<UserResponse> {

@@ -1,0 +1,5 @@
+ALTER TABLE `Ticket`
+  ADD COLUMN `userBlocked` BOOLEAN NOT NULL DEFAULT false,
+  ADD COLUMN `userBlockedReason` LONGTEXT NULL,
+  ADD COLUMN `userBlockedAt` DATETIME(3) NULL,
+  ADD COLUMN `userBlockedById` INTEGER NULL;

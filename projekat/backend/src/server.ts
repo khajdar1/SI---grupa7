@@ -5,6 +5,7 @@ import { prisma } from './config/database';
 import { createApp } from './app';
 import { initSocket } from './realtime/socket';
 import { logger } from './shared/logger';
+import { startRecurringScheduler } from './services/recurring.service';
 
 const app = createApp();
 const server = createServer(app);
@@ -21,6 +22,7 @@ async function startServer() {
         port: env.PORT,
         nodeEnv: env.NODE_ENV,
       });
+      startRecurringScheduler();
     });
   } catch (error) {
     logger.error('Backend startup failed', {

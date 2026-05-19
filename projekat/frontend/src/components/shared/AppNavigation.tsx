@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle,
   BarChart2,
+  Bell,
   ChevronDown,
   ClipboardList,
   Clock,
@@ -30,7 +31,16 @@ import {
   Wrench,
 } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +50,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ROUTES } from '@/constants';
+import { socket } from '@/lib/socket';
+import { getNotifications, markNotificationAsRead, type NotificationItem } from '@/services/notifications.service';
 import {
   ACCOUNT_NAV_ITEMS,
   ADMIN_NAV_ITEMS,
@@ -52,9 +64,10 @@ import {
 import { cn } from '@/lib/utils';
 
 type AuthState = 'unknown' | 'authenticated' | 'guest';
-type SessionUser = { username?: string };
+type SessionUser = { id?: number; username?: string };
 
 const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
+const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
 const COMPANY_ADMIN_ROLE_NAMES = new Set(['kompanijaadmin', 'companyadmin']);
 const HISTORY_ROLE_NAMES = new Set([
   'serviser',
@@ -92,6 +105,8 @@ const INTERVENTION_ACCESS_ROLE_NAMES = new Set([
   'menadzment',
   'admin',
   'administrator',
+  'supportagent',
+  'agentpodrske',
 ]);
 const INTERVENTION_CREATE_ROLE_NAMES = new Set([
   'koordinator',
@@ -110,6 +125,7 @@ const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.INTERVENTION_NEW]: <Plus className="size-4" />,
   [ROUTES.HISTORY]: <Clock className="size-4" />,
   [ROUTES.TICKETS]: <Ticket className="size-4" />,
+  [ROUTES.TICKET_CREATE]: <Ticket className="size-4" />,
   [ROUTES.MAP]: <Map className="size-4" />,
   [ROUTES.ADMIN]: <Users className="size-4" />,
   [ROUTES.ADMIN_COMPANIES]: <Shield className="size-4" />,
@@ -127,12 +143,25 @@ const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.RESET_PASSWORD]: <KeyRound className="size-4" />,
 };
 
+function getRoutePath(href: string): string {
+  return href.split(/[?#]/)[0] || ROUTES.HOME;
+}
+
 function isRouteActive(pathname: string, href: string): boolean {
-  if (href === ROUTES.HOME) {
+  const routePath = getRoutePath(href);
+
+  if (routePath === ROUTES.HOME) {
     return pathname === ROUTES.HOME;
   }
 
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === routePath || pathname.startsWith(`${routePath}/`);
+}
+
+function isAdminReviewNotification(notification: NotificationItem): boolean {
+  return (
+    notification.ticketId !== null &&
+    (notification.title === 'Admin review requested' || notification.title === 'Support trazi admin pregled')
+  );
 }
 
 function decodeJwtPayload(token: string): {
@@ -176,7 +205,11 @@ function hasAnyRole(roles: readonly string[], allowedRoles: Set<string>): boolea
 }
 
 function canViewPrimaryRoute(route: string, roles: readonly string[]): boolean {
-  if (route === ROUTES.HOME || route === ROUTES.DASHBOARD || route === ROUTES.FAULT_REPORTS) {
+  if (route === ROUTES.HOME || route === ROUTES.DASHBOARD) {
+    return true;
+  }
+
+  if (route === ROUTES.FAULT_REPORTS) {
     return true;
   }
 
@@ -204,8 +237,12 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
     return hasAnyRole(roles, HISTORY_ROLE_NAMES);
   }
 
-  if (route === ROUTES.MAP || route === ROUTES.TICKETS) {
+  if (route === ROUTES.MAP) {
     return hasAnyRole(roles, ASSIGNMENT_MANAGEMENT_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.TICKETS) {
+    return true;
   }
 
   return true;
@@ -282,12 +319,18 @@ function NavDropdown({
 
 export function AppNavigation() {
   const pathname = usePathname();
+  const router = useRouter();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [isManagement, setIsManagement] = useState(false);
   const [sessionRoles, setSessionRoles] = useState<string[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [reviewNotification, setReviewNotification] = useState<NotificationItem | null>(null);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
   useEffect(() => {
     const readAuthState = () => {
@@ -323,6 +366,87 @@ export function AppNavigation() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (authState !== 'authenticated' || !sessionUser?.id) {
+      return;
+    }
+
+    void getNotifications().then(setNotifications).catch(() => {});
+
+    socket.connect();
+    socket.emit('user:join', sessionUser.id);
+
+    const roles = getTokenRoles(window.localStorage.getItem('token'));
+    if (roles.some((r) => r === 'koordinator' || r === 'coordinator' || r === 'admin' || r === 'administrator')) {
+      socket.emit('role:join', 'koordinator');
+    }
+    if (roles.some((r) => SUPPORT_AGENT_ROLE_NAMES.has(r))) {
+      socket.emit('role:join', 'supportagent');
+    }
+    if (roles.some((r) => ADMIN_ROLE_NAMES.has(r))) {
+      socket.emit('role:join', 'admin');
+    }
+
+    const handleNew = (notification: NotificationItem) => {
+      setNotifications((prev) => [notification, ...prev]);
+    };
+
+    socket.on('notification:new', handleNew);
+
+    return () => {
+      socket.off('notification:new', handleNew);
+      socket.disconnect();
+    };
+  }, [authState, sessionUser?.id]);
+
+  async function handleMarkRead(notificationId: number) {
+    try {
+      await markNotificationAsRead(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
+      );
+    } catch {
+      // silently fail — badge will be corrected on next load
+    }
+  }
+
+  function handleNotificationClick(notification: NotificationItem) {
+    if (isAdminReviewNotification(notification)) {
+      setReviewNotification(notification);
+      setNotifOpen(false);
+      return;
+    }
+
+    void handleMarkRead(notification.id);
+    setNotifOpen(false);
+    if (notification.interventionId) {
+      router.push(`/interventions/${notification.interventionId}`);
+    } else if (notification.ticketId) {
+      router.push(`${ROUTES.TICKETS}/${notification.ticketId}`);
+    }
+  }
+
+  async function handleReviewJoin() {
+    if (!reviewNotification) {
+      return;
+    }
+
+    await handleMarkRead(reviewNotification.id);
+    setReviewNotification(null);
+    if (reviewNotification.ticketId) {
+      router.push(`${ROUTES.TICKETS}/${reviewNotification.ticketId}`);
+    }
+  }
+
+  async function handleReviewReject() {
+    if (!reviewNotification) {
+      return;
+    }
+
+    await handleMarkRead(reviewNotification.id);
+    setReviewNotification(null);
+  }
+
   const isAuthenticated = authState === 'authenticated';
 
   const visiblePrimaryItems = useMemo(() => {
@@ -331,7 +455,7 @@ export function AppNavigation() {
     }
 
     if (isCompanyAdmin && !isAdmin) {
-      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME);
+      return PRIMARY_NAV_ITEMS.filter((item) => item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD);
     }
 
     return PRIMARY_NAV_ITEMS.filter((item) => canViewPrimaryRoute(item.to, sessionRoles));
@@ -342,22 +466,35 @@ export function AppNavigation() {
     [isCompanyAdmin],
   );
 
+  const primaryItems = useMemo(
+    () => visiblePrimaryItems.filter((item) => item.to === ROUTES.HOME || item.to === ROUTES.DASHBOARD),
+    [visiblePrimaryItems],
+  );
+
+  const workItems = useMemo(
+    () => visiblePrimaryItems.filter((item) => item.to !== ROUTES.HOME && item.to !== ROUTES.DASHBOARD),
+    [visiblePrimaryItems],
+  );
+
   const operationsItems = useMemo(() => {
     if (isCompanyAdmin && !isAdmin) {
       return [];
     }
 
-    const items = OPERATIONS_NAV_ITEMS.filter((item) => canViewOperationsRoute(item.to, sessionRoles));
+    const items = OPERATIONS_NAV_ITEMS
+      .filter((item) => item.to !== ROUTES.TICKETS)
+      .filter((item) => canViewOperationsRoute(item.to, sessionRoles));
 
     return isManagement ? [...items, ...MANAGEMENT_NAV_ITEMS] : items;
   }, [isAdmin, isCompanyAdmin, isManagement, sessionRoles]);
 
   const initials = sessionUser?.username ? sessionUser.username.slice(0, 2).toUpperCase() : '?';
+  const ticketNavItem: NavItem = { label: 'Tickets', to: ROUTES.TICKETS };
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/60 bg-white/80 shadow-[0_1px_28px_rgba(15,23,42,0.07)] backdrop-blur-md">
-      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center justify-between gap-4 px-4 py-2.5 md:px-6">
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="mx-auto flex w-full max-w-[var(--content-max-width)] items-center gap-4 px-4 py-2.5 md:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <Link href={ROUTES.HOME} className="flex shrink-0 items-center gap-2">
             <div className="logo-mark flex size-8 items-center justify-center rounded-xl text-white">
               <Wrench className="size-4" />
@@ -368,11 +505,20 @@ export function AppNavigation() {
           <div className="hidden h-5 w-px bg-border lg:block" />
 
           <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Main navigation">
-            {visiblePrimaryItems.map((item) => (
+            {primaryItems.map((item) => (
               <NavLink key={item.to} item={item} pathname={pathname} />
             ))}
             {isAuthenticated ? (
               <>
+                <NavLink item={ticketNavItem} pathname={pathname} />
+                {workItems.length > 0 ? (
+                  <NavDropdown
+                    label="Work"
+                    icon={<Wrench className="size-4" />}
+                    items={workItems}
+                    pathname={pathname}
+                  />
+                ) : null}
                 {operationsItems.length > 0 ? (
                   <NavDropdown
                     label="Operations"
@@ -381,15 +527,65 @@ export function AppNavigation() {
                     pathname={pathname}
                   />
                 ) : null}
-                {isAdmin ? (
-                  <NavDropdown label="Admin" icon={<Shield className="size-4" />} items={ADMIN_NAV_ITEMS} pathname={pathname} />
-                ) : null}
               </>
             ) : null}
           </nav>
         </div>
 
-        <div className="hidden items-center gap-2 sm:flex">
+        <div className="hidden shrink-0 items-center gap-2 sm:flex">
+          {isAdmin ? (
+            <NavDropdown label="Admin" icon={<Shield className="size-4" />} items={ADMIN_NAV_ITEMS} pathname={pathname} />
+          ) : null}
+          {isAuthenticated ? (
+            <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="relative h-9 w-9 rounded-lg p-0 text-muted-foreground transition-all duration-200 hover:bg-slate-100/80 hover:text-foreground"
+                >
+                  <Bell className="size-4" />
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  ) : null}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <DropdownMenuLabel className="flex items-center justify-between">
+                  <span>Notifications</span>
+                  {unreadCount > 0 ? (
+                    <Badge variant="secondary" className="text-xs">{unreadCount} unread</Badge>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {notifications.length === 0 ? (
+                  <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+                    No notifications.
+                  </div>
+                ) : (
+                  notifications.slice(0, 10).map((notif) => (
+                    <DropdownMenuItem
+                      key={notif.id}
+                      onClick={() => handleNotificationClick(notif)}
+                      className="flex cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5"
+                    >
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                          {notif.title}
+                        </span>
+                        {!notif.read ? (
+                          <span className="size-2 shrink-0 rounded-full bg-primary" />
+                        ) : null}
+                      </div>
+                      <span className="text-xs text-muted-foreground line-clamp-2">{notif.text}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
           {isAuthenticated ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -452,7 +648,7 @@ export function AppNavigation() {
           ) : null}
         </div>
 
-        <div className="lg:hidden">
+        <div className="ml-auto lg:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -498,6 +694,13 @@ export function AppNavigation() {
 
               {isAuthenticated ? (
                 <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href={ticketNavItem.to} className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{NAV_ICONS[ROUTES.TICKETS]}</span>
+                      {ticketNavItem.label}
+                    </Link>
+                  </DropdownMenuItem>
                   {operationsItems.length > 0 ? (
                     <>
                       <DropdownMenuSeparator />
@@ -573,6 +776,27 @@ export function AppNavigation() {
           </DropdownMenu>
         </div>
       </div>
+      <Dialog open={Boolean(reviewNotification)} onOpenChange={(open) => !open && setReviewNotification(null)}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Admin review requested</DialogTitle>
+            <DialogDescription>
+              A support agent asked you to join this ticket conversation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-lg border bg-slate-50 px-4 py-3 text-sm leading-relaxed text-foreground">
+            {reviewNotification?.text}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => void handleReviewReject()}>
+              Reject
+            </Button>
+            <Button type="button" onClick={() => void handleReviewJoin()}>
+              Join
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

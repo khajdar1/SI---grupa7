@@ -136,6 +136,34 @@ const keycloakIdentityProvider: IUserIdentityProvider = {
     const adminToken = await getKeycloakAdminToken();
     return getKeycloakUserRoleNames(adminToken, keycloakSub);
   },
+  getUsersRoles: async (keycloakSubs) => {
+    const rolesBySubject = new Map<string, string[]>();
+    if (keycloakSubs.length === 0) {
+      return rolesBySubject;
+    }
+
+    const adminToken = await getKeycloakAdminToken();
+    const subjects = Array.from(new Set(keycloakSubs));
+    let nextIndex = 0;
+    const concurrency = 5;
+
+    const workers = Array.from({ length: Math.min(concurrency, subjects.length) }, async () => {
+      while (nextIndex < subjects.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        const keycloakSub = subjects[currentIndex];
+        try {
+          rolesBySubject.set(keycloakSub, await getKeycloakUserRoleNames(adminToken, keycloakSub));
+        } catch (error) {
+          console.warn(`[UsersRoute] Failed to fetch roles for Keycloak user ${keycloakSub}.`, error);
+          rolesBySubject.set(keycloakSub, []);
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    return rolesBySubject;
+  },
   setUserRole: async (keycloakSub, role) => {
     const adminToken = await getKeycloakAdminToken();
     await setKeycloakUserManagedRole(adminToken, keycloakSub, role as ManagedKeycloakRole);

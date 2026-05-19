@@ -18,6 +18,7 @@ export const ROUTES = {
   SETTINGS: '/settings',
   FAULT_REPORTS: '/fault-reports',
   TICKETS: '/tickets',
+  TICKET_CREATE: '/tickets?create=1',
   ADMIN: '/admin',
   ADMIN_COMPANIES: '/admin/companies',
   ADMIN_CATEGORY: '/admin/categories',
@@ -51,6 +52,7 @@ export const API_ENDPOINTS = {
   FAULT_REPORTS: {
     BASE: '/api/v1/fault-reports',
     OPTIONS: '/api/v1/fault-reports/options',
+    CHECK_DUPLICATES: '/api/v1/fault-reports/check-duplicates',
   },
   COMPANIES: {
     BASE: '/api/v1/companies',
@@ -72,8 +74,10 @@ export const API_ENDPOINTS = {
   INTERVENTIONS: {
     BASE: '/api/v1/interventions',
     BY_ID: (id: number | string) => `/api/v1/interventions/${id}`,
+    EXPORT_PDF: '/api/v1/interventions/export/pdf',
     ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
     REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
+    BULK_ACTIONS: '/api/v1/interventions/bulk-actions',
   },
   ATTACHMENTS: {
     DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,
@@ -88,6 +92,25 @@ export const API_ENDPOINTS = {
   },
   MANAGEMENT: {
     DASHBOARD: '/api/v1/management/dashboard',
+  },
+  MAPS: {
+    INTERVENTIONS: '/api/v1/maps/interventions',
+  },
+  TICKETS: {
+    BASE: '/api/v1/tickets',
+    CATEGORIES: '/api/v1/tickets/categories',
+    BY_ID: (id: number | string) => `/api/v1/tickets/${id}`,
+    STATUS: (id: number | string) => `/api/v1/tickets/${id}/status`,
+    MESSAGES: (id: number | string) => `/api/v1/tickets/${id}/messages`,
+    ADMIN_REVIEW: (id: number | string) => `/api/v1/tickets/${id}/admin-review`,
+    ADMIN_REVIEW_ADMINS: '/api/v1/tickets/admin-review/admins',
+    BLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/block-user`,
+    UNBLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/unblock-user`,
+  },
+  NOTIFICATIONS: {
+    BASE: '/api/v1/notifications',
+    UNREAD: '/api/v1/notifications/unread',
+    MARK_READ: (id: number | string) => `/api/v1/notifications/${id}/read`,
   },
 } as const;
 

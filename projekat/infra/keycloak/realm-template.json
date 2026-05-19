@@ -74,6 +74,9 @@
                                     "name":  "KompanijaAdmin"
                                 },
                                 {
+                                    "name":  "SupportAgent"
+                                },
+                                {
                                     "name":  "Admin"
                                 }
                             ]

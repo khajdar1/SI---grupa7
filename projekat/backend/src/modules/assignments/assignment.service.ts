@@ -4,6 +4,7 @@ import {
   getKeycloakUserRoleNames,
   MANAGED_KEYCLOAK_ROLE_ALIASES,
 } from "../../clients/keycloak.client";
+import { emitToUser } from "../../realtime/socket";
 import { AuditService } from "../../shared/audit.service";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
 
@@ -112,7 +113,7 @@ export class AssignmentService {
     // Validate intervention exists
     const intervention = await prisma.intervention.findUnique({
       where: { id: interventionId },
-      select: { id: true, companyId: true, status: true },
+      select: { id: true, companyId: true, status: true, name: true, priority: true, location: true },
     });
 
     if (!intervention) {
@@ -197,6 +198,19 @@ export class AssignmentService {
       });
 
       createdAssignments.push(assignment);
+
+      // Notify the newly assigned servicer in real time
+      const notificationText = `Intervention: ${intervention.name}, Priority: ${intervention.priority}, Location: ${intervention.location}`;
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          title: 'You have been assigned a new intervention',
+          text: notificationText,
+          type: 'INTERVENTION_ASSIGNED',
+          interventionId,
+        },
+      });
+      emitToUser(userId, 'notification:new', notification);
 
       // Audit log each new assignment
       await AuditService.record({
