@@ -35,7 +35,7 @@ export function normalizePdfText(value: string): string {
 }
 
 export function sanitizePdfText(value: string): string {
-  return value
+  return normalizePdfText(value)
     .replaceAll('\u00c4\u008d', '\u010d')
     .replaceAll('\u00c4\u0087', '\u0107')
     .replaceAll('\u00c5\u00a1', '\u0161')
