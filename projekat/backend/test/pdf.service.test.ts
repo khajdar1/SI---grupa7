@@ -10,5 +10,6 @@ describe('PDF text normalization', () => {
 
   it('keeps already valid latin characters unchanged', () => {
     expect(sanitizePdfText('\u010ci\u0161\u0107enje \u0161ahta')).toBe('\u010ci\u0161\u0107enje \u0161ahta');
+    expect(sanitizePdfText('Odr\u017eavanje ure\u0111aja u \u010celi\u0107u')).toBe('Odr\u017eavanje ure\u0111aja u \u010celi\u0107u');
   });
 });

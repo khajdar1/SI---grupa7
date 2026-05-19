@@ -3,7 +3,8 @@ import type { AddressInfo } from 'node:net';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InterventionStatus, Priority } from '@prisma/client';
 
-const { interventionFindManyMock } = vi.hoisted(() => ({
+const { generateInterventionsPdfMock, interventionFindManyMock } = vi.hoisted(() => ({
+  generateInterventionsPdfMock: vi.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
   interventionFindManyMock: vi.fn(),
 }));
 
@@ -16,7 +17,7 @@ vi.mock('../src/config/database', () => ({
 }));
 
 vi.mock('../src/shared/pdf.service', () => ({
-  generateInterventionsPdf: vi.fn().mockResolvedValue(Buffer.from('%PDF-1.4')),
+  generateInterventionsPdf: generateInterventionsPdfMock,
 }));
 
 import interventionsRouter from '../src/modules/interventions/interventions.route';
@@ -95,6 +96,36 @@ describe('Interventions PDF export', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toMatch(/application\/pdf/);
     expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  it('passes valid latin extended characters to PDF generation unchanged', async () => {
+    interventionFindManyMock.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Čišćenje uređaja',
+        priority: Priority.HIGH,
+        status: InterventionStatus.ASSIGNED,
+        location: 'Šaht kod škole, Čelić',
+        createdAt: dateMinutesFromNow(-10),
+        startedAt: dateMinutesFromNow(60),
+        dueAt: dateMinutesFromNow(180),
+        assignments: [{ user: { firstName: 'Dženan', lastName: 'Đurić' } }],
+      },
+    ]);
+
+    const res = await request('/interventions/export/pdf');
+
+    expect(res.status).toBe(200);
+    expect(generateInterventionsPdfMock).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          name: 'Čišćenje uređaja',
+          location: 'Šaht kod škole, Čelić',
+          servicers: 'Dženan Đurić',
+        }),
+      ],
+      { title: 'Interventions Export' },
+    );
   });
 
   it('forbids export when user has no access', async () => {
