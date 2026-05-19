@@ -9,6 +9,7 @@ export const MANAGED_KEYCLOAK_ROLE_ALIASES = {
   KOORDINATOR: ["Koordinator", "koordinator"],
   MENADZMENT: ["Menadzment", "menadzment", "Management", "management"],
   KOMPANIJA_ADMIN: ["KompanijaAdmin", "kompanijaadmin", "CompanyAdmin", "companyadmin"],
+  SUPPORT_AGENT: ["SupportAgent", "supportagent", "AgentPodrske", "agentpodrske"],
   ADMIN: ["Admin", "admin", "Administrator", "administrator"],
 } as const;
 
@@ -17,6 +18,10 @@ export type ManagedKeycloakRole = keyof typeof MANAGED_KEYCLOAK_ROLE_ALIASES;
 type KeycloakRealmRole = {
   id: string;
   name: string;
+};
+
+type KeycloakUserSummary = {
+  id?: string;
 };
 
 function getKeycloakConfig() {
@@ -344,6 +349,44 @@ export async function getKeycloakUserRoleNames(
 ): Promise<string[]> {
   const roles = await getUserRealmRoleMappings(token, userId);
   return roles.map((role) => role.name);
+}
+
+async function findKeycloakUserIdByQuery(token: string, query: string): Promise<string | null> {
+  const { url, realm } = getKeycloakConfig();
+  const response = await fetch(`${url}/admin/realms/${realm}/users?${query}&exact=true`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new KeycloakError("Failed to find user in Keycloak.");
+  }
+
+  const users = (await response.json()) as KeycloakUserSummary[];
+  return users[0]?.id ?? null;
+}
+
+export async function findKeycloakUserIdByUsernameOrEmail(
+  token: string,
+  input: { username?: string | null; email?: string | null },
+): Promise<string | null> {
+  const username = input.username?.trim();
+  if (username) {
+    const userId = await findKeycloakUserIdByQuery(token, `username=${encodeURIComponent(username)}`);
+    if (userId) {
+      return userId;
+    }
+  }
+
+  const email = input.email?.trim();
+  if (email) {
+    return findKeycloakUserIdByQuery(token, `email=${encodeURIComponent(email)}`);
+  }
+
+  return null;
 }
 
 export async function setKeycloakUserManagedRole(

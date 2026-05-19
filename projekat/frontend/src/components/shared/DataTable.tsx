@@ -119,6 +119,7 @@ export function DataTable<T>({
             <TableCell
               key={column.key}
               className={alignClass[column.align ?? 'left']}
+              style={column.width ? { width: column.width, maxWidth: column.width } : undefined}
             >
               {column.render ? column.render(value, row) : String(value ?? '')}
             </TableCell>
@@ -131,13 +132,14 @@ export function DataTable<T>({
   return (
     <div className={cn('space-y-4', className)}>
       <div className="rounded-lg border">
-        <Table>
+        <Table className="min-w-[1100px]">
           <TableHeader>
             <TableRow>
               {columns.map((column) => (
                 <TableHead
                   key={column.key}
                   className={alignClass[column.align ?? 'left']}
+                  style={column.width ? { width: column.width, maxWidth: column.width } : undefined}
                 >
                   {column.header}
                 </TableHead>

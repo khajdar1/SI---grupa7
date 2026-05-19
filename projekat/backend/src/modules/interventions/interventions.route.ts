@@ -1,10 +1,10 @@
-import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
+import { InterventionStatus, InterventionType, Priority, RecurringPeriod } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
 
 import { prisma } from "../../config/database";
-import { HTTP_STATUS } from "../../constants";
+import { BULK_ACTIONS, HTTP_STATUS } from "../../constants";
 import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
@@ -14,21 +14,37 @@ import {
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import { computeNextGenerationAt } from "../../services/recurring.service";
+import { compactStoredLocation, resolvePersistableLocation } from "../../services/geocoding.service";
+import {
+  bulkActionSchema,
+  type BulkActionInput,
+  type BulkActionItemResult,
+  type BulkActionResponse,
+} from "./interventions.bulk.schema";
+import { generateInterventionsPdf, InterventionPdfRow } from "../../shared/pdf.service";
 
 const interventionsRouter = Router();
 const COORDINATOR_ROLES = ["Koordinator", "Coordinator"];
 const MANAGEMENT_ROLES = ["Menadzment", "Management"];
 const ADMIN_ROLES = ["Administrator", "Admin", "administrator", "admin"];
 const SERVICER_ROLES = ["Serviser"];
+const SUPPORT_AGENT_ROLES = ["SupportAgent", "supportagent", "AgentPodrske", "agentpodrske"];
 const COORDINATOR_ACTION_ROLES = [...COORDINATOR_ROLES, ...ADMIN_ROLES];
 
-const INTERVENTION_VIEW_ROLES = [...COORDINATOR_ROLES, ...MANAGEMENT_ROLES, ...ADMIN_ROLES];
+const INTERVENTION_VIEW_ROLES = [
+  ...COORDINATOR_ROLES,
+  ...MANAGEMENT_ROLES,
+  ...ADMIN_ROLES,
+  ...SUPPORT_AGENT_ROLES,
+];
 
 const INTERVENTION_HISTORY_ROLES = [
   ...COORDINATOR_ROLES,
   ...MANAGEMENT_ROLES,
   ...ADMIN_ROLES,
   ...SERVICER_ROLES,
+  ...SUPPORT_AGENT_ROLES,
 ];
 const INTERVENTION_STATUS_ROLES = [...COORDINATOR_ACTION_ROLES, ...SERVICER_ROLES];
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
@@ -62,6 +78,11 @@ const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
   ],
 ]);
 
+const ARCHIVABLE_STATUSES = new Set<InterventionStatus>([
+  InterventionStatus.RESOLVED,
+  InterventionStatus.CANCELLED,
+]);
+
 function getCurrentMinute(): Date {
   const now = new Date();
   now.setSeconds(0, 0);
@@ -79,13 +100,16 @@ const interventionPayloadBaseSchema = z.object({
     .string()
     .trim()
     .min(3, "Location must contain at least 3 characters.")
-    .max(255),
+    .max(500),
+  latitude: z.coerce.number().finite().min(-90).max(90).nullable().optional(),
+  longitude: z.coerce.number().finite().min(-180).max(180).nullable().optional(),
   startedAt: z.coerce.date().optional(),
   dueAt: z.coerce.date().optional(),
   faultReportId: z.coerce.number().int().positive().nullable().optional(),
   companyId: z.coerce.number().int().positive().optional(),
   categoryId: z.coerce.number().int().positive().optional(),
   priority: z.nativeEnum(Priority),
+  recurringPeriod: z.nativeEnum(RecurringPeriod).nullable().optional(),
 });
 
 const interventionPayloadSchema = interventionPayloadBaseSchema
@@ -123,6 +147,10 @@ const interventionHistoryQuerySchema = z.object({
   category: z.string().trim().min(2).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(50).default(10),
+  showArchived: z.preprocess(
+    (val) => val === 'true' || val === '1' || val === true,
+    z.boolean(),
+  ).default(false),
 });
 
 const interventionStatusUpdateSchema = z.object({
@@ -339,12 +367,15 @@ function mapIntervention(intervention: {
   name: string;
   description: string;
   location: string;
+  latitude?: any;
+  longitude?: any;
   priority: Priority;
   status: InterventionStatus;
   type: InterventionType;
   createdAt: Date;
   startedAt: Date | null;
   dueAt: Date | null;
+  recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
   creator: { username: string; id: number };
@@ -361,6 +392,7 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
+  
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -368,7 +400,9 @@ function mapIntervention(intervention: {
     title: intervention.name,
     name: intervention.name,
     description: intervention.description,
-    location: intervention.location,
+    location: compactStoredLocation(intervention.location),
+    latitude: intervention.latitude === null || intervention.latitude === undefined ? null : Number(intervention.latitude),
+    longitude: intervention.longitude === null || intervention.longitude === undefined ? null : Number(intervention.longitude),
     categoryId: intervention.category.id,
     categoryName: intervention.category.name,
     companyId: intervention.company.id,
@@ -389,6 +423,7 @@ function mapIntervention(intervention: {
           reportedAt: intervention.faultReport.reportedAt.toISOString(),
         }
       : null,
+    recurringPeriod: intervention.recurringPeriod ?? null,
     assignments:
       intervention.assignments?.map((assignment) => ({
         id: assignment.id,
@@ -552,6 +587,80 @@ interventionsRouter.get(
 );
 
 interventionsRouter.get(
+  '/export/pdf',
+  asyncHandler(async (req, res) => {
+    const localUserId = req.user?.localUserId;
+    const hasOperationalView = hasAnyRole(req, INTERVENTION_VIEW_ROLES);
+
+    if (!hasOperationalView && !localUserId) {
+      throw new ForbiddenError('You do not have permission to export interventions.');
+    }
+
+    const where = {
+      archived: false,
+      status: {
+        in: [
+          InterventionStatus.NEW,
+          InterventionStatus.ASSIGNED,
+          InterventionStatus.IN_PROGRESS,
+        ],
+      },
+      ...(hasOperationalView
+        ? {}
+        : {
+            OR: [
+              { faultReport: { is: { userId: localUserId } } },
+              { assignments: { some: { userId: localUserId } } },
+            ],
+          }),
+    };
+
+    const interventions = await prisma.intervention.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        priority: true,
+        status: true,
+        location: true,
+        createdAt: true,
+        startedAt: true,
+        dueAt: true,
+        assignments: {
+          select: {
+            user: { select: { firstName: true, lastName: true } },
+          },
+        },
+      },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+    });
+
+    const rows: InterventionPdfRow[] = interventions.map((i) => ({
+      name: i.name,
+      priority: String(i.priority),
+      status: String(i.status),
+      location: compactStoredLocation(i.location),
+      servicers:
+        i.assignments && i.assignments.length > 0
+          ? i.assignments
+              .map((a) => `${a.user.firstName} ${a.user.lastName}`.trim())
+              .join(', ')
+          : 'Unassigned',
+      createdAt: i.createdAt?.toISOString() ?? null,
+      startedAt: i.startedAt?.toISOString() ?? null,
+      dueAt: i.dueAt?.toISOString() ?? null,
+    }));
+
+    const pdfBuffer = await generateInterventionsPdf(rows, { title: 'Interventions Export' });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    const filename = `interventions-${new Date().toISOString().slice(0,10)}.pdf`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(pdfBuffer);
+  }),
+);
+
+interventionsRouter.get(
   "/history",
   authorizeRoles(INTERVENTION_HISTORY_ROLES),
   asyncHandler(async (req, res) => {
@@ -563,9 +672,10 @@ interventionsRouter.get(
         {
           OR: [
             { status: InterventionStatus.RESOLVED },
-            { archived: true },
+            { status: InterventionStatus.CANCELLED },
           ],
         },
+        query.showArchived ? {} : { archived: false },
         query.location
           ? {
               location: {
@@ -601,6 +711,7 @@ interventionsRouter.get(
           status: true,
           priority: true,
           createdAt: true,
+          archived: true,
           category: {
             select: {
               id: true,
@@ -632,9 +743,10 @@ interventionsRouter.get(
         date: intervention.createdAt.toISOString(),
         status: intervention.status,
         priority: intervention.priority,
-        location: intervention.location,
+        location: compactStoredLocation(intervention.location),
         categoryId: intervention.category.id,
         categoryName: intervention.category.name,
+        archived: intervention.archived,
         summary:
           intervention.description.length > 120
             ? `${intervention.description.slice(0, 120)}...`
@@ -680,19 +792,33 @@ interventionsRouter.post(
 
     const creator = await resolveCreator(req);
     const context = await resolvePlanningContext(input);
+    const resolvedLocation = await resolvePersistableLocation({
+      location: input.location,
+      latitude: input.latitude ?? (context.latitude === null ? null : Number(context.latitude)),
+      longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
+      required: true,
+    });
 
-    const intervention = await prisma.intervention.create({
+    const recurringPeriod = input.recurringPeriod ?? null;
+    const plannedStart = input.startedAt ?? null;
+    const nextGenerationAt = recurringPeriod
+      ? computeNextGenerationAt(plannedStart ?? new Date(), recurringPeriod)
+      : null;
+
+const intervention = await prisma.intervention.create({
       data: {
         name: input.name,
         description: input.description,
-        location: input.location,
-        latitude: context.latitude,
-        longitude: context.longitude,
+        location: resolvedLocation.location,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt: input.startedAt ?? new Date(),
-        dueAt: input.dueAt ?? await calculateDueAt(input.priority, input.startedAt),
+        startedAt: null,
+        dueAt: input.dueAt ?? await calculateDueAt(input.priority, plannedStart),
+        recurringPeriod,
+        nextGenerationAt,
         categoryId: context.categoryId,
         companyId: context.companyId,
         creatorId: creator.id,
@@ -715,11 +841,15 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, archived: true },
     });
 
     if (!existing) {
       throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot have their status changed.");
     }
 
     const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
@@ -737,6 +867,9 @@ interventionsRouter.patch(
         where: { id },
         data: {
           status: input.status,
+          ...(input.status === InterventionStatus.IN_PROGRESS
+            ? { startedAt: new Date() }
+            : {}),
         },
         include: interventionInclude,
       }),
@@ -778,19 +911,24 @@ interventionsRouter.patch(
     }
 
     const context = await resolvePlanningContext(input);
+    const resolvedLocation = await resolvePersistableLocation({
+      location: input.location,
+      latitude: input.latitude ?? (context.latitude === null ? null : Number(context.latitude)),
+      longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
+      required: true,
+    });
     const intervention = await prisma.intervention.update({
       where: { id },
       data: {
         name: input.name,
         description: input.description,
-        location: input.location,
-        latitude: context.latitude,
-        longitude: context.longitude,
+        location: resolvedLocation.location,
+        latitude: resolvedLocation.latitude,
+        longitude: resolvedLocation.longitude,
         priority: input.priority,
         type: input.faultReportId
           ? InterventionType.ISSUE
           : InterventionType.PREVENTIVE,
-        startedAt: input.startedAt,
         dueAt:
           input.dueAt ??
           await calculateDueAt(input.priority, input.startedAt || existing.startedAt),
@@ -883,7 +1021,6 @@ interventionsRouter.get(
       throw new NotFoundError('Intervention not found.');
     }
 
-    // Combine direct attachments with fault-report attachments, deduplicating by id
     const direct = intervention.attachments;
     const fromFaultReport = intervention.faultReport?.attachments ?? [];
     const seenIds = new Set<number>();
@@ -895,6 +1032,347 @@ interventionsRouter.get(
     });
 
     res.json(combined);
+  }),
+);
+
+const recurrenceUpdateSchema = z.object({
+  recurringPeriod: z.nativeEnum(RecurringPeriod).nullable(),
+});
+
+interventionsRouter.patch(
+  "/:id/recurrence",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(recurrenceUpdateSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof recurrenceUpdateSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: { id: true, startedAt: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const nextGenerationAt =
+      input.recurringPeriod && existing.startedAt
+        ? computeNextGenerationAt(existing.startedAt, input.recurringPeriod)
+        : null;
+
+    const intervention = await prisma.intervention.update({
+      where: { id },
+      data: {
+        recurringPeriod: input.recurringPeriod,
+        nextGenerationAt,
+      },
+      include: interventionInclude,
+    });
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
+async function applyBulkStatusChange(
+  id: number,
+  targetStatus: InterventionStatus,
+  actorId: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+  }
+
+  const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
+
+  if (!allowedTargets?.has(targetStatus)) {
+    return {
+      id,
+      success: false,
+      reason: `Status transition from ${existing.status} to ${targetStatus} is not allowed.`,
+    };
+  }
+
+  await prisma.$transaction([
+    prisma.intervention.update({
+      where: { id },
+      data: {
+        status: targetStatus,
+        ...(targetStatus === InterventionStatus.IN_PROGRESS
+          ? { startedAt: new Date() }
+          : {}),
+      },
+    }),
+    prisma.statusHistory.create({
+      data: {
+        interventionId: id,
+        authorId: actorId,
+        oldStatus: existing.status,
+        newStatus: targetStatus,
+      },
+    }),
+  ]);
+
+  return { id, success: true };
+}
+
+async function applyBulkAssignServicer(
+  id: number,
+  userId: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is archived and cannot be modified." };
+  }
+
+  if (
+    existing.status === InterventionStatus.RESOLVED ||
+    existing.status === InterventionStatus.CANCELLED
+  ) {
+    return {
+      id,
+      success: false,
+      reason: `Cannot assign servicer to an intervention with status ${existing.status}.`,
+    };
+  }
+
+  const existingAssignment = await prisma.assignment.findFirst({
+    where: { interventionId: id, userId },
+    select: { id: true },
+  });
+
+  if (existingAssignment) {
+    return { id, success: false, reason: "Servicer is already assigned to this intervention." };
+  }
+
+  await prisma.$transaction([
+    prisma.assignment.create({
+      data: { interventionId: id, userId },
+    }),
+    ...(existing.status === InterventionStatus.NEW
+      ? [
+          prisma.intervention.update({
+            where: { id },
+            data: { status: InterventionStatus.ASSIGNED },
+          }),
+        ]
+      : []),
+  ]);
+
+  return { id, success: true };
+}
+
+async function applyBulkArchive(
+  id: number,
+  existing: { status: InterventionStatus; archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (existing.archived) {
+    return { id, success: false, reason: "Intervention is already archived." };
+  }
+
+  if (!ARCHIVABLE_STATUSES.has(existing.status)) {
+    return {
+      id,
+      success: false,
+      reason: `Only resolved or cancelled interventions can be archived. Current status: ${existing.status}.`,
+    };
+  }
+
+  await prisma.intervention.update({
+    where: { id },
+    data: { archived: true },
+  });
+
+  return { id, success: true };
+}
+
+async function applyBulkDearchive(
+  id: number,
+  existing: { archived: boolean },
+): Promise<BulkActionItemResult> {
+  if (!existing.archived) {
+    return { id, success: false, reason: "Intervention is not archived." };
+  }
+
+  await prisma.intervention.update({
+    where: { id },
+    data: { archived: false },
+  });
+
+  return { id, success: true };
+}
+
+interventionsRouter.post(
+  "/bulk-actions",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(bulkActionSchema),
+  asyncHandler(async (req, res) => {
+    const input = req.body as BulkActionInput;
+    const actor = await resolveCreator(req);
+
+    const { interventionIds } = input;
+
+    const existing = await prisma.intervention.findMany({
+      where: { id: { in: interventionIds } },
+      select: { id: true, status: true, archived: true },
+    });
+
+    const existingMap = new Map(existing.map((i) => [i.id, i]));
+
+    if (input.action === "ASSIGN_SERVICER") {
+      const servicer = await prisma.user.findUnique({
+        where: { id: input.payload.userId },
+        select: { id: true, active: true },
+      });
+
+      if (!servicer || !servicer.active) {
+        throw new BadRequestError("Selected servicer does not exist or is inactive.", [
+          { field: "payload.userId", message: "Servicer not found or inactive." },
+        ]);
+      }
+    }
+
+    const preflightResults: BulkActionItemResult[] = await Promise.all(
+      interventionIds.map(async (id): Promise<BulkActionItemResult> => {
+        const record = existingMap.get(id);
+
+        if (!record) {
+          return { id, success: false, reason: "Intervention not found." };
+        }
+
+        switch (input.action) {
+          case "STATUS_CHANGE": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+            }
+            const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(record.status);
+            if (!allowedTargets?.has(input.payload.status)) {
+              return {
+                id,
+                success: false,
+                reason: `Status transition from ${record.status} to ${input.payload.status} is not allowed.`,
+              };
+            }
+            return { id, success: true };
+          }
+
+          case "ASSIGN_SERVICER": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is archived and cannot be modified." };
+            }
+            if (
+              record.status === InterventionStatus.RESOLVED ||
+              record.status === InterventionStatus.CANCELLED
+            ) {
+              return {
+                id,
+                success: false,
+                reason: `Cannot assign servicer to an intervention with status ${record.status}.`,
+              };
+            }
+            const existingAssignment = await prisma.assignment.findFirst({
+              where: { interventionId: id, userId: input.payload.userId },
+              select: { id: true },
+            });
+            if (existingAssignment) {
+              return { id, success: false, reason: "Servicer is already assigned to this intervention." };
+            }
+            return { id, success: true };
+          }
+
+          case "ARCHIVE": {
+            if (record.archived) {
+              return { id, success: false, reason: "Intervention is already archived." };
+            }
+            if (!ARCHIVABLE_STATUSES.has(record.status)) {
+              return {
+                id,
+                success: false,
+                reason: `Only resolved or cancelled interventions can be archived. Current status: ${record.status}.`,
+              };
+            }
+            return { id, success: true };
+          }
+
+          case "DEARCHIVE": {
+            if (!record.archived) {
+              return { id, success: false, reason: "Intervention is not archived." };
+            }
+            return { id, success: true };
+          }
+        }
+      }),
+    );
+
+    const preflightFailed = preflightResults.filter((r) => !r.success);
+    if (preflightFailed.length > 0) {
+      const atomicFailResponse: BulkActionResponse = {
+        totalRequested: interventionIds.length,
+        totalSucceeded: 0,
+        totalSkipped: preflightFailed.length,
+        results: preflightResults,
+      };
+
+      AuditService.log({
+        action: `BULK_${input.action}`,
+        entity: "Intervention",
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Bulk action ${input.action} aborted (atomic): ${preflightFailed.length}/${interventionIds.length} failed pre-flight.`,
+        newValues: {
+          action: input.action,
+          payload: input.payload,
+          succeededIds: [],
+          skippedIds: preflightFailed.map((r) => r.id),
+        },
+      });
+
+      return res.status(422).json(atomicFailResponse);
+    }
+
+    const results: BulkActionItemResult[] = await Promise.all(
+      interventionIds.map(async (id) => {
+        const record = existingMap.get(id)!;
+
+        switch (input.action) {
+          case "STATUS_CHANGE":
+            return applyBulkStatusChange(id, input.payload.status, actor.id, record);
+          case "ASSIGN_SERVICER":
+            return applyBulkAssignServicer(id, input.payload.userId, record);
+          case "ARCHIVE":
+            return applyBulkArchive(id, record);
+          case "DEARCHIVE":
+            return applyBulkDearchive(id, record);
+        }
+      }),
+    );
+
+    const succeeded = results.filter((r) => r.success);
+    const skipped = results.filter((r) => !r.success);
+
+    AuditService.log({
+      action: `BULK_${input.action}`,
+      entity: "Intervention",
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Bulk action ${input.action}: ${succeeded.length}/${interventionIds.length} succeeded.`,
+      newValues: {
+        action: input.action,
+        payload: input.payload,
+        succeededIds: succeeded.map((r) => r.id),
+        skippedIds: skipped.map((r) => r.id),
+      },
+    });
+
+    const response: BulkActionResponse = {
+      totalRequested: interventionIds.length,
+      totalSucceeded: succeeded.length,
+      totalSkipped: skipped.length,
+      results,
+    };
+
+    res.status(HTTP_STATUS.OK).json(response);
   }),
 );
 

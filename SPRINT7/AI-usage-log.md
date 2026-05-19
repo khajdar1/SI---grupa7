@@ -665,3 +665,44 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Šta je tim odbacio:** Implementacija novih backend funkcionalnosti nije rađena u ovoj provjeri.
 - **Rizici, problemi ili greške koje su uočene:** `/reports` ruta može zbuniti korisnike jer ne prikazuje stvarne izvještaje.
 - **Ko je koristio alat:** Lamija Bojić
+
+  - **Datum:** 10.05.2026.
+- **Sprint broj:** Sprint 7
+- **Alat koji je korišten:** Claude (Anthropic)
+- **Svrha korištenja:** Redizajn frontend sučelja prema novom UI/UX design sistemu.
+- **Kratak opis zadatka ili upita:** Vizualna unifikacija stranica prijave, resetiranja lozinke, profila i sekcije izvještaja prema internom design sistemu koji koristi glassmorphism i gradient stilove. Rješavanje merge konflikata pri integraciji `develop` grane u `fix/ui-ux` uz zadržavanje UI/UX promjena.
+- **Šta je AI predložio ili generisao:**
+  - Redizajn `login/page.tsx` s `auth-layout`, animiranim gradijentnim pozadinama, `glass-card` containerom, `btn-glow` submit dugmetom i stilizovanim linkom za zaboravljenu lozinku.
+  - Kompletno prepisivanje `reset-password/page.tsx` iz `PageLayout+Card` u `auth-layout` stil identičan stranici za prijavu, s `AlertCircle`/`CheckCircle2` inline porukama, `spinner` loading stanjem i bosanskim labelama.
+  - Unapređenje `profile/page.tsx`: `stat-card-glow` kartice, ikone headera s `icon-bg-primary`/`icon-bg-violet` stilovima, `Skeleton` loading stanje, `btn-glow` dugmad s spinner-om i prijevod svih stringova na bosanski.
+  - Redizajn `ReportSection.tsx`: ikone u headerima kartica, `btn-glow` save dugme s loader-om, stilizovane error/success poruke i bosanski prijevodi.
+  - Rješavanje merge konflikata pri `git pull develop` — zadržane UI/UX izmjene, integrisane funkcionalne dopune s `develop` grane.
+- **Šta je tim prihvatio:** Kompletne izmjene na svim stranicama, design sistem komponente (`glass-card`, `btn-glow`, `stat-card-glow`, `spinner`), bosanske prijevode, rješavanje merge konflikata.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Merge konflikt na `login/page.tsx` između UI/UX styled dugmeta i novododate "zaboravili ste lozinku" funkcionalnosti s `develop` grane — riješen ručno uz zadržavanje oba elementa. CSS klasa `icon-bg-violet` nije postojala u design sistemu — zamijenjena s `icon-bg-purple`.
+- **Ko je koristio alat:** Nedim Omanović
+
+---
+
+
+- **Datum:** 12.05.2026.
+- **Sprint broj:** Sprint 7
+- **Alat koji je korišten:** Claude (Anthropic)
+- **Svrha korištenja:** Implementacija upravljačke table za Menadžment/Admin uloge s pregledom ključnih metrika sistema intervencija.
+- **Kratak opis zadatka ili upita:** Implementacija user storije: korisnik s ulogom Menadžment ili Admin može vidjeti dashboard s brojem aktivnih i završenih intervencija, prosječnim vremenom rješavanja i distribucijom intervencija po prioritetu.
+- **Šta je AI predložio ili generisao:**
+  - `ManagementService` klasu s metodom `getDashboardStats()`, `IManagementRepository` interfejsom za testabilnost, konstantama `ACTIVE_STATUSES`, `COMPLETED_STATUS` i `PRIORITY_DISPLAY_ORDER`.
+  - `computeAverageResolutionHours()` pomoćnu funkciju koja vraća `null` ako nema riješenih intervencija, štiti od negativnih trajanja (data anomaly) i računa prosjek u satima.
+  - `buildPriorityDistribution()` funkciju koja uvijek vraća sva 4 prioriteta (CRITICAL → LOW) s agregiranim `total`, `active` i `completed` brojevima.
+  - Backend endpoint `GET /api/v1/management/dashboard` ograničen na uloge Menadžment/Management/Admin/Administrator s `authorizeRoles` middlewareom.
+  - Prisma repository implementaciju koja koristi `intervention.count` s `archived: false` filterom i `statusHistory.findMany` s `newStatus: RESOLVED` filterom.
+  - Frontend `management/page.tsx` s role guardom (`AccessDenied` za neovlaštene korisnike), 3 stat kartice (aktivne, završene, prosječno vrijeme), tabelarni prikaz distribucije po prioritetu bez grafova.
+  - `management.service.ts` servis na frontendu s `getManagementDashboard()` funkcijom.
+  - Navigacijsku integraciju u `AppNavigation` — "Management" link u Operacije dropdownu vidljiv samo za Menadžment/Admin uloge.
+  - 20 unit testova za `ManagementService` i 15 HTTP integracijskih testova za route.
+- **Šta je tim prihvatio:** Kompletnu backend i frontend implementaciju, sve testove, navigacijsku integraciju.
+- **Šta je tim izmijenio:** "Upravljačka tabla" label u navigaciji zamijenjen s "Management" radi konzistentnosti s ostatkom sučelja. Menadžment link premješten iz zasebne desktop nav stavke u Operacije dropdown kako bi se eliminisalo fizičko preklapanje s profilnim menijem.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** TypeScript build greška u CI — `prisma.intervention.groupBy()` tip nije bio direktno castabilan na `Promise<PriorityStatusCount[]>`, riješeno s `as unknown as Promise<PriorityStatusCount[]>` double castom. `postinstall: prisma generate` skripta pokvarila CI jer `DATABASE_URL` nije dostupan tokom `npm ci` — premještena u `dev` skriptu. `wrangler@4.90.0` zahtijevao Node >=22, CI koristi Node 20 — downgrade na `wrangler@3`.
+- **Ko je koristio alat:** Nedim Omanović

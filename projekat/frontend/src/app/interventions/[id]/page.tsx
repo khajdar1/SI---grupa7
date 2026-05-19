@@ -73,6 +73,8 @@ const REPORT_READ_ROLES = new Set([
   'menadzment',
   'management',
   'serviser',
+  'supportagent',
+  'agentpodrske',
 ]);
 
 const REPORT_WRITE_ROLES = new Set(['serviser']);
@@ -315,7 +317,10 @@ export default function InterventionDetailPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Started</p>
                   <p className="text-sm">
-                    {new Date(intervention.startedAt).toLocaleDateString('en-GB')}
+                    {new Date(intervention.startedAt).toLocaleString('en-GB', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    })}
                   </p>
                 </div>
                 <div>

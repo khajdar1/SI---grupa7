@@ -66,15 +66,3 @@ export const HOME_CAPABILITY_CARDS = [
   },
 ] as const;
 
-export const HOME_STACK_PILLS = ['Next.js', 'React', 'Express', 'TypeScript', 'MySQL', 'Socket.IO'] as const;
-
-export const TARGET_USER_ROLES = ['Coordinator', 'Technician', 'Management', 'Company Admin', 'Admin'] as const;
-
-export const ASSIGNMENT_TOOLS = ['Manual override', 'Auto assign', 'Multi-assignee', 'Load-aware'] as const;
-
-export const ADMIN_SYSTEM_TAGS = ['SLA limits', 'Audit log', 'Disabled states'] as const;
-export const MAP_TAGS = ['PBI-034', 'Location clustering', 'Dispatch support'] as const;
-export const PROFILE_TAGS = ['PBI-015', 'Personal data', 'Password change'] as const;
-export const SETTINGS_TAGS = ['PBI-031', 'PBI-035', 'Language', 'SLA'] as const;
-export const TICKETS_TAGS = ['Ticketing', 'Messages', 'PBI-027', 'PBI-028'] as const;
-export const HISTORY_TAGS = ['PBI-011', 'Status history', 'Timeline'] as const;
