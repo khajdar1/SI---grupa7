@@ -1,3 +1,4 @@
+import { createServer } from 'node:http';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -59,7 +60,7 @@ beforeEach(() => {
 
 describe('realtime socket ticket rooms', () => {
   it('should join ticket room and track ticket presence', async () => {
-    initSocket({} as never);
+    initSocket(createServer());
     const { socket, listeners } = createMockSocket();
     connectionHandlerRef.current?.(socket);
 
@@ -70,7 +71,7 @@ describe('realtime socket ticket rooms', () => {
   });
 
   it('should leave previous ticket room when switching tickets', async () => {
-    initSocket({} as never);
+    initSocket(createServer());
     const { socket, listeners } = createMockSocket();
     connectionHandlerRef.current?.(socket);
 
@@ -84,7 +85,7 @@ describe('realtime socket ticket rooms', () => {
   });
 
   it('should leave ticket room and clear ticket presence on ticket:leave', async () => {
-    initSocket({} as never);
+    initSocket(createServer());
     const { socket, listeners } = createMockSocket();
     connectionHandlerRef.current?.(socket);
 
@@ -96,7 +97,7 @@ describe('realtime socket ticket rooms', () => {
   });
 
   it('should emit events to ticket room via emitToTicket helper', () => {
-    initSocket({} as never);
+    initSocket(createServer());
 
     emitToTicket(88, 'message:created', { id: 1 });
 

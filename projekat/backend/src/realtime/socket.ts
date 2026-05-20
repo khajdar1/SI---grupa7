@@ -24,6 +24,10 @@ function removeTicketPresence(ticketId: number, userId: number): void {
   }
 }
 
+function getTicketRoomName(ticketId: number): string {
+  return `ticket:${ticketId}`;
+}
+
 function getAllowedSocketOrigins(): string[] {
   return env.SOCKET_CORS_ORIGIN.split(',')
     .map((origin) => origin.trim())
@@ -70,10 +74,10 @@ export function initSocket(server: HttpServer) {
       const previousUserId = parsePositiveInteger(previousPresence?.userId);
       if (previousTicketId && previousUserId && (previousTicketId !== ticketId || previousUserId !== userId)) {
         removeTicketPresence(previousTicketId, previousUserId);
-        await socket.leave(`ticket:${previousTicketId}`);
+        await socket.leave(getTicketRoomName(previousTicketId));
       }
 
-      await socket.join(`ticket:${ticketId}`);
+      await socket.join(getTicketRoomName(ticketId));
       const users = ticketPresence.get(ticketId) ?? new Set<number>();
       users.add(userId);
       ticketPresence.set(ticketId, users);
@@ -86,7 +90,7 @@ export function initSocket(server: HttpServer) {
 
       if (ticketId && userId) {
         removeTicketPresence(ticketId, userId);
-        await socket.leave(`ticket:${ticketId}`);
+        await socket.leave(getTicketRoomName(ticketId));
       }
     });
 
@@ -117,7 +121,7 @@ export function emitToRole(role: string, event: string, data: unknown): void {
 }
 
 export function emitToTicket(ticketId: number, event: string, data: unknown): void {
-  socketServer?.to(`ticket:${ticketId}`).emit(event, data);
+  socketServer?.to(getTicketRoomName(ticketId)).emit(event, data);
 }
 
 export function isUserViewingTicket(ticketId: number, userId: number): boolean {
