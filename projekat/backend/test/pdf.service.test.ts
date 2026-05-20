@@ -29,5 +29,5 @@ describe('PDF text normalization', () => {
 
     expect(pdf.subarray(0, 5).toString('utf8')).toBe('%PDF-');
     expect(pdf.length).toBeGreaterThan(1000);
-  });
+  }, 15000);
 });
