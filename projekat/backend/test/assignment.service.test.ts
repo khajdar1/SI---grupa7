@@ -33,6 +33,9 @@ const {
     companyId: number;
     status: string;
     archived: boolean;
+    name: string;
+    priority: string;
+    location: string;
   };
 
   type TestAssignment = {
@@ -131,6 +134,9 @@ const {
       companyId: overrides.companyId ?? 1,
       status: overrides.status ?? "NEW",
       archived: overrides.archived ?? false,
+      name: overrides.name ?? `Intervention ${id}`,
+      priority: overrides.priority ?? "MEDIUM",
+      location: overrides.location ?? `Location ${id}`,
     };
 
     state.interventions.push(intervention);
@@ -200,6 +206,9 @@ const {
               id: intervention.id,
               companyId: intervention.companyId,
               status: intervention.status,
+              name: intervention.name,
+              priority: intervention.priority,
+              location: intervention.location,
             }
           : null;
       }),
@@ -470,6 +479,9 @@ const {
         },
       ),
     },
+    notification: {
+      create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
   };
 
   const auditRecordMock = vi.fn().mockResolvedValue(undefined);
@@ -517,6 +529,11 @@ vi.mock("../src/clients/keycloak.client", () => ({
   MANAGED_KEYCLOAK_ROLE_ALIASES: {
     SERVISER: ["Serviser", "serviser"],
   },
+}));
+
+vi.mock("../src/realtime/socket", () => ({
+  emitToUser: vi.fn(),
+  emitToRole: vi.fn(),
 }));
 
 import { AssignmentService } from "../src/modules/assignments/assignment.service";

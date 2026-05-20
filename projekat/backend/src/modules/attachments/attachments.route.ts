@@ -23,7 +23,7 @@ import {
 const attachmentsRouter = Router();
 
 const ADMIN_ROLES = ['admin', 'administrator'];
-const VIEW_ROLES = ['koordinator', 'admin', 'administrator'];
+const VIEW_ROLES = ['koordinator', 'admin', 'administrator', 'supportagent', 'agentpodrske'];
 const DELETE_ROLES = ADMIN_ROLES;
 
 const prismaAttachmentRepository: IAttachmentRepository = {

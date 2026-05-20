@@ -24,6 +24,8 @@ const VIEW_ROLES = [
   'serviser',
   'menadzment',
   'management',
+  'supportagent',
+  'agentpodrske',
 ];
 
 const WRITE_ROLES = ['serviser'];
