@@ -23,3 +23,42 @@
 
 ---
 
+- **Datum:** 15.05.2026.
+- **Sprint broj:** Sprint 8
+- **Alat koji je koristio:** Claude (claude-sonnet-4-6)
+- **Svrha koristenja:** Implementacija PBI-025 (Detekcija duplikata prijave kvara) - automatsko upozoravanje korisnika pri pokusaju prijave slicnog kvara na istoj lokaciji.
+- **Kratak opis zadatka ili upita:** Zadatak je obuhvatio: (1) implementaciju algoritma za detekciju duplikata na backendu na osnovu tekstualne slicnosti opisa i geografske blizine lokacije, (2) novi API endpoint za provjeru duplikata prije kreiranja prijave, (3) frontend komponentu koja prikazuje upozorenje korisniku sa opcijama da nastavi ili odustane od prijave, (4) seed podatke za demonstraciju funkcionalnosti i unit testove za algoritme slicnosti.
+- **Sta je AI predlozio ili generisao:**
+  - Algoritme za racunanje slicnosti: Jaccard sličnost nad rijecima za tekstualne opise.
+  - Novi endpoint `POST /api/v1/fault-reports/check-duplicates` koji prima lokaciju, opis i korisnicke podatke te vraca listu potencijalnih duplikata sa procentom podudaranja.
+  - `findRecentFaultReports()` metodu u repozitoriju koja pretrazuje prijave istog korisnika i kompanije u vremenskom prozoru od 48 sati.
+  - `DuplicateWarningDialog.tsx` komponentu koja prikazuje zuti dijaloški okvir sa listom slicnih prijava, postotkom podudaranja, statusom intervencije i dugmadima za nastavak ili odustajanje.
+  - Integraciju provjere duplikata u `fault-reports/page.tsx` prije stvarnog submita forme, sa ocuvanjem pending akcije dok korisnik donese odluku.
+  - Nove TypeScript interfejse: `DuplicateCheckPayload`, `DuplicateCheckResponse`, `PotentialDuplicateItem`.
+  - 16 unit testova.
+- **Sta je tim prihvatio:** Kompletna implementacija detekcije duplikata sa frontend upozorenjem, backend algoritmima slicnosti i seed podacima za testiranje. Svih 16 unit testova prolazi uspjesno.
+- **Sta je tim izmijenio:** Tokom razvoja ustanovljeno je da seed podatke za PBI-025 treba kreirati sa `userId` prvog korisnika u bazi umjesto fiksnog demo korisnika, kako bi se izbjeglo rucno azuriranje baze nakon svakog pokretanja seeda. 
+- **Sta je tim odbacio:** Migracijska skripta za dodavanje indeksa na `(userId, companyId, reportedAt)` je uklonjena jer je uzrokovala probleme pri pokretanju (`P3009` greska u Prisma Migrate) i nije bila neophodna za funkcionalnost u razvojnom okruzenju.
+- **Rizici, problemi ili greske koje su uocene:** (1) Detekcija duplikata oslanja se na `userId` iz localStorage-a sto znaci da za neautenticirane korisnike provjera duplikata nije aktivna; (2) Jaccard algoritam za slicnost teksta moze propustiti semanticki slicne opise napisane razlicitim rijecima;
+- **Ko je koristio alat:** Lejla Gičević
+
+---
+
+- **Datum:** 20.05.2026.
+- **Sprint broj:** Sprint 8
+- **Alat koji je koristio:** ChatGPT / Codex
+- **Svrha korištenja:** Implementacija komunikacije na tiketu i pripadajućih unit testova.
+- **Kratak opis zadatka ili upita:** Zadatak je obuhvatio razvoj funkcionalnosti za komunikaciju unutar tiketa, evidentiranje poruka/komentara vezanih za tiket i provjeru očekivanog ponašanja kroz unit testove.
+- **Šta je AI predložio ili generisao:**
+  - Strukturu backend logike za dodavanje i dohvat komunikacije vezane za tiket.
+  - Validaciju ulaznih podataka za kreiranje poruke ili komentara na tiketu.
+  - Prijedlog unit testova za uspješne i neuspješne scenarije komunikacije.
+  - Smjernice za provjeru da se komunikacija ispravno povezuje sa odgovarajućim tiketom i korisnikom.
+- **Šta je tim prihvatio:** Implementaciju osnovnog toka komunikacije na tiketu i prateće unit testove koji pokrivaju ključne scenarije.
+- **Šta je tim izmijenio:** Tekst poruka, nazivi polja i testni slučajevi su prilagođeni postojećem modelu tiketa i stilu backend testova.
+- **Šta je tim odbacio:** Dodatne napredne opcije komunikacije nisu uključene jer nisu bile dio trenutnog sprint opsega.
+- **Rizici, problemi ili greške koje su uočene:** Potrebno je održavati usklađenost komunikacije na tiketu sa pravilima autorizacije, posebno kod pristupa korisnika različitih uloga.
+- **Ko je koristio alat:** Lamija Bojić
+
+---
+
