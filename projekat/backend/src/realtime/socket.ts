@@ -57,7 +57,7 @@ export function initSocket(server: HttpServer) {
       void socket.join(`role:${role}`);
     });
 
-    socket.on('ticket:join', (payload: { ticketId?: unknown; userId?: unknown }) => {
+    socket.on('ticket:join', async (payload: { ticketId?: unknown; userId?: unknown }) => {
       const ticketId = parsePositiveInteger(payload?.ticketId);
       const userId = parsePositiveInteger(payload?.userId) ?? parsePositiveInteger(socket.data.userId);
 
@@ -70,20 +70,23 @@ export function initSocket(server: HttpServer) {
       const previousUserId = parsePositiveInteger(previousPresence?.userId);
       if (previousTicketId && previousUserId && (previousTicketId !== ticketId || previousUserId !== userId)) {
         removeTicketPresence(previousTicketId, previousUserId);
+        await socket.leave(`ticket:${previousTicketId}`);
       }
 
+      await socket.join(`ticket:${ticketId}`);
       const users = ticketPresence.get(ticketId) ?? new Set<number>();
       users.add(userId);
       ticketPresence.set(ticketId, users);
       socket.data.ticketPresence = { ticketId, userId };
     });
 
-    socket.on('ticket:leave', (payload: { ticketId?: unknown; userId?: unknown }) => {
+    socket.on('ticket:leave', async (payload: { ticketId?: unknown; userId?: unknown }) => {
       const ticketId = parsePositiveInteger(payload?.ticketId);
       const userId = parsePositiveInteger(payload?.userId) ?? parsePositiveInteger(socket.data.userId);
 
       if (ticketId && userId) {
         removeTicketPresence(ticketId, userId);
+        await socket.leave(`ticket:${ticketId}`);
       }
     });
 
@@ -111,6 +114,10 @@ export function emitToUser(userId: number, event: string, data: unknown): void {
 
 export function emitToRole(role: string, event: string, data: unknown): void {
   socketServer?.to(`role:${role}`).emit(event, data);
+}
+
+export function emitToTicket(ticketId: number, event: string, data: unknown): void {
+  socketServer?.to(`ticket:${ticketId}`).emit(event, data);
 }
 
 export function isUserViewingTicket(ticketId: number, userId: number): boolean {
