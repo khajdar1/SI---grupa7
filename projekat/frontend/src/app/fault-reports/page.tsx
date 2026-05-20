@@ -2,10 +2,11 @@
 export const runtime = 'edge';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,9 +20,21 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ROUTES, UI } from '@/constants';
+import { hasSessionRole } from '@/lib/auth';
 import { clearFieldError, getApiFieldErrors, validateRequired } from '@/lib/form-validation';
-import type { FaultReportCategoryOption, FaultReportCompanyOption } from '@/models/FaultReport';
-import { getFaultReportOptions, submitFaultReport } from '@/services/fault-reports.service';
+import type {
+  FaultReportCategoryOption,
+  FaultReportCompanyOption,
+  FaultReportListItem,
+  PotentialDuplicateItem,
+} from '@/models/FaultReport';
+import {
+  getFaultReportOptions,
+  getFaultReports,
+  submitFaultReport,
+  checkFaultReportDuplicates,
+} from '@/services/fault-reports.service';
+import { DuplicateWarningDialog } from '@/components/fault-reports/DuplicateWarningDialog';
 
 type ReportMode = 'regular' | 'emergency';
 
@@ -55,6 +68,14 @@ const EMERGENCY_TEMPLATES: readonly EmergencyTemplate[] = [
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
 
 async function readFileAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -82,6 +103,8 @@ function inferMimeType(file: File): string {
 export default function FaultReportsPage() {
   const [reportMode, setReportMode] = useState<ReportMode>('emergency');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSupportAgent, setIsSupportAgent] = useState(false);
+  const [faultReports, setFaultReports] = useState<FaultReportListItem[]>([]);
 
   const [companies, setCompanies] = useState<FaultReportCompanyOption[]>([]);
   const [categories, setCategories] = useState<FaultReportCategoryOption[]>([]);
@@ -105,6 +128,11 @@ export default function FaultReportsPage() {
   const [createdInterventionId, setCreatedInterventionId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // PBI-025: duplicate detection state
+  const [duplicateWarningOpen, setDuplicateWarningOpen] = useState(false);
+  const [potentialDuplicates, setPotentialDuplicates] = useState<PotentialDuplicateItem[]>([]);
+  const pendingSubmitRef = useRef<(() => Promise<void>) | null>(null);
 
   const selectedTemplate = useMemo(
     () => EMERGENCY_TEMPLATES.find((template) => template.id === templateId) ?? EMERGENCY_TEMPLATES[0],
@@ -135,11 +163,33 @@ export default function FaultReportsPage() {
     }
   };
 
+  const loadFaultReports = async () => {
+    try {
+      setIsLoading(true);
+      const reports = await getFaultReports();
+      setFaultReports(reports);
+      setError('');
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Failed to load fault reports.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const token = window.localStorage.getItem('token');
     const authenticated = Boolean(token);
+    const supportAgent = hasSessionRole(SUPPORT_AGENT_ROLE_NAMES);
+
     setIsAuthenticated(authenticated);
+    setIsSupportAgent(supportAgent);
     setReportMode(authenticated ? 'regular' : 'emergency');
+
+    if (supportAgent) {
+      void loadFaultReports();
+      return;
+    }
+
     void loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -242,19 +292,11 @@ export default function FaultReportsPage() {
     return nextErrors;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  /** Performs the actual report creation after duplicate confirmation or when no warning is needed. */
+  const doSubmit = async () => {
     setError('');
     setSuccessMessage('');
     setCreatedInterventionId(null);
-
-    const nextErrors = validateForm();
-    if (Object.keys(nextErrors).length > 0) {
-      setFieldErrors(nextErrors);
-      return;
-    }
-
-    setFieldErrors({});
     setIsSubmitting(true);
 
     try {
@@ -334,10 +376,152 @@ export default function FaultReportsPage() {
     }
   };
 
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccessMessage('');
+    setCreatedInterventionId(null);
+
+    const nextErrors = validateForm();
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+
+    setFieldErrors({});
+
+    // PBI-025: Check duplicates for authenticated users in regular mode.
+    if (reportMode === 'regular' && isAuthenticated && companyId) {
+      try {
+        // Read userId from the localStorage user object.
+        let userId: number | null = null;
+        const raw = window.localStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw) as { id?: number };
+          userId = parsed.id ?? null;
+        }
+
+        if (userId) {
+          const checkResult = await checkFaultReportDuplicates({
+            userId,
+            companyId: Number(companyId),
+            location: location.trim(),
+            description: description.trim(),
+            latitude,
+            longitude,
+          });
+
+          if (checkResult.hasPotentialDuplicates) {
+            setPotentialDuplicates(checkResult.duplicates);
+            pendingSubmitRef.current = doSubmit;
+            setDuplicateWarningOpen(true);
+            return;
+          }
+        }
+      } catch {
+        // Duplicate-check failures should not block report submission.
+      }
+    }
+
+    await doSubmit();
+  };
+
   const noIntakeOptions = companies.length === 0 || categories.length === 0;
+
+  if (isSupportAgent) {
+    return (
+      <PageLayout className="space-y-6">
+        <PageHeader
+          title="Fault Reports"
+          subtitle="Review submitted fault reports and related intervention status."
+          breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Fault Reports' }]}
+        />
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Submitted Reports</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <Skeleton key={index} className="h-24 w-full rounded-lg" />
+                ))}
+              </div>
+            ) : error ? (
+              <EmptyState
+                title="Fault reports unavailable"
+                description={error}
+                action={{ label: 'Retry', onClick: () => void loadFaultReports() }}
+              />
+            ) : faultReports.length === 0 ? (
+              <EmptyState
+                title="No fault reports"
+                description="There are no submitted fault reports to review right now."
+              />
+            ) : (
+              <div className="space-y-3">
+                {faultReports.map((report) => {
+                  const latestIntervention = [...report.interventions].sort(
+                    (leftIntervention, rightIntervention) =>
+                      new Date(rightIntervention.createdAt).getTime() -
+                      new Date(leftIntervention.createdAt).getTime(),
+                  )[0];
+
+                  return (
+                    <div key={report.id} className="rounded-lg border bg-card p-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold">FR-{String(report.id).padStart(5, '0')}</span>
+                            <Badge variant="outline">{report.category.name}</Badge>
+                            {latestIntervention ? (
+                              <Badge variant="secondary">{latestIntervention.status.replace(/_/g, ' ')}</Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {report.company.name} - {report.location || 'No location'} - {formatDateTime(report.reportedAt)}
+                          </p>
+                        </div>
+
+                        {latestIntervention ? (
+                          <Button asChild variant="outline" size="sm" className="shrink-0">
+                            <Link href={ROUTES.INTERVENTION(String(latestIntervention.id))}>
+                              Open intervention
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </PageLayout>
+    );
+  }
 
   return (
     <PageLayout className="space-y-6">
+      {/* PBI-025: Duplicate warning dialog */}
+      <DuplicateWarningDialog
+        open={duplicateWarningOpen}
+        duplicates={potentialDuplicates}
+        onContinue={() => {
+          setDuplicateWarningOpen(false);
+          if (pendingSubmitRef.current) {
+            void pendingSubmitRef.current();
+            pendingSubmitRef.current = null;
+          }
+        }}
+        onCancel={() => {
+          setDuplicateWarningOpen(false);
+          pendingSubmitRef.current = null;
+        }}
+      />
       <PageHeader
         title="Fault Reports"
         subtitle="Report incidents quickly and route them into intervention workflow."
@@ -477,6 +661,8 @@ export default function FaultReportsPage() {
                       value={location}
                       onChange={(event) => {
                         setLocation(event.target.value);
+                        setLatitude(null);
+                        setLongitude(null);
                         clearError('location');
                       }}
                       aria-invalid={Boolean(fieldErrors.location)}

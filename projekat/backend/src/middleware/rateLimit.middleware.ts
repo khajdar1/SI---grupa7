@@ -2,7 +2,7 @@ import rateLimit from 'express-rate-limit';
 
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const MS_PER_MINUTE = 60 * 1000;
-const RATE_LIMIT_MAX_REQUESTS = 20;
+const RATE_LIMIT_MAX_REQUESTS = 200;
 
 export const authRateLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MINUTES * MS_PER_MINUTE,

@@ -46,7 +46,14 @@ import {
 } from '@/services/management.service';
 import { getUsers, type ManagedUser } from '@/services/users.service';
 
-type DashboardRole = 'ADMIN' | 'KOMPANIJA_ADMIN' | 'MENADZMENT' | 'KOORDINATOR' | 'SERVISER' | 'KORISNIK';
+type DashboardRole =
+  | 'ADMIN'
+  | 'KOMPANIJA_ADMIN'
+  | 'MENADZMENT'
+  | 'KOORDINATOR'
+  | 'SERVISER'
+  | 'SUPPORT_AGENT'
+  | 'KORISNIK';
 
 type SessionUser = {
   id?: number;
@@ -87,6 +94,7 @@ const ROLE_ALIASES: Record<DashboardRole, readonly string[]> = {
   MENADZMENT: ['menadzment', 'management'],
   KOORDINATOR: ['koordinator', 'coordinator'],
   SERVISER: ['serviser'],
+  SUPPORT_AGENT: ['supportagent', 'agentpodrske'],
   KORISNIK: ['korisnik'],
 };
 
@@ -96,6 +104,7 @@ const ROLE_PRIORITY: readonly DashboardRole[] = [
   'MENADZMENT',
   'KOORDINATOR',
   'SERVISER',
+  'SUPPORT_AGENT',
   'KORISNIK',
 ];
 
@@ -294,6 +303,48 @@ const ROLE_CONFIG: Record<DashboardRole, RoleDashboardConfig> = {
       },
     ],
   },
+  SUPPORT_AGENT: {
+    label: 'Support Agent',
+    title: 'Support Dashboard',
+    subtitle: 'Follow support tickets and keep user conversations moving.',
+    primaryAction: {
+      label: 'Open tickets',
+      href: ROUTES.TICKETS,
+      icon: <Ticket className="size-4" aria-hidden="true" />,
+    },
+    focusTitle: 'Support focus',
+    focusItems: [
+      'Review new support tickets and respond inside the ticket thread.',
+      'Escalate suspicious or sensitive conversations to an admin for review.',
+      'Close tickets only after the support conversation is complete.',
+    ],
+    actions: [
+      {
+        title: 'Tickets',
+        description: 'Open the support ticket queue and continue conversations.',
+        href: ROUTES.TICKETS,
+        icon: <Ticket className="size-5 text-primary" aria-hidden="true" />,
+      },
+      {
+        title: 'Fault reports',
+        description: 'Review submitted reports before answering user questions.',
+        href: ROUTES.FAULT_REPORTS,
+        icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Interventions',
+        description: 'Check intervention status, priority, assignment, and timing.',
+        href: ROUTES.INTERVENTIONS,
+        icon: <ClipboardList className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+      {
+        title: 'Profile',
+        description: 'Review your support account information.',
+        href: ROUTES.PROFILE,
+        icon: <User className="size-5 text-emerald-600" aria-hidden="true" />,
+      },
+    ],
+  },
   KORISNIK: {
     label: 'User',
     title: 'User Dashboard',
@@ -330,6 +381,13 @@ const ROLE_CONFIG: Record<DashboardRole, RoleDashboardConfig> = {
       },
     ],
   },
+};
+
+const SUPPORT_TICKET_ACTION: DashboardAction = {
+  title: 'Support ticket',
+  description: 'Create a support ticket for application questions or problems.',
+  href: ROUTES.TICKET_CREATE,
+  icon: <Ticket className="size-5 text-rose-600" aria-hidden="true" />,
 };
 
 function decodeJwtPayload(token: string): {
@@ -636,6 +694,19 @@ function buildRoleStats(params: {
     ];
   }
 
+  if (role === 'SUPPORT_AGENT') {
+    return [
+      { title: 'Support tickets', value: '-', icon: <Ticket className="size-5 text-primary" aria-hidden="true" /> },
+      { title: 'Open support', value: '-', icon: <ClipboardList className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: 'Admin escalations', value: '-', icon: <Shield className="size-5 text-amber-600" aria-hidden="true" /> },
+      {
+        title: 'API status',
+        value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
+        icon: <Shield className="size-5 text-violet-600" aria-hidden="true" />,
+      },
+    ];
+  }
+
   if (role === 'KOMPANIJA_ADMIN') {
     return [
       {
@@ -746,6 +817,10 @@ export default function DashboardPage() {
     [company, currentUserId, interventions, managementStats, role, snapshot, users],
   );
   const recentItems = useMemo(() => getRecentItems(interventions), [interventions]);
+  const quickActions = useMemo(
+    () => (role === 'SUPPORT_AGENT' ? config.actions : [...config.actions, SUPPORT_TICKET_ACTION]),
+    [config.actions, role],
+  );
   const displayName = sessionUser?.firstName
     ? `${sessionUser.firstName}${sessionUser.lastName ? ` ${sessionUser.lastName}` : ''}`
     : sessionUser?.username;
@@ -793,7 +868,7 @@ export default function DashboardPage() {
       <FocusPanel config={config} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={`${config.label} dashboard shortcuts`}>
-        {config.actions.map((action) => (
+        {quickActions.map((action) => (
           <QuickActionCard key={action.title} action={action} />
         ))}
       </section>

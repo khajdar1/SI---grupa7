@@ -5,7 +5,7 @@ WORKDIR /app
 ENV DATABASE_URL=mysql://service_app:service_app@localhost:3306/service_interventions
 
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends openssl ca-certificates \
+	&& apt-get install -y --no-install-recommends openssl ca-certificates fonts-dejavu-core \
 	&& rm -rf /var/lib/apt/lists/*
 	
 COPY package.json package-lock.json ./

@@ -17,6 +17,8 @@ export interface InterventionListItem {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   categoryId: number;
   categoryName: string;
   companyId: number;
@@ -30,6 +32,7 @@ export interface InterventionListItem {
   dueAt: string | null;
   isOverdue?: boolean;
   faultReport: InterventionFaultReportLink | null;
+  recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -48,12 +51,15 @@ export interface InterventionFormPayload {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   startedAt?: string;
   dueAt?: string;
   faultReportId?: number | null;
   companyId?: number;
   categoryId?: number;
   priority: Priority;
+  recurringPeriod?: string | null;
 }
 
 export interface InterventionOption {
@@ -143,6 +149,8 @@ export interface InterventionDetail {
   name: string;
   description: string;
   location: string;
+  latitude?: number | null;
+  longitude?: number | null;
   categoryId: number;
   categoryName: string;
   companyId: number;
@@ -156,6 +164,7 @@ export interface InterventionDetail {
   startedAt: string | null;
   dueAt: string | null;
   faultReport: { id: number } | null;
+  recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -169,6 +178,52 @@ export interface InterventionDetail {
     assignedAt: string;
   }>;
 }
+
+export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
+ 
+export interface BulkActionItemResult {
+  id: number;
+  success: boolean;
+  reason?: string;
+}
+ 
+export interface BulkActionResponse {
+  totalRequested: number;
+  totalSucceeded: number;
+  totalSkipped: number;
+  results: BulkActionItemResult[];
+}
+ 
+type BulkStatusChangePayload = {
+  action: 'STATUS_CHANGE';
+  interventionIds: number[];
+  payload: { status: InterventionStatus };
+};
+ 
+type BulkAssignServicerPayload = {
+  action: 'ASSIGN_SERVICER';
+  interventionIds: number[];
+  payload: { userId: number };
+};
+ 
+type BulkArchivePayload = {
+  action: 'ARCHIVE';
+  interventionIds: number[];
+  payload: Record<string, never>;
+};
+
+type BulkDearchivePayload = {
+  action: 'DEARCHIVE';
+  interventionIds: number[];
+  payload: Record<string, never>;
+};
+ 
+export type BulkActionPayload =
+  | BulkStatusChangePayload
+  | BulkAssignServicerPayload
+  | BulkArchivePayload
+  | BulkDearchivePayload;
+ 
 
 export async function getInterventionById(id: number): Promise<InterventionDetail> {
   return getResponseData(
@@ -190,6 +245,24 @@ export async function getInterventions(): Promise<InterventionsResult> {
 
     return { items: [] };
   }, 'Failed to load interventions.');
+}
+
+export async function downloadInterventionsPdf(): Promise<void> {
+  return withServiceError(async () => {
+    const response = await api.get<Blob>(API_ENDPOINTS.INTERVENTIONS.EXPORT_PDF, {
+      responseType: 'blob',
+    });
+
+    const fileName = `interventions-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, 'Failed to export interventions to PDF.');
 }
 
 export async function getInterventionOptions(): Promise<InterventionOptions> {
@@ -263,4 +336,80 @@ export async function updateInterventionStatus(
     ),
     'Failed to update intervention status.',
   );
+}
+
+export async function updateRecurrence(
+  id: string | number,
+  recurringPeriod: string | null,
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.patch<InterventionDetail>(
+      `${API_ENDPOINTS.INTERVENTIONS.BASE}/${id}/recurrence`,
+      { recurringPeriod },
+    ),
+    'Failed to update recurrence.',
+  );
+}
+export async function executeBulkAction(
+  payload: BulkActionPayload,
+): Promise<BulkActionResponse> {
+  try {
+    const response = await api.post<BulkActionResponse>(
+      API_ENDPOINTS.INTERVENTIONS.BULK_ACTIONS,
+      payload,
+    );
+
+    return response.data;
+  } catch (error: unknown) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'response' in error
+    ) {
+      const axiosError = error as {
+        response?: {
+          status?: number;
+          data?: BulkActionResponse;
+        };
+      };
+
+      if (
+        axiosError.response?.status === 422 &&
+        axiosError.response.data
+      ) {
+        return axiosError.response.data;
+      }
+    }
+
+    throw new Error('Bulk action failed. Please try again.');
+  }
+}
+ 
+export function buildBulkStatusChange(
+  interventionIds: number[],
+  status: InterventionStatus,
+): BulkStatusChangePayload {
+  return { action: 'STATUS_CHANGE', interventionIds, payload: { status } };
+}
+ 
+export function buildBulkAssignServicer(
+  interventionIds: number[],
+  userId: number,
+): BulkAssignServicerPayload {
+  return { action: 'ASSIGN_SERVICER', interventionIds, payload: { userId } };
+}
+ 
+export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload {
+  return { action: 'ARCHIVE', interventionIds, payload: {} as Record<string, never> };
+}
+
+export function buildBulkDearchive(interventionIds: number[]): BulkDearchivePayload {
+  return { action: 'DEARCHIVE', interventionIds, payload: {} as Record<string, never> };
+}
+ 
+export function formatBulkResultSummary(result: BulkActionResponse): string {
+  if (result.totalSkipped === 0) {
+    return `${result.totalSucceeded} of ${result.totalRequested} interventions successfully updated.`;
+  }
+  return `${result.totalSucceeded} of ${result.totalRequested} interventions updated. ${result.totalSkipped} skipped.`;
 }
