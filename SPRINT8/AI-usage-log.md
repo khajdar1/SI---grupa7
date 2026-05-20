@@ -770,4 +770,38 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Ko je koristio alat:** Lamija Bojić
 
 ---
+- **Datum:** 15.05.2026. – 16.05.2026.
+- **Sprint broj:** Sprint 8
+- **Alat koji je korišten:** Claude (Anthropic)
+- **Svrha korištenja:** Implementacija real-time notifikacijskog sistema zasnovanog na Socket.IO i perzistencije notifikacija u bazi podataka za uloge, u okviru PBI-012 i PBI-027.
+- **Kratak opis zadatka ili upita:** Tim je radio na ispunjenju acceptance kriterija za PBI-012 (notifikacije serviseru pri dodjeli intervencije i koordinatoru pri novoj prijavi kvara) i PBI-027 (notifikacije agentu podrške i koordinatoru pri kreiranju tiketa). Zadatak je obuhvatio dijagnostiku Socket.IO CORS konfiguracije koja je blokirala sve WebSocket konekcije, implementaciju role-based socket soba, perzistenciju notifikacija u bazi za korisnike koji se uloguju nakon događaja, te sinhronizaciju Keycloak UUID-ova s lokalnom bazom.
+- **Šta je AI predložio ili generisao:**
+    - Dijagnozu root uzroka: `SOCKET_CORS_ORIGIN` varijabla okruženja je postavljena kao comma-separated string koji se prosljeđivao direktno Socket.IO `cors.origin` opciji — Socket.IO ga tretira kao literal string koji ne odgovara nijednom `Origin` headeru, čime su sve WebSocket konekcije odbijane.
+    - Popravak u `socket.ts`: parsiranje CORS origin vrijednosti u niz putem `env.SOCKET_CORS_ORIGIN.split(',').map(o => o.trim())`.
+    - Popravak u `AppNavigation.tsx`: premještanje emisija `role:join` unutar `socket.on('connect', joinRooms)` handlera kako bi sobe bile ponovo pridružene nakon svakog reconnecta, uz fallback za slučaj kada je socket već konektovan u trenutku mount-a.
+    - Dodavanje `getKeycloakUsersByRole()` funkcije u `keycloak.client.ts` koja poziva `GET /admin/realms/{realm}/roles/{role-name}/users` Keycloak Admin API endpoint.
+    - Implementaciju `persistNotificationsForRoles()` helper funkcije u `tickets.route.ts` koja dohvata sve korisnike s datim Keycloak ulogama, pronalazi odgovarajuće lokalne korisnike putem `ExternalIdentity.providerSubject` i kreira DB notifikacijski zapis za svakog — poziva se fire-and-forget nakon socket emisija kako ne bi usporavala odgovor.
+    - Sinhronizaciju Keycloak UUID-ova: `UPDATE` upiti na `ExternalIdentity` tabeli koji su stare `providerSubject` vrijednosti (iz prethodne Keycloak instance) zamijenili novima iz reimportovanog realma.
+- **Šta je tim prihvatio:** CORS fix u `socket.ts`, reconnect fix u `AppNavigation.tsx`, `getKeycloakUsersByRole()` funkciju, `persistNotificationsForRoles()` implementaciju i SQL sinhronizaciju UUID-ova.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Brisanje Keycloak H2 baze i reimport realma uzrokovali su mismatch između UUID-ova u Keycloaku i lokalnoj MySQL bazi — zbog čega `persistNotificationsForRoles()` nije pronalazila lokalne korisnike i tiho završavala bez kreiranja notifikacija. Notifikacije s `id: -1` (socket-only emisije) uzrokuju 400 grešku kada korisnik pokuša označiti ih kao pročitane putem `PATCH /notifications/-1/read`; greška se hvata tiho na frontendu ali predstavlja tehnički dug.
+- **Ko je koristio alat:** Nedim Omanović
+---
+- **Datum:** 15.05.2026.
+- **Sprint broj:** Sprint 8
+- **Alat koji je korišten:** Claude (Anthropic)
+- **Svrha korištenja:** Implementacija autorizacijske logike i proširenje ticket modula u okviru PBI-027.
+- **Kratak opis zadatka ili upita:** Tim je radio na ispunjenju acceptance kriterija za PBI-027 — osiguranju da korisnici vide samo vlastite tikete, da koordinatori imaju pristup svim tiketima, da support agenti ne mogu kreirati tikete, te da se pri kreiranju tiketa emituju notifikacije prema relevantnim ulogama. Zadatak je obuhvatio izmjene autorizacijske logike u backendu, dodavanje novih API endpointa i integraciju s Keycloak Admin API-jem.
+- **Šta je AI predložio ili generisao:**
+    - Dodavanje `COORDINATOR_ROLES` seta i `isCoordinator()` funkcije u `tickets.route.ts` te proširenje `canManageTickets()` da uključuje koordinatora pored admina i support agenta — čime koordinatori dobijaju pristup svim tiketima u skladu s acceptance kriterijem.
+    - Implementaciju provjere u `POST /` endpointu kojom se support agentima onemogućava kreiranje tiketa (`ForbiddenError` ako je `isSupportAgent && !isAdmin`).
+    - Emitovanje socket notifikacija prema svim relevantnim ulogama (`role:supportagent`, `role:admin`, `role:koordinator`) pri kreiranju tiketa i pri odgovoru korisnika na tiket.
+    - Implementaciju `GET /admin-review/admins` endpointa koji dohvata korisnike s Admin ulogom iz Keycloaka za potrebe admin review toka.
+    - Implementaciju `POST /:id/block-user` i `POST /:id/unblock-user` endpointa s provjerom da admin ne može blokirati sam sebe te emitovanjem notifikacija prema `role:admin` i `role:supportagent` sobama.
+- **Šta je tim prihvatio:** Proširenje `canManageTickets()` s koordinatorom, zabranu kreiranja tiketa za support agente, emitovanje notifikacija prema svim relevantnim ulogama, admin review tok te block/unblock funkcionalnost.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Koordinatori nisu mogli vidjeti tikete kreirane od strane admina jer `canManageTickets()` nije uključivao koordinatorsku ulogu — riješeno dodavanjem `isCoordinator()` provjere. Emitovanje notifikacija prema `role:admin` i `role:koordinator` zahtijevalo je da frontend pravilno spaja korisnika u obje sobe, što može uzrokovati dupliciranje notifikacija za korisnika koji ima obje uloge.
+- **Ko je koristio alat:** Nedim Omanović
 
