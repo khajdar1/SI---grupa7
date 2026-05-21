@@ -46,10 +46,13 @@ export function FilterBar({ search, filters, onClear, isFiltered = false }: Filt
         ) : null}
 
         {filters?.map((filter) => (
-          <div key={filter.key} className="min-w-44">
+          <div key={filter.key} className="flex flex-col gap-1 min-w-44">
+            <span className="text-xs font-medium text-muted-foreground px-1">{filter.label}</span>
             <Select value={filter.value} onValueChange={(value) => filter.onChange(value ?? '')}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={filter.label} />
+                <SelectValue>
+                  {filter.options.find((o) => o.value === filter.value)?.label ?? filter.label}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {filter.options.map((option) => (

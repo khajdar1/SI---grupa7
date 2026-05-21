@@ -373,34 +373,44 @@ export default function MapPage() {
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 lg:flex-row lg:items-center">
         <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-row">
-          <Select value={status} onValueChange={(value) => setStatus(value ?? ALL)}>
-            <SelectTrigger className="w-full sm:min-w-48">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All statuses</SelectItem>
-              <SelectItem value="NEW">Open</SelectItem>
-              <SelectItem value="ASSIGNED">Assigned</SelectItem>
-              <SelectItem value="IN_PROGRESS">In progress</SelectItem>
-              <SelectItem value="RESOLVED">Resolved</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground px-1">Status</span>
+            <Select value={status} onValueChange={(value) => setStatus(value ?? ALL)}>
+              <SelectTrigger className="w-full sm:min-w-48">
+                <SelectValue>
+                  {({'ALL': 'All statuses', 'NEW': 'Open', 'ASSIGNED': 'Assigned', 'IN_PROGRESS': 'In progress', 'RESOLVED': 'Resolved', 'CANCELLED': 'Cancelled'} as Record<string, string>)[status] ?? status}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All statuses</SelectItem>
+                <SelectItem value="NEW">Open</SelectItem>
+                <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                <SelectItem value="IN_PROGRESS">In progress</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={servicerId} onValueChange={(value) => setServicerId(value ?? ALL)}>
-            <SelectTrigger className="w-full sm:min-w-56">
-              <SelectValue placeholder="Servicer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All servicers</SelectItem>
-              <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-              {servicerOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground px-1">Servicer</span>
+            <Select value={servicerId} onValueChange={(value) => setServicerId(value ?? ALL)}>
+              <SelectTrigger className="w-full sm:min-w-56">
+                <SelectValue>
+                  {servicerId === ALL ? 'All servicers' : servicerId === UNASSIGNED ? 'Unassigned' : (servicerOptions.find((o) => o.value === servicerId)?.label ?? servicerId)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All servicers</SelectItem>
+                <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                {servicerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

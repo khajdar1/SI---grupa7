@@ -467,7 +467,9 @@ export default function AdminPage() {
                     }}
                   >
                     <SelectTrigger id="role" className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {ROLE_LABELS[formData.role as ManagedUserRole] ?? formData.role}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {MANAGED_USER_ROLES.map((role) => (
@@ -492,7 +494,11 @@ export default function AdminPage() {
                     }}
                   >
                     <SelectTrigger id="company" className="w-full" aria-invalid={Boolean(fieldErrors.companyId)}>
-                      <SelectValue placeholder="Select company" />
+                      <SelectValue>
+                        {formData.companyId
+                          ? (companies.find((c) => String(c.id) === formData.companyId)?.name ?? 'Select company')
+                          : 'No company'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NO_COMPANY_VALUE}>No company</SelectItem>
