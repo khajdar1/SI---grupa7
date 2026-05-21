@@ -410,7 +410,7 @@ function mapIntervention(intervention: {
     priority: intervention.priority,
     status: intervention.status,
     type: intervention.type,
-    owner: `${intervention.creator.firstName} ${intervention.creator.lastName}`.trim() || intervention.creator.username,
+    owner: (`${intervention.creator.firstName ?? ''} ${intervention.creator.lastName ?? ''}`).trim() || intervention.creator.username,
     ownerId: intervention.creator.id,
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,

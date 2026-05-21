@@ -126,6 +126,10 @@ async function getUserRealmRoleMappings(
     },
   });
 
+  if (response.status === HTTP_STATUS.NOT_FOUND) {
+    return [];
+  }
+
   if (!response.ok) {
     throw new KeycloakError("Failed to load Keycloak role mappings for user.");
   }
