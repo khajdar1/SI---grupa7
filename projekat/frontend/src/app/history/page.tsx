@@ -34,6 +34,22 @@ type InterventionHistoryResponse = {
   pagination: HistoryPagination;
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  NEW: 'Open',
+  ASSIGNED: 'Assigned',
+  IN_PROGRESS: 'In Progress',
+  RESOLVED: 'Resolved',
+  CANCELLED: 'Cancelled',
+  REJECTED: 'Rejected',
+};
+
+const PRIORITY_LABELS: Record<string, string> = {
+  LOW: 'Low',
+  MEDIUM: 'Medium',
+  HIGH: 'High',
+  CRITICAL: 'Critical',
+};
+
 const PAGE_SIZE = 10;
 const INITIAL_PAGINATION: HistoryPagination = {
   page: 1,
@@ -320,8 +336,8 @@ export default function HistoryPage() {
                       />
                     </td>
                     <td className="px-4 py-3">{new Date(item.date).toLocaleDateString('en-US')}</td>
-                    <td className="px-4 py-3">{item.status}</td>
-                    <td className="px-4 py-3">{item.priority}</td>
+                    <td className="px-4 py-3">{STATUS_LABELS[item.status] ?? item.status}</td>
+                    <td className="px-4 py-3">{PRIORITY_LABELS[item.priority] ?? item.priority}</td>
                     <td className="max-w-64 px-4 py-3">
                       <span className="block truncate" title={item.location}>
                         {item.location}

@@ -401,7 +401,9 @@ export default function EditInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.categoryId)}
                       aria-describedby={fieldErrors.categoryId ? 'category-error' : undefined}
                     >
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue>
+                        {categories.find((c) => String(c.id) === form.categoryId)?.name ?? 'Select category'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((c) => (
@@ -427,7 +429,9 @@ export default function EditInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.companyId)}
                       aria-describedby={fieldErrors.companyId ? 'company-error' : undefined}
                     >
-                      <SelectValue placeholder="Select company" />
+                      <SelectValue>
+                        {companies.find((c) => String(c.id) === form.companyId)?.name ?? 'Select company'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {companies.map((c) => (

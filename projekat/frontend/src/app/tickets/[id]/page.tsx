@@ -470,7 +470,12 @@ export default function TicketDetailPage() {
               disabled={reviewAdminsLoading || reviewAdmins.length === 0}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder={reviewAdminsLoading ? 'Loading admins...' : 'Select an admin'} />
+                <SelectValue>
+                  {reviewAdminsLoading ? 'Loading admins...' : (() => {
+                    const a = reviewAdmins.find((admin) => String(admin.id) === reviewAdminId);
+                    return a ? (`${a.firstName} ${a.lastName}`.trim() || a.username) + ` - ${a.email}` : 'Select an admin';
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {reviewAdmins.map((admin) => (

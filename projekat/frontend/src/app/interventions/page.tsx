@@ -411,6 +411,9 @@ export default function InterventionsPage() {
     { value: "NEW", label: "Open" },
     { value: "ASSIGNED", label: "Assigned" },
     { value: "IN_PROGRESS", label: "In progress" },
+    { value: "RESOLVED", label: "Resolved" },
+    { value: "CANCELLED", label: "Cancelled" },
+    { value: "REJECTED", label: "Rejected" },
   ];
   const typeFilterOptions = [
     { value: ALL_TYPE, label: "All types" },

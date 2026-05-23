@@ -234,7 +234,10 @@ function TicketsPageContent() {
                 disabled={ticketCategories.length === 0}
               >
                 <SelectTrigger id="ticket-category">
-                  <SelectValue placeholder={ticketCategories.length === 0 ? 'No categories available' : 'Select a category...'} />
+                  <SelectValue>
+                    {ticketCategories.find((c) => String(c.id) === form.categoryId)?.name
+                      ?? (ticketCategories.length === 0 ? 'No categories available' : 'Select a category...')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {ticketCategories.map((category) => (

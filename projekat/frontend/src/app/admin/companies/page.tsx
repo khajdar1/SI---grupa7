@@ -289,7 +289,9 @@ export default function AdminCompaniesPage() {
                     }}
                   >
                     <SelectTrigger id="status" className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {STATUS_LABELS[formData.status as CompanyStatus] ?? formData.status}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {COMPANY_STATUSES.map((status) => (
@@ -314,7 +316,14 @@ export default function AdminCompaniesPage() {
                     }}
                   >
                     <SelectTrigger id="companyAdmin" className="w-full">
-                      <SelectValue placeholder="Select user" />
+                      <SelectValue>
+                        {formData.adminUserId
+                          ? (() => {
+                              const u = companyAdminOptions.find((user) => String(user.id) === formData.adminUserId);
+                              return u ? `${u.firstName} ${u.lastName} (@${u.username})` : 'Select user';
+                            })()
+                          : 'No company admin'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={NO_ADMIN_VALUE}>No company admin</SelectItem>

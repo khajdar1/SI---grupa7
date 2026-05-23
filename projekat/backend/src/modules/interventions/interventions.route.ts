@@ -378,7 +378,7 @@ function mapIntervention(intervention: {
   recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
-  creator: { username: string; id: number };
+  creator: { username: string; id: number; firstName: string; lastName: string };
   faultReport: { id: number; description: string; reportedAt: Date } | null;
   assignments?: Array<{
     id: number;
@@ -410,7 +410,7 @@ function mapIntervention(intervention: {
     priority: intervention.priority,
     status: intervention.status,
     type: intervention.type,
-    owner: intervention.creator.username,
+    owner: (`${intervention.creator.firstName ?? ''} ${intervention.creator.lastName ?? ''}`).trim() || intervention.creator.username,
     ownerId: intervention.creator.id,
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
@@ -457,6 +457,8 @@ const interventionInclude = {
     select: {
       id: true,
       username: true,
+      firstName: true,
+      lastName: true,
     },
   },
   faultReport: {
