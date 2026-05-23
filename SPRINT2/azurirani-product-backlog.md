@@ -13,7 +13,7 @@
 | **Scrum Master** | Kerim Hajdar |
 | **Verzija backloga** | v2.1 |
 | **Datum kreiranja** | 29.3.2026. |
-| **Posljednje ažuriranje** | 06.04.2026. |
+| **Posljednje ažuriranje** | 23.05.2026. |
 
 ---
 
@@ -33,6 +33,7 @@
 | PBI-037 | Novi PBI: Automatska raspodjela intervencija — sistem dodjeljuje, koordinator nadgleda i može override-ati |
 | PBI-038 | Novi PBI: Masovne akcije na intervencijama |
 | PBI-039 | Blokiranje korisnika — zadržano s originalnim brojem |
+| PBI-040 | Novi PBI: Settings page — centralizirane lične postavke i role-based prečice prema administrativnim konfiguracijama |
 
 ---
 
@@ -61,8 +62,8 @@ Sprint 8 — ~28 SP
 Sprint 9 — ~27 SP
   PBI-017 (5), PBI-018 (3), PBI-021 (3), PBI-025 (5), PBI-026 (3), PBI-027 (3), PBI-028 (5)
 
-Sprint 10 — ~35 SP
-  PBI-022 (5), PBI-023 (5), PBI-029 (3), PBI-031 (5), PBI-034 (4), PBI-036 (3), PBI-037 (4), PBI-038 (4), PBI-039 (2)
+Sprint 10 — ~40 SP
+  PBI-022 (5), PBI-023 (5), PBI-029 (3), PBI-031 (5), PBI-034 (4), PBI-036 (3), PBI-037 (4), PBI-038 (4), PBI-039 (2), PBI-040 (5)
 -->
 
 | ID | Naziv stavke | Opis | Tip | Prioritet | Složenost | Status | Sprint/Release | Napomena |
@@ -106,6 +107,7 @@ Sprint 10 — ~35 SP
 | PBI-037 | Automatska raspodjela intervencija | Sistem automatski dodjeljuje novu intervenciju manje opterećenom serviseru prema definisanim pravilima (npr. broj aktivnih intervencija, dostupnost). Koordinator i dalje ima mogućnost ručne izmjene dodjele. | Feature | Srednji | 4 SP | Todo | Sprint 10 | Koordinator nadgleda i može override-ati automatsku dodjelu; zavisi od PBI-021 |
 | PBI-038 | Masovne akcije na intervencijama | Koordinator može odjednom promijeniti status, dodijeliti servisera ili arhivirati više intervencija. Bez ovoga, upravljanje velikim brojem intervencija postaje mukotrpno. | Feature | Srednji | 4 SP | Todo | Sprint 10 | |
 | PBI-039 | Blokiranje korisnika od strane firme | Koordinator može blokirati korisnika ukoliko procijeni da se radi o spamu | Feature | Nizak | 2 SP | Todo | Sprint 10 | |
+| PBI-040 | Settings page | Prijavljeni korisnik može upravljati ličnim postavkama aplikacije, a admin kroz isti ekran dobija pregled i brze prečice prema konfiguracijama sistema kao što su SLA, attachment pravila, kategorije i korisnici. Stranica zamjenjuje trenutni placeholder i ne duplira Profile/Admin forme. | Feature | Srednji | 5 SP | Todo | Sprint 10 | Objedinjuje lične preference i role-based navigaciju prema postojećim konfiguracijama; zavisi od PBI-015, PBI-031, PBI-012, PBI-035 i PBI-033 |
 
 ---
 
