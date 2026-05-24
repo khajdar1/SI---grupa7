@@ -32,13 +32,12 @@
 
 ## Šta treba promijeniti
 
-* ??
+* Unaprijediti prikaz Settings stranice dodavanjem jasnih sekcija i opisnih labela kako bi korisnik bez administratorskih privilegija odmah razumio koje postavke može mijenjati.
 
 ---
 
 ## Konkretne akcije u Sprint 10
 
-
-* Implementirati automatsku raspodjelu intervencija od strane sistema
-* implementirati Automatizovani backup i restore MySQL baze
-* Scheduler za SLA i periodične pozadinske zadatke
+* Implementirati automatsku raspodjelu intervencija od strane sistema 
+* Implementirati automatizovani backup i restore MySQL baze 
+* Implementirati scheduler za SLA i periodične pozadinske zadatke
