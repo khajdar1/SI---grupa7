@@ -5,7 +5,7 @@ export const runtime = 'edge';
 import { useEffect, useState } from "react";
 import { Save, RefreshCw } from "lucide-react";
 
-import { AccessDenied, PageHeader, PageLayout } from "@/components/shared";
+import { AccessDenied, EmptyState, PageHeader, PageLayout } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -151,6 +151,15 @@ export default function SlaConfigPage() {
         {isLoading && (
           <div className="col-span-full flex items-center justify-center p-12">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {!isLoading && configs.length === 0 && (
+          <div className="col-span-full">
+            <EmptyState
+              title="No SLA configurations found"
+              description="SLA configuration data has not been initialized. Contact an administrator to run the database seed."
+            />
           </div>
         )}
       </div>

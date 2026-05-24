@@ -709,5 +709,34 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Rizici, problemi ili greške koje su uočene:** TypeScript build greška u CI — `prisma.intervention.groupBy()` tip nije bio direktno castabilan na `Promise<PriorityStatusCount[]>`, riješeno s `as unknown as Promise<PriorityStatusCount[]>` double castom. `postinstall: prisma generate` skripta pokvarila CI jer `DATABASE_URL` nije dostupan tokom `npm ci` — premještena u `dev` skriptu. `wrangler@4.90.0` zahtijevao Node >=22, CI koristi Node 20 — downgrade na `wrangler@3`.
 - **Ko je koristio alat:** Nedim Omanović
 
+- **Datum:** 24.05.2026.
+- **Sprint broj:** Sprint 9
+- **Alat koji je korišten:** OpenCode - DeepSeek V4
+- **Svrha korištenja:** Implementacija PBI-051 (Settings stranica) sa korisničkim preferencijama, notifikacijskim postavkama i admin prečicama.
+- **Kratak opis zadatka ili upita:** Implementacija Settings stranice koja zamjenjuje postojeći placeholder. Zadatak je uključivao: kreiranje UserPreference modela u Prisma-i, backend API modula za čitanje/pisanje preferenci po korisniku, frontend Settings stranicu sa tri sekcije (language select, notification toggles sa mandatory notifikacijama, admin quick links), te unit testove za backend (schema + service) i frontend (service).
+- **Šta je AI predložio ili generisao:**
+    - Plan implementacije na osnovu detaljne analize codebase-a (struktura projekta, postojeći admin pageovi, auth/RBAC patterni, baza, rutiranje).
+    - `UserPreference` Prisma model sa `language` (String) i `notificationPreferences` (Json) poljima.
+    - Backend modul `user-preferences` (schema → service → route) sa `GET /` i `PUT /` endpointima, `authenticate` middlewareom, mandatory notifikacijskom validacijom i audit logovanjem.
+    - Frontend `settings.service.ts` sa svim konstantama (`SUPPORTED_LANGUAGES`, `NOTIFICATION_LABELS`, `MANDATORY_NOTIFICATIONS`).
+    - Kompletnu Settings stranicu (`page.tsx`, 289 linija) sa auth guardom, language Selectom, NotificationToggle komponentom (sa Lock ikonicom za mandatory notifikacije), admin quick links karticama, Save dugmetom i toast notifikacijama.
+    - Backend unit testove: 11 schema testova (validacija jezika, notifikacija, strict mode) i 9 service testova (default preferences, upsert create/update, mandatory rejection, partial update, bez usera).
+    - Frontend unit testove: 8 testova za `settings.service.ts` (get/update prefs, error handling, konstante).
+    - Fix za vitest v1 → v4.1.5 upgrade radi kompatibilnosti sa Node.js v24 (dodat vite zavisnost).
+- **Šta je tim prihvatio:**
+    - Kompletan PBI-051: Prisma model, backend API (schema, service, route), frontend Settings stranicu, sve testove.
+    - Vitest upgrade (v1 → v4.1.5) za frontend, uključujući vite zavisnost.
+- **Šta je tim izmijenio:**
+    - Ispravljena očekivanja u 2 frontend testa koja su koristila `toThrow('fallback message')` umjesto stvarnog error message-a.
+    - `Select` `onValueChange` handler wrapper zbog `@base-ui/react` API-a koji prosljeđuje `string | null`.
+- **Šta je tim odbacio:**
+    - Nije bilo odbijenih prijedloga.
+- **Rizici, problemi ili greške koje su uočene:**
+    - `vitest v1.6.1` nije kompatibilan sa `Node.js v24` — priroda greške: `Cannot set property testPath of #Object which has only a getter`. Riješeno upgrade-om na vitest v4.
+    - Frontend vitest konfiguracija nije imala `vite` kao zavisnost (Next.js koristi vlastiti bundler), što je uzrokovalo `ERR_MODULE_NOT_FOUND` nakon upgrade-a na vitest v4. Riješeno dodavanjem `vite@^6.0.0` u devDependencies.
+    - Prisma migracija nije pokrenuta jer MySQL baza nije dostupna u trenutnom okruženju; potrebno pokrenuti `npx prisma migrate dev --name add_user_preferences` kad DB bude dostupan.
+    - `MonthCalendar.test.tsx` i dalje pada (`mockedUseRouter.mockReturnValue is not a function`) — zaseban prethodni bug, nije povezan sa PBI-051.
+- **Ko je koristio alat:** Ismail Mujanović
+
 ---
 
