@@ -50,8 +50,6 @@
 
 ## Konkretne akcije u Sprint 9
 
-* Implementirati arhiviranje intervencija i naprednije upravljanje historijom podataka.
-
 * Dodati notifikacije za tiket sistem i dodatna upozorenja za korisnike.
 
 * Implementirati višejezičnu podršku sistema radi bolje pristupačnosti aplikacije.
