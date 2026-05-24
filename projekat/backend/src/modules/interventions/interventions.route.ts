@@ -379,7 +379,12 @@ function mapIntervention(intervention: {
   category: { id: number; name: string };
   company: { id: number; name: string };
   creator: { username: string; id: number; firstName: string; lastName: string };
-  faultReport: { id: number; description: string; reportedAt: Date } | null;
+  faultReport: {
+    id: number;
+    description: string;
+    reportedAt: Date;
+    user: { id: number; firstName: string; lastName: string; username: string } | null;
+  } | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -421,6 +426,14 @@ function mapIntervention(intervention: {
           id: intervention.faultReport.id,
           description: intervention.faultReport.description,
           reportedAt: intervention.faultReport.reportedAt.toISOString(),
+          reporterUser: intervention.faultReport.user
+            ? {
+                id: intervention.faultReport.user.id,
+                firstName: intervention.faultReport.user.firstName,
+                lastName: intervention.faultReport.user.lastName,
+                username: intervention.faultReport.user.username,
+              }
+            : null,
         }
       : null,
     recurringPeriod: intervention.recurringPeriod ?? null,
@@ -466,6 +479,14 @@ const interventionInclude = {
       id: true,
       description: true,
       reportedAt: true,
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
     },
   },
   assignments: {

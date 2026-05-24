@@ -114,6 +114,7 @@ const INTERVENTION_CREATE_ROLE_NAMES = new Set([
   'admin',
   'administrator',
 ]);
+const BLOCKING_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
 
 const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.HOME]: <Home className="size-4" />,
@@ -132,6 +133,7 @@ const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.ADMIN_CATEGORY]: <Tag className="size-4" />,
   [ROUTES.ADMIN_SLA_CONFIG]: <Timer className="size-4" />,
   [ROUTES.ADMIN_ATTACHMENT_CONFIG]: <Paperclip className="size-4" />,
+  [ROUTES.BLOCKED_USERS]: <Shield className="size-4" />,
   [ROUTES.MANAGEMENT_DASHBOARD]: <BarChart2 className="size-4" />,
   [ROUTES.PROFILE]: <User className="size-4" />,
   [ROUTES.COMPANY]: <Shield className="size-4" />,
@@ -243,6 +245,10 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
 
   if (route === ROUTES.TICKETS) {
     return true;
+  }
+
+  if (route === ROUTES.BLOCKED_USERS) {
+    return hasAnyRole(roles, BLOCKING_ROLE_NAMES);
   }
 
   return true;
