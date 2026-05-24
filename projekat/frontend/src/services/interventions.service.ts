@@ -163,7 +163,12 @@ export interface InterventionDetail {
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
-  faultReport: { id: number } | null;
+  faultReport: {
+    id: number;
+    description?: string;
+    reportedAt?: string;
+    reporterUser: { id: number; firstName: string; lastName: string; username: string } | null;
+  } | null;
   recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;

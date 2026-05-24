@@ -34,6 +34,17 @@ import {
   updateInterventionStatus,
   type InterventionDetail,
 } from '@/services/interventions.service';
+import { blockUser } from '@/services/blocking.service';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { hasSessionRole } from '../../../lib/auth';
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
@@ -93,6 +104,23 @@ const INITIAL_DELETE_STATE: DeleteState = {
   isLoading: false,
 };
 
+const COORDINATOR_ROLES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
+const MAX_BLOCK_REASON_LENGTH = 1000;
+
+interface BlockReporterState {
+  isOpen: boolean;
+  reason: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const INITIAL_BLOCK_REPORTER_STATE: BlockReporterState = {
+  isOpen: false,
+  reason: '',
+  isLoading: false,
+  error: null,
+};
+
 export default function InterventionDetailPage() {
   const params = useParams();
   const interventionId = Number(params.id);
@@ -104,6 +132,9 @@ export default function InterventionDetailPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
+  const [blockReporterState, setBlockReporterState] = useState<BlockReporterState>(INITIAL_BLOCK_REPORTER_STATE);
+
+  const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
   const isValidId = Number.isInteger(interventionId) && interventionId > 0;
 
@@ -188,6 +219,24 @@ export default function InterventionDetailPage() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to delete attachment.');
       closeDeleteDialog();
+    }
+  };
+
+  const handleBlockReporter = async () => {
+    const reporterUser = intervention?.faultReport?.reporterUser;
+    if (!reporterUser || !blockReporterState.reason.trim()) return;
+
+    setBlockReporterState((prev) => ({ ...prev, isLoading: true, error: null }));
+    try {
+      await blockUser({ username: reporterUser.username, reason: blockReporterState.reason.trim() });
+      setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE);
+      setSuccessMessage(`User ${reporterUser.username} has been blocked.`);
+    } catch (err: unknown) {
+      setBlockReporterState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to block user.',
+      }));
     }
   };
 
@@ -337,6 +386,35 @@ export default function InterventionDetailPage() {
         </Card>
       ) : null}
 
+      {/* ── Fault report reporter / block action ── */}
+      {isCoordinator && intervention?.faultReport?.reporterUser ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Reporter prijave kvara</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">
+                {intervention.faultReport.reporterUser.firstName}{' '}
+                {intervention.faultReport.reporterUser.lastName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                @{intervention.faultReport.reporterUser.username}
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                setBlockReporterState((prev) => ({ ...prev, isOpen: true }))
+              }
+            >
+              Blokiraj korisnika
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* ── Assigned servicers ── */}
       {intervention ? (
         <AssignedServicersSection
@@ -430,6 +508,65 @@ export default function InterventionDetailPage() {
 
       {/* ── PBI-016: Intervention comments ── */}
       {isValidId ? <CommentsSection interventionId={interventionId} /> : null}
+
+      {/* ── Block reporter dialog ── */}
+      <Dialog
+        open={blockReporterState.isOpen}
+        onOpenChange={(open) =>
+          !open && setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE)
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Blokiraj reportera</DialogTitle>
+            <DialogDescription>
+              Korisnik{' '}
+              <strong>
+                {intervention?.faultReport?.reporterUser?.username}
+              </strong>{' '}
+              neće moći podnositi nove prijave kvarova vašoj kompaniji.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="block-reason-intervention">Razlog blokiranja</Label>
+            <Textarea
+              id="block-reason-intervention"
+              placeholder="Opišite razlog blokiranja..."
+              maxLength={MAX_BLOCK_REASON_LENGTH}
+              rows={3}
+              value={blockReporterState.reason}
+              onChange={(e) =>
+                setBlockReporterState((prev) => ({
+                  ...prev,
+                  reason: e.target.value,
+                  error: null,
+                }))
+              }
+            />
+            {blockReporterState.error && (
+              <p className="text-destructive text-sm">{blockReporterState.error}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE)}
+              disabled={blockReporterState.isLoading}
+            >
+              Odustani
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleBlockReporter();
+              }}
+              disabled={blockReporterState.isLoading || !blockReporterState.reason.trim()}
+            >
+              {blockReporterState.isLoading ? 'Blokiranje...' : 'Blokiraj'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Delete attachment dialog ── */}
       <ConfirmDialog
