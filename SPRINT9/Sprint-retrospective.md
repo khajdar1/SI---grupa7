@@ -2,7 +2,7 @@
 
 **Projekat:** Sistem za upravljanje servisnim intervencijama
 
-**Datum:** 21.05.2026.
+**Datum:** 25.05.2026.
 
 **Scrum Master:** Kerim Hajdar
 
