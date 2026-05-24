@@ -70,6 +70,7 @@ export const BACKEND_ROUTES = {
   PROFILE: `${API_PREFIX}/profile`,
   BLOCKING: `${API_PREFIX}/blocking`,
   SYSTEM_CONFIG: `${API_PREFIX}/system-config`,
+  USER_PREFERENCES: `${API_PREFIX}/user-preferences`,
   MAPS: `${API_PREFIX}/maps`,
   MANAGEMENT: `${API_PREFIX}/management`,
 } as const;

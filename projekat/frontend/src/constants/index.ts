@@ -118,6 +118,9 @@ export const API_ENDPOINTS = {
     UNREAD: '/api/v1/notifications/unread',
     MARK_READ: (id: number | string) => `/api/v1/notifications/${id}/read`,
   },
+  USER_PREFERENCES: {
+    BASE: '/api/v1/user-preferences',
+  },
 } as const;
 
 export const NETWORK = {
