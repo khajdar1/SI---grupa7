@@ -16,10 +16,7 @@ Tim je uspješno realizirao sve planirane aktivnosti za ovaj sprint, uključuju�
 
 ## 3. Šta nije završeno
 
-* Sprint Retrospective
-* Test Proof
-
-Sve ostale planirane stavke za Sprint 7 su uspješno završene.
+Sve planirane stavke za Sprint 7 su uspješno završene.
 
 ## 4. Demonstrirane funkcionalnosti ili artefakti
 
