@@ -4,6 +4,7 @@ import type { Priority } from '@shared/enums';
 import { PRIORITY } from '@shared/enums';
 
 import { Badge } from '@/components/ui/badge';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type PriorityConfig = {
@@ -41,7 +42,14 @@ interface PriorityBadgeProps {
 }
 
 export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
+  const { t } = useI18n();
   const config = PRIORITY_CONFIG[priority];
+  const labelKeys: Record<Priority, TranslationKey> = {
+    [PRIORITY.LOW]: 'priority.low',
+    [PRIORITY.MEDIUM]: 'priority.medium',
+    [PRIORITY.HIGH]: 'priority.high',
+    [PRIORITY.CRITICAL]: 'priority.critical',
+  };
   const priorityClassMap: Record<Priority, string> = {
     [PRIORITY.LOW]: 'priority-token-low',
     [PRIORITY.MEDIUM]: 'priority-token-medium',
@@ -54,7 +62,7 @@ export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
       {priority === PRIORITY.CRITICAL && (
         <span className="priority-critical-dot size-1.5 rounded-full animate-pulse" aria-hidden="true" />
       )}
-      {config.label}
+      {labelKeys[priority] ? t(labelKeys[priority]) : config.label}
     </Badge>
   );
 }

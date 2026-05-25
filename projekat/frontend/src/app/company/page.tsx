@@ -17,15 +17,19 @@ import {
   type CompanyFormData,
 } from '@/lib/company-validation';
 import { getApiFieldErrors, type FieldErrors } from '@/lib/form-validation';
+import { useI18n } from '@/lib/i18n';
 import type { Company, CompanyStatus } from '@/models/Company';
 import { getMyCompany, updateCompany } from '@/services/companies.service';
 
-const STATUS_LABELS: Record<CompanyStatus, string> = {
-  PENDING: 'Pending',
-  ACTIVE: 'Active',
-  REJECTED: 'Rejected',
-  INACTIVE: 'Inactive',
-};
+function getCompanyStatusLabel(status: CompanyStatus, language: 'en' | 'bs') {
+  const labels: Record<CompanyStatus, { en: string; bs: string }> = {
+    PENDING: { en: 'Pending', bs: 'Na čekanju' },
+    ACTIVE: { en: 'Active', bs: 'Aktivna' },
+    REJECTED: { en: 'Rejected', bs: 'Odbijena' },
+    INACTIVE: { en: 'Inactive', bs: 'Neaktivna' },
+  };
+  return labels[status]?.[language] ?? status;
+}
 
 function getStatusBadgeVariant(status?: CompanyStatus): 'default' | 'secondary' | 'outline' | 'destructive' {
   if (status === 'ACTIVE') return 'secondary';
@@ -47,6 +51,7 @@ function toFormData(company: Company): CompanyFormData {
 }
 
 export default function CompanyProfilePage() {
+  const { language, t } = useI18n();
   const [company, setCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<CompanyFormData>(EMPTY_COMPANY_FORM);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -64,7 +69,11 @@ export default function CompanyProfilePage() {
       setCompany(loaded);
       setFormData(toFormData(loaded));
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load company profile.');
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : language === 'bs' ? 'Učitavanje profila kompanije nije uspjelo.' : 'Failed to load company profile.',
+      );
     } finally {
       setLoading(false);
     }
@@ -87,7 +96,7 @@ export default function CompanyProfilePage() {
     const nextErrors = validateCompanyForm(formData);
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setFormError('Please correct the highlighted fields.');
+      setFormError(language === 'bs' ? 'Ispravite označena polja.' : 'Please correct the highlighted fields.');
       setSaving(false);
       return;
     }
@@ -97,7 +106,7 @@ export default function CompanyProfilePage() {
       setCompany(updated);
       setFormData(toFormData(updated));
       setFieldErrors({});
-      setSuccessMessage('Company profile updated.');
+      setSuccessMessage(language === 'bs' ? 'Profil kompanije je ažuriran.' : 'Company profile updated.');
     } catch (requestError: unknown) {
       const serviceDetails =
         typeof requestError === 'object' && requestError !== null
@@ -108,7 +117,11 @@ export default function CompanyProfilePage() {
       );
 
       setFieldErrors(backendFieldErrors);
-      setFormError(requestError instanceof Error ? requestError.message : 'Company update failed.');
+      setFormError(
+        requestError instanceof Error
+          ? requestError.message
+          : language === 'bs' ? 'Ažuriranje kompanije nije uspjelo.' : 'Company update failed.',
+      );
     } finally {
       setSaving(false);
     }
@@ -117,9 +130,13 @@ export default function CompanyProfilePage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Company"
-        subtitle="Manage the profile assigned to your company admin account."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Company' }]}
+        title={language === 'bs' ? 'Kompanija' : 'Company'}
+        subtitle={
+          language === 'bs'
+            ? 'Upravljajte profilom dodijeljenim vašem administratorskom računu kompanije.'
+            : 'Manage the profile assigned to your company admin account.'
+        }
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: language === 'bs' ? 'Kompanija' : 'Company' }]}
       />
 
       {error ? (
@@ -129,7 +146,7 @@ export default function CompanyProfilePage() {
             <span>{error}</span>
             <Button type="button" variant="outline" size="sm" onClick={loadCompany}>
               <RefreshCw className="size-4" aria-hidden="true" />
-              Retry
+              {language === 'bs' ? 'Pokušaj ponovo' : 'Retry'}
             </Button>
           </CardContent>
         </Card>
@@ -140,13 +157,17 @@ export default function CompanyProfilePage() {
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
               <Building2 className="size-5" aria-hidden="true" />
-              {company?.name ?? 'Company profile'}
+              {company?.name ?? (language === 'bs' ? 'Profil kompanije' : 'Company profile')}
             </CardTitle>
-            <CardDescription>Company admins can edit profile data, not ownership, status, or roles.</CardDescription>
+            <CardDescription>
+              {language === 'bs'
+                ? 'Administratori kompanije mogu uređivati profilne podatke, ali ne vlasništvo, status ili uloge.'
+                : 'Company admins can edit profile data, not ownership, status, or roles.'}
+            </CardDescription>
           </div>
           {company?.status ? (
             <Badge variant={getStatusBadgeVariant(company.status)}>
-              {STATUS_LABELS[company.status]}
+              {getCompanyStatusLabel(company.status, language)}
             </Badge>
           ) : null}
         </CardHeader>
@@ -166,11 +187,11 @@ export default function CompanyProfilePage() {
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={loading || saving || !company}>
                 <Save className="size-4" aria-hidden="true" />
-                {saving ? 'Saving...' : 'Save'}
+                {saving ? (language === 'bs' ? 'Spremanje...' : 'Saving...') : language === 'bs' ? 'Spremi' : 'Save'}
               </Button>
               <Button type="button" variant="outline" disabled={loading || saving} onClick={loadCompany}>
                 <RefreshCw className="size-4" aria-hidden="true" />
-                Refresh
+                {language === 'bs' ? 'Osvježi' : 'Refresh'}
               </Button>
             </div>
           </form>

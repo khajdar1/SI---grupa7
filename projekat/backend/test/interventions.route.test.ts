@@ -2,7 +2,7 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import type { Request, RequestHandler } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InterventionStatus, InterventionType, Priority } from "@prisma/client";
+import { InterventionStatus, InterventionType, NotificationType, Priority } from "@prisma/client";
 
 const {
   categoryFindManyMock,
@@ -18,6 +18,9 @@ const {
   interventionFindUniqueMock,
   interventionUpdateMock,
   statusHistoryCreateMock,
+  notificationFindFirstMock,
+  notificationCreateMock,
+  userPreferenceFindUniqueMock,
   userFindFirstMock,
   slaConfigurationFindUniqueMock,
   auditLogCreateMock,
@@ -36,6 +39,9 @@ const {
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
   statusHistoryCreateMock: vi.fn(),
+  notificationFindFirstMock: vi.fn(),
+  notificationCreateMock: vi.fn(),
+  userPreferenceFindUniqueMock: vi.fn(),
   userFindFirstMock: vi.fn(),
   slaConfigurationFindUniqueMock: vi.fn(),
   auditLogCreateMock: vi.fn(),
@@ -68,6 +74,13 @@ vi.mock("../src/config/database", () => ({
     },
     statusHistory: {
       create: statusHistoryCreateMock,
+    },
+    notification: {
+      findFirst: notificationFindFirstMock,
+      create: notificationCreateMock,
+    },
+    userPreference: {
+      findUnique: userPreferenceFindUniqueMock,
     },
     user: {
       findFirst: userFindFirstMock,
@@ -353,6 +366,9 @@ describe("PBI-004 interventions route", () => {
     interventionRecord = buildInterventionRecord(basePayload);
     interventionCountMock.mockResolvedValue(1);
     interventionFindFirstMock.mockResolvedValue(null);
+    notificationFindFirstMock.mockResolvedValue(null);
+    notificationCreateMock.mockResolvedValue({});
+    userPreferenceFindUniqueMock.mockResolvedValue(null);
     seedHappyPathMocks();
   });
 
@@ -801,6 +817,7 @@ describe("PBI-004 interventions route", () => {
   it("closes an in-progress intervention and makes it eligible for history", async () => {
     interventionFindUniqueMock.mockResolvedValue({
       id: 21,
+      name: "Planirana intervencija",
       status: InterventionStatus.IN_PROGRESS,
     });
 
@@ -825,6 +842,87 @@ describe("PBI-004 interventions route", () => {
     expect(response.body).toMatchObject({
       id: "21",
       status: InterventionStatus.RESOLVED,
+    });
+  });
+
+  it("notifies the reporting user once when an intervention is resolved", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Popravka grijanja",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      faultReport: { userId: 14 },
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notificationFindFirstMock).toHaveBeenCalledWith({
+      where: {
+        userId: 14,
+        interventionId: 21,
+        type: NotificationType.FEEDBACK_REQUEST,
+      },
+      select: { id: true },
+    });
+    expect(userPreferenceFindUniqueMock).toHaveBeenCalledWith({
+      where: { userId: 14 },
+      select: { language: true },
+    });
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: {
+        userId: 14,
+        interventionId: 21,
+        type: NotificationType.FEEDBACK_REQUEST,
+        title: "Intervention resolved",
+        text: expect.stringContaining("Popravka grijanja"),
+      },
+    });
+  });
+
+  it("does not create a duplicate feedback request notification", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Popravka grijanja",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      faultReport: { userId: 14 },
+    });
+    notificationFindFirstMock.mockResolvedValue({ id: 99 });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the reporting user's language for feedback request notifications", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Popravka grijanja",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      faultReport: { userId: 14 },
+    });
+    userPreferenceFindUniqueMock.mockResolvedValue({ language: "bs" });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: {
+        userId: 14,
+        interventionId: 21,
+        type: NotificationType.FEEDBACK_REQUEST,
+        title: "Intervencija zavrsena",
+        text: expect.stringContaining("je zavrsena"),
+      },
     });
   });
 

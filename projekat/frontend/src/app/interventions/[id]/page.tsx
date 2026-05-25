@@ -16,12 +16,14 @@ import {
 } from '@/components/shared';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
 import { CommentsSection } from '@/components/shared/CommentsSection';
+import { FeedbackSection } from '@/components/feedback/FeedbackSection';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InterventionStatusBadge } from '@/components/shared/InterventionStatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
+import { translateLocationValue, translateText, useI18n } from '@/lib/i18n';
 import {
   deleteAttachment,
   downloadAttachment,
@@ -34,7 +36,18 @@ import {
   updateInterventionStatus,
   type InterventionDetail,
 } from '@/services/interventions.service';
-import { hasSessionRole } from '../../../lib/auth';
+import { blockUser } from '@/services/blocking.service';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { getSessionUserId, hasSessionRole } from '../../../lib/auth';
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.NEW,
@@ -93,7 +106,25 @@ const INITIAL_DELETE_STATE: DeleteState = {
   isLoading: false,
 };
 
+const COORDINATOR_ROLES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
+const MAX_BLOCK_REASON_LENGTH = 1000;
+
+interface BlockReporterState {
+  isOpen: boolean;
+  reason: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
+const INITIAL_BLOCK_REPORTER_STATE: BlockReporterState = {
+  isOpen: false,
+  reason: '',
+  isLoading: false,
+  error: null,
+};
+
 export default function InterventionDetailPage() {
+  const { language, t } = useI18n();
   const params = useParams();
   const interventionId = Number(params.id);
 
@@ -104,12 +135,15 @@ export default function InterventionDetailPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
+  const [blockReporterState, setBlockReporterState] = useState<BlockReporterState>(INITIAL_BLOCK_REPORTER_STATE);
+
+  const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
   const isValidId = Number.isInteger(interventionId) && interventionId > 0;
 
   const loadData = async () => {
     if (!isValidId) {
-      setError('Invalid intervention identifier.');
+      setError(t('interventionDetail.invalidId'));
       setIsLoading(false);
       return;
     }
@@ -125,7 +159,7 @@ export default function InterventionDetailPage() {
       setIntervention(interventionData);
       setAttachments(attachmentData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load data.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +171,7 @@ export default function InterventionDetailPage() {
 
   const handleDownload = (attachment: AttachmentListItem) => {
     downloadAttachment(attachment.id, attachment.fileName).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Failed to download attachment.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.downloadFailed'));
     });
   };
 
@@ -154,9 +188,9 @@ export default function InterventionDetailPage() {
         ...updated,
         assignments: current?.assignments ?? updated.assignments,
       }));
-      setSuccessMessage('Status updated.');
+      setSuccessMessage(t('interventionDetail.statusUpdated'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update status.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.statusUpdateFailed'));
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -183,17 +217,35 @@ export default function InterventionDetailPage() {
       setAttachments((prev) =>
         prev.filter((a) => a.id !== deleteState.attachmentId),
       );
-      setSuccessMessage(`Attachment '${deleteState.fileName}' was deleted successfully.`);
+      setSuccessMessage(t('interventionDetail.attachmentDeleted'));
       closeDeleteDialog();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete attachment.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.deleteFailed'));
       closeDeleteDialog();
+    }
+  };
+
+  const handleBlockReporter = async () => {
+    const reporterUser = intervention?.faultReport?.reporterUser;
+    if (!reporterUser || !blockReporterState.reason.trim()) return;
+
+    setBlockReporterState((prev) => ({ ...prev, isLoading: true, error: null }));
+    try {
+      await blockUser({ username: reporterUser.username, reason: blockReporterState.reason.trim() });
+      setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE);
+      setSuccessMessage(`User ${reporterUser.username} has been blocked.`);
+    } catch (err: unknown) {
+      setBlockReporterState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to block user.',
+      }));
     }
   };
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-GB');
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB');
   };
 
   const canManageIntervention = hasSessionRole(INTERVENTION_MANAGEMENT_ROLES);
@@ -201,13 +253,18 @@ export default function InterventionDetailPage() {
   const canChangeStatus = hasSessionRole(STATUS_MANAGEMENT_ROLES);
   const canReadReport = hasSessionRole(REPORT_READ_ROLES);
   const canWriteReport = hasSessionRole(REPORT_WRITE_ROLES);
+  const sessionUserId = getSessionUserId();
+  const canSubmitFeedback = Boolean(
+    intervention?.faultReport?.reporterUser?.id &&
+      intervention.faultReport.reporterUser.id === sessionUserId,
+  );
 
   const statusActions: PageHeaderAction[] = intervention
     ? [
         ...(canChangeStatus && STARTABLE_STATUSES.has(intervention.status)
           ? [
               {
-                label: 'Start',
+                label: t('interventionDetail.start'),
                 onClick: () => {
                   void handleStatusChange(INTERVENTION_STATUS.IN_PROGRESS);
                 },
@@ -219,7 +276,7 @@ export default function InterventionDetailPage() {
         ...(canChangeStatus && CLOSEABLE_STATUSES.has(intervention.status)
           ? [
               {
-                label: 'Close',
+                label: t('interventionDetail.close'),
                 onClick: () => {
                   void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
                 },
@@ -235,11 +292,11 @@ export default function InterventionDetailPage() {
     <PageLayout className="space-y-6">
       {/* ── Header ── */}
       <PageHeader
-        title={`Intervention #${interventionId}`}
-        subtitle="Intervention details, attachments and comments."
+        title={t('interventionDetail.title').replace('{id}', String(interventionId))}
+        subtitle={t('interventionDetail.subtitle')}
         breadcrumbs={[
-          { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('nav.interventions'), href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}` },
         ]}
         primaryAction={
@@ -247,7 +304,7 @@ export default function InterventionDetailPage() {
           canManageIntervention &&
           EDITABLE_STATUSES.has(intervention.status)
             ? {
-                label: 'Edit',
+                label: t('interventionDetail.edit'),
                 href: ROUTES.INTERVENTION_EDIT(String(interventionId)),
                 variant: 'outline',
               }
@@ -279,60 +336,89 @@ export default function InterventionDetailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.status')}</p>
                 <InterventionStatusBadge status={intervention.status} />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Priority</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.priority')}</p>
                 <PriorityBadge priority={intervention.priority} />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Category</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.category')}</p>
                 <p className="font-medium">{intervention.categoryName}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Company</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.company')}</p>
                 <p className="font-medium">{intervention.companyName}</p>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="text-xs text-muted-foreground">Location</p>
-                <p className="font-medium">{intervention.location}</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.location')}</p>
+                <p className="font-medium">{translateLocationValue(language, intervention.location)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Creator</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.creator')}</p>
                 <p className="font-medium">{intervention.owner}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground">Description</p>
+              <p className="text-xs text-muted-foreground">{t('interventionDetail.description')}</p>
               <p className="text-sm">{intervention.description}</p>
             </div>
 
             {intervention.startedAt ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Started</p>
+                  <p className="text-xs text-muted-foreground">{t('interventionDetail.started')}</p>
                   <p className="text-sm">
-                    {new Date(intervention.startedAt).toLocaleString('en-GB', {
+                    {new Date(intervention.startedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Due</p>
+                  <p className="text-xs text-muted-foreground">{t('interventionDetail.due')}</p>
                   <p className="text-sm">
                     {intervention.dueAt
-                      ? new Date(intervention.dueAt).toLocaleDateString('en-GB')
+                      ? new Date(intervention.dueAt).toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB')
                       : '-'}
                   </p>
                 </div>
               </div>
             ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* ── Fault report reporter / block action ── */}
+      {isCoordinator && intervention?.faultReport?.reporterUser ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Reporter prijave kvara</CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center justify-between gap-4">
+            <div>
+              <p className="font-medium">
+                {intervention.faultReport.reporterUser.firstName}{' '}
+                {intervention.faultReport.reporterUser.lastName}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                @{intervention.faultReport.reporterUser.username}
+              </p>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() =>
+                setBlockReporterState((prev) => ({ ...prev, isOpen: true }))
+              }
+            >
+              Blokiraj korisnika
+            </Button>
           </CardContent>
         </Card>
       ) : null}
@@ -359,10 +445,20 @@ export default function InterventionDetailPage() {
         />
       ) : null}
 
+      {/* PBI-036: User feedback after resolved intervention */}
+      {intervention ? (
+        <FeedbackSection
+          interventionId={interventionId}
+          interventionStatus={intervention.status}
+          canRead={canManageIntervention}
+          canSubmit={canSubmitFeedback}
+        />
+      ) : null}
+
       {/* ── Attachments ── */}
       <Card>
         <CardHeader>
-          <CardTitle>Attachments</CardTitle>
+          <CardTitle>{t('interventionDetail.attachments')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -374,23 +470,23 @@ export default function InterventionDetailPage() {
           ) : (
             <DataTable<AttachmentListItem>
               columns={[
-                { key: 'fileName', header: 'File name' },
-                { key: 'mimeType', header: 'Type', width: '200px' },
+                { key: 'fileName', header: t('interventionDetail.fileName') },
+                { key: 'mimeType', header: t('interventionDetail.type'), width: '200px' },
                 {
                   key: 'fileSize',
-                  header: 'Size',
+                  header: t('interventionDetail.size'),
                   width: '100px',
                   render: (value) => formatFileSize(Number(value)),
                 },
                 {
                   key: 'createdAt',
-                  header: 'Added',
+                  header: t('interventionDetail.added'),
                   width: '120px',
                   render: (value) => formatDate(String(value)),
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: t('interventionDetail.actions'),
                   width: '200px',
                   render: (_value, row) => (
                     <div className="flex gap-2">
@@ -400,7 +496,7 @@ export default function InterventionDetailPage() {
                         size="sm"
                         onClick={() => handleDownload(row)}
                       >
-                        Download
+                        {t('interventionDetail.download')}
                       </Button>
                       {canDeleteAttachments ? (
                         <Button
@@ -409,7 +505,7 @@ export default function InterventionDetailPage() {
                           size="sm"
                           onClick={() => openDeleteDialog(row)}
                         >
-                          Delete
+                          {t('interventionDetail.delete')}
                         </Button>
                       ) : null}
                     </div>
@@ -421,8 +517,8 @@ export default function InterventionDetailPage() {
               isLoading={false}
               error={error}
               onRetry={loadData}
-              emptyTitle="No attachments"
-              emptyDescription="This intervention has no attachments."
+              emptyTitle={t('interventionDetail.noAttachments')}
+              emptyDescription={t('interventionDetail.noAttachmentsDescription')}
             />
           )}
         </CardContent>
@@ -431,6 +527,65 @@ export default function InterventionDetailPage() {
       {/* ── PBI-016: Intervention comments ── */}
       {isValidId ? <CommentsSection interventionId={interventionId} /> : null}
 
+      {/* ── Block reporter dialog ── */}
+      <Dialog
+        open={blockReporterState.isOpen}
+        onOpenChange={(open) =>
+          !open && setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE)
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Blokiraj reportera</DialogTitle>
+            <DialogDescription>
+              Korisnik{' '}
+              <strong>
+                {intervention?.faultReport?.reporterUser?.username}
+              </strong>{' '}
+              neće moći podnositi nove prijave kvarova vašoj kompaniji.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="block-reason-intervention">Razlog blokiranja</Label>
+            <Textarea
+              id="block-reason-intervention"
+              placeholder="Opišite razlog blokiranja..."
+              maxLength={MAX_BLOCK_REASON_LENGTH}
+              rows={3}
+              value={blockReporterState.reason}
+              onChange={(e) =>
+                setBlockReporterState((prev) => ({
+                  ...prev,
+                  reason: e.target.value,
+                  error: null,
+                }))
+              }
+            />
+            {blockReporterState.error && (
+              <p className="text-destructive text-sm">{blockReporterState.error}</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE)}
+              disabled={blockReporterState.isLoading}
+            >
+              Odustani
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                void handleBlockReporter();
+              }}
+              disabled={blockReporterState.isLoading || !blockReporterState.reason.trim()}
+            >
+              {blockReporterState.isLoading ? 'Blokiranje...' : 'Blokiraj'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Delete attachment dialog ── */}
       <ConfirmDialog
         isOpen={deleteState.isOpen}
@@ -438,10 +593,10 @@ export default function InterventionDetailPage() {
         onConfirm={() => {
           void handleConfirmDelete();
         }}
-        title="Delete attachment"
-        description={`Are you sure you want to delete '${deleteState.fileName}'? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('interventionDetail.deleteAttachment')}
+        description={t('interventionDetail.deleteAttachmentDescription')}
+        confirmLabel={t('interventionDetail.delete')}
+        cancelLabel={t('tickets.cancel')}
         variant="danger"
         isLoading={deleteState.isLoading}
       />

@@ -19,6 +19,7 @@ export const OPERATIONS_NAV_ITEMS: readonly NavItem[] = [
   { label: 'History', to: ROUTES.HISTORY },
   { label: 'Tickets', to: ROUTES.TICKETS },
   { label: 'Map', to: ROUTES.MAP },
+  { label: 'Blocked Users', to: ROUTES.BLOCKED_USERS },
 ];
 
 export const ADMIN_NAV_ITEMS: readonly NavItem[] = [

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/constants';
+import { translateInterventionStatus, translateLocationValue, useI18n, type LanguageCode } from '@/lib/i18n';
 import type { PotentialDuplicateItem } from '@/models/FaultReport';
 
 interface DuplicateWarningDialogProps {
@@ -22,23 +23,11 @@ interface DuplicateWarningDialogProps {
   onCancel: () => void;
 }
 
-function formatDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+function formatDate(iso: string, language: LanguageCode): string {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(iso));
-}
-
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    NEW: 'New',
-    ASSIGNED: 'Assigned',
-    IN_PROGRESS: 'In progress',
-    RESOLVED: 'Resolved',
-    CANCELLED: 'Cancelled',
-    REJECTED: 'Rejected',
-  };
-  return map[status] ?? status;
 }
 
 function statusVariant(
@@ -55,7 +44,12 @@ export function DuplicateWarningDialog({
   onContinue,
   onCancel,
 }: DuplicateWarningDialogProps) {
+  const { language } = useI18n();
   const top = duplicates[0];
+  const duplicateCountText =
+    duplicates.length === 1
+      ? (language === 'bs' ? 'sličnu prijavu' : 'a similar report')
+      : (language === 'bs' ? `${duplicates.length} sličnih prijava` : `${duplicates.length} similar reports`);
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onCancel(); }}>
@@ -64,16 +58,13 @@ export function DuplicateWarningDialog({
           <div className="flex items-center gap-2 text-amber-600">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <DialogTitle className="text-amber-700">
-              Potential duplicate report
+              {language === 'bs' ? 'Moguća duplirana prijava' : 'Potential duplicate report'}
             </DialogTitle>
           </div>
           <DialogDescription className="text-sm text-muted-foreground pt-1">
-            The system detected{' '}
-            {duplicates.length === 1
-              ? 'a similar report'
-              : `${duplicates.length} similar reports`}{' '}
-            at the same location from the same user in the last 48 hours. Please check
-            the status before creating a new report.
+            {language === 'bs'
+              ? `Sistem je pronašao ${duplicateCountText} na istoj lokaciji od istog korisnika u posljednjih 48 sati. Provjerite status prije kreiranja nove prijave.`
+              : `The system detected ${duplicateCountText} at the same location from the same user in the last 48 hours. Please check the status before creating a new report.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -85,20 +76,22 @@ export function DuplicateWarningDialog({
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Intervention #{dup.interventionId}
+                  {language === 'bs' ? 'Intervencija' : 'Intervention'} #{dup.interventionId}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <Badge variant={statusVariant(dup.status)} className="text-xs">
-                    {statusLabel(dup.status)}
+                    {translateInterventionStatus(language, dup.status)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {dup.similarityScore}% match
+                    {dup.similarityScore}% {language === 'bs' ? 'podudaranje' : 'match'}
                   </span>
                 </div>
               </div>
 
               <p className="text-sm font-medium truncate" title={dup.location}>
-                {dup.location || '(location not provided)'}
+                {dup.location
+                  ? translateLocationValue(language, dup.location)
+                  : (language === 'bs' ? '(lokacija nije navedena)' : '(location not provided)')}
               </p>
 
               {dup.description && (
@@ -108,7 +101,7 @@ export function DuplicateWarningDialog({
               )}
 
               <p className="text-xs text-muted-foreground">
-                Reported: {formatDate(dup.reportedAt)}
+                {language === 'bs' ? 'Prijavljeno' : 'Reported'}: {formatDate(dup.reportedAt, language)}
               </p>
             </div>
           ))}
@@ -118,20 +111,20 @@ export function DuplicateWarningDialog({
           {top && (
             <Button asChild variant="outline" size="sm">
               <Link href={ROUTES.INTERVENTION(String(top.interventionId))}>
-                View existing intervention
+                {language === 'bs' ? 'Prikaži postojeću intervenciju' : 'View existing intervention'}
               </Link>
             </Button>
           )}
           <div className="flex gap-2 ml-auto">
             <Button variant="ghost" size="sm" onClick={onCancel}>
-              Cancel report
+              {language === 'bs' ? 'Otkaži prijavu' : 'Cancel report'}
             </Button>
             <Button
               size="sm"
               className="bg-amber-600 hover:bg-amber-700 text-white"
               onClick={onContinue}
             >
-              Submit anyway
+              {language === 'bs' ? 'Ipak pošalji' : 'Submit anyway'}
             </Button>
           </div>
         </div>

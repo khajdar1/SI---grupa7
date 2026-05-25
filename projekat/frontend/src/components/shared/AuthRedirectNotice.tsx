@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ShieldAlert } from 'lucide-react';
 
+import { translateText, useI18n } from '@/lib/i18n';
+
 const AUTH_REDIRECT_MESSAGE_KEY = 'authRedirectMessage';
 
 function getFallbackMessage(searchParams: URLSearchParams): string | null {
@@ -20,6 +22,7 @@ function getFallbackMessage(searchParams: URLSearchParams): string | null {
 
 export function AuthRedirectNotice() {
   const searchParams = useSearchParams();
+  const { language } = useI18n();
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,7 +30,7 @@ export function AuthRedirectNotice() {
     const storedMessage = window.sessionStorage.getItem(AUTH_REDIRECT_MESSAGE_KEY);
     if (storedMessage && hasRedirectNotice) {
       window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
-      setMessage(storedMessage);
+      setMessage(translateText(language, storedMessage));
       return;
     }
 
@@ -35,8 +38,9 @@ export function AuthRedirectNotice() {
       window.sessionStorage.removeItem(AUTH_REDIRECT_MESSAGE_KEY);
     }
 
-    setMessage(getFallbackMessage(searchParams));
-  }, [searchParams]);
+    const fallbackMessage = getFallbackMessage(searchParams);
+    setMessage(fallbackMessage ? translateText(language, fallbackMessage) : null);
+  }, [language, searchParams]);
 
   if (!message) {
     return null;

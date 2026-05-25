@@ -5,7 +5,7 @@ export const runtime = 'edge';
 import { useEffect, useState } from "react";
 import { Save, RefreshCw } from "lucide-react";
 
-import { AccessDenied, PageHeader, PageLayout } from "@/components/shared";
+import { AccessDenied, EmptyState, PageHeader, PageLayout } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,10 +14,10 @@ import { toast } from "sonner";
 import {
   getSlaConfigurations,
   updateSlaConfigurations,
-  getPriorityLabel,
   type SlaConfiguration
 } from "@/services/sla.service";
 import { ROUTES } from "@/constants";
+import { translatePriority, useI18n } from "@/lib/i18n";
 
 function hasAdminRole(): boolean {
   if (typeof window === 'undefined') return false;
@@ -37,6 +37,7 @@ function hasAdminRole(): boolean {
 }
 
 export default function SlaConfigPage() {
+  const { language } = useI18n();
   const [authorized, setAuthorized] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [configs, setConfigs] = useState<SlaConfiguration[]>([]);
@@ -49,8 +50,10 @@ export default function SlaConfigPage() {
       const data = await getSlaConfigurations();
       setConfigs(data);
     } catch (error) {
-      toast.error("Error", {
-        description: "Failed to load SLA configuration.",
+      toast.error(language === "bs" ? "Greška" : "Error", {
+        description: language === "bs"
+          ? "Učitavanje SLA konfiguracije nije uspjelo."
+          : "Failed to load SLA configuration.",
       });
     } finally {
       setIsLoading(false);
@@ -86,12 +89,16 @@ export default function SlaConfigPage() {
         deadlineHours: c.deadlineHours,
       }));
       await updateSlaConfigurations(updates);
-      toast.success("Success", {
-        description: "SLA configuration has been saved.",
+      toast.success(language === "bs" ? "Uspješno" : "Success", {
+        description: language === "bs"
+          ? "SLA konfiguracija je spremljena."
+          : "SLA configuration has been saved.",
       });
     } catch (error) {
-      toast.error("Error", {
-        description: "Failed to save configuration.",
+      toast.error(language === "bs" ? "Greška" : "Error", {
+        description: language === "bs"
+          ? "Spremanje konfiguracije nije uspjelo."
+          : "Failed to save configuration.",
       });
     } finally {
       setIsSaving(false);
@@ -105,14 +112,18 @@ export default function SlaConfigPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="SLA Configuration"
-        subtitle="Define intervention resolution deadlines by priority level."
+        title={language === "bs" ? "SLA konfiguracija" : "SLA Configuration"}
+        subtitle={
+          language === "bs"
+            ? "Definišite rokove rješavanja intervencija prema nivou prioriteta."
+            : "Define intervention resolution deadlines by priority level."
+        }
         breadcrumbs={[
           { label: "Admin", href: ROUTES.ADMIN },
-          { label: "SLA Configuration" },
+          { label: language === "bs" ? "SLA konfiguracija" : "SLA Configuration" },
         ]}
         primaryAction={{
-          label: "Save Changes",
+          label: language === "bs" ? "Spremi promjene" : "Save Changes",
           onClick: handleSave,
           icon: <Save className="mr-2 h-4 w-4" />,
           isLoading: isSaving || isLoading,
@@ -123,15 +134,23 @@ export default function SlaConfigPage() {
         {configs.map((config) => (
           <Card key={config.id}>
             <CardHeader>
-              <CardTitle>{getPriorityLabel(config.priority)} Priority</CardTitle>
+              <CardTitle>
+                {language === "bs"
+                  ? `${translatePriority(language, config.priority)} prioritet`
+                  : `${translatePriority(language, config.priority)} Priority`}
+              </CardTitle>
               <CardDescription>
-                Resolution deadline for interventions at this level.
+                {language === "bs"
+                  ? "Rok rješavanja intervencija za ovaj nivo prioriteta."
+                  : "Resolution deadline for interventions at this level."}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-4">
                 <div className="flex-1 space-y-2">
-                  <Label htmlFor={`hours-${config.id}`}>Deadline in Hours</Label>
+                  <Label htmlFor={`hours-${config.id}`}>
+                    {language === "bs" ? "Rok u satima" : "Deadline in Hours"}
+                  </Label>
                   <Input
                     id={`hours-${config.id}`}
                     type="number"
@@ -151,6 +170,15 @@ export default function SlaConfigPage() {
         {isLoading && (
           <div className="col-span-full flex items-center justify-center p-12">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
+        {!isLoading && configs.length === 0 && (
+          <div className="col-span-full">
+            <EmptyState
+              title="No SLA configurations found"
+              description="SLA configuration data has not been initialized. Contact an administrator to run the database seed."
+            />
           </div>
         )}
       </div>

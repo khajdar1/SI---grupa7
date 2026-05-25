@@ -6,6 +6,7 @@ import { PRIORITY } from '@shared/enums';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/constants';
+import { useI18n } from '@/lib/i18n';
 
 type EventItem = {
   id: string;
@@ -20,7 +21,10 @@ interface MonthCalendarProps {
   events: EventItem[];
 }
 
-const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const WEEKDAY_LABELS = {
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  bs: ['Pon', 'Uto', 'Sri', 'Čet', 'Pet', 'Sub', 'Ned'],
+};
 const CALENDAR_MODES: Array<{ value: CalendarMode; label: string }> = [
   { value: 'month', label: 'Month' },
   { value: 'week', label: 'Week' },
@@ -68,27 +72,36 @@ function getLocalDateKey(d: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function formatMonthLabel(d: Date) {
-  return d.toLocaleString('en-GB', { month: 'long', year: 'numeric' });
+function getCalendarModeLabel(mode: CalendarMode, language: 'en' | 'bs') {
+  if (language === 'bs') {
+    return mode === 'month' ? 'Mjesec' : mode === 'week' ? 'Sedmica' : 'Dan';
+  }
+
+  return mode === 'month' ? 'Month' : mode === 'week' ? 'Week' : 'Day';
 }
 
-function formatWeekLabel(d: Date) {
+function formatMonthLabel(d: Date, language: 'en' | 'bs') {
+  return d.toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', { month: 'long', year: 'numeric' });
+}
+
+function formatWeekLabel(d: Date, language: 'en' | 'bs') {
   const start = startOfWeek(d);
   const end = addDays(start, 6);
+  const locale = language === 'bs' ? 'bs-BA' : 'en-GB';
 
-  return `${start.toLocaleDateString('en-GB', {
+  return `${start.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
-  })} - ${end.toLocaleDateString('en-GB', {
+  })} - ${end.toLocaleDateString(locale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })}`;
 }
 
-function formatDayLabel(d: Date) {
-  return d.toLocaleDateString('en-GB', {
+function formatDayLabel(d: Date, language: 'en' | 'bs') {
+  return d.toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -157,6 +170,7 @@ function getPriorityColor(priority: EventItem['priority']) {
 
 export default function MonthCalendar({ events }: MonthCalendarProps) {
   const router = useRouter();
+  const { language } = useI18n();
   const [current, setCurrent] = useState(() => startOfDay(new Date()));
   const [calendarMode, setCalendarMode] = useState<CalendarMode>('month');
 
@@ -184,10 +198,10 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
 
   const label =
     calendarMode === 'day'
-      ? formatDayLabel(current)
+      ? formatDayLabel(current, language)
       : calendarMode === 'week'
-        ? formatWeekLabel(current)
-        : formatMonthLabel(current);
+        ? formatWeekLabel(current, language)
+        : formatMonthLabel(current, language);
 
   const navigate = (direction: -1 | 1) => {
     setCurrent((value) => getNextFocusDate(value, calendarMode, direction));
@@ -229,7 +243,7 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
         <div className="flex items-start justify-between gap-2">
           <div>
             {calendarMode !== 'month' ? (
-              <div className="text-xs text-muted-foreground">{day.toLocaleDateString('en-GB', { weekday: 'short' })}</div>
+              <div className="text-xs text-muted-foreground">{day.toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB', { weekday: 'short' })}</div>
             ) : null}
             <div className="text-sm font-medium">{day.getDate()}</div>
           </div>
@@ -239,7 +253,9 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
           {visibleEvents.map(renderEventButton)}
 
           {overflowCount > 0 ? (
-            <div className="text-xs text-muted-foreground">+{overflowCount} more</div>
+            <div className="text-xs text-muted-foreground">
+              +{overflowCount} {language === 'bs' ? 'više' : 'more'}
+            </div>
           ) : null}
         </div>
       </div>
@@ -262,7 +278,7 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
                   aria-pressed={calendarMode === mode.value}
                   onClick={() => setCalendarMode(mode.value)}
                 >
-                  {mode.label}
+                  {getCalendarModeLabel(mode.value, language)}
                 </Button>
               ))}
             </div>
@@ -270,10 +286,10 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" type="button" onClick={() => navigate(-1)}>
-              Prev
+              {language === 'bs' ? 'Prethodno' : 'Prev'}
             </Button>
             <Button variant="outline" size="sm" type="button" onClick={() => navigate(1)}>
-              Next
+              {language === 'bs' ? 'Sljedeće' : 'Next'}
             </Button>
           </div>
         </div>
@@ -282,7 +298,7 @@ export default function MonthCalendar({ events }: MonthCalendarProps) {
       <CardContent>
         {calendarMode !== 'day' ? (
           <div className="mb-2 grid grid-cols-7 gap-1 text-xs text-muted-foreground">
-            {WEEKDAY_LABELS.map((label) => (
+            {WEEKDAY_LABELS[language].map((label) => (
               <div key={label}>{label}</div>
             ))}
           </div>

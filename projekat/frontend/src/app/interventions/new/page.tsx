@@ -2,7 +2,7 @@
 
 export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { ROUTES, VALIDATION } from '@/constants';
@@ -34,24 +34,31 @@ import { getCategories } from '@/services/categories.service';
 import { getCompanies } from '@/services/companies.service';
 import type { Priority } from '@shared/enums';
 import { createIntervention } from '@/services/interventions.service';
+import {
+  translateCategoryName,
+  translatePriority,
+  translateText,
+  useI18n,
+  type TranslationKey,
+} from '@/lib/i18n';
 
 const PRIORITY_OPTIONS = [
-  { value: 'LOW', label: 'Low' },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH', label: 'High' },
-  { value: 'CRITICAL', label: 'Critical' },
+  { value: 'LOW' },
+  { value: 'MEDIUM' },
+  { value: 'HIGH' },
+  { value: 'CRITICAL' },
 ] as const;
 
 const TYPE_OPTIONS = [
-  { value: 'ISSUE', label: 'Issue (reactive)' },
-  { value: 'PREVENTIVE', label: 'Preventive maintenance' },
+  { value: 'ISSUE', labelKey: 'interventionForm.issueReactive' },
+  { value: 'PREVENTIVE', labelKey: 'interventionForm.preventiveMaintenance' },
 ] as const;
 
 const RECURRING_PERIOD_OPTIONS = [
-  { value: '', label: 'No recurrence' },
-  { value: 'DAILY', label: 'Daily' },
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'MONTHLY', label: 'Monthly' },
+  { value: '', labelKey: 'interventionForm.noRecurrence' },
+  { value: 'DAILY', labelKey: 'interventionForm.daily' },
+  { value: 'WEEKLY', labelKey: 'interventionForm.weekly' },
+  { value: 'MONTHLY', labelKey: 'interventionForm.monthly' },
 ] as const;
 
 interface FormState {
@@ -82,8 +89,19 @@ const INITIAL_FORM: FormState = {
   recurringPeriod: '',
 };
 
+function getTypeLabel(type: string, t: (key: TranslationKey) => string): string {
+  return t(TYPE_OPTIONS.find((option) => option.value === type)?.labelKey ?? 'interventionForm.issueReactive');
+}
+
+function getRecurringPeriodLabel(value: string, t: (key: TranslationKey) => string): string {
+  return t(
+    RECURRING_PERIOD_OPTIONS.find((option) => option.value === value)?.labelKey ?? 'interventionForm.noRecurrence',
+  );
+}
+
 export default function NewInterventionPage() {
   const router = useRouter();
+  const { language, t } = useI18n();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -103,7 +121,7 @@ export default function NewInterventionPage() {
       setCategories(categoryList.filter((c) => c.active));
       setCompanies(companyList);
     } catch (err) {
-      setOptionsError(err instanceof Error ? err.message : 'Failed to load form options.');
+      setOptionsError(translateText(language, err instanceof Error ? err.message : t('interventionForm.loadOptionsFailed')));
     } finally {
       setIsLoadingOptions(false);
     }
@@ -111,7 +129,20 @@ export default function NewInterventionPage() {
 
   useEffect(() => {
     void loadOptions();
-  }, []);
+  }, [language]);
+
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((category) => {
+      const label = translateCategoryName(language, category.name).trim().toLocaleLowerCase(language);
+      if (seen.has(label)) {
+        return false;
+      }
+
+      seen.add(label);
+      return true;
+    });
+  }, [categories, language]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -178,11 +209,13 @@ export default function NewInterventionPage() {
     if (form.faultReportId.trim()) {
       const parsed = parseInt(form.faultReportId.trim(), 10);
       if (!Number.isInteger(parsed) || parsed <= 0) {
-        errors.faultReportId = 'Fault report ID must be a positive integer.';
+        errors.faultReportId = translateText(language, 'Fault report ID must be a positive integer.');
       }
     }
 
-    return errors;
+    return Object.fromEntries(
+      Object.entries(errors).map(([field, message]) => [field, translateText(language, message)]),
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -229,7 +262,7 @@ export default function NewInterventionPage() {
         setFieldErrors(backendErrors);
       }
 
-      setSubmitError(err instanceof Error ? err.message : 'Failed to create intervention.');
+      setSubmitError(translateText(language, err instanceof Error ? err.message : t('interventionForm.createFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -238,21 +271,21 @@ export default function NewInterventionPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="New Intervention"
-        subtitle="Plan and schedule an intervention with or without a fault report."
+        title={t('nav.newIntervention')}
+        subtitle={t('interventionForm.subtitle')}
         breadcrumbs={[
-          { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
-          { label: 'New' },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('nav.interventions'), href: ROUTES.INTERVENTIONS },
+          { label: t('interventionForm.newBreadcrumb') },
         ]}
         secondaryActions={[
-          { label: 'Cancel', href: ROUTES.INTERVENTIONS, variant: 'outline' },
+          { label: t('interventionForm.cancel'), href: ROUTES.INTERVENTIONS, variant: 'outline' },
         ]}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Intervention Details</CardTitle>
+          <CardTitle>{t('interventionForm.details')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingOptions ? (
@@ -268,7 +301,7 @@ export default function NewInterventionPage() {
               {submitError ? <p className="text-sm text-destructive">{submitError}</p> : null}
 
               <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name">{t('interventionForm.name')} *</Label>
                 <Input
                   id="name"
                   value={form.name}
@@ -282,7 +315,7 @@ export default function NewInterventionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">{t('interventionForm.description')} *</Label>
                 <Textarea
                   id="description"
                   value={form.description}
@@ -296,7 +329,7 @@ export default function NewInterventionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
+                <Label htmlFor="location">{t('interventionForm.location')} *</Label>
                 <Input
                   id="location"
                   value={form.location}
@@ -311,7 +344,7 @@ export default function NewInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="category">{t('interventionForm.category')} *</Label>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => handleChange('categoryId', v ?? '')}
@@ -321,12 +354,16 @@ export default function NewInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.categoryId)}
                       aria-describedby={fieldErrors.categoryId ? 'category-error' : undefined}
                     >
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue>
+                        {categories.find((c) => String(c.id) === form.categoryId)
+                          ? translateCategoryName(language, categories.find((c) => String(c.id) === form.categoryId)?.name ?? '')
+                          : t('interventionForm.selectCategory')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((c) => (
+                      {visibleCategories.map((c) => (
                         <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}
+                          {translateCategoryName(language, c.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -337,7 +374,7 @@ export default function NewInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company *</Label>
+                  <Label htmlFor="company">{t('interventionForm.company')} *</Label>
                   <Select
                     value={form.companyId}
                     onValueChange={(v) => handleChange('companyId', v ?? '')}
@@ -347,7 +384,9 @@ export default function NewInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.companyId)}
                       aria-describedby={fieldErrors.companyId ? 'company-error' : undefined}
                     >
-                      <SelectValue placeholder="Select company" />
+                      <SelectValue>
+                        {companies.find((c) => String(c.id) === form.companyId)?.name ?? t('interventionForm.selectCompany')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {companies.map((c) => (
@@ -365,18 +404,18 @@ export default function NewInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
+                  <Label htmlFor="priority">{t('interventionForm.priority')}</Label>
                   <Select
                     value={form.priority}
                     onValueChange={(v) => handleChange('priority', v ?? '')}
                   >
                     <SelectTrigger id="priority">
-                      <SelectValue />
+                      <SelectValue>{translatePriority(language, form.priority)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {PRIORITY_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {translatePriority(language, o.value)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -384,18 +423,18 @@ export default function NewInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
+                  <Label htmlFor="type">{t('interventionForm.type')}</Label>
                   <Select
                     value={form.type}
                     onValueChange={(v) => handleChange('type', v ?? '')}
                   >
                     <SelectTrigger id="type">
-                      <SelectValue />
+                      <SelectValue>{getTypeLabel(form.type, t)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {TYPE_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -405,7 +444,7 @@ export default function NewInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="startedAt">Start Date (optional)</Label>
+                  <Label htmlFor="startedAt">{t('interventionForm.startDateOptional')}</Label>
                   <Input
                     id="startedAt"
                     type="date"
@@ -420,7 +459,7 @@ export default function NewInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dueAt">Due Date (optional)</Label>
+                  <Label htmlFor="dueAt">{t('interventionForm.dueDateOptional')}</Label>
                   <Input
                     id="dueAt"
                     type="date"
@@ -437,7 +476,7 @@ export default function NewInterventionPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="faultReportId">
-                  Fault Report ID (optional — link to existing report)
+                  {t('interventionForm.faultReportIdOptional')}
                 </Label>
                 <Input
                   id="faultReportId"
@@ -455,18 +494,20 @@ export default function NewInterventionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="recurringPeriod">Recurrence</Label>
+                <Label htmlFor="recurringPeriod">{t('interventionForm.recurrence')}</Label>
                 <Select
                   value={form.recurringPeriod}
                   onValueChange={(v) => handleChange('recurringPeriod', v ?? '')}
                 >
                   <SelectTrigger id="recurringPeriod">
-                    <SelectValue placeholder="No recurrence" />
+                    <SelectValue placeholder={t('interventionForm.noRecurrence')}>
+                      {getRecurringPeriodLabel(form.recurringPeriod, t)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {RECURRING_PERIOD_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
-                        {o.label}
+                        {t(o.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -475,7 +516,7 @@ export default function NewInterventionPage() {
 
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Creating...' : 'Create Intervention'}
+                  {isSubmitting ? t('interventionForm.creating') : t('interventionForm.create')}
                 </Button>
               </div>
             </form>

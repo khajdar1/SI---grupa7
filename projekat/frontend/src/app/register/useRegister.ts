@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 
 import { ROUTES, UI } from '@/constants';
 import { clearFieldError, getApiFieldErrors } from '@/lib/form-validation';
+import { translateText, useI18n } from '@/lib/i18n';
 import { register } from '@/services/auth.service';
 
 import type { RegisterFormData, RegisterFormErrors } from './register.types';
@@ -21,6 +22,7 @@ const INITIAL_FORM: RegisterFormData = {
 
 export function useRegister() {
   const router = useRouter();
+  const { language } = useI18n();
 
   const [formData, setFormData] = useState<RegisterFormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<RegisterFormErrors>({});
@@ -80,7 +82,7 @@ export function useRegister() {
       }
 
       setServerError(
-        error instanceof Error ? error.message : 'Registration failed. Please try again.',
+        translateText(language, error instanceof Error ? error.message : 'Registration failed. Please try again.'),
       );
     } finally {
       setSubmitting(false);

@@ -13,9 +13,77 @@ export interface InterventionPdfRow {
   dueAt: string | null;
 }
 
+export type PdfLanguage = 'en' | 'bs';
+
 type PdfFontNames = {
   regular: string;
   bold: string;
+};
+
+const pdfLabels: Record<PdfLanguage, {
+  title: string;
+  generated: string;
+  page: string;
+  columns: Record<'name' | 'priority' | 'status' | 'location' | 'servicers' | 'createdAt' | 'dueAt', string>;
+  priority: Record<string, string>;
+  status: Record<string, string>;
+}> = {
+  en: {
+    title: 'Interventions Export',
+    generated: 'Generated',
+    page: 'Page',
+    columns: {
+      name: 'Name',
+      priority: 'Priority',
+      status: 'Status',
+      location: 'Location',
+      servicers: 'Servicer(s)',
+      createdAt: 'Created',
+      dueAt: 'Due',
+    },
+    priority: {
+      LOW: 'Low',
+      MEDIUM: 'Medium',
+      HIGH: 'High',
+      CRITICAL: 'Critical',
+    },
+    status: {
+      NEW: 'Open',
+      ASSIGNED: 'Assigned',
+      IN_PROGRESS: 'In progress',
+      RESOLVED: 'Resolved',
+      CANCELLED: 'Cancelled',
+      REJECTED: 'Rejected',
+    },
+  },
+  bs: {
+    title: 'Izvoz intervencija',
+    generated: 'Generisano',
+    page: 'Stranica',
+    columns: {
+      name: 'Naziv',
+      priority: 'Prioritet',
+      status: 'Status',
+      location: 'Lokacija',
+      servicers: 'Serviser(i)',
+      createdAt: 'Kreirano',
+      dueAt: 'Rok',
+    },
+    priority: {
+      LOW: 'Nizak',
+      MEDIUM: 'Srednji',
+      HIGH: 'Visok',
+      CRITICAL: 'Kritičan',
+    },
+    status: {
+      NEW: 'Otvoreno',
+      ASSIGNED: 'Dodijeljeno',
+      IN_PROGRESS: 'U toku',
+      RESOLVED: 'Riješeno',
+      CANCELLED: 'Otkazano',
+      REJECTED: 'Odbijeno',
+    },
+  },
 };
 
 function resolveFontPath(candidates: Array<string | undefined>): string | null {
@@ -104,7 +172,7 @@ function configurePdfFonts(doc: any): PdfFontNames {
 
 export async function generateInterventionsPdf(
   rows: InterventionPdfRow[],
-  options?: { title?: string },
+  options?: { title?: string; language?: PdfLanguage },
 ): Promise<Buffer> {
   // Lazy-require pdfkit so tests can mock this module without installing pdfkit
   // and to avoid top-level require during import time.
@@ -125,26 +193,28 @@ export async function generateInterventionsPdf(
   const rightMargin = 40;
   const pageWidth = doc.page.width;
   const usableWidth = pageWidth - leftMargin - rightMargin;
-  const title = options?.title ?? 'SI Grupa7 - Interventions';
   const rowFontSize = 8;
   const rowPaddingY = 6;
   const rowGap = 6;
   const bottomContentY = doc.page.height - 70;
+  const language = options?.language ?? 'en';
+  const labels = pdfLabels[language] ?? pdfLabels.en;
+  const title = options?.title ?? labels.title;
 
   const columns = [
-    { key: 'name', header: 'Name', width: Math.floor(usableWidth * 0.23) },
-    { key: 'priority', header: 'Priority', width: Math.floor(usableWidth * 0.12) },
-    { key: 'status', header: 'Status', width: Math.floor(usableWidth * 0.11) },
-    { key: 'location', header: 'Location', width: Math.floor(usableWidth * 0.15) },
-    { key: 'servicers', header: 'Servicer(s)', width: Math.floor(usableWidth * 0.15) },
+    { key: 'name', header: labels.columns.name, width: Math.floor(usableWidth * 0.23) },
+    { key: 'priority', header: labels.columns.priority, width: Math.floor(usableWidth * 0.12) },
+    { key: 'status', header: labels.columns.status, width: Math.floor(usableWidth * 0.11) },
+    { key: 'location', header: labels.columns.location, width: Math.floor(usableWidth * 0.15) },
+    { key: 'servicers', header: labels.columns.servicers, width: Math.floor(usableWidth * 0.15) },
     {
       key: 'createdAt',
-      header: 'Created',
+      header: labels.columns.createdAt,
       width: Math.floor(usableWidth * 0.12),
     },
     {
       key: 'dueAt',
-      header: 'Due',
+      header: labels.columns.dueAt,
       width:
         usableWidth -
         (Math.floor(usableWidth * 0.23) +
@@ -210,7 +280,7 @@ export async function generateInterventionsPdf(
     doc.fontSize(16).font(fonts.bold).fillColor('#333');
     doc.text(title, leftMargin, 40, { align: 'left' });
     doc.fontSize(9).font(fonts.regular).fillColor('#666');
-    doc.text(`Generated: ${generatedAt}`, leftMargin, 40, { align: 'right' });
+    doc.text(`${labels.generated}: ${generatedAt}`, leftMargin, 40, { align: 'right' });
 
     // Thin divider
     doc.moveTo(leftMargin, 64).lineTo(pageWidth - rightMargin, 64).stroke('#CCCCCC');
@@ -239,7 +309,7 @@ export async function generateInterventionsPdf(
   function drawFooter() {
     const footerY = doc.page.height - 52;
     doc.fontSize(9).fillColor('#666').font(fonts.regular);
-    doc.text(`Page ${pageNumber}`, leftMargin, footerY, {
+    doc.text(`${labels.page} ${pageNumber}`, leftMargin, footerY, {
       width: usableWidth,
       align: 'right',
       lineBreak: false,
@@ -254,8 +324,8 @@ export async function generateInterventionsPdf(
   for (const row of rows) {
     const values = [
       sanitizePdfText(row.name),
-      sanitizePdfText(String(row.priority)),
-      sanitizePdfText(String(row.status)),
+      sanitizePdfText(labels.priority[String(row.priority)] ?? String(row.priority)),
+      sanitizePdfText(labels.status[String(row.status)] ?? String(row.status)),
       sanitizePdfText(String(row.location)),
       sanitizePdfText(String(row.servicers)),
       ...getDateValues(row),

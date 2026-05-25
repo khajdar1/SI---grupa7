@@ -383,6 +383,17 @@ faultReportsRouter.post(
       req.body as Record<string, unknown>,
     );
     const reporterUserId = req.user?.localUserId ?? null;
+
+    if (reporterUserId && parsed.companyId) {
+      const block = await prisma.userBlock.findFirst({
+        where: { userId: reporterUserId, companyId: parsed.companyId },
+        select: { id: true },
+      });
+      if (block) {
+        throw new ForbiddenError('You have been blocked from submitting fault reports to this company.');
+      }
+    }
+
     const result = await faultReportService.submitFaultReport({
       ...payload,
       isAuthenticated: Boolean(reporterUserId),
