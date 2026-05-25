@@ -22,7 +22,7 @@ const {
   notificationCreateMock: vi.fn(),
   ticketCategoryFindManyMock: vi.fn(),
   ticketCategoryFindUniqueMock: vi.fn(),
-  userFindManyMock: vi.fn(),
+  userFindManyMock: vi.fn().mockResolvedValue([]),
   userFindUniqueMock: vi.fn(),
 }));
 
@@ -47,6 +47,10 @@ vi.mock('../src/config/database', () => ({
     user: {
       findMany: userFindManyMock,
       findUnique: userFindUniqueMock,
+    },
+    userPreference: {
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     $transaction: vi.fn(),
   },

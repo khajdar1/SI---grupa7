@@ -12,9 +12,7 @@
 
 ## Šta je išlo dobro
 
-* Sprint 9 uspješno je proširio funkcionalnosti sistema kroz implementaciju notifikacija za tikete, ostavljanja feedbacka, višejezične podrške, Settings stranice i blokiranja korisnika.
-
-* Notifikacije za tikete su integrisane u postojeću notifikacijsku infrastrukturu bez potrebe za zasebnim modulom, čime je postignuta konzistentnost prikaza svih obavijesti u navigaciji.
+* Sprint 9 uspješno je proširio funkcionalnosti sistema kroz implementaciju ostavljanja feedbacka, višejezične podrške, Settings stranice i blokiranja korisnika.
 
 * Višejezična podrška implementirana je s fallback mehanizmom koji osigurava da korisnici ne vide prazna polja niti greške pri nepotpunim prijevodima.
 
