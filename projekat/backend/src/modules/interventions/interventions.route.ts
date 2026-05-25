@@ -1,4 +1,10 @@
-import { InterventionStatus, InterventionType, Priority, RecurringPeriod } from "@prisma/client";
+import {
+  InterventionStatus,
+  InterventionType,
+  NotificationType,
+  Priority,
+  RecurringPeriod,
+} from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -82,6 +88,27 @@ const ARCHIVABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.RESOLVED,
   InterventionStatus.CANCELLED,
 ]);
+
+const FEEDBACK_NOTIFICATION_COPY = {
+  en: {
+    title: "Intervention resolved",
+    text: (name: string) =>
+      `Intervention "${name}" has been resolved. Please leave feedback about the service.`,
+  },
+  bs: {
+    title: "Intervencija zavrsena",
+    text: (name: string) =>
+      `Intervencija "${name}" je zavrsena. Molimo ostavite feedback o usluzi.`,
+  },
+} as const;
+
+type FeedbackNotificationLanguage = keyof typeof FEEDBACK_NOTIFICATION_COPY;
+
+function normalizeFeedbackNotificationLanguage(
+  language: string | null | undefined,
+): FeedbackNotificationLanguage {
+  return language === "bs" ? "bs" : "en";
+}
 
 function getCurrentMinute(): Date {
   const now = new Date();
@@ -351,6 +378,46 @@ async function calculateDueAt(
   return new Date(baseDate.getTime() + sla.deadlineHours * 60 * 60 * 1000);
 }
 
+async function createFeedbackRequestNotificationOnce(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+}) {
+  if (!input.reporterUserId) {
+    return;
+  }
+
+  const existingNotification = await prisma.notification.findFirst({
+    where: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.FEEDBACK_REQUEST,
+    },
+    select: { id: true },
+  });
+
+  if (existingNotification) {
+    return;
+  }
+
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = FEEDBACK_NOTIFICATION_COPY[language];
+
+  await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.FEEDBACK_REQUEST,
+      title: copy.title,
+      text: copy.text(input.interventionName),
+    },
+  });
+}
+
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
@@ -378,8 +445,13 @@ function mapIntervention(intervention: {
   recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
-  creator: { username: string; id: number };
-  faultReport: { id: number; description: string; reportedAt: Date } | null;
+  creator: { username: string; id: number; firstName: string; lastName: string };
+  faultReport: {
+    id: number;
+    description: string;
+    reportedAt: Date;
+    user: { id: number; firstName: string; lastName: string; username: string } | null;
+  } | null;
   assignments?: Array<{
     id: number;
     userId: number;
@@ -410,7 +482,7 @@ function mapIntervention(intervention: {
     priority: intervention.priority,
     status: intervention.status,
     type: intervention.type,
-    owner: intervention.creator.username,
+    owner: (`${intervention.creator.firstName ?? ''} ${intervention.creator.lastName ?? ''}`).trim() || intervention.creator.username,
     ownerId: intervention.creator.id,
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
@@ -421,6 +493,14 @@ function mapIntervention(intervention: {
           id: intervention.faultReport.id,
           description: intervention.faultReport.description,
           reportedAt: intervention.faultReport.reportedAt.toISOString(),
+          reporterUser: intervention.faultReport.user
+            ? {
+                id: intervention.faultReport.user.id,
+                firstName: intervention.faultReport.user.firstName,
+                lastName: intervention.faultReport.user.lastName,
+                username: intervention.faultReport.user.username,
+              }
+            : null,
         }
       : null,
     recurringPeriod: intervention.recurringPeriod ?? null,
@@ -457,6 +537,8 @@ const interventionInclude = {
     select: {
       id: true,
       username: true,
+      firstName: true,
+      lastName: true,
     },
   },
   faultReport: {
@@ -464,6 +546,14 @@ const interventionInclude = {
       id: true,
       description: true,
       reportedAt: true,
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
     },
   },
   assignments: {
@@ -635,6 +725,8 @@ interventionsRouter.get(
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     });
 
+    const language = req.query.language === 'bs' ? 'bs' : 'en';
+
     const rows: InterventionPdfRow[] = interventions.map((i) => ({
       name: i.name,
       priority: String(i.priority),
@@ -645,16 +737,17 @@ interventionsRouter.get(
           ? i.assignments
               .map((a) => `${a.user.firstName} ${a.user.lastName}`.trim())
               .join(', ')
-          : 'Unassigned',
+          : language === 'bs' ? 'Nedodijeljeno' : 'Unassigned',
       createdAt: i.createdAt?.toISOString() ?? null,
       startedAt: i.startedAt?.toISOString() ?? null,
       dueAt: i.dueAt?.toISOString() ?? null,
     }));
 
-    const pdfBuffer = await generateInterventionsPdf(rows, { title: 'Interventions Export' });
+    const pdfBuffer = await generateInterventionsPdf(rows, { language });
 
     res.setHeader('Content-Type', 'application/pdf');
-    const filename = `interventions-${new Date().toISOString().slice(0,10)}.pdf`;
+    const filenamePrefix = language === 'bs' ? 'intervencije' : 'interventions';
+    const filename = `${filenamePrefix}-${new Date().toISOString().slice(0,10)}.pdf`;
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(pdfBuffer);
   }),
@@ -841,7 +934,17 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, archived: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     if (!existing) {
@@ -882,6 +985,14 @@ interventionsRouter.patch(
         },
       }),
     ]);
+
+    if (input.status === InterventionStatus.RESOLVED) {
+      await createFeedbackRequestNotificationOnce({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport?.userId,
+      });
+    }
 
     res.json(mapIntervention(intervention));
   }),
@@ -1078,7 +1189,12 @@ async function applyBulkStatusChange(
   id: number,
   targetStatus: InterventionStatus,
   actorId: number,
-  existing: { status: InterventionStatus; archived: boolean },
+  existing: {
+    status: InterventionStatus;
+    archived: boolean;
+    name?: string;
+    faultReport?: { userId: number | null } | null;
+  },
 ): Promise<BulkActionItemResult> {
   if (existing.archived) {
     return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
@@ -1113,6 +1229,14 @@ async function applyBulkStatusChange(
       },
     }),
   ]);
+
+  if (targetStatus === InterventionStatus.RESOLVED) {
+    await createFeedbackRequestNotificationOnce({
+      interventionId: id,
+      interventionName: existing.name ?? `#${id}`,
+      reporterUserId: existing.faultReport?.userId,
+    });
+  }
 
   return { id, success: true };
 }
@@ -1215,7 +1339,17 @@ interventionsRouter.post(
 
     const existing = await prisma.intervention.findMany({
       where: { id: { in: interventionIds } },
-      select: { id: true, status: true, archived: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     const existingMap = new Map(existing.map((i) => [i.id, i]));

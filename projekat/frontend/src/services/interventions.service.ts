@@ -2,6 +2,7 @@ import type { InterventionStatus, Priority } from '@shared/enums';
 
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
+import type { LanguageCode } from '@/lib/i18n';
 
 import { getResponseData, withServiceError } from './errors';
 
@@ -163,7 +164,12 @@ export interface InterventionDetail {
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
-  faultReport: { id: number } | null;
+  faultReport: {
+    id: number;
+    description?: string;
+    reportedAt?: string;
+    reporterUser: { id: number; firstName: string; lastName: string; username: string } | null;
+  } | null;
   recurringPeriod?: string | null;
   assignments?: Array<{
     id: number;
@@ -247,13 +253,15 @@ export async function getInterventions(): Promise<InterventionsResult> {
   }, 'Failed to load interventions.');
 }
 
-export async function downloadInterventionsPdf(): Promise<void> {
+export async function downloadInterventionsPdf(language: LanguageCode = 'en'): Promise<void> {
   return withServiceError(async () => {
     const response = await api.get<Blob>(API_ENDPOINTS.INTERVENTIONS.EXPORT_PDF, {
+      params: { language },
       responseType: 'blob',
     });
 
-    const fileName = `interventions-${new Date().toISOString().slice(0, 10)}.pdf`;
+    const filePrefix = language === 'bs' ? 'intervencije' : 'interventions';
+    const fileName = `${filePrefix}-${new Date().toISOString().slice(0, 10)}.pdf`;
     const url = URL.createObjectURL(response.data);
     const link = document.createElement('a');
     link.href = url;

@@ -9,6 +9,7 @@ import {
 } from '@/services/assignment.service';
 import { useState } from 'react';
 import { X, Users } from 'lucide-react';
+import { translateText, useI18n } from '@/lib/i18n';
 
 export interface AssignedServicer {
   id: number;
@@ -40,6 +41,7 @@ export function AssignedServicersSection({
   onAssignmentsChange,
   canManage = false,
 }: AssignedServicersSectionProps) {
+  const { language, t } = useI18n();
   const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
   const [isRemoving, setIsRemoving] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function AssignedServicersSection({
         assignments.filter((a) => a.userId !== userId)
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to remove servicer');
+      setError(err instanceof Error ? translateText(language, err.message) : t('assignments.removeServicer'));
     } finally {
       setIsRemoving(null);
     }
@@ -66,7 +68,7 @@ export function AssignedServicersSection({
   };
 
   const formatDateTime = (dateString: string) => {
-    return new Intl.DateTimeFormat('en-US', {
+    return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(new Date(dateString));
@@ -78,7 +80,7 @@ export function AssignedServicersSection({
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Assigned Servicers
+            {t('assignments.assignedServicers')}
           </CardTitle>
           {canManage && (
             <Button
@@ -86,7 +88,7 @@ export function AssignedServicersSection({
               variant="outline"
               size="sm"
             >
-              Manage
+              {t('assignments.manage')}
             </Button>
           )}
         </CardHeader>
@@ -99,8 +101,8 @@ export function AssignedServicersSection({
 
           {assignments.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No servicers assigned yet.
-              {canManage && ' Click "Manage" to assign servicers.'}
+              {t('assignments.none')}
+              {canManage ? ` ${t('assignments.noneManage')}` : ''}
             </p>
           ) : (
             <div className="space-y-3">
@@ -117,7 +119,7 @@ export function AssignedServicersSection({
                       {assignment.user.username}
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Assigned {formatDateTime(assignment.assignedAt)}
+                      {t('assignments.assigned')} {formatDateTime(assignment.assignedAt)}
                     </div>
                   </div>
                   {canManage && (
@@ -127,7 +129,7 @@ export function AssignedServicersSection({
                       variant="ghost"
                       size="sm"
                       className="ml-2"
-                      title="Remove servicer"
+                      title={t('assignments.removeServicer')}
                     >
                       <X className="h-4 w-4" />
                     </Button>

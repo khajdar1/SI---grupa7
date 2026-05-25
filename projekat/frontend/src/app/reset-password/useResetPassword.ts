@@ -7,9 +7,11 @@ import {
   getApiFieldErrors,
   validateEmail,
 } from '@/lib/form-validation';
+import { translateText, useI18n } from '@/lib/i18n';
 import { confirmPasswordReset, requestPasswordReset } from '@/services/auth.service';
 
 export function useResetPassword() {
+  const { language } = useI18n();
   const [email, setEmailValue] = useState('');
   const [passwordData, setPasswordData] = useState({
     password: '',
@@ -30,7 +32,7 @@ export function useResetPassword() {
 
     if (emailError) {
       setErrors({ email: emailError });
-      setMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
+      setMessage({ type: 'error', text: translateText(language, 'Please correct the highlighted fields.') });
       return;
     }
 
@@ -40,7 +42,7 @@ export function useResetPassword() {
 
     try {
       await requestPasswordReset(email);
-      setMessage({ type: 'success', text: 'A reset link has been sent to your inbox.' });
+      setMessage({ type: 'success', text: translateText(language, 'A reset link has been sent to your inbox.') });
       setEmailValue('');
     } catch (error: unknown) {
       const serviceDetails =
@@ -59,8 +61,8 @@ export function useResetPassword() {
         type: 'error',
         text:
           error instanceof Error
-            ? error.message
-            : 'Failed to request reset. Please try again later.',
+            ? translateText(language, error.message)
+            : translateText(language, 'Failed to request reset. Please try again later.'),
       });
     } finally {
       setSubmitting(false);
@@ -72,21 +74,21 @@ export function useResetPassword() {
 
     const nextErrors: Record<string, string> = {};
     if (passwordData.password.length < 8) {
-      nextErrors.password = 'Password must be at least 8 characters.';
+      nextErrors.password = translateText(language, 'Password must be at least 8 characters.');
     } else if (!/[0-9]/.test(passwordData.password) || !/[A-Z]/.test(passwordData.password)) {
-      nextErrors.password = 'Password must contain one uppercase letter and one number.';
+      nextErrors.password = translateText(language, 'Password must contain one uppercase letter and one number.');
     }
     if (passwordData.confirmPassword !== passwordData.password) {
-      nextErrors.confirmPassword = 'Password confirmation does not match.';
+      nextErrors.confirmPassword = translateText(language, 'Password confirmation does not match.');
     }
 
     if (!token) {
-      nextErrors.token = 'Reset token is missing.';
+      nextErrors.token = translateText(language, 'Reset token is missing.');
     }
 
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
-      setMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
+      setMessage({ type: 'error', text: translateText(language, 'Please correct the highlighted fields.') });
       return;
     }
 
@@ -101,7 +103,7 @@ export function useResetPassword() {
         confirmPassword: passwordData.confirmPassword,
       });
       setPasswordData({ password: '', confirmPassword: '' });
-      setMessage({ type: 'success', text: 'Password has been reset. Redirecting to login...' });
+      setMessage({ type: 'success', text: translateText(language, 'Password has been reset. Redirecting to login...') });
       onSuccess?.();
     } catch (error: unknown) {
       const serviceDetails =
@@ -120,8 +122,8 @@ export function useResetPassword() {
         type: 'error',
         text:
           error instanceof Error
-            ? error.message
-            : 'Failed to reset password. Please request a new reset link.',
+            ? translateText(language, error.message)
+            : translateText(language, 'Failed to reset password. Please request a new reset link.'),
       });
     } finally {
       setSubmitting(false);

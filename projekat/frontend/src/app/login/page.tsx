@@ -1,17 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { AlertCircle, Wrench } from 'lucide-react';
+import { AlertCircle, Languages, Wrench } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { ROUTES } from '@/constants';
+import { SUPPORTED_LANGUAGES, useI18n, type LanguageCode } from '@/lib/i18n';
 
 import { useLogin } from './useLogin';
 
 export default function LoginPage() {
+  const { language, setLanguage, t } = useI18n();
   const { formData, errors, submitting, serverError, handleChange, handleSubmit } = useLogin();
+  const getLanguageLabel = (code: LanguageCode) => (code === 'bs' ? t('language.bs') : t('language.en'));
 
   return (
     <div className="auth-layout relative overflow-hidden">
@@ -31,14 +41,34 @@ export default function LoginPage() {
           </div>
           <div>
             <p className="text-2xl font-black tracking-tight gradient-text">ServisIS</p>
-            <p className="mt-1 text-xs text-muted-foreground">Intervention management system</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('login.productSubtitle')}</p>
           </div>
         </div>
 
         {/* Card */}
         <div className="glass-card rounded-2xl p-7">
-          <h1 className="text-xl font-black tracking-tight mb-1">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mb-6">Enter your credentials to continue.</p>
+          <div className="mb-5 flex justify-end">
+            <Select value={language} onValueChange={(value) => setLanguage(value as LanguageCode)}>
+              <SelectTrigger
+                size="sm"
+                className="h-9 w-[150px] rounded-lg border-slate-200 bg-white/80 text-sm"
+                aria-label={t('common.language')}
+              >
+                <Languages className="size-4 text-muted-foreground" aria-hidden="true" />
+                <SelectValue>{getLanguageLabel(language)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end" className="w-40">
+                {SUPPORTED_LANGUAGES.map((item) => (
+                  <SelectItem key={item.code} value={item.code}>
+                    {getLanguageLabel(item.code)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <h1 className="text-xl font-black tracking-tight mb-1">{t('login.title')}</h1>
+          <p className="text-sm text-muted-foreground mb-6">{t('login.subtitle')}</p>
 
           {serverError ? (
             <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -50,7 +80,7 @@ export default function LoginPage() {
           <form className="space-y-5" onSubmit={handleSubmit} noValidate>
             <div className="space-y-1.5">
               <Label htmlFor="username" className="text-sm font-semibold">
-                Username
+                {t('login.username')}
               </Label>
               <Input
                 id="username"
@@ -74,13 +104,13 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password" className="text-sm font-semibold">
-                  Password
+                  {t('login.password')}
                 </Label>
                 <Link
                   href={ROUTES.RESET_PASSWORD}
                   className="text-xs font-medium text-primary/80 transition-colors hover:text-primary hover:underline"
                 >
-                  Forgot password?
+                  {t('login.forgotPassword')}
                 </Link>
               </div>
               <Input
@@ -110,10 +140,10 @@ export default function LoginPage() {
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <span className="spinner" />
-                  Signing in...
+                  {t('login.signingIn')}
                 </span>
               ) : (
-                'Login'
+                t('login.submit')
               )}
             </Button>
 
@@ -122,15 +152,15 @@ export default function LoginPage() {
                 href={ROUTES.RESET_PASSWORD}
                 className="text-xs text-muted-foreground hover:text-primary transition-colors"
               >
-                Forgot password?
+                {t('login.forgotPassword')}
               </Link>
             </div>
           </form>
 
           <div className="mt-5 text-center text-sm text-muted-foreground">
-            Do not have an account?{' '}
+            {t('login.noAccount')}{' '}
             <Link href={ROUTES.REGISTER} className="font-semibold text-primary hover:underline transition-colors">
-              Register
+              {t('login.register')}
             </Link>
           </div>
         </div>

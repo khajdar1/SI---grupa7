@@ -16,9 +16,11 @@ import {
   type CompanyFormData,
 } from '@/lib/company-validation';
 import { getApiFieldErrors, type FieldErrors } from '@/lib/form-validation';
+import { translateText, useI18n } from '@/lib/i18n';
 import { selfRegisterCompany } from '@/services/companies.service';
 
 export default function CompanyRegisterPage() {
+  const { language } = useI18n();
   const [formData, setFormData] = useState<CompanyFormData>(EMPTY_COMPANY_FORM);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
@@ -34,14 +36,16 @@ export default function CompanyRegisterPage() {
     const nextErrors = validateCompanyForm(formData);
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setFormError('Please correct the highlighted fields.');
+      setFormError(translateText(language, 'Please correct the highlighted fields.'));
       setSubmitting(false);
       return;
     }
 
     try {
       const company = await selfRegisterCompany(toCompanyInput(formData));
-      setSuccessMessage(`${company.name} has been submitted for admin approval.`);
+      setSuccessMessage(
+        translateText(language, '{company} has been submitted for admin approval.').replace('{company}', company.name),
+      );
       setFormData(EMPTY_COMPANY_FORM);
       setFieldErrors({});
     } catch (requestError: unknown) {
@@ -54,7 +58,7 @@ export default function CompanyRegisterPage() {
       );
 
       setFieldErrors(backendFieldErrors);
-      setFormError(requestError instanceof Error ? requestError.message : 'Company registration failed.');
+      setFormError(translateText(language, requestError instanceof Error ? requestError.message : 'Company registration failed.'));
     } finally {
       setSubmitting(false);
     }
@@ -63,18 +67,18 @@ export default function CompanyRegisterPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Register Company"
-        subtitle="Submit a company profile for admin approval."
-        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Register Company' }]}
+        title={translateText(language, 'Register Company')}
+        subtitle={translateText(language, 'Submit a company profile for admin approval.')}
+        breadcrumbs={[{ label: translateText(language, 'Home'), href: ROUTES.HOME }, { label: translateText(language, 'Register Company') }]}
       />
 
       <Card>
         <CardHeader className="space-y-1">
           <CardTitle className="flex items-center gap-2">
             <Building2 className="size-5" aria-hidden="true" />
-            Company profile
+            {translateText(language, 'Company profile')}
           </CardTitle>
-          <CardDescription>Approved companies become available for service workflows.</CardDescription>
+          <CardDescription>{translateText(language, 'Approved companies become available for service workflows.')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -91,7 +95,7 @@ export default function CompanyRegisterPage() {
 
             <Button type="submit" disabled={submitting}>
               <Send className="size-4" aria-hidden="true" />
-              {submitting ? 'Submitting...' : 'Submit for approval'}
+              {submitting ? translateText(language, 'Submitting...') : translateText(language, 'Submit for approval')}
             </Button>
           </form>
         </CardContent>

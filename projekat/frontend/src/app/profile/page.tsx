@@ -17,6 +17,7 @@ import {
   validateEmail,
   validatePersonName,
 } from '@/lib/form-validation';
+import { translateText, useI18n } from '@/lib/i18n';
 import {
   changeMyPassword,
   getMyProfile,
@@ -68,6 +69,7 @@ function InlineMessage({ type, text }: { type: 'success' | 'error'; text: string
 }
 
 export default function ProfilePage() {
+  const { language, t } = useI18n();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileForm>({
     firstName: '',
@@ -101,7 +103,7 @@ export default function ProfilePage() {
         if (!active) return;
         setProfileMessage({
           type: 'error',
-          text: error instanceof Error ? error.message : 'Failed to load profile.',
+          text: error instanceof Error ? translateText(language, error.message) : t('profile.loadError'),
         });
       } finally {
         if (active) setLoading(false);
@@ -113,21 +115,21 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [language, t]);
 
   async function handleProfileSubmit(event: React.FormEvent) {
     event.preventDefault();
 
     const nextErrors = {
       firstName: validatePersonName(profileForm.firstName, {
-        requiredMessage: 'First name is required.',
+        requiredMessage: t('validation.firstNameRequired'),
         maxLength: 100,
       }),
       lastName: validatePersonName(profileForm.lastName, {
-        requiredMessage: 'Last name is required.',
+        requiredMessage: t('validation.lastNameRequired'),
         maxLength: 100,
       }),
-      email: validateEmail(profileForm.email, 'Email is required.', 'Enter a valid email address.'),
+      email: validateEmail(profileForm.email, t('validation.emailRequired'), t('validation.emailInvalid')),
     };
     const filteredErrors = Object.fromEntries(
       Object.entries(nextErrors).filter(([, value]) => value),
@@ -135,7 +137,7 @@ export default function ProfilePage() {
 
     if (Object.keys(filteredErrors).length > 0) {
       setProfileErrors(filteredErrors);
-      setProfileMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
+      setProfileMessage({ type: 'error', text: t('profile.correctFields') });
       return;
     }
 
@@ -144,10 +146,13 @@ export default function ProfilePage() {
     setProfileMessage(null);
 
     try {
-      const updated = await updateMyProfile(profileForm);
+      const updated = await updateMyProfile({
+        ...profileForm,
+        language,
+      });
       setProfile(updated);
       updateStoredUser(updated);
-      setProfileMessage({ type: 'success', text: 'Profile changes have been saved.' });
+      setProfileMessage({ type: 'success', text: t('profile.saved') });
     } catch (error) {
       const backendFieldErrors = readServiceFieldErrors(error);
       if (Object.keys(backendFieldErrors).length > 0) {
@@ -155,7 +160,7 @@ export default function ProfilePage() {
       }
       setProfileMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Profile update failed.',
+        text: error instanceof Error ? translateText(language, error.message) : t('profile.updateFailed'),
       });
     } finally {
       setSavingProfile(false);
@@ -167,20 +172,20 @@ export default function ProfilePage() {
 
     const nextErrors: Record<string, string> = {};
     if (!passwordForm.currentPassword.trim()) {
-      nextErrors.currentPassword = 'Current password is required.';
+      nextErrors.currentPassword = t('validation.currentPasswordRequired');
     }
     if (passwordForm.newPassword.length < 8) {
-      nextErrors.newPassword = 'Password must be at least 8 characters.';
+      nextErrors.newPassword = t('validation.passwordMin');
     } else if (!/[0-9]/.test(passwordForm.newPassword) || !/[A-Z]/.test(passwordForm.newPassword)) {
-      nextErrors.newPassword = 'Password must contain one uppercase letter and one number.';
+      nextErrors.newPassword = t('validation.passwordComplexity');
     }
     if (passwordForm.confirmPassword !== passwordForm.newPassword) {
-      nextErrors.confirmPassword = 'Passwords do not match.';
+      nextErrors.confirmPassword = t('validation.passwordMismatch');
     }
 
     if (Object.keys(nextErrors).length > 0) {
       setPasswordErrors(nextErrors);
-      setPasswordMessage({ type: 'error', text: 'Please correct the highlighted fields.' });
+      setPasswordMessage({ type: 'error', text: t('profile.correctFields') });
       return;
     }
 
@@ -191,7 +196,7 @@ export default function ProfilePage() {
     try {
       await changeMyPassword(passwordForm);
       setPasswordForm(EMPTY_PASSWORD_FORM);
-      setPasswordMessage({ type: 'success', text: 'Password has been changed successfully.' });
+      setPasswordMessage({ type: 'success', text: t('profile.passwordChanged') });
     } catch (error) {
       const backendFieldErrors = readServiceFieldErrors(error);
       if (Object.keys(backendFieldErrors).length > 0) {
@@ -199,7 +204,7 @@ export default function ProfilePage() {
       }
       setPasswordMessage({
         type: 'error',
-        text: error instanceof Error ? error.message : 'Password change failed.',
+        text: error instanceof Error ? translateText(language, error.message) : t('profile.passwordFailed'),
       });
     } finally {
       setSavingPassword(false);
@@ -209,9 +214,9 @@ export default function ProfilePage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="My Profile"
-        subtitle="View and update your basic account information."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'My Profile' }]}
+        title={t('profile.title')}
+        subtitle={t('profile.subtitle')}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('profile.breadcrumbCurrent') }]}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -223,8 +228,8 @@ export default function ProfilePage() {
                 <UserCircle2 className="size-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-base">Contact Information</CardTitle>
-                <CardDescription className="text-xs">The username cannot be changed here.</CardDescription>
+                <CardTitle className="text-base">{t('profile.contactTitle')}</CardTitle>
+                <CardDescription className="text-xs">{t('profile.contactDescription')}</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -234,13 +239,13 @@ export default function ProfilePage() {
             <form className="space-y-4" onSubmit={handleProfileSubmit} noValidate>
               {loading ? (
                 <div className="space-y-3">
-                  {Array.from({ length: 4 }, (_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
               ) : (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
+                      <Label htmlFor="firstName">{t('profile.firstName')}</Label>
                       <Input
                         id="firstName"
                         value={profileForm.firstName}
@@ -253,7 +258,7 @@ export default function ProfilePage() {
                       {profileErrors.firstName ? <p className="text-xs text-destructive">{profileErrors.firstName}</p> : null}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="lastName">{t('profile.lastName')}</Label>
                       <Input
                         id="lastName"
                         value={profileForm.lastName}
@@ -268,12 +273,12 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
+                    <Label htmlFor="username">{t('profile.username')}</Label>
                     <Input id="username" value={profile?.username ?? ''} disabled className="bg-muted/50" />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email">{t('profile.email')}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -295,12 +300,12 @@ export default function ProfilePage() {
                     {savingProfile ? (
                       <span className="flex items-center gap-2">
                         <span className="spinner" />
-                        Saving...
+                        {t('common.saving')}
                       </span>
                     ) : (
                       <>
                         <Save className="size-4" />
-                        Save Changes
+                        {t('profile.saveChanges')}
                       </>
                     )}
                   </Button>
@@ -318,8 +323,8 @@ export default function ProfilePage() {
                 <KeyRound className="size-5 text-violet-600" />
               </div>
               <div>
-                <CardTitle className="text-base">Change Password</CardTitle>
-                <CardDescription className="text-xs">Enter your current password and confirm the new one.</CardDescription>
+                <CardTitle className="text-base">{t('profile.changePasswordTitle')}</CardTitle>
+                <CardDescription className="text-xs">{t('profile.changePasswordDescription')}</CardDescription>
               </div>
             </div>
           </CardHeader>
@@ -328,7 +333,7 @@ export default function ProfilePage() {
 
             <form className="space-y-4" onSubmit={handlePasswordSubmit} noValidate>
               <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current Password</Label>
+                <Label htmlFor="currentPassword">{t('profile.currentPassword')}</Label>
                 <Input
                   id="currentPassword"
                   type="password"
@@ -344,7 +349,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="newPassword">New Password</Label>
+                <Label htmlFor="newPassword">{t('profile.newPassword')}</Label>
                 <Input
                   id="newPassword"
                   type="password"
@@ -360,7 +365,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                <Label htmlFor="confirmPassword">{t('profile.confirmPassword')}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -383,12 +388,12 @@ export default function ProfilePage() {
                 {savingPassword ? (
                   <span className="flex items-center gap-2">
                     <span className="spinner" />
-                    Saving...
+                    {t('common.saving')}
                   </span>
                 ) : (
                   <>
                     <KeyRound className="size-4" />
-                    Change Password
+                    {t('profile.changePassword')}
                   </>
                 )}
               </Button>

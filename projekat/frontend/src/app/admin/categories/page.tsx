@@ -14,9 +14,11 @@ import { ROUTES, UI } from '@/constants';
 import {
   clearFieldError,
   getApiFieldErrors,
+  translateValidationMessage,
   validateRequired,
   validateSafeText,
 } from '@/lib/form-validation';
+import { translateCategoryName, useI18n, type LanguageCode } from '@/lib/i18n';
 import type { Category } from '@/models/Category';
 import {
   createCategory,
@@ -26,6 +28,22 @@ import {
 } from '@/services/categories.service';
 
 const NEW_CATEGORY_ID = 0;
+
+function translateCategoryDescription(language: LanguageCode, description: string | null | undefined) {
+  const value = description ?? '';
+  if (language !== 'bs') {
+    return value;
+  }
+
+  const descriptions: Record<string, string> = {
+    'Electrical wiring, lighting, and power supply issues.': 'Kvarovi na elektroinstalacijama, osvjetljenju i napajanju.',
+    'Regular or minor operational requests that are not urgent faults.': 'Redovni ili manji operativni zahtjevi koji nisu hitni kvarovi.',
+    'Water supply and drainage installation issues.': 'Kvarovi na vodovodnim i kanalizacionim instalacijama.',
+    'Local network access and connectivity issues.': 'Problemi sa lokalnom mrežom, pristupom i povezivanjem.',
+  };
+
+  return descriptions[value] ?? value;
+}
 
 function hasAdminRole(): boolean {
   if (typeof window === 'undefined') return false;
@@ -45,6 +63,7 @@ function hasAdminRole(): boolean {
 }
 
 export default function AdminCategoriesPage() {
+  const { language } = useI18n();
   const [authorized, setAuthorized] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -61,13 +80,23 @@ export default function AdminCategoriesPage() {
     [categories],
   );
 
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((category) => {
+      const displayName = translateCategoryName(language, category.name);
+      if (seen.has(displayName)) return false;
+      seen.add(displayName);
+      return true;
+    });
+  }, [categories, language]);
+
   const fetchCategories = async () => {
     try {
       const categoryList = await getCategories();
       setCategories(categoryList);
       setError('');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load categories.');
+      setError(requestError instanceof Error ? requestError.message : translateValidationMessage('Failed to load categories.', language));
     } finally {
       setLoading(false);
     }
@@ -106,7 +135,7 @@ export default function AdminCategoriesPage() {
 
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
-      setFormError('Please correct the highlighted fields.');
+      setFormError(translateValidationMessage('Please correct the highlighted fields.', language));
       return;
     }
 
@@ -141,7 +170,7 @@ export default function AdminCategoriesPage() {
         setFieldErrors(backendFieldErrors);
       }
 
-      setFormError(requestError instanceof Error ? requestError.message : 'An error occurred.');
+      setFormError(requestError instanceof Error ? requestError.message : translateValidationMessage('An error occurred.', language));
     }
   };
 
@@ -150,7 +179,7 @@ export default function AdminCategoriesPage() {
     setFormData({
       id: category.id,
       name: category.name,
-      description: category.description || '',
+      description: category.description ?? '',
     });
     setFormError('');
     setFieldErrors({});
@@ -165,7 +194,7 @@ export default function AdminCategoriesPage() {
       await updateCategoryStatus(pendingStatusCategory.id, !pendingStatusCategory.active);
       await fetchCategories();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to update status.');
+      setError(requestError instanceof Error ? requestError.message : translateValidationMessage('Failed to update status.', language));
     } finally {
       setPendingStatusCategory(null);
     }
@@ -185,29 +214,35 @@ export default function AdminCategoriesPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Manage Categories"
-        subtitle="Create, edit, and activate/deactivate fault report categories."
-        breadcrumbs={[{ label: 'Admin', href: ROUTES.ADMIN }, { label: 'Categories' }]}
+        title={language === 'bs' ? 'Upravljanje kategorijama' : 'Manage Categories'}
+        subtitle={
+          language === 'bs'
+            ? 'Kreirajte, uredite i aktivirajte/deaktivirajte kategorije prijava kvarova.'
+            : 'Create, edit, and activate/deactivate fault report categories.'
+        }
+        breadcrumbs={[{ label: 'Admin', href: ROUTES.ADMIN }, { label: language === 'bs' ? 'Kategorije' : 'Categories' }]}
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {!loading && activeCategoriesCount === 0 ? (
         <p className="text-sm text-amber-600">
-          No active categories. Users will not be able to submit regular fault reports.
+          {language === 'bs'
+            ? 'Nema aktivnih kategorija. Korisnici neće moći slati redovne prijave kvarova.'
+            : 'No active categories. Users will not be able to submit regular fault reports.'}
         </p>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>{isEditing ? 'Edit Category' : 'New Category'}</CardTitle>
+            <CardTitle>{isEditing ? (language === 'bs' ? 'Uredi kategoriju' : 'Edit Category') : (language === 'bs' ? 'Nova kategorija' : 'New Category')}</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
 
               <div className="space-y-2">
-                <Label htmlFor="category-name">Name (unique)</Label>
+                <Label htmlFor="category-name">{language === 'bs' ? 'Naziv (jedinstven)' : 'Name (unique)'}</Label>
                 <Input
                   id="category-name"
                   required
@@ -227,7 +262,7 @@ export default function AdminCategoriesPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category-description">Description</Label>
+                <Label htmlFor="category-description">{language === 'bs' ? 'Opis' : 'Description'}</Label>
                 <Textarea
                   id="category-description"
                   value={formData.description}
@@ -246,10 +281,10 @@ export default function AdminCategoriesPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button type="submit">{isEditing ? 'Update' : 'Create'}</Button>
+                <Button type="submit">{isEditing ? (language === 'bs' ? 'Ažuriraj' : 'Update') : (language === 'bs' ? 'Kreiraj' : 'Create')}</Button>
                 {isEditing ? (
                   <Button type="button" variant="outline" onClick={handleCancel}>
-                    Cancel
+                    {language === 'bs' ? 'Odustani' : 'Cancel'}
                   </Button>
                 ) : null}
               </div>
@@ -259,16 +294,20 @@ export default function AdminCategoriesPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>All Categories</CardTitle>
+            <CardTitle>{language === 'bs' ? 'Sve kategorije' : 'All Categories'}</CardTitle>
           </CardHeader>
           <CardContent>
             <DataTable<Category>
               columns={[
-                { key: 'name', header: 'Name' },
+                {
+                  key: 'name',
+                  header: language === 'bs' ? 'Naziv' : 'Name',
+                  render: (value) => translateCategoryName(language, String(value ?? '')),
+                },
                 {
                   key: 'description',
-                  header: 'Description',
-                  render: (value) => (value ? String(value) : '-'),
+                  header: language === 'bs' ? 'Opis' : 'Description',
+                  render: (value) => (value ? translateCategoryDescription(language, String(value)) : '-'),
                 },
                 {
                   key: 'active',
@@ -276,30 +315,30 @@ export default function AdminCategoriesPage() {
                   width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_STATUS,
                   render: (value) =>
                     value ? (
-                      <Badge variant="secondary">Active</Badge>
+                      <Badge variant="secondary">{language === 'bs' ? 'Aktivna' : 'Active'}</Badge>
                     ) : (
-                      <Badge variant="destructive">Inactive</Badge>
+                      <Badge variant="destructive">{language === 'bs' ? 'Neaktivna' : 'Inactive'}</Badge>
                     ),
                 },
                 {
                   key: 'createdByName',
-                  header: 'Created By',
-                  render: (value) => (value ? String(value) : 'System'),
+                  header: language === 'bs' ? 'Kreirao' : 'Created By',
+                  render: (value) => (value ? String(value) : language === 'bs' ? 'Sistem' : 'System'),
                 },
                 {
                   key: 'updatedByName',
-                  header: 'Updated By',
-                  render: (value, row) => (value ? String(value) : row.createdByName || 'System'),
+                  header: language === 'bs' ? 'Ažurirao' : 'Updated By',
+                  render: (value, row) => (value ? String(value) : row.createdByName || (language === 'bs' ? 'Sistem' : 'System')),
                 },
                 {
                   key: 'createdAt',
-                  header: 'Created',
+                  header: language === 'bs' ? 'Kreirano' : 'Created',
                   width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_CREATED,
                   render: (value) => new Date(String(value)).toLocaleDateString(),
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: language === 'bs' ? 'Akcije' : 'Actions',
                   width: UI.TABLE_COLUMN_WIDTHS.CATEGORY_ACTIONS,
                   render: (_, row) => (
                     <div className="flex gap-2">
@@ -310,7 +349,7 @@ export default function AdminCategoriesPage() {
                         onClick={() => handleEdit(row)}
                         disabled={!row.active}
                       >
-                        Edit
+                        {language === 'bs' ? 'Uredi' : 'Edit'}
                       </Button>
                       <Button
                         type="button"
@@ -318,19 +357,19 @@ export default function AdminCategoriesPage() {
                         size="sm"
                         onClick={() => setPendingStatusCategory(row)}
                       >
-                        {row.active ? 'Deactivate' : 'Reactivate'}
+                        {row.active ? (language === 'bs' ? 'Deaktiviraj' : 'Deactivate') : (language === 'bs' ? 'Reaktiviraj' : 'Reactivate')}
                       </Button>
                     </div>
                   ),
                 },
               ]}
-              data={categories}
+              data={visibleCategories}
               keyExtractor={(row) => String(row.id)}
               isLoading={loading}
               error={error || null}
               onRetry={fetchCategories}
-              emptyTitle="No categories found"
-              emptyDescription="Create the first category to enable fault intake routing."
+              emptyTitle={language === 'bs' ? 'Nema pronađenih kategorija' : 'No categories found'}
+              emptyDescription={language === 'bs' ? 'Kreirajte prvu kategoriju da omogućite usmjeravanje prijava kvarova.' : 'Create the first category to enable fault intake routing.'}
             />
           </CardContent>
         </Card>
@@ -340,13 +379,13 @@ export default function AdminCategoriesPage() {
         isOpen={pendingStatusCategory !== null}
         onClose={() => setPendingStatusCategory(null)}
         onConfirm={handleToggleStatus}
-        title={pendingStatusCategory?.active ? 'Deactivate category?' : 'Reactivate category?'}
+        title={pendingStatusCategory?.active ? (language === 'bs' ? 'Deaktivirati kategoriju?' : 'Deactivate category?') : (language === 'bs' ? 'Reaktivirati kategoriju?' : 'Reactivate category?')}
         description={
           pendingStatusCategory?.active
-            ? 'This category will no longer be available in the intake flow.'
-            : 'This category will become available in the intake flow again.'
+            ? language === 'bs' ? 'Ova kategorija više neće biti dostupna u toku prijave.' : 'This category will no longer be available in the intake flow.'
+            : language === 'bs' ? 'Ova kategorija će ponovo biti dostupna u toku prijave.' : 'This category will become available in the intake flow again.'
         }
-        confirmLabel={pendingStatusCategory?.active ? 'Deactivate' : 'Reactivate'}
+        confirmLabel={pendingStatusCategory?.active ? (language === 'bs' ? 'Deaktiviraj' : 'Deactivate') : (language === 'bs' ? 'Reaktiviraj' : 'Reactivate')}
         variant={pendingStatusCategory?.active ? 'warning' : 'default'}
       />
     </PageLayout>

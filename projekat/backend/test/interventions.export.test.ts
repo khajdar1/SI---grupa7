@@ -124,8 +124,37 @@ describe('Interventions PDF export', () => {
           servicers: 'Dženan Đurić',
         }),
       ],
-      { title: 'Interventions Export' },
+      { language: 'en' },
     );
+  });
+
+  it('passes requested Bosnian language to PDF generation', async () => {
+    interventionFindManyMock.mockResolvedValue([
+      {
+        id: 1,
+        name: 'Preventivni pregled',
+        priority: Priority.MEDIUM,
+        status: InterventionStatus.NEW,
+        location: 'Objekat B',
+        createdAt: dateMinutesFromNow(-10),
+        startedAt: dateMinutesFromNow(60),
+        dueAt: dateMinutesFromNow(180),
+        assignments: [],
+      },
+    ]);
+
+    const res = await request('/interventions/export/pdf?language=bs');
+
+    expect(res.status).toBe(200);
+    expect(generateInterventionsPdfMock).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          servicers: 'Nedodijeljeno',
+        }),
+      ],
+      { language: 'bs' },
+    );
+    expect(res.headers.get('content-disposition')).toContain('intervencije-');
   });
 
   it('forbids export when user has no access', async () => {

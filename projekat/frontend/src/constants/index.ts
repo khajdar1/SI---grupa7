@@ -27,6 +27,7 @@ export const ROUTES = {
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
   MANAGEMENT_DASHBOARD: '/management',
   COMPANY: '/company',
+  BLOCKED_USERS: '/blocked-users',
 } as const;
 
 export const API_ENDPOINTS = {
@@ -107,10 +108,21 @@ export const API_ENDPOINTS = {
     BLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/block-user`,
     UNBLOCK_USER: (id: number | string) => `/api/v1/tickets/${id}/unblock-user`,
   },
+  BLOCKING: {
+    BASE: '/api/v1/blocking',
+    UNBLOCK: (id: number | string) => `/api/v1/blocking/${id}/unblock`,
+    BY_ID: (id: number | string) => `/api/v1/blocking/${id}`,
+  },
   NOTIFICATIONS: {
     BASE: '/api/v1/notifications',
     UNREAD: '/api/v1/notifications/unread',
     MARK_READ: (id: number | string) => `/api/v1/notifications/${id}/read`,
+  },
+  USER_PREFERENCES: {
+    BASE: '/api/v1/user-preferences',
+  },
+  FEEDBACK: {
+    BY_INTERVENTION: (id: number | string) => `/api/v1/feedback/${id}`,
   },
 } as const;
 

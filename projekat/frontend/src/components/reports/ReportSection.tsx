@@ -18,6 +18,7 @@ import {
   type InterventionReport,
   type UpdateReportPayload,
 } from '@/services/reports.service';
+import { translateText, useI18n } from '@/lib/i18n';
 
 const REPORT_ALLOWED_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.IN_PROGRESS,
@@ -59,6 +60,7 @@ export function ReportSection({
   canRead,
   canWrite,
 }: ReportSectionProps) {
+  const { language, t } = useI18n();
   const [report, setReport] = useState<InterventionReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -87,7 +89,7 @@ export function ReportSection({
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load the report.');
+          setError(err instanceof Error ? translateText(language, err.message) : t('report.loadFailed'));
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -123,7 +125,7 @@ export function ReportSection({
 
   const handleSave = async () => {
     if (!form.description.trim()) {
-      setError('Work description is required.');
+      setError(t('report.descriptionRequired'));
       return;
     }
 
@@ -153,9 +155,9 @@ export function ReportSection({
       }
 
       setIsEditing(false);
-      setSuccessMessage('The report has been saved successfully.');
+      setSuccessMessage(t('report.saved'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to save the report.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('report.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -170,13 +172,13 @@ export function ReportSection({
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
             <ClipboardList className="size-4 text-primary" />
           </div>
-          <CardTitle className="text-base">Intervention Report</CardTitle>
+          <CardTitle className="text-base">{t('report.sectionTitle')}</CardTitle>
         </div>
         {canWrite && isAllowedStatus && !isEditing && (
           <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-1.5">
             {report
-              ? <><Pencil className="size-3.5" /> Edit Report</>
-              : <><Plus className="size-3.5" /> Add Report</>}
+              ? <><Pencil className="size-3.5" /> {t('report.edit')}</>
+              : <><Plus className="size-3.5" /> {t('report.add')}</>}
           </Button>
         )}
       </CardHeader>
@@ -209,7 +211,7 @@ export function ReportSection({
             onCancel={handleCancel}
           />
         ) : report ? (
-          <ReportReadView report={report} />
+          <ReportReadView report={report} language={language} />
         ) : (
           <ReportEmptyState canWrite={canWrite} isAllowedStatus={isAllowedStatus} />
         )}
@@ -228,18 +230,20 @@ interface ReportFormProps {
 }
 
 function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel }: ReportFormProps) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
         <Label htmlFor="report-description">
-          Work Description <span className="text-destructive">*</span>
+          {t('report.workDescription')} <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="report-description"
           ref={descriptionRef as React.Ref<HTMLTextAreaElement>}
           value={form.description}
           onChange={onChange('description')}
-          placeholder="Describe what was done..."
+          placeholder={t('report.describePlaceholder')}
           maxLength={FIELD_MAX_LENGTH.DESCRIPTION}
           rows={5}
           disabled={isSaving}
@@ -250,12 +254,12 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-material">Materials Used</Label>
+        <Label htmlFor="report-material">{t('report.materials')}</Label>
         <Textarea
           id="report-material"
           value={form.material}
           onChange={onChange('material')}
-          placeholder="List the materials used (optional)..."
+          placeholder={t('report.materialsPlaceholder')}
           maxLength={FIELD_MAX_LENGTH.MATERIAL}
           rows={3}
           disabled={isSaving}
@@ -266,12 +270,12 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
       </div>
 
       <div className="space-y-1">
-        <Label htmlFor="report-notes">Notes</Label>
+        <Label htmlFor="report-notes">{t('report.notes')}</Label>
         <Textarea
           id="report-notes"
           value={form.notes}
           onChange={onChange('notes')}
-          placeholder="Additional notes (optional)..."
+          placeholder={t('report.notesPlaceholder')}
           maxLength={FIELD_MAX_LENGTH.NOTES}
           rows={3}
           disabled={isSaving}
@@ -283,7 +287,7 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
 
       <div className="flex justify-end gap-2 pt-1">
         <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
-          Cancel
+          {t('tickets.cancel')}
         </Button>
         <Button
           type="button"
@@ -295,9 +299,9 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
           {isSaving ? (
             <span className="flex items-center gap-2">
               <span className="spinner" />
-              Saving...
+              {t('common.saving')}
             </span>
-          ) : 'Save Report'}
+          ) : t('report.save')}
         </Button>
       </div>
     </div>
@@ -306,10 +310,12 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
 
 interface ReportReadViewProps {
   report: InterventionReport;
+  language: string;
 }
 
-function ReportReadView({ report }: ReportReadViewProps) {
-  const formattedDate = new Date(report.reportDate).toLocaleDateString('en-US', {
+function ReportReadView({ report, language }: ReportReadViewProps) {
+  const { t } = useI18n();
+  const formattedDate = new Date(report.reportDate).toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -320,28 +326,28 @@ function ReportReadView({ report }: ReportReadViewProps) {
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
-        Author:{' '}
+        {t('report.author')}{' '}
         <span className="font-medium text-foreground">
           {report.author.firstName} {report.author.lastName}
         </span>{' '}
-        · Saved: <span className="font-medium text-foreground">{formattedDate}</span>
+        · {t('report.savedLabel')} <span className="font-medium text-foreground">{formattedDate}</span>
       </p>
 
       <div className="rounded-lg bg-muted/40 p-3">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">Work Description</p>
+        <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.workDescription')}</p>
         <p className="whitespace-pre-wrap text-sm">{report.description}</p>
       </div>
 
       {report.material ? (
         <div className="rounded-lg bg-muted/40 p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Materials Used</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.materials')}</p>
           <p className="whitespace-pre-wrap text-sm">{report.material}</p>
         </div>
       ) : null}
 
       {report.notes ? (
         <div className="rounded-lg bg-muted/40 p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">Notes</p>
+          <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.notes')}</p>
           <p className="whitespace-pre-wrap text-sm">{report.notes}</p>
         </div>
       ) : null}
@@ -355,10 +361,12 @@ interface ReportEmptyStateProps {
 }
 
 function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) {
+  const { t } = useI18n();
+
   if (canWrite && !isAllowedStatus) {
     return (
       <p className="text-sm text-muted-foreground">
-        A report can only be added while the intervention is in progress or resolved.
+        {t('report.notAllowedYet')}
       </p>
     );
   }
@@ -366,8 +374,8 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   return (
     <p className="text-sm text-muted-foreground">
       {canWrite
-        ? 'There is no report yet. Add one using the button above.'
-        : 'The technician has not submitted a report for this intervention yet.'}
+        ? t('report.emptyWriter')
+        : t('report.emptyReader')}
     </p>
   );
 }

@@ -25,6 +25,7 @@ import {
   getAvailableServicers,
   type ServicerLoad,
 } from '@/services/assignment.service';
+import { translateInterventionStatus, translateText, useI18n } from '@/lib/i18n';
 
 export interface BulkActionToolbarProps {
   selectedIds: number[];
@@ -37,23 +38,27 @@ export interface BulkActionToolbarProps {
   onError: (message: string) => void;
 }
 
-const STATUS_OPTIONS: { value: InterventionStatus; label: string }[] = [
-  { value: INTERVENTION_STATUS.IN_PROGRESS, label: 'In Progress' },
-  { value: INTERVENTION_STATUS.RESOLVED,    label: 'Resolved' },
-  { value: INTERVENTION_STATUS.CANCELLED,   label: 'Cancelled' },
+const STATUS_OPTIONS: InterventionStatus[] = [
+  INTERVENTION_STATUS.IN_PROGRESS,
+  INTERVENTION_STATUS.RESOLVED,
+  INTERVENTION_STATUS.CANCELLED,
 ];
 
 type PendingAction =
   | { type: 'STATUS_CHANGE'; status: InterventionStatus }
   | { type: 'ASSIGN_SERVICER'; userId: number; label: string };
 
-function describeAction(action: PendingAction, count: number): string {
+function describeAction(action: PendingAction, count: number, language: 'en' | 'bs'): string {
   const plural = count !== 1 ? 's' : '';
   switch (action.type) {
     case 'STATUS_CHANGE':
-      return `Change status to "${action.status}" for ${count} selected intervention${plural}? This action will only proceed if all selected interventions can be updated.`;
+      return language === 'bs'
+        ? `Promijeniti status u "${translateInterventionStatus(language, action.status)}" za ${count} odabranih intervencija? Akcija će se izvršiti samo ako se sve odabrane intervencije mogu ažurirati.`
+        : `Change status to "${translateInterventionStatus(language, action.status)}" for ${count} selected intervention${plural}? This action will only proceed if all selected interventions can be updated.`;
     case 'ASSIGN_SERVICER':
-      return `Assign "${action.label}" to ${count} selected intervention${plural}? This action will only proceed if all selected interventions can be updated.`;
+      return language === 'bs'
+        ? `Dodijeliti "${action.label}" za ${count} odabranih intervencija? Akcija će se izvršiti samo ako se sve odabrane intervencije mogu ažurirati.`
+        : `Assign "${action.label}" to ${count} selected intervention${plural}? This action will only proceed if all selected interventions can be updated.`;
   }
 }
 
@@ -64,6 +69,7 @@ export function BulkActionToolbar({
   onActionComplete,
   onError,
 }: BulkActionToolbarProps) {
+  const { language } = useI18n();
   const [pendingAction, setPendingAction]       = useState<PendingAction | null>(null);
   const [isExecuting, setIsExecuting]           = useState(false);
   const [selectedStatus, setSelectedStatus]     = useState<string | null>(null);
@@ -113,7 +119,13 @@ export function BulkActionToolbar({
         setSelectedServicer(null);
       }
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Bulk action failed. Please try again.');
+      onError(
+        err instanceof Error
+          ? err.message
+          : language === 'bs'
+            ? 'Grupna akcija nije uspjela. Pokušajte ponovo.'
+            : translateText(language, 'Bulk action failed. Please try again.'),
+      );
     } finally {
       setIsExecuting(false);
       setPendingAction(null);
@@ -141,11 +153,13 @@ export function BulkActionToolbar({
     <>
       <div
         role="toolbar"
-        aria-label="Bulk actions toolbar"
+        aria-label={language === 'bs' ? 'Alati za grupne akcije' : 'Bulk actions toolbar'}
         className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-foreground/10 bg-card px-4 py-3 text-sm text-card-foreground shadow-sm ring-1 ring-foreground/10"
       >
         <span className="font-medium text-foreground">
-          {count} intervention{count !== 1 ? 's' : ''} selected
+          {language === 'bs'
+            ? `${count} odabranih intervencija`
+            : `${count} intervention${count !== 1 ? 's' : ''} selected`}
         </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-3">
@@ -155,12 +169,14 @@ export function BulkActionToolbar({
             value={selectedStatus ?? ''}
             onValueChange={(v) => { setSelectedStatus(v || null); setSelectedServicer(null); }}
           >
-            <SelectTrigger size="sm" className="w-40 text-xs" aria-label="Select new status">
-              <SelectValue placeholder="Change status…" />
+            <SelectTrigger size="sm" className="w-40 text-xs" aria-label={language === 'bs' ? 'Odaberite novi status' : 'Select new status'}>
+              <SelectValue placeholder={language === 'bs' ? 'Promijeni status...' : 'Change status...'} />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              {STATUS_OPTIONS.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {translateInterventionStatus(language, status)}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -171,8 +187,8 @@ export function BulkActionToolbar({
               value={selectedServicer ?? ''}
               onValueChange={(v) => { setSelectedServicer(v || null); setSelectedStatus(null); }}
             >
-              <SelectTrigger size="sm" className="w-44 text-xs" aria-label="Select servicer">
-                <SelectValue placeholder="Assign servicer…" />
+              <SelectTrigger size="sm" className="w-44 text-xs" aria-label={language === 'bs' ? 'Odaberite servisera' : 'Select servicer'}>
+                <SelectValue placeholder={language === 'bs' ? 'Dodijeli servisera...' : 'Assign servicer...'} />
               </SelectTrigger>
               <SelectContent>
                 {servicers.map((s) => (
@@ -190,9 +206,9 @@ export function BulkActionToolbar({
             size="sm"
             onClick={handleApply}
             disabled={!selectedStatus && !selectedServicer}
-            aria-label="Apply selected bulk action"
+            aria-label={language === 'bs' ? 'Primijeni odabranu grupnu akciju' : 'Apply selected bulk action'}
           >
-            Apply
+            {language === 'bs' ? 'Primijeni' : 'Apply'}
           </Button>
 
           <Button
@@ -200,9 +216,9 @@ export function BulkActionToolbar({
             variant="ghost"
             size="sm"
             onClick={onClearSelection}
-            aria-label="Clear selection"
+            aria-label={language === 'bs' ? 'Očisti odabir' : 'Clear selection'}
           >
-            Clear
+            {language === 'bs' ? 'Očisti' : 'Clear'}
           </Button>
         </div>
       </div>
@@ -211,10 +227,10 @@ export function BulkActionToolbar({
         isOpen={pendingAction !== null}
         onClose={() => setPendingAction(null)}
         onConfirm={() => { void handleConfirm(); }}
-        title="Confirm bulk action"
-        description={pendingAction ? describeAction(pendingAction, count) : ''}
-        confirmLabel="Confirm"
-        cancelLabel="Cancel"
+        title={language === 'bs' ? 'Potvrdi grupnu akciju' : 'Confirm bulk action'}
+        description={pendingAction ? describeAction(pendingAction, count, language) : ''}
+        confirmLabel={language === 'bs' ? 'Potvrdi' : 'Confirm'}
+        cancelLabel={language === 'bs' ? 'Odustani' : 'Cancel'}
         variant="default"
         isLoading={isExecuting}
       />
