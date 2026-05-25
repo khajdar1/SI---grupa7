@@ -179,7 +179,7 @@ export default function AdminCategoriesPage() {
     setFormData({
       id: category.id,
       name: category.name,
-      description: category.description,
+      description: category.description ?? '',
     });
     setFormError('');
     setFieldErrors({});
