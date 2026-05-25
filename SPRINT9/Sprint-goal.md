@@ -2,11 +2,10 @@
 
 ## Sprint cilj
 
-Implementirati notifikacije za tiket sistem, višejezičnu podršku, kreiranje feedbacka od strane korisnika po završetku intervencije, centraliziranu Settings stranicu i blokiranje korisnika od strane firme. 
+Implementirati višejezičnu podršku, kreiranje feedbacka od strane korisnika po završetku intervencije, centraliziranu Settings stranicu i blokiranje korisnika od strane firme. 
 
 ## Ključne stavke koje tim želi završiti
 
-* Notifikacije za tikete (PBI-029)
 * Višejezična podrška (PBI-031)
 * Feedback korisnika po završetku intervencije (PBI-036)
 * Blokiranje korisnika od strane firme (PBI-039)
@@ -15,8 +14,6 @@ Implementirati notifikacije za tiket sistem, višejezičnu podršku, kreiranje f
 ## Rizici i zavisnosti
 
 ### Rizici
-
-* Rizik: PBI-029 (Notifikacije za tikete) zahtijeva proširenje postojećeg notifikacijskog sistema; neusklađenost s PBI-012 može dovesti do duplikata ili propuštenih obavijesti.
 
 * Rizik: PBI-031 (Višejezična podrška) zahtijeva prevođenje svih UI elemenata; parcijalni prijevodi mogu narušiti konzistentnost korisničkog iskustva.
 
@@ -27,8 +24,6 @@ Implementirati notifikacije za tiket sistem, višejezičnu podršku, kreiranje f
 * Rizik: PBI-039 (Blokiranje korisnika) zahtijeva pažljivu validaciju kako blokiranje ne bi nenamjerno uticalo na aktivne intervencije vezane za blokiranog korisnika.
 
 ### Zavisnosti
-
-* Zavisnost: PBI-029 zavisi od PBI-012 (Notifikacije) i PBI-027/PBI-028 (Tiket sistem), jer notifikacije za tikete koriste postojeću notifikacijsku infrastrukturu.
 
 * Zavisnost: PBI-031 zavisi od PBI-015 (Upravljanje korisničkim profilom), jer se odabir jezika čuva u korisničkim postavkama.
 

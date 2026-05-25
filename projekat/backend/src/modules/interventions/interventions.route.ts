@@ -14,6 +14,7 @@ import { BULK_ACTIONS, HTTP_STATUS } from "../../constants";
 import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
+import { shouldNotifyUser } from "../../shared/notification-preferences";
 import {
   BadRequestError,
   ForbiddenError,
@@ -384,6 +385,10 @@ async function createFeedbackRequestNotificationOnce(input: {
   reporterUserId: number | null | undefined;
 }) {
   if (!input.reporterUserId) {
+    return;
+  }
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'FEEDBACK_REQUEST')) {
     return;
   }
 
