@@ -100,7 +100,7 @@ const {
       if (key in user) {
         const value = user[key as keyof TestUser];
         selected[key] = Array.isArray(value)
-          ? value.map((item) => ({ ...item }))
+          ? value.map((item: unknown) => (typeof item === 'object' && item !== null ? { ...item as Record<string, unknown> } : item))
           : value;
       }
     }
@@ -252,8 +252,9 @@ const {
         }) => {
           let users = [...state.users];
 
-          if (where?.id && typeof where.id === "object" && "in" in where.id) {
-            users = users.filter((user) => where.id.in.includes(user.id));
+          const idFilter = where?.id;
+          if (idFilter && typeof idFilter === "object" && "in" in idFilter) {
+            users = users.filter((user) => idFilter.in.includes(user.id));
           } else if (typeof where?.id === "number") {
             users = users.filter((user) => user.id === where.id);
           }
@@ -353,6 +354,8 @@ const {
                   email: assignment.user.email,
                   active: true,
                   companyId: null,
+                  externalIdentities: [],
+                  keycloakRoles: [],
                 },
                 include.user.select,
               );
@@ -395,6 +398,8 @@ const {
                 email: assignment.user.email,
                 active: true,
                 companyId: null,
+                externalIdentities: [],
+                keycloakRoles: [],
               },
               include.user.select,
             ),
@@ -481,6 +486,9 @@ const {
     },
     notification: {
       create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
+    userPreference: {
+      findUnique: vi.fn().mockResolvedValue(null),
     },
   };
 

@@ -5,9 +5,10 @@ import { z } from "zod";
 import { prisma } from "../../config/database";
 import { authorizeRoles } from "../../middleware/auth.middleware";
 import { authRateLimiter } from "../../middleware/rateLimit.middleware";
-import { emitToRole } from "../../realtime/socket";
+import { emitToRole, emitToUser } from "../../realtime/socket";
 import { asyncHandler } from "../../shared/async-handler";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../../shared/errors";
+import { filterByPreferences, getActiveUserIdsByKeycloakRole } from "../../shared/notification-preferences";
 import {
   ALLOWED_ATTACHMENT_MIME_TYPES,
   FaultReportService,
@@ -402,12 +403,18 @@ faultReportsRouter.post(
 
     const receivedAt = result.receivedAt.toLocaleString('en-US', { timeZone: 'Europe/Sarajevo' });
     const location = (parsed.location ?? '').trim() || 'Unknown location';
-    emitToRole('koordinator', 'notification:new', {
-      title: 'New fault report',
-      text: `${receivedAt}, location: ${location}`,
-      type: 'NEW_REPORT',
-      interventionId: result.interventionId,
-    });
+    const coordinatorIds = await filterByPreferences(
+      await getActiveUserIdsByKeycloakRole('koordinator'),
+      'NEW_REPORT',
+    );
+    for (const uid of coordinatorIds) {
+      emitToUser(uid, 'notification:new', {
+        title: 'New fault report',
+        text: `${receivedAt}, location: ${location}`,
+        type: 'NEW_REPORT',
+        interventionId: result.interventionId,
+      });
+    }
 
     res.status(201).json(result);
   }),

@@ -8,7 +8,6 @@
 | **PBI-036** | Feedback korisnika po završetku intervencije | Kerim Hajdar | Done | Implementiran feedback mehanizam s ocjenom i opcionalnim komentarom nakon prelaska intervencije u status "Završeno". |
 | **PBI-039** | Blokiranje korisnika od strane firme | Nedim Omanović | Done | Implementirano blokiranje i deblokiranje korisnika od strane koordinatora uz audit log i zabranu daljnjih prijava kvarova |
 | **PBI-051** | Settings page | Ismail Mujanović | Done | Implementirana centralizovana Settings stranica s role-based prikazom, jezičkim postavkama i notifikacijskim preferencama |
-| **PBI-029** | Notifikacija za tikete | Dalila Tanković | Done | Implementirane in-app notifikacije za korisnike i agente podrške uz prikaz broja nepročitanih notifikacija za tikete |
 
 ---
 
@@ -47,12 +46,6 @@
 **Story 3 –** Kao **korisnik bez administratorskih privilegija**, želim **vidjeti samo postavke koje smijem mijenjati**, kako bih **imao jasan i siguran interfejs bez opcija koje ne mogu koristiti**.
 
 **Story 4 –** Kao **sistem**, moram **čuvati promjene postavki po korisniku i primjenjivati role-based kontrolu pristupa**, kako bih **spriječio neovlaštene izmjene konfiguracije i zadržao konzistentno korisničko iskustvo nakon ponovne prijave**.
-
----
-
-### PBI-029 - Notifikacija za tikete
-
-**Story 1 –** Kao **korisnik**, želim **primiti in-app obavijest kada agent odgovori na moj tiket**, a kao **agent podrške**, želim **biti obaviješten kada stigne novi tiket ili odgovor**, kako bih **mogli pravovremeno reagirati bez stalnog provjeravanja sistema**.
 
 ---
 
@@ -102,13 +95,3 @@
 - Ako čuvanje postavki ne uspije, sistem mora prikazati jasnu grešku i ne smije prikazati da su promjene uspješno sačuvane.
 - Nakon uspješnog čuvanja, sistem mora prikazati potvrdu i osvježiti lokalno stanje bez potrebe za ručnim ponovnim unosom.
 - Sve izmjene sistemskih konfiguracija pokrenute iz Settings konteksta moraju poštovati postojeći backend RBAC i audit pravila.
-
-
-### PBI-029 - Notifikacija za tikete
-
-- Kada agent odgovori na tiket, **korisnik mora primiti in-app notifikaciju**.
-- Kada korisnik kreira novi tiket ili odgovori, **agent podrške mora primiti in-app notifikaciju**.
-- Svaka notifikacija mora sadržavati **ID tiketa i kratki sažetak**.
-- Klik na notifikaciju mora **direktno otvoriti odgovarajući tiket**.
-- Sistem mora prikazati **broj nepročitanih notifikacija i za tikete** u navigaciji.
-- Korisnik ne smije primati **notifikacije za tuđe tikete**.
