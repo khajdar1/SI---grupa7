@@ -16,6 +16,7 @@ import {
 } from '@/components/shared';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
 import { CommentsSection } from '@/components/shared/CommentsSection';
+import { FeedbackSection } from '@/components/feedback/FeedbackSection';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +46,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { hasSessionRole } from '../../../lib/auth';
+import { getSessionUserId, hasSessionRole } from '../../../lib/auth';
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.NEW,
@@ -250,6 +251,11 @@ export default function InterventionDetailPage() {
   const canChangeStatus = hasSessionRole(STATUS_MANAGEMENT_ROLES);
   const canReadReport = hasSessionRole(REPORT_READ_ROLES);
   const canWriteReport = hasSessionRole(REPORT_WRITE_ROLES);
+  const sessionUserId = getSessionUserId();
+  const canSubmitFeedback = Boolean(
+    intervention?.faultReport?.reporterUser?.id &&
+      intervention.faultReport.reporterUser.id === sessionUserId,
+  );
 
   const statusActions: PageHeaderAction[] = intervention
     ? [
@@ -434,6 +440,16 @@ export default function InterventionDetailPage() {
           interventionStatus={intervention.status}
           canRead={canReadReport}
           canWrite={canWriteReport}
+        />
+      ) : null}
+
+      {/* PBI-036: User feedback after resolved intervention */}
+      {intervention ? (
+        <FeedbackSection
+          interventionId={interventionId}
+          interventionStatus={intervention.status}
+          canRead={canManageIntervention}
+          canSubmit={canSubmitFeedback}
         />
       ) : null}
 

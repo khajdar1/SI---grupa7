@@ -121,6 +121,9 @@ export const API_ENDPOINTS = {
   USER_PREFERENCES: {
     BASE: '/api/v1/user-preferences',
   },
+  FEEDBACK: {
+    BY_INTERVENTION: (id: number | string) => `/api/v1/feedback/${id}`,
+  },
 } as const;
 
 export const NETWORK = {

@@ -1,4 +1,10 @@
-import { InterventionStatus, InterventionType, Priority, RecurringPeriod } from "@prisma/client";
+import {
+  InterventionStatus,
+  InterventionType,
+  NotificationType,
+  Priority,
+  RecurringPeriod,
+} from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -349,6 +355,39 @@ async function calculateDueAt(
   }
 
   return new Date(baseDate.getTime() + sla.deadlineHours * 60 * 60 * 1000);
+}
+
+async function createFeedbackRequestNotificationOnce(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+}) {
+  if (!input.reporterUserId) {
+    return;
+  }
+
+  const existingNotification = await prisma.notification.findFirst({
+    where: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.FEEDBACK_REQUEST,
+    },
+    select: { id: true },
+  });
+
+  if (existingNotification) {
+    return;
+  }
+
+  await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.FEEDBACK_REQUEST,
+      title: "Intervention resolved",
+      text: `Intervention "${input.interventionName}" has been resolved. Please leave feedback about the service.`,
+    },
+  });
 }
 
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
@@ -864,7 +903,17 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, archived: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     if (!existing) {
@@ -905,6 +954,14 @@ interventionsRouter.patch(
         },
       }),
     ]);
+
+    if (input.status === InterventionStatus.RESOLVED) {
+      await createFeedbackRequestNotificationOnce({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport?.userId,
+      });
+    }
 
     res.json(mapIntervention(intervention));
   }),
@@ -1101,7 +1158,12 @@ async function applyBulkStatusChange(
   id: number,
   targetStatus: InterventionStatus,
   actorId: number,
-  existing: { status: InterventionStatus; archived: boolean },
+  existing: {
+    status: InterventionStatus;
+    archived: boolean;
+    name?: string;
+    faultReport?: { userId: number | null } | null;
+  },
 ): Promise<BulkActionItemResult> {
   if (existing.archived) {
     return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
@@ -1136,6 +1198,14 @@ async function applyBulkStatusChange(
       },
     }),
   ]);
+
+  if (targetStatus === InterventionStatus.RESOLVED) {
+    await createFeedbackRequestNotificationOnce({
+      interventionId: id,
+      interventionName: existing.name ?? `#${id}`,
+      reporterUserId: existing.faultReport?.userId,
+    });
+  }
 
   return { id, success: true };
 }
@@ -1238,7 +1308,17 @@ interventionsRouter.post(
 
     const existing = await prisma.intervention.findMany({
       where: { id: { in: interventionIds } },
-      select: { id: true, status: true, archived: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
     const existingMap = new Map(existing.map((i) => [i.id, i]));
