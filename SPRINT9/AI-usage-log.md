@@ -739,4 +739,49 @@ Test fajl comments.route.test.ts s 28 testova: validacija ID-a, sortiranje, prov
 - **Ko je koristio alat:** Ismail Mujanović
 
 ---
+- **Datum:** 24.05.2026.
+- **Sprint broj:** Sprint 9
+- **Alat koji je korišten:** Claude (Anthropic) – claude-sonnet-4-6
+- **Svrha korištenja:** Implementacija upravljanja blokiranim korisnicima za prijave kvarova (PBI-039).
+- **Kratak opis zadatka ili upita:** Implementacija user storije: koordinator kompanije može blokirati korisnike da ne mogu podnositi prijave kvarova njegovoj kompaniji, pregledati listu blokiranih korisnika i deblokirat ih.
+- **Šta je AI predložio ili generisao:**
+    - `BlockingService` klasu s metodama `blockUser()`, `unblockUser()`, `listBlockedUsers()`, `isUserBlocked()`, `IBlockingRepository` interfejsom za testabilnost i domenskim greškama (`BlockingNotFoundError`, `BlockingConflictError`, `BlockingForbiddenError`, `BlockingValidationError`).
+    - `blocking.schema.ts` s Zod validacijom — inicijalno primalo `userId: number`, preinačeno na `username: string` kako koordinator ne bi morao znati interni ID korisnika.
+    - `blocking.route.ts` s kompletnom Prisma repository implementacijom, `blockSelect` konstantom za konzistentno dohvaćanje podataka, username-to-ID lookup na backendu, i rutama: `GET /api/v1/blocking`, `POST /api/v1/blocking`, `PATCH /api/v1/blocking/:id/unblock`, `DELETE /api/v1/blocking/:id`.
+    - Enforcement blokade u `fault-reports.route.ts` — provjera `UserBlock` zapisa prije kreiranja prijave, vraća 403 ako je korisnik blokiran.
+    - Proširenje `interventions.route.ts` da uključi `reporterUser` podatke u `faultReport` polje.
+    - Frontend `blocked-users/page.tsx` s role guardom (samo koordinator/admin), dijalogom za blokiranje po korisničkom imenu, dijalogom za potvrdu deblokiranja i listom aktivnih blokada.
+    - `blocking.service.ts` na frontendu s `getBlockedUsers()`, `blockUser()`, `unblockUser()` funkcijama.
+    - "Blocked Users" navigacijsku stavku u Operations dropdownu vidljivu samo za Koordinator/Admin uloge.
+    - Proširenje `interventions/[id]/page.tsx` da koordinator može blokirati prijavitelja kvara direktno iz detalja intervencije.
+    - 16 unit testova za `BlockingService` pokrivajući sve scenarije (blokiranje, deblokiranje, konflikt, forbidden, not found).
+- **Šta je tim prihvatio:** Kompletnu backend i frontend implementaciju, sve testove, navigacijsku integraciju, username-based blokiranje umjesto ID-based.
+- **Šta je tim izmijenio:** Ulazni parametar za blokiranje promijenjen s `userId: number` na `username: string` — koordinator unosi korisničko ime umjesto internog ID-a korisnika. "Blokirani korisnici" label zamijenjen s "Blocked Users" radi konzistentnosti s ostatkom sučelja.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Docker image za backend i frontend bio je buildan prije implementacije pa je kompajlirani kod bio zastario — riješeno rebuildom oba imagea. `TicketCategory` tabela nije bila kreirana (migracije `20260518193000_add_ticket_categories` i `20260518204500_expand_location_columns` nisu bile primijenjene) — migracije pokrenute manualno. Disk bio potpuno pun (0 GB slobodno) zbog Docker build cachea i WSL2 vhdx fajla — oslobođeno ~9.7 GB brisanjem build cachea i kompaktiranjem WSL2 diska. TypeScript build greška — `interventions/[id]/page.tsx` još uvijek koristio stari `userId` u pozivu `blockUser()` nakon promjene interfejsa na `username` — ispravno ažurirano.
+- **Ko je koristio alat:** Nedim Omanović
+
+---
+
+- **Datum:** 21.05.2026.
+- **Sprint broj:** Sprint 9
+- **Alat koji je korišten:** Claude (Anthropic) – claude-sonnet-4-6
+- **Svrha korištenja:** Ispravka prikaza vrijednosti filtera i dodavanje labela iznad filtera na svim stranicama.
+- **Kratak opis zadatka ili upita:** Korisnici su vidjeli sirove ID-ove i enum vrijednosti u Select komponentama umjesto čitljivih naziva (npr. `CRITICAL` umjesto `Critical`, ili numerički ID kategorije umjesto naziva). Potrebno je bilo dodati permanentne labele iznad svakog filtera kako bi korisnici znali šta koji filter kontrolira.
+- **Šta je AI predložio ili generisao:**
+    - Dodavanje permanentnih labela iznad svakih Select filtera na stranicama `fault-reports`, `admin`, `admin/companies`, `interventions`, `interventions/new`, `interventions/[id]/edit`, `map`, `tickets`, `tickets/[id]` i `history`.
+    - Ispravku `SelectValue` koji je prikazivao sirove ID-ove/enum vrijednosti umjesto čitljivih naziva — dodavanje mapiranja statusa i prioriteta (`STATUS_LABELS`, `PRIORITY_LABELS`) na svim zahvaćenim stranicama.
+    - Dodavanje mapiranja statusa i prioriteta u tablicu historije intervencija (`history/page.tsx`).
+    - Dodavanje nedostajućih opcija filtera statusa (`RESOLVED`, `CANCELLED`, `REJECTED`) na stranici intervencija.
+    - Proširenje `FilterBar.tsx` komponente da podržava prikaz labele iznad filtera.
+    - Ispravku prikaza vlasnika intervencije na backendu — `interventions.route.ts` koristio string interpolaciju koja je producirala `"undefined undefined"` kada `firstName` ili `lastName` nisu bili popunjeni; ispravka s `?? ''` fallbackom koji prikazuje `username`.
+    - Ispravku `getUserRealmRoleMappings` u `keycloak.client.ts` da vraća `[]` umjesto da baca grešku pri 404 odgovoru — sprječava 500 greške kada korisnici u lokalnoj bazi imaju zastarjele/placeholder Keycloak UUID-ove.
+- **Šta je tim prihvatio:** Kompletne izmjene na svim stranicama, label prikaz iznad filtera, mapiranja vrijednosti, backend ispravke za ime vlasnika i Keycloak 404 handling.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Korisnici u lokalnoj MySQL bazi koji imaju stare Keycloak UUID-ove iz prethodne instance uzrokuju 500 grešku pri dohvatu rola jer Keycloak vraća 404 — riješeno graceful handlingom koji vraća prazan niz umjesto bacanja iznimke.
+- **Ko je koristio alat:** Nedim Omanović
+
+---
+
 
