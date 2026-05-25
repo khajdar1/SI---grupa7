@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
+import { useI18n, type LanguageCode, type TranslationKey } from '@/lib/i18n';
 import {
   createInterventionFeedback,
   getInterventionFeedback,
@@ -42,6 +43,7 @@ export function FeedbackSection({
   const [successMessage, setSuccessMessage] = useState('');
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isHiddenForUser, setIsHiddenForUser] = useState(false);
+  const { language, t } = useI18n();
 
   const isResolved = interventionStatus === INTERVENTION_STATUS.RESOLVED;
   const canSeeSection = isResolved && (canRead || canSubmit);
@@ -63,7 +65,7 @@ export function FeedbackSection({
         const data = await getInterventionFeedback(interventionId);
         if (!cancelled) setFeedback(data);
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Failed to load feedback.';
+        const message = err instanceof Error ? err.message : t('feedback.loadError');
         if (!cancelled) {
           if (message.toLowerCase().includes('permission')) {
             setIsHiddenForUser(true);
@@ -81,7 +83,7 @@ export function FeedbackSection({
     return () => {
       cancelled = true;
     };
-  }, [interventionId, canSeeSection]);
+  }, [interventionId, canSeeSection, t]);
 
   const handleOpenConfirm = () => {
     setError(null);
@@ -101,10 +103,10 @@ export function FeedbackSection({
       });
       setFeedback(created);
       setComment('');
-      setSuccessMessage('Feedback has been submitted successfully.');
+      setSuccessMessage(t('feedback.submitSuccess'));
       setIsConfirmOpen(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to submit feedback.');
+      setError(err instanceof Error ? err.message : t('feedback.submitError'));
       setIsConfirmOpen(false);
     } finally {
       setIsSaving(false);
@@ -120,7 +122,7 @@ export function FeedbackSection({
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10">
             <MessageSquareText className="size-4 text-primary" />
           </div>
-          <CardTitle className="text-base">User Feedback</CardTitle>
+          <CardTitle className="text-base">{t('feedback.title')}</CardTitle>
         </div>
       </CardHeader>
 
@@ -143,12 +145,12 @@ export function FeedbackSection({
             ))}
           </div>
         ) : feedback ? (
-          <FeedbackReadView feedback={feedback} />
+          <FeedbackReadView feedback={feedback} language={language} t={t} />
         ) : canSubmit ? (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Rating</Label>
-              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Feedback rating">
+              <Label>{t('feedback.rating')}</Label>
+              <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('feedback.ratingAria')}>
                 {RATINGS.map((value) => (
                   <Button
                     key={value}
@@ -167,13 +169,13 @@ export function FeedbackSection({
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="feedback-comment">Comment</Label>
+              <Label htmlFor="feedback-comment">{t('feedback.comment')}</Label>
               <Textarea
                 id="feedback-comment"
                 value={comment}
                 maxLength={COMMENT_MAX_LENGTH}
                 rows={4}
-                placeholder="Add an optional comment..."
+                placeholder={t('feedback.commentPlaceholder')}
                 onChange={(event) => setComment(event.target.value)}
                 disabled={isSaving}
               />
@@ -184,13 +186,13 @@ export function FeedbackSection({
 
             <div className="flex justify-end">
               <Button type="button" size="sm" onClick={handleOpenConfirm} disabled={isSaving}>
-                Submit Feedback
+                {t('feedback.submitButton')}
               </Button>
             </div>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Feedback has not been submitted for this intervention yet.
+            {t('feedback.emptyForStaff')}
           </p>
         )}
       </CardContent>
@@ -201,10 +203,10 @@ export function FeedbackSection({
         onConfirm={() => {
           void handleSubmit();
         }}
-        title="Submit feedback"
-        description="Feedback can be submitted only once for this intervention."
-        confirmLabel="Submit"
-        cancelLabel="Cancel"
+        title={t('feedback.confirmTitle')}
+        description={t('feedback.confirmDescription')}
+        confirmLabel={t('feedback.confirmLabel')}
+        cancelLabel={t('feedback.cancelLabel')}
         variant="default"
         isLoading={isSaving}
       />
@@ -212,14 +214,25 @@ export function FeedbackSection({
   );
 }
 
-function FeedbackReadView({ feedback }: { feedback: InterventionFeedback }) {
-  const formattedDate = new Date(feedback.createdAt).toLocaleDateString('en-GB', {
+function FeedbackReadView({
+  feedback,
+  language,
+  t,
+}: {
+  feedback: InterventionFeedback;
+  language: LanguageCode;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+}) {
+  const formattedDate = new Date(feedback.createdAt).toLocaleDateString(
+    language === 'bs' ? 'bs-BA' : 'en-GB',
+    {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+    },
+  );
 
   return (
     <div className="space-y-3">
@@ -228,10 +241,15 @@ function FeedbackReadView({ feedback }: { feedback: InterventionFeedback }) {
           {feedback.user.firstName} {feedback.user.lastName}
         </span>
         <span className="text-muted-foreground">@{feedback.user.username}</span>
-        <span className="text-muted-foreground">Saved: {formattedDate}</span>
+        <span className="text-muted-foreground">
+          {t('feedback.savedPrefix')} {formattedDate}
+        </span>
       </div>
 
-      <div className="flex gap-1" aria-label={`Rating ${feedback.rating} out of 5`}>
+      <div
+        className="flex gap-1"
+        aria-label={t('feedback.ratingOutOfFive', { rating: feedback.rating })}
+      >
         {RATINGS.map((value) => (
           <Star
             key={value}
@@ -249,7 +267,7 @@ function FeedbackReadView({ feedback }: { feedback: InterventionFeedback }) {
           <p className="whitespace-pre-wrap text-sm">{feedback.comment}</p>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">No comment was added.</p>
+        <p className="text-sm text-muted-foreground">{t('feedback.noComment')}</p>
       )}
     </div>
   );

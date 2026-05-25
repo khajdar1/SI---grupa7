@@ -20,6 +20,7 @@ const {
   statusHistoryCreateMock,
   notificationFindFirstMock,
   notificationCreateMock,
+  userPreferenceFindUniqueMock,
   userFindFirstMock,
   slaConfigurationFindUniqueMock,
   auditLogCreateMock,
@@ -40,6 +41,7 @@ const {
   statusHistoryCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
+  userPreferenceFindUniqueMock: vi.fn(),
   userFindFirstMock: vi.fn(),
   slaConfigurationFindUniqueMock: vi.fn(),
   auditLogCreateMock: vi.fn(),
@@ -76,6 +78,9 @@ vi.mock("../src/config/database", () => ({
     notification: {
       findFirst: notificationFindFirstMock,
       create: notificationCreateMock,
+    },
+    userPreference: {
+      findUnique: userPreferenceFindUniqueMock,
     },
     user: {
       findFirst: userFindFirstMock,
@@ -363,6 +368,7 @@ describe("PBI-004 interventions route", () => {
     interventionFindFirstMock.mockResolvedValue(null);
     notificationFindFirstMock.mockResolvedValue(null);
     notificationCreateMock.mockResolvedValue({});
+    userPreferenceFindUniqueMock.mockResolvedValue(null);
     seedHappyPathMocks();
   });
 
@@ -861,6 +867,10 @@ describe("PBI-004 interventions route", () => {
       },
       select: { id: true },
     });
+    expect(userPreferenceFindUniqueMock).toHaveBeenCalledWith({
+      where: { userId: 14 },
+      select: { language: true },
+    });
     expect(notificationCreateMock).toHaveBeenCalledWith({
       data: {
         userId: 14,
@@ -888,6 +898,32 @@ describe("PBI-004 interventions route", () => {
 
     expect(response.status).toBe(200);
     expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the reporting user's language for feedback request notifications", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Popravka grijanja",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      faultReport: { userId: 14 },
+    });
+    userPreferenceFindUniqueMock.mockResolvedValue({ language: "bs" });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(200);
+    expect(notificationCreateMock).toHaveBeenCalledWith({
+      data: {
+        userId: 14,
+        interventionId: 21,
+        type: NotificationType.FEEDBACK_REQUEST,
+        title: "Intervencija zavrsena",
+        text: expect.stringContaining("je zavrsena"),
+      },
+    });
   });
 
   it("rejects status changes that skip the predefined workflow", async () => {

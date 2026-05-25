@@ -394,6 +394,23 @@ const translations = {
     'common.language': 'Language',
     'language.en': 'English',
     'language.bs': 'Bosnian',
+    'feedback.loadError': 'Failed to load feedback.',
+    'feedback.submitError': 'Failed to submit feedback.',
+    'feedback.title': 'User Feedback',
+    'feedback.rating': 'Rating',
+    'feedback.ratingAria': 'Feedback rating',
+    'feedback.comment': 'Comment',
+    'feedback.commentPlaceholder': 'Add an optional comment...',
+    'feedback.submitButton': 'Submit Feedback',
+    'feedback.submitSuccess': 'Feedback has been submitted successfully.',
+    'feedback.confirmTitle': 'Submit feedback',
+    'feedback.confirmDescription': 'Feedback can be submitted only once for this intervention.',
+    'feedback.confirmLabel': 'Submit',
+    'feedback.cancelLabel': 'Cancel',
+    'feedback.savedPrefix': 'Saved:',
+    'feedback.ratingOutOfFive': 'Rating {{rating}} out of 5',
+    'feedback.noComment': 'No comment was added.',
+    'feedback.emptyForStaff': 'Feedback has not been submitted for this intervention yet.',
     'login.productSubtitle': 'Intervention management system',
     'login.title': 'Welcome back',
     'login.subtitle': 'Enter your credentials to continue.',
@@ -890,6 +907,23 @@ const translations = {
     'common.language': 'Jezik',
     'language.en': 'Engleski',
     'language.bs': 'Bosanski',
+    'feedback.loadError': 'Neuspjesno ucitavanje feedbacka.',
+    'feedback.submitError': 'Neuspjesno slanje feedbacka.',
+    'feedback.title': 'Feedback korisnika',
+    'feedback.rating': 'Ocjena',
+    'feedback.ratingAria': 'Ocjena feedbacka',
+    'feedback.comment': 'Komentar',
+    'feedback.commentPlaceholder': 'Dodajte opcionalni komentar...',
+    'feedback.submitButton': 'Posalji feedback',
+    'feedback.submitSuccess': 'Feedback je uspjesno poslan.',
+    'feedback.confirmTitle': 'Posalji feedback',
+    'feedback.confirmDescription': 'Feedback je moguce poslati samo jednom za ovu intervenciju.',
+    'feedback.confirmLabel': 'Posalji',
+    'feedback.cancelLabel': 'Odustani',
+    'feedback.savedPrefix': 'Sacuvano:',
+    'feedback.ratingOutOfFive': 'Ocjena {{rating}} od 5',
+    'feedback.noComment': 'Komentar nije dodan.',
+    'feedback.emptyForStaff': 'Feedback jos nije poslan za ovu intervenciju.',
     'login.productSubtitle': 'Sistem za upravljanje intervencijama',
     'login.title': 'Dobro došli nazad',
     'login.subtitle': 'Unesite podatke za nastavak.',
@@ -1376,7 +1410,7 @@ const navLabelKeys: Record<string, TranslationKey> = {
 interface I18nContextValue {
   language: LanguageCode;
   setLanguage: (language: LanguageCode, options?: { persistToProfile?: boolean }) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
   translateNavLabel: (label: string) => string;
 }
 
@@ -1579,6 +1613,34 @@ export function translateText(language: LanguageCode, value: string): string {
   return value.replace(trimmed, translated);
 }
 
+function interpolateTranslation(
+  template: string,
+  params: Record<string, string | number> = {},
+) {
+  let text = template;
+
+  for (const [name, value] of Object.entries(params)) {
+    text = text.replaceAll(`{{${name}}}`, String(value));
+  }
+
+  return text;
+}
+
+export function translateKey(
+  language: LanguageCode,
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+) {
+  return interpolateTranslation(
+    translations[language][key] ?? translations.en[key] ?? key,
+    params,
+  );
+}
+
+export function getStoredLanguage(): LanguageCode {
+  return readStoredLanguage();
+}
+
 export function translateLocationValue(language: LanguageCode, value: string): string {
   if (language !== 'bs') {
     return value;
@@ -1711,7 +1773,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo<I18nContextValue>(() => {
-    const t = (key: TranslationKey) => translations[language][key] ?? translations.en[key] ?? key;
+    const t = (key: TranslationKey, params?: Record<string, string | number>) =>
+      translateKey(language, key, params);
     const translateNavLabel = (label: string) => {
       const key = navLabelKeys[label];
       return key ? t(key) : label;
@@ -1732,8 +1795,12 @@ export function useI18n() {
   return context;
 }
 
-export function translateForTest(language: LanguageCode, key: TranslationKey) {
-  return translations[language][key] ?? translations.en[key] ?? key;
+export function translateForTest(
+  language: LanguageCode,
+  key: TranslationKey,
+  params?: Record<string, string | number>,
+) {
+  return translateKey(language, key, params);
 }
 
 const categoryDisplayNames: Record<LanguageCode, Record<string, string>> = {
