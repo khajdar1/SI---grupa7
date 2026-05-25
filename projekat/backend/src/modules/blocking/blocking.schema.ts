@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const blockUserSchema = z
   .object({
     username: z.string().trim().min(1, 'Username is required.'),
+    companyId: z.coerce.number().int().positive('Company is required.'),
     reason: z
       .string()
       .trim()
