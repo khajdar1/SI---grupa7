@@ -127,6 +127,14 @@ function normalizeLanguage(value: unknown): LanguageCode {
   return value === 'bs' ? 'bs' : 'en';
 }
 
+function getLanguageLabel(displayLanguage: LanguageCode, value: LanguageCode) {
+  if (displayLanguage === 'bs') {
+    return value === 'bs' ? 'Bosanski' : 'Engleski';
+  }
+
+  return value === 'bs' ? 'Bosnian' : 'English';
+}
+
 function translateLabel(language: LanguageCode, label: string) {
   if (language !== 'bs') {
     return label;
@@ -227,7 +235,6 @@ export default function SettingsPage() {
 
     const nextLanguage = normalizeLanguage(value);
     setSelectedLanguage(nextLanguage);
-    setLanguage(nextLanguage);
   };
 
   const handleSave = async () => {
@@ -283,12 +290,12 @@ export default function SettingsPage() {
             ) : (
               <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>{getLanguageLabel(language, selectedLanguage)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {SUPPORTED_LANGUAGES.map((item) => (
                     <SelectItem key={item.code} value={item.code}>
-                      {item.code === 'bs' ? t('language.bs') : t('language.en')}
+                      {getLanguageLabel(language, item.code)}
                     </SelectItem>
                   ))}
                 </SelectContent>
