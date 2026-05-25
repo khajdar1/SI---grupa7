@@ -6,11 +6,15 @@ import {
   requiredPasswordField,
 } from "../../shared/validation";
 
+export const supportedLanguageSchema = z.enum(["en", "bs"]);
+export type SupportedLanguage = z.infer<typeof supportedLanguageSchema>;
+
 export const updateProfileSchema = z
   .object({
     firstName: personNameField("First name", { max: 100 }),
     lastName: personNameField("Last name", { max: 100 }),
     email: emailField(),
+    language: supportedLanguageSchema,
   })
   .strict();
 

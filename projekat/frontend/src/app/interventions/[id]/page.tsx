@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InterventionStatusBadge } from '@/components/shared/InterventionStatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
+import { translateLocationValue, translateText, useI18n } from '@/lib/i18n';
 import {
   deleteAttachment,
   downloadAttachment,
@@ -122,6 +123,7 @@ const INITIAL_BLOCK_REPORTER_STATE: BlockReporterState = {
 };
 
 export default function InterventionDetailPage() {
+  const { language, t } = useI18n();
   const params = useParams();
   const interventionId = Number(params.id);
 
@@ -140,7 +142,7 @@ export default function InterventionDetailPage() {
 
   const loadData = async () => {
     if (!isValidId) {
-      setError('Invalid intervention identifier.');
+      setError(t('interventionDetail.invalidId'));
       setIsLoading(false);
       return;
     }
@@ -156,7 +158,7 @@ export default function InterventionDetailPage() {
       setIntervention(interventionData);
       setAttachments(attachmentData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load data.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -168,7 +170,7 @@ export default function InterventionDetailPage() {
 
   const handleDownload = (attachment: AttachmentListItem) => {
     downloadAttachment(attachment.id, attachment.fileName).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Failed to download attachment.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.downloadFailed'));
     });
   };
 
@@ -185,9 +187,9 @@ export default function InterventionDetailPage() {
         ...updated,
         assignments: current?.assignments ?? updated.assignments,
       }));
-      setSuccessMessage('Status updated.');
+      setSuccessMessage(t('interventionDetail.statusUpdated'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to update status.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.statusUpdateFailed'));
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -214,10 +216,10 @@ export default function InterventionDetailPage() {
       setAttachments((prev) =>
         prev.filter((a) => a.id !== deleteState.attachmentId),
       );
-      setSuccessMessage(`Attachment '${deleteState.fileName}' was deleted successfully.`);
+      setSuccessMessage(t('interventionDetail.attachmentDeleted'));
       closeDeleteDialog();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to delete attachment.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.deleteFailed'));
       closeDeleteDialog();
     }
   };
@@ -242,7 +244,7 @@ export default function InterventionDetailPage() {
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);
-    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('en-GB');
+    return Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB');
   };
 
   const canManageIntervention = hasSessionRole(INTERVENTION_MANAGEMENT_ROLES);
@@ -256,7 +258,7 @@ export default function InterventionDetailPage() {
         ...(canChangeStatus && STARTABLE_STATUSES.has(intervention.status)
           ? [
               {
-                label: 'Start',
+                label: t('interventionDetail.start'),
                 onClick: () => {
                   void handleStatusChange(INTERVENTION_STATUS.IN_PROGRESS);
                 },
@@ -268,7 +270,7 @@ export default function InterventionDetailPage() {
         ...(canChangeStatus && CLOSEABLE_STATUSES.has(intervention.status)
           ? [
               {
-                label: 'Close',
+                label: t('interventionDetail.close'),
                 onClick: () => {
                   void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
                 },
@@ -284,11 +286,11 @@ export default function InterventionDetailPage() {
     <PageLayout className="space-y-6">
       {/* ── Header ── */}
       <PageHeader
-        title={`Intervention #${interventionId}`}
-        subtitle="Intervention details, attachments and comments."
+        title={t('interventionDetail.title').replace('{id}', String(interventionId))}
+        subtitle={t('interventionDetail.subtitle')}
         breadcrumbs={[
-          { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('nav.interventions'), href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}` },
         ]}
         primaryAction={
@@ -296,7 +298,7 @@ export default function InterventionDetailPage() {
           canManageIntervention &&
           EDITABLE_STATUSES.has(intervention.status)
             ? {
-                label: 'Edit',
+                label: t('interventionDetail.edit'),
                 href: ROUTES.INTERVENTION_EDIT(String(interventionId)),
                 variant: 'outline',
               }
@@ -328,55 +330,55 @@ export default function InterventionDetailPage() {
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-xs text-muted-foreground">Status</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.status')}</p>
                 <InterventionStatusBadge status={intervention.status} />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Priority</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.priority')}</p>
                 <PriorityBadge priority={intervention.priority} />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Category</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.category')}</p>
                 <p className="font-medium">{intervention.categoryName}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Company</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.company')}</p>
                 <p className="font-medium">{intervention.companyName}</p>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <p className="text-xs text-muted-foreground">Location</p>
-                <p className="font-medium">{intervention.location}</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.location')}</p>
+                <p className="font-medium">{translateLocationValue(language, intervention.location)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Creator</p>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.creator')}</p>
                 <p className="font-medium">{intervention.owner}</p>
               </div>
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground">Description</p>
+              <p className="text-xs text-muted-foreground">{t('interventionDetail.description')}</p>
               <p className="text-sm">{intervention.description}</p>
             </div>
 
             {intervention.startedAt ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <p className="text-xs text-muted-foreground">Started</p>
+                  <p className="text-xs text-muted-foreground">{t('interventionDetail.started')}</p>
                   <p className="text-sm">
-                    {new Date(intervention.startedAt).toLocaleString('en-GB', {
+                    {new Date(intervention.startedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     })}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Due</p>
+                  <p className="text-xs text-muted-foreground">{t('interventionDetail.due')}</p>
                   <p className="text-sm">
                     {intervention.dueAt
-                      ? new Date(intervention.dueAt).toLocaleDateString('en-GB')
+                      ? new Date(intervention.dueAt).toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-GB')
                       : '-'}
                   </p>
                 </div>
@@ -440,7 +442,7 @@ export default function InterventionDetailPage() {
       {/* ── Attachments ── */}
       <Card>
         <CardHeader>
-          <CardTitle>Attachments</CardTitle>
+          <CardTitle>{t('interventionDetail.attachments')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -452,23 +454,23 @@ export default function InterventionDetailPage() {
           ) : (
             <DataTable<AttachmentListItem>
               columns={[
-                { key: 'fileName', header: 'File name' },
-                { key: 'mimeType', header: 'Type', width: '200px' },
+                { key: 'fileName', header: t('interventionDetail.fileName') },
+                { key: 'mimeType', header: t('interventionDetail.type'), width: '200px' },
                 {
                   key: 'fileSize',
-                  header: 'Size',
+                  header: t('interventionDetail.size'),
                   width: '100px',
                   render: (value) => formatFileSize(Number(value)),
                 },
                 {
                   key: 'createdAt',
-                  header: 'Added',
+                  header: t('interventionDetail.added'),
                   width: '120px',
                   render: (value) => formatDate(String(value)),
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: t('interventionDetail.actions'),
                   width: '200px',
                   render: (_value, row) => (
                     <div className="flex gap-2">
@@ -478,7 +480,7 @@ export default function InterventionDetailPage() {
                         size="sm"
                         onClick={() => handleDownload(row)}
                       >
-                        Download
+                        {t('interventionDetail.download')}
                       </Button>
                       {canDeleteAttachments ? (
                         <Button
@@ -487,7 +489,7 @@ export default function InterventionDetailPage() {
                           size="sm"
                           onClick={() => openDeleteDialog(row)}
                         >
-                          Delete
+                          {t('interventionDetail.delete')}
                         </Button>
                       ) : null}
                     </div>
@@ -499,8 +501,8 @@ export default function InterventionDetailPage() {
               isLoading={false}
               error={error}
               onRetry={loadData}
-              emptyTitle="No attachments"
-              emptyDescription="This intervention has no attachments."
+              emptyTitle={t('interventionDetail.noAttachments')}
+              emptyDescription={t('interventionDetail.noAttachmentsDescription')}
             />
           )}
         </CardContent>
@@ -575,10 +577,10 @@ export default function InterventionDetailPage() {
         onConfirm={() => {
           void handleConfirmDelete();
         }}
-        title="Delete attachment"
-        description={`Are you sure you want to delete '${deleteState.fileName}'? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
+        title={t('interventionDetail.deleteAttachment')}
+        description={t('interventionDetail.deleteAttachmentDescription')}
+        confirmLabel={t('interventionDetail.delete')}
+        cancelLabel={t('tickets.cancel')}
         variant="danger"
         isLoading={deleteState.isLoading}
       />

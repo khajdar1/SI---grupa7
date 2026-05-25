@@ -14,6 +14,7 @@ export type ProfileResponse = {
   lastName: string;
   username: string;
   email: string;
+  language: string;
   active: boolean;
 };
 
@@ -52,6 +53,7 @@ function sanitizeProfile(user: ProfileUserRecord): ProfileResponse {
     lastName: user.lastName,
     username: user.username,
     email: user.email,
+    language: user.language,
     active: user.active,
   };
 }
@@ -111,6 +113,7 @@ export class ProfileService {
         firstName: input.firstName,
         lastName: input.lastName,
         email: input.email,
+        language: input.language,
       },
       select: profileSelect,
     });
@@ -159,6 +162,7 @@ const profileSelect = {
   lastName: true,
   username: true,
   email: true,
+  language: true,
   active: true,
   externalIdentities: {
     select: {

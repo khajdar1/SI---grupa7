@@ -12,6 +12,7 @@ import {
   Timer,
   Users,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { AccessDenied, PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -24,16 +25,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ROUTES } from '@/constants';
+import { SUPPORTED_LANGUAGES, useI18n, type LanguageCode } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import {
   getUserPreferences,
   NOTIFICATION_LABELS,
   OPTIONAL_NOTIFICATION_LABELS,
-  SUPPORTED_LANGUAGES,
   updateUserPreferences,
   type UserPreferences,
 } from '@/services/settings.service';
-import { toast } from 'sonner';
 
 const ADMIN_QUICK_LINKS = [
   { label: 'SLA Config', href: ROUTES.ADMIN_SLA_CONFIG, icon: Timer },
@@ -43,10 +43,68 @@ const ADMIN_QUICK_LINKS = [
   { label: 'Companies', href: ROUTES.ADMIN_COMPANIES, icon: Shield },
 ] as const;
 
+const settingsCopy = {
+  en: {
+    title: 'Settings',
+    subtitle: 'Manage your personal preferences and application settings.',
+    saveChanges: 'Save Changes',
+    languageTitle: 'Language',
+    languageDescription: 'Choose your preferred display language.',
+    notificationsTitle: 'Notification Preferences',
+    notificationsDescription: 'Choose which optional notifications you receive. Operational notifications are always enabled.',
+    quickLinksTitle: 'Configuration Quick Links',
+    quickLinksDescription: 'Access system configuration pages directly from here.',
+    loading: 'Loading settings...',
+    loadErrorTitle: 'Error',
+    loadErrorDescription: 'Failed to load preferences.',
+    saveSuccessTitle: 'Success',
+    saveSuccessDescription: 'Preferences have been saved.',
+    saveErrorTitle: 'Error',
+    saveErrorDescription: 'Failed to save preferences.',
+  },
+  bs: {
+    title: 'Postavke',
+    subtitle: 'Upravljajte ličnim preferencama i postavkama aplikacije.',
+    saveChanges: 'Spremi promjene',
+    languageTitle: 'Jezik',
+    languageDescription: 'Odaberite željeni jezik prikaza.',
+    notificationsTitle: 'Postavke obavještenja',
+    notificationsDescription: 'Odaberite koja opcionalna obavještenja želite primati. Operativna obavještenja su uvijek uključena.',
+    quickLinksTitle: 'Prečice do konfiguracije',
+    quickLinksDescription: 'Otvorite sistemske konfiguracije direktno sa ove stranice.',
+    loading: 'Učitavanje postavki...',
+    loadErrorTitle: 'Greška',
+    loadErrorDescription: 'Učitavanje preferenci nije uspjelo.',
+    saveSuccessTitle: 'Uspješno',
+    saveSuccessDescription: 'Preference su spremljene.',
+    saveErrorTitle: 'Greška',
+    saveErrorDescription: 'Spremanje preferenci nije uspjelo.',
+  },
+} as const;
+
+const notificationLabelsBs: Record<string, string> = {
+  'New fault report': 'Nova prijava kvara',
+  'Intervention assigned': 'Dodijeljena intervencija',
+  'Status changed': 'Status promijenjen',
+  'Feedback request': 'Zahtjev za povratnu informaciju',
+  'Auto assignment': 'Automatska dodjela',
+  'New support ticket': 'Novi tiket podrške',
+  'Ticket reply': 'Odgovor na tiket',
+};
+
+const quickLinkLabelsBs: Record<string, string> = {
+  'SLA Config': 'SLA konfiguracija',
+  'Attachment Config': 'Konfiguracija priloga',
+  Categories: 'Kategorije',
+  Users: 'Korisnici',
+  Companies: 'Kompanije',
+};
+
 function hasAdminRole(): boolean {
   if (typeof window === 'undefined') return false;
   const token = window.localStorage.getItem('token');
   if (!token) return false;
+
   try {
     const payload = JSON.parse(
       window.atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')),
@@ -56,12 +114,25 @@ function hasAdminRole(): boolean {
     };
     const roles = [
       ...(payload.realm_access?.roles ?? []),
-      ...Object.values(payload.resource_access ?? {}).flatMap((a) => a.roles ?? []),
-    ].map((r) => r.toLowerCase());
+      ...Object.values(payload.resource_access ?? {}).flatMap((access) => access.roles ?? []),
+    ].map((role) => role.toLowerCase());
+
     return roles.includes('admin') || roles.includes('administrator');
   } catch {
     return false;
   }
+}
+
+function normalizeLanguage(value: unknown): LanguageCode {
+  return value === 'bs' ? 'bs' : 'en';
+}
+
+function translateLabel(language: LanguageCode, label: string) {
+  if (language !== 'bs') {
+    return label;
+  }
+
+  return notificationLabelsBs[label] ?? quickLinkLabelsBs[label] ?? label;
 }
 
 function NotificationToggle({
@@ -74,7 +145,7 @@ function NotificationToggle({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className="flex items-center justify-between gap-4 py-2">
       <span className="text-sm">{label}</span>
       <button
         type="button"
@@ -98,38 +169,42 @@ function NotificationToggle({
 }
 
 export default function SettingsPage() {
+  const { language, setLanguage, t } = useI18n();
+  const copy = settingsCopy[language];
   const [authorized, setAuthorized] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [language, setLanguage] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode>(language);
   const [notificationPrefs, setNotificationPrefs] = useState<Record<string, boolean>>({});
 
   const loadPreferences = useCallback(async () => {
     try {
       setIsLoading(true);
       const data: UserPreferences = await getUserPreferences();
-      setLanguage(data.language);
+      const nextLanguage = normalizeLanguage(data.language);
+
+      setSelectedLanguage(nextLanguage);
+      setLanguage(nextLanguage, { persistToProfile: false });
       setNotificationPrefs(data.notificationPreferences);
-    } catch (error) {
-      toast.error('Error', {
-        description: 'Failed to load preferences.',
+    } catch {
+      const storedLanguage = typeof window !== 'undefined' && window.localStorage.getItem('language') === 'bs' ? 'bs' : 'en';
+      toast.error(settingsCopy[storedLanguage].loadErrorTitle, {
+        description: settingsCopy[storedLanguage].loadErrorDescription,
       });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [setLanguage]);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
-    const canUseAdmin = hasAdminRole();
-    setAuthorized(true);
-    setIsAdmin(canUseAdmin);
+    setAuthorized(Boolean(token));
+    setIsAdmin(hasAdminRole());
     setIsGuest(!token);
 
     if (!token) {
-      setAuthorized(false);
       setIsLoading(false);
       return;
     }
@@ -137,23 +212,42 @@ export default function SettingsPage() {
     void loadPreferences();
   }, [loadPreferences]);
 
+  useEffect(() => {
+    setSelectedLanguage(language);
+  }, [language]);
+
   const handleToggleNotification = (key: string) => {
     setNotificationPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleLanguageChange = (value: string | null) => {
+    if (!value) {
+      return;
+    }
+
+    const nextLanguage = normalizeLanguage(value);
+    setSelectedLanguage(nextLanguage);
+    setLanguage(nextLanguage);
+  };
+
   const handleSave = async () => {
+    if (isSaving || isLoading) {
+      return;
+    }
+
     try {
       setIsSaving(true);
       await updateUserPreferences({
-        language,
+        language: selectedLanguage,
         notificationPreferences: notificationPrefs,
       });
-      toast.success('Success', {
-        description: 'Preferences have been saved.',
+      setLanguage(selectedLanguage);
+      toast.success(settingsCopy[selectedLanguage].saveSuccessTitle, {
+        description: settingsCopy[selectedLanguage].saveSuccessDescription,
       });
-    } catch (error) {
-      toast.error('Error', {
-        description: 'Failed to save preferences.',
+    } catch {
+      toast.error(settingsCopy[selectedLanguage].saveErrorTitle, {
+        description: settingsCopy[selectedLanguage].saveErrorDescription,
       });
     } finally {
       setIsSaving(false);
@@ -167,37 +261,34 @@ export default function SettingsPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Settings"
-        subtitle="Manage your personal preferences and application settings."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Settings' }]}
+        title={copy.title}
+        subtitle={copy.subtitle}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: copy.title }]}
         primaryAction={{
-          label: 'Save Changes',
+          label: isSaving ? t('common.saving') : copy.saveChanges,
           onClick: handleSave,
           icon: <Save className="mr-2 h-4 w-4" />,
-          isLoading: isSaving || isLoading,
         }}
       />
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Language</CardTitle>
-            <CardDescription>
-              Choose your preferred display language.
-            </CardDescription>
+            <CardTitle>{copy.languageTitle}</CardTitle>
+            <CardDescription>{copy.languageDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="h-9 animate-pulse rounded-lg bg-muted" />
             ) : (
-              <Select value={language} onValueChange={(val) => { if (val) setLanguage(val); }}>
+              <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {SUPPORTED_LANGUAGES.map((lang) => (
-                    <SelectItem key={lang.value} value={lang.value}>
-                      {lang.label}
+                  {SUPPORTED_LANGUAGES.map((item) => (
+                    <SelectItem key={item.code} value={item.code}>
+                      {item.code === 'bs' ? t('language.bs') : t('language.en')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -208,16 +299,14 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notification Preferences</CardTitle>
-            <CardDescription>
-              Choose which optional notifications you receive. Operational notifications are always enabled.
-            </CardDescription>
+            <CardTitle>{copy.notificationsTitle}</CardTitle>
+            <CardDescription>{copy.notificationsDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="h-5 animate-pulse rounded bg-muted" />
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="h-5 animate-pulse rounded bg-muted" />
                 ))}
               </div>
             ) : (
@@ -225,7 +314,7 @@ export default function SettingsPage() {
                 {Object.entries(isAdmin ? NOTIFICATION_LABELS : OPTIONAL_NOTIFICATION_LABELS).map(([key, label]) => (
                   <NotificationToggle
                     key={key}
-                    label={label}
+                    label={translateLabel(language, label)}
                     checked={notificationPrefs[key] ?? true}
                     onChange={() => handleToggleNotification(key)}
                   />
@@ -236,16 +325,14 @@ export default function SettingsPage() {
         </Card>
       </div>
 
-      {isAdmin && (
+      {isAdmin ? (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="size-4" />
-              Configuration Quick Links
+              {copy.quickLinksTitle}
             </CardTitle>
-            <CardDescription>
-              Access system configuration pages directly from here.
-            </CardDescription>
+            <CardDescription>{copy.quickLinksDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -260,7 +347,7 @@ export default function SettingsPage() {
                   >
                     <Link href={link.href}>
                       <Icon className="size-5" />
-                      <span className="text-xs font-medium">{link.label}</span>
+                      <span className="text-xs font-medium">{translateLabel(language, link.label)}</span>
                     </Link>
                   </Button>
                 );
@@ -268,13 +355,14 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
-      {isLoading && (
-        <div className="flex items-center justify-center p-12">
-          <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      {isLoading ? (
+        <div className="flex items-center justify-center gap-3 p-12 text-sm text-muted-foreground">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          {copy.loading}
         </div>
-      )}
+      ) : null}
     </PageLayout>
   );
 }

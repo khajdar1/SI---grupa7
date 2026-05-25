@@ -7,6 +7,7 @@ import { ROUTES } from '@/constants';
 import { PageHeader, PageLayout } from '@/components/shared';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { api } from '@/lib/api';
+import { translateCategoryName, translateInterventionStatus, translatePriority, useI18n } from '@/lib/i18n';
 
 type InterventionHistoryItem = {
   id: string;
@@ -59,6 +60,7 @@ const INITIAL_PAGINATION: HistoryPagination = {
 };
 
 export default function HistoryPage() {
+  const { language, t } = useI18n();
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
   const [items, setItems] = useState<InterventionHistoryItem[]>([]);
@@ -101,12 +103,12 @@ export default function HistoryPage() {
       );
 
       setItems(response.data.data);
-      setMessage(response.data.message);
+      setMessage(language === 'bs' ? 'Historija intervencija je uspješno učitana.' : response.data.message);
       setPagination(response.data.pagination);
     } catch {
       setItems([]);
       setPagination(INITIAL_PAGINATION);
-      setMessage('Intervention history could not be loaded. Check the filters and try again.');
+      setMessage(language === 'bs' ? 'Historiju intervencija nije moguće učitati. Provjerite filtere i pokušajte ponovo.' : 'Intervention history could not be loaded. Check the filters and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -184,30 +186,30 @@ export default function HistoryPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Intervention History"
-        subtitle="Review previous completed or archived interventions by location and fault type."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'History' }]}
+        title={language === 'bs' ? 'Historija intervencija' : 'Intervention History'}
+        subtitle={language === 'bs' ? 'Pregledajte prethodno završene ili arhivirane intervencije po lokaciji i tipu kvara.' : 'Review previous completed or archived interventions by location and fault type.'}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('nav.history') }]}
       />
 
       {/* ── Filters ── */}
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <form onSubmit={handleSearch} className="grid gap-4 md:grid-cols-3">
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-            Location
+            {t('interventionDetail.location')}
             <input
               value={location}
               onChange={(event) => setLocation(event.target.value)}
-              placeholder="e.g. Ilidza"
+              placeholder={language === 'bs' ? 'npr. Ilidža' : 'e.g. Ilidza'}
               className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
 
           <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-            Fault Type
+            {language === 'bs' ? 'Tip kvara' : 'Fault Type'}
             <input
               value={category}
               onChange={(event) => setCategory(event.target.value)}
-              placeholder="e.g. Plumbing or 2"
+              placeholder={language === 'bs' ? 'npr. Vodovodni kvar ili 2' : 'e.g. Plumbing or 2'}
               className="rounded-xl border border-slate-300 px-3 py-2 text-sm"
             />
           </label>
@@ -218,7 +220,7 @@ export default function HistoryPage() {
               disabled={isLoading}
               className="flex-1 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              {isLoading ? 'Searching...' : 'Filter History'}
+              {isLoading ? (language === 'bs' ? 'Pretraga...' : 'Searching...') : (language === 'bs' ? 'Filtriraj historiju' : 'Filter History')}
             </button>
 
             {/* ── Show archived toggle ── */}
@@ -234,9 +236,9 @@ export default function HistoryPage() {
                   ? 'border-slate-900 bg-slate-900 text-white'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
               }`}
-              title={showArchived ? 'Hide archived interventions' : 'Show archived interventions'}
+              title={showArchived ? (language === 'bs' ? 'Sakrij arhivirane intervencije' : 'Hide archived interventions') : (language === 'bs' ? 'Prikaži arhivirane intervencije' : 'Show archived interventions')}
             >
-              {showArchived ? 'Hide archived' : 'Show archived'}
+              {showArchived ? (language === 'bs' ? 'Sakrij arhivirane' : 'Hide archived') : (language === 'bs' ? 'Prikaži arhivirane' : 'Show archived')}
             </button>
           </div>
         </form>
@@ -248,33 +250,33 @@ export default function HistoryPage() {
       {selectedIds.length > 0 && (
         <div className="sticky top-0 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm">
           <span className="font-medium text-slate-900">
-            {selectedIds.length} intervention{selectedIds.length !== 1 ? 's' : ''} selected
+            {language === 'bs' ? `${selectedIds.length} intervencija odabrano` : `${selectedIds.length} intervention${selectedIds.length !== 1 ? 's' : ''} selected`}
           </span>
           <div className="ml-auto flex items-center gap-3">
             <button
               type="button"
               onClick={() => openBulkConfirm('ARCHIVE')}
               disabled={selectedHasArchived}
-              title={selectedHasArchived ? 'Already archived interventions cannot be archived again.' : 'Archive selected interventions'}
+              title={selectedHasArchived ? (language === 'bs' ? 'Već arhivirane intervencije ne mogu se ponovo arhivirati.' : 'Already archived interventions cannot be archived again.') : (language === 'bs' ? 'Arhiviraj odabrane intervencije' : 'Archive selected interventions')}
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Archive
+              {language === 'bs' ? 'Arhiviraj' : 'Archive'}
             </button>
             <button
               type="button"
               onClick={() => openBulkConfirm('DEARCHIVE')}
               disabled={selectedHasActive}
-              title={selectedHasActive ? 'Only archived interventions can be dearchived.' : 'Dearchive selected interventions'}
+              title={selectedHasActive ? (language === 'bs' ? 'Samo arhivirane intervencije mogu se dearhivirati.' : 'Only archived interventions can be dearchived.') : (language === 'bs' ? 'Dearhiviraj odabrane intervencije' : 'Dearchive selected interventions')}
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Dearchive
+              {language === 'bs' ? 'Dearhiviraj' : 'Dearchive'}
             </button>
             <button
               type="button"
               onClick={clearSelection}
               className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100"
             >
-              Clear
+              {language === 'bs' ? 'Očisti' : 'Clear'}
             </button>
           </div>
         </div>
@@ -297,21 +299,21 @@ export default function HistoryPage() {
                   className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-slate-900"
                 />
               </th>
-              <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Priority</th>
-              <th className="px-4 py-3">Location</th>
-              <th className="px-4 py-3">Fault Type</th>
-              <th className="px-4 py-3">Technician</th>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3">Report</th>
+              <th className="px-4 py-3">{language === 'bs' ? 'Datum' : 'Date'}</th>
+              <th className="px-4 py-3">{t('interventionDetail.status')}</th>
+              <th className="px-4 py-3">{t('interventionDetail.priority')}</th>
+              <th className="px-4 py-3">{t('interventionDetail.location')}</th>
+              <th className="px-4 py-3">{language === 'bs' ? 'Tip kvara' : 'Fault Type'}</th>
+              <th className="px-4 py-3">{language === 'bs' ? 'Serviser' : 'Technician'}</th>
+              <th className="px-4 py-3">{t('interventionDetail.description')}</th>
+              <th className="px-4 py-3">{t('nav.reports')}</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-6 text-center text-slate-500">
-                  No data to display.
+                  {language === 'bs' ? 'Nema podataka za prikaz.' : 'No data to display.'}
                 </td>
               </tr>
             ) : (
@@ -335,15 +337,15 @@ export default function HistoryPage() {
                         className="h-4 w-4 cursor-pointer rounded border-slate-300 accent-slate-900"
                       />
                     </td>
-                    <td className="px-4 py-3">{new Date(item.date).toLocaleDateString('en-US')}</td>
-                    <td className="px-4 py-3">{STATUS_LABELS[item.status] ?? item.status}</td>
-                    <td className="px-4 py-3">{PRIORITY_LABELS[item.priority] ?? item.priority}</td>
+                    <td className="px-4 py-3">{new Date(item.date).toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-US')}</td>
+                    <td className="px-4 py-3">{translateInterventionStatus(language, item.status)}</td>
+                    <td className="px-4 py-3">{translatePriority(language, item.priority)}</td>
                     <td className="max-w-64 px-4 py-3">
                       <span className="block truncate" title={item.location}>
                         {item.location}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{item.categoryName}</td>
+                    <td className="px-4 py-3">{translateCategoryName(language, item.categoryName)}</td>
                     <td className="px-4 py-3">{item.servicer}</td>
                     <td className="px-4 py-3">{item.summary}</td>
                     <td className="px-4 py-3">
@@ -351,7 +353,7 @@ export default function HistoryPage() {
                         href={`${ROUTES.REPORTS}?interventionId=${encodeURIComponent(item.id)}`}
                         className="font-medium text-slate-900 underline underline-offset-4"
                       >
-                        Open
+                        {language === 'bs' ? 'Otvori' : 'Open'}
                       </Link>
                     </td>
                   </tr>
@@ -364,7 +366,7 @@ export default function HistoryPage() {
         {/* ── Pagination ── */}
         <div className="flex flex-col gap-3 border-t border-slate-100 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
           <span>
-            Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)
+            {language === 'bs' ? `Stranica ${pagination.page} od ${pagination.totalPages} (${pagination.total} ukupno)` : `Page ${pagination.page} of ${pagination.totalPages} (${pagination.total} total)`}
           </span>
           <div className="flex gap-2">
             <button
@@ -373,7 +375,7 @@ export default function HistoryPage() {
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-50"
             >
-              Previous
+              {language === 'bs' ? 'Prethodna' : 'Previous'}
             </button>
             <button
               type="button"
@@ -381,7 +383,7 @@ export default function HistoryPage() {
               onClick={() => setPage((current) => current + 1)}
               className="rounded-lg border border-slate-300 px-3 py-1 disabled:opacity-50"
             >
-              Next
+              {language === 'bs' ? 'Sljedeća' : 'Next'}
             </button>
           </div>
         </div>
@@ -392,14 +394,14 @@ export default function HistoryPage() {
         isOpen={isConfirmOpen}
         onClose={() => setIsConfirmOpen(false)}
         onConfirm={() => { void executeBulkArchiveAction(); }}
-        title={pendingBulkAction === 'ARCHIVE' ? 'Archive interventions' : 'Dearchive interventions'}
+        title={pendingBulkAction === 'ARCHIVE' ? (language === 'bs' ? 'Arhiviraj intervencije' : 'Archive interventions') : (language === 'bs' ? 'Dearhiviraj intervencije' : 'Dearchive interventions')}
         description={
           pendingBulkAction === 'ARCHIVE'
-            ? `Archive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? Archived interventions will no longer appear in the history list unless archived items are shown.`
-            : `Dearchive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? They will appear in the regular history list again.`
+            ? (language === 'bs' ? `Arhivirati ${selectedIds.length} odabranih intervencija? Arhivirane intervencije se neće prikazivati osim ako je uključen prikaz arhiviranih.` : `Archive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? Archived interventions will no longer appear in the history list unless archived items are shown.`)
+            : (language === 'bs' ? `Dearhivirati ${selectedIds.length} odabranih intervencija? Ponovo će se prikazivati u regularnoj historiji.` : `Dearchive ${selectedIds.length} selected intervention${selectedIds.length !== 1 ? 's' : ''}? They will appear in the regular history list again.`)
         }
-        confirmLabel={pendingBulkAction === 'ARCHIVE' ? 'Archive' : 'Dearchive'}
-        cancelLabel="Cancel"
+        confirmLabel={pendingBulkAction === 'ARCHIVE' ? (language === 'bs' ? 'Arhiviraj' : 'Archive') : (language === 'bs' ? 'Dearhiviraj' : 'Dearchive')}
+        cancelLabel={t('tickets.cancel')}
         variant="default"
         isLoading={isArchiving}
       />

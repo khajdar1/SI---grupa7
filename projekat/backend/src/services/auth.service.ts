@@ -21,6 +21,7 @@ export type RegisteredUser = {
   lastName: string;
   username: string;
   email: string;
+  language: string;
   active: boolean;
   createdAt: Date;
 };
@@ -90,6 +91,7 @@ async function persistUser(
       lastName: true,
       username: true,
       email: true,
+      language: true,
       active: true,
       createdAt: true,
     },
@@ -156,6 +158,7 @@ export class AuthService {
           lastName: true,
           username: true,
           email: true,
+          language: true,
           active: true,
           createdAt: true,
       },

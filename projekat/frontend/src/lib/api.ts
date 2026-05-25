@@ -10,6 +10,10 @@ const AUTH_FLOW_ENDPOINTS = [
   '/api/v1/auth/reset-password',
   '/api/v1/auth/reset-password/confirm',
 ];
+const MESSAGE_TRANSLATIONS: Record<string, string> = {
+  'Your session has expired. Please sign in again.': 'Vaša sesija je istekla. Prijavite se ponovo.',
+  'You do not have permission to access that action.': 'Nemate dozvolu za pristup toj akciji.',
+};
 
 function normalizeApiBaseUrl(rawBaseUrl: string): string {
   const baseUrlWithoutTrailingSlash = rawBaseUrl.replace(/\/+$/, '');
@@ -56,7 +60,7 @@ function redirectWithMessage(path: string, message: string) {
     return;
   }
 
-  window.sessionStorage.setItem(AUTH_REDIRECT_MESSAGE_KEY, message);
+  window.sessionStorage.setItem(AUTH_REDIRECT_MESSAGE_KEY, translateRedirectMessage(message));
 
   const targetUrl = new URL(path, window.location.origin);
   const currentPath = `${window.location.pathname}${window.location.search}`;
@@ -65,6 +69,24 @@ function redirectWithMessage(path: string, message: string) {
   if (currentPath !== targetPath) {
     window.location.assign(path);
   }
+}
+
+function getStoredLanguage(): string {
+  if (typeof window === 'undefined') {
+    return 'en';
+  }
+
+  try {
+    const rawUser = window.localStorage.getItem('user');
+    const userLanguage = rawUser ? (JSON.parse(rawUser) as { language?: unknown }).language : null;
+    return userLanguage === 'bs' ? 'bs' : window.localStorage.getItem('language') ?? 'en';
+  } catch {
+    return window.localStorage.getItem('language') ?? 'en';
+  }
+}
+
+function translateRedirectMessage(message: string): string {
+  return getStoredLanguage() === 'bs' ? MESSAGE_TRANSLATIONS[message] ?? message : message;
 }
 
 function getTokenRoles(): string[] {
@@ -110,7 +132,9 @@ api.interceptors.response.use(
     if (!isAuthFlowRequest(requestUrl)) {
       if (status === 401) {
         if (typeof window !== 'undefined') {
-          window.localStorage.clear();
+          window.localStorage.removeItem('token');
+          window.localStorage.removeItem('refreshToken');
+          window.localStorage.removeItem('user');
           document.cookie = 'token=; Max-Age=0; path=/';
         }
         redirectWithMessage('/login?redirected=1', 'Your session has expired. Please sign in again.');
