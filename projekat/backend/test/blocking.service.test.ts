@@ -45,8 +45,8 @@ function makeRepository(overrides: Partial<IBlockingRepository> = {}): IBlocking
     findBlockById: vi.fn().mockResolvedValue(null),
     findExistingBlock: vi.fn().mockResolvedValue(null),
     findUserById: vi.fn().mockResolvedValue({ id: 99, active: true }),
-    getCoordinatorCompanyId: vi.fn().mockResolvedValue(COMPANY_ID),
-    listBlocksByCompany: vi.fn().mockResolvedValue([]),
+    findCompanyById: vi.fn().mockResolvedValue({ id: COMPANY_ID }),
+    listBlocks: vi.fn().mockResolvedValue([]),
     createBlock: vi.fn().mockImplementation(async (input: BlockInput) => makeBlock({ reason: input.reason })),
     deleteBlock: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -58,22 +58,22 @@ function makeAuditLogger(): IBlockingAuditLogger {
 }
 
 describe('BlockingService.listBlockedUsers', () => {
-  it('should return blocked users for a company', async () => {
+  it('should return blocked users', async () => {
     const block = makeBlock();
-    const repo = makeRepository({ listBlocksByCompany: vi.fn().mockResolvedValue([block]) });
+    const repo = makeRepository({ listBlocks: vi.fn().mockResolvedValue([block]) });
     const service = new BlockingService(repo, makeAuditLogger());
 
-    const result = await service.listBlockedUsers(COMPANY_ID);
+    const result = await service.listBlockedUsers();
 
     expect(result).toHaveLength(1);
     expect(result[0].userId).toBe(99);
-    expect(repo.listBlocksByCompany).toHaveBeenCalledWith(COMPANY_ID);
+    expect(repo.listBlocks).toHaveBeenCalled();
   });
 
   it('should return empty array when no users are blocked', async () => {
     const service = new BlockingService(makeRepository(), makeAuditLogger());
 
-    const result = await service.listBlockedUsers(COMPANY_ID);
+    const result = await service.listBlockedUsers();
 
     expect(result).toHaveLength(0);
   });
@@ -85,7 +85,7 @@ describe('BlockingService.blockUser', () => {
     const logger = makeAuditLogger();
     const service = new BlockingService(repo, logger);
 
-    const result = await service.blockUser({ userId: 99, reason: 'Spam' }, ACTOR.id, ACTOR);
+    const result = await service.blockUser({ userId: 99, companyId: COMPANY_ID, reason: 'Spam' }, ACTOR.id, ACTOR);
 
     expect(repo.createBlock).toHaveBeenCalledWith({
       userId: 99,
@@ -99,20 +99,20 @@ describe('BlockingService.blockUser', () => {
     expect(result.userId).toBe(99);
   });
 
-  it('should throw BlockingForbiddenError when coordinator has no company', async () => {
-    const repo = makeRepository({ getCoordinatorCompanyId: vi.fn().mockResolvedValue(null) });
+  it('should throw BlockingValidationError when company does not exist', async () => {
+    const repo = makeRepository({ findCompanyById: vi.fn().mockResolvedValue(null) });
     const service = new BlockingService(repo, makeAuditLogger());
 
     await expect(
-      service.blockUser({ userId: 99, reason: 'Spam' }, ACTOR.id, ACTOR),
-    ).rejects.toThrow(BlockingForbiddenError);
+      service.blockUser({ userId: 99, companyId: COMPANY_ID, reason: 'Spam' }, ACTOR.id, ACTOR),
+    ).rejects.toThrow(BlockingValidationError);
   });
 
   it('should throw BlockingForbiddenError when coordinator tries to block themselves', async () => {
     const service = new BlockingService(makeRepository(), makeAuditLogger());
 
     await expect(
-      service.blockUser({ userId: ACTOR.id, reason: 'Self block' }, ACTOR.id, ACTOR),
+      service.blockUser({ userId: ACTOR.id, companyId: COMPANY_ID, reason: 'Self block' }, ACTOR.id, ACTOR),
     ).rejects.toThrow(BlockingForbiddenError);
   });
 
@@ -121,7 +121,7 @@ describe('BlockingService.blockUser', () => {
     const service = new BlockingService(repo, makeAuditLogger());
 
     await expect(
-      service.blockUser({ userId: 999, reason: 'Spam' }, ACTOR.id, ACTOR),
+      service.blockUser({ userId: 999, companyId: COMPANY_ID, reason: 'Spam' }, ACTOR.id, ACTOR),
     ).rejects.toThrow(BlockingValidationError);
   });
 
@@ -132,16 +132,16 @@ describe('BlockingService.blockUser', () => {
     const service = new BlockingService(repo, makeAuditLogger());
 
     await expect(
-      service.blockUser({ userId: 99, reason: 'Spam' }, ACTOR.id, ACTOR),
+      service.blockUser({ userId: 99, companyId: COMPANY_ID, reason: 'Spam' }, ACTOR.id, ACTOR),
     ).rejects.toThrow(BlockingConflictError);
   });
 
-  it('should not create a block when coordinator has no company', async () => {
-    const repo = makeRepository({ getCoordinatorCompanyId: vi.fn().mockResolvedValue(null) });
+  it('should not create a block when company does not exist', async () => {
+    const repo = makeRepository({ findCompanyById: vi.fn().mockResolvedValue(null) });
     const service = new BlockingService(repo, makeAuditLogger());
 
     try {
-      await service.blockUser({ userId: 99, reason: 'Spam' }, ACTOR.id, ACTOR);
+      await service.blockUser({ userId: 99, companyId: COMPANY_ID, reason: 'Spam' }, ACTOR.id, ACTOR);
     } catch {}
 
     expect(repo.createBlock).not.toHaveBeenCalled();
@@ -171,36 +171,6 @@ describe('BlockingService.unblockUser', () => {
     );
   });
 
-  it('should throw BlockingForbiddenError when coordinator has no company', async () => {
-    const repo = makeRepository({ getCoordinatorCompanyId: vi.fn().mockResolvedValue(null) });
-    const service = new BlockingService(repo, makeAuditLogger());
-
-    await expect(service.unblockUser(1, ACTOR.id, ACTOR)).rejects.toThrow(
-      BlockingForbiddenError,
-    );
-  });
-
-  it('should throw BlockingForbiddenError when block belongs to a different company', async () => {
-    const block = makeBlock({ companyId: 999 });
-    const repo = makeRepository({ findBlockById: vi.fn().mockResolvedValue(block) });
-    const service = new BlockingService(repo, makeAuditLogger());
-
-    await expect(service.unblockUser(1, ACTOR.id, ACTOR)).rejects.toThrow(
-      BlockingForbiddenError,
-    );
-  });
-
-  it('should not delete when block belongs to a different company', async () => {
-    const block = makeBlock({ companyId: 999 });
-    const repo = makeRepository({ findBlockById: vi.fn().mockResolvedValue(block) });
-    const service = new BlockingService(repo, makeAuditLogger());
-
-    try {
-      await service.unblockUser(1, ACTOR.id, ACTOR);
-    } catch {}
-
-    expect(repo.deleteBlock).not.toHaveBeenCalled();
-  });
 });
 
 describe('BlockingService.isUserBlocked', () => {

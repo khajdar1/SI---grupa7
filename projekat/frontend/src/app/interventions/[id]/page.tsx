@@ -36,7 +36,7 @@ import {
   updateInterventionStatus,
   type InterventionDetail,
 } from '@/services/interventions.service';
-import { blockUser } from '@/services/blocking.service';
+import { blockUser, getBlockedUsers, type BlockRecord } from '@/services/blocking.service';
 import {
   Dialog,
   DialogContent,
@@ -130,6 +130,7 @@ export default function InterventionDetailPage() {
 
   const [intervention, setIntervention] = useState<InterventionDetail | null>(null);
   const [attachments, setAttachments] = useState<AttachmentListItem[]>([]);
+  const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
@@ -152,12 +153,14 @@ export default function InterventionDetailPage() {
     setError(null);
 
     try {
-      const [interventionData, attachmentData] = await Promise.all([
+      const [interventionData, attachmentData, blockData] = await Promise.all([
         getInterventionById(interventionId),
         getInterventionAttachments(interventionId),
+        isCoordinator ? getBlockedUsers() : Promise.resolve([]),
       ]);
       setIntervention(interventionData);
       setAttachments(attachmentData);
+      setBlocks(blockData);
     } catch (err: unknown) {
       setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.loadFailed'));
     } finally {
@@ -228,10 +231,22 @@ export default function InterventionDetailPage() {
   const handleBlockReporter = async () => {
     const reporterUser = intervention?.faultReport?.reporterUser;
     if (!reporterUser || !blockReporterState.reason.trim()) return;
+    if (reporterBlock) {
+      setBlockReporterState((prev) => ({
+        ...prev,
+        error: 'Korisnik je vec blokiran za ovu kompaniju.',
+      }));
+      return;
+    }
 
     setBlockReporterState((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      await blockUser({ username: reporterUser.username, reason: blockReporterState.reason.trim() });
+      const newBlock = await blockUser({
+        username: reporterUser.username,
+        companyId: intervention.companyId,
+        reason: blockReporterState.reason.trim(),
+      });
+      setBlocks((prev) => [newBlock, ...prev]);
       setBlockReporterState(INITIAL_BLOCK_REPORTER_STATE);
       setSuccessMessage(`User ${reporterUser.username} has been blocked.`);
     } catch (err: unknown) {
@@ -258,6 +273,14 @@ export default function InterventionDetailPage() {
     intervention?.faultReport?.reporterUser?.id &&
       intervention.faultReport.reporterUser.id === sessionUserId,
   );
+  const reporterUser = intervention?.faultReport?.reporterUser ?? null;
+  const reporterBlock = reporterUser && intervention
+    ? blocks.find(
+        (block) =>
+          block.companyId === intervention.companyId &&
+          block.blockedUser.username.toLowerCase() === reporterUser.username.toLowerCase(),
+      )
+    : null;
 
   const statusActions: PageHeaderAction[] = intervention
     ? [
@@ -413,11 +436,12 @@ export default function InterventionDetailPage() {
             <Button
               variant="destructive"
               size="sm"
+              disabled={Boolean(reporterBlock)}
               onClick={() =>
                 setBlockReporterState((prev) => ({ ...prev, isOpen: true }))
               }
             >
-              Blokiraj korisnika
+              {reporterBlock ? 'Korisnik je vec blokiran' : 'Blokiraj korisnika'}
             </Button>
           </CardContent>
         </Card>
@@ -564,6 +588,11 @@ export default function InterventionDetailPage() {
             {blockReporterState.error && (
               <p className="text-destructive text-sm">{blockReporterState.error}</p>
             )}
+            {!blockReporterState.error && reporterBlock ? (
+              <p className="text-destructive text-sm">
+                Korisnik je vec blokiran za ovu kompaniju.
+              </p>
+            ) : null}
           </div>
           <DialogFooter>
             <Button
@@ -578,7 +607,7 @@ export default function InterventionDetailPage() {
               onClick={() => {
                 void handleBlockReporter();
               }}
-              disabled={blockReporterState.isLoading || !blockReporterState.reason.trim()}
+              disabled={blockReporterState.isLoading || !blockReporterState.reason.trim() || Boolean(reporterBlock)}
             >
               {blockReporterState.isLoading ? 'Blokiranje...' : 'Blokiraj'}
             </Button>

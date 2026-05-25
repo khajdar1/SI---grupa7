@@ -16,16 +16,25 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { hasSessionRole } from '@/lib/auth';
 import { translateText, useI18n, type LanguageCode } from '@/lib/i18n';
+import type { Company } from '@/models/Company';
 import {
   blockUser,
   getBlockedUsers,
   unblockUser,
   type BlockRecord,
 } from '@/services/blocking.service';
+import { getCompanies } from '@/services/companies.service';
 
 const COORDINATOR_ROLES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
 const MAX_REASON_LENGTH = 1000;
@@ -40,12 +49,16 @@ const copy = {
     loadError: 'Failed to load blocked users.',
     unblockError: 'Failed to unblock user.',
     usernameRequired: 'Username is required.',
+    companyRequired: 'Company is required.',
     reasonRequired: 'Reason is required.',
+    alreadyBlocked: 'This user is already blocked for the selected company.',
     blockError: 'Failed to block user.',
     blockedBy: 'Blocked by',
+    company: 'Company',
+    selectCompany: 'Select company',
     unblock: 'Unblock',
     blockDialogTitle: 'Block user',
-    blockDialogDescription: 'Enter the username and reason for blocking. The blocked user will not be able to submit fault reports to your company.',
+    blockDialogDescription: 'Enter the username, company, and reason for blocking. The blocked user will not be able to submit fault reports to that company.',
     username: 'Username',
     usernamePlaceholder: 'e.g. user1',
     reason: 'Blocking reason',
@@ -67,12 +80,16 @@ const copy = {
     loadError: 'Učitavanje blokiranih korisnika nije uspjelo.',
     unblockError: 'Deblokiranje korisnika nije uspjelo.',
     usernameRequired: 'Korisničko ime je obavezno.',
+    companyRequired: 'Kompanija je obavezna.',
     reasonRequired: 'Razlog je obavezan.',
+    alreadyBlocked: 'Korisnik je vec blokiran za odabranu kompaniju.',
     blockError: 'Blokiranje korisnika nije uspjelo.',
     blockedBy: 'Blokirao',
+    company: 'Kompanija',
+    selectCompany: 'Odaberite kompaniju',
     unblock: 'Deblokiraj',
     blockDialogTitle: 'Blokiraj korisnika',
-    blockDialogDescription: 'Unesite korisničko ime i razlog blokiranja. Blokirani korisnik neće moći podnositi prijave kvarova vašoj kompaniji.',
+    blockDialogDescription: 'Unesite korisničko ime, kompaniju i razlog blokiranja. Blokirani korisnik neće moći podnositi prijave kvarova toj kompaniji.',
     username: 'Korisničko ime',
     usernamePlaceholder: 'npr. korisnik1',
     reason: 'Razlog blokiranja',
@@ -97,6 +114,7 @@ function formatDateTime(value: string, language: LanguageCode): string {
 interface BlockDialogState {
   isOpen: boolean;
   username: string;
+  companyId: string;
   reason: string;
   isLoading: boolean;
   error: string | null;
@@ -105,6 +123,7 @@ interface BlockDialogState {
 const INITIAL_BLOCK_STATE: BlockDialogState = {
   isOpen: false,
   username: '',
+  companyId: '',
   reason: '',
   isLoading: false,
   error: null,
@@ -128,19 +147,31 @@ export default function BlockedUsersPage() {
   const { language } = useI18n();
   const text = copy[language];
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blockDialog, setBlockDialog] = useState<BlockDialogState>(INITIAL_BLOCK_STATE);
   const [unblockDialog, setUnblockDialog] = useState<UnblockDialogState>(INITIAL_UNBLOCK_STATE);
 
   const canManage = hasSessionRole(COORDINATOR_ROLES);
+  const normalizedBlockUsername = blockDialog.username.trim().toLowerCase();
+  const selectedBlockCompanyId = Number(blockDialog.companyId);
+  const existingBlockForSelection =
+    normalizedBlockUsername && Number.isInteger(selectedBlockCompanyId)
+      ? blocks.find(
+          (block) =>
+            block.companyId === selectedBlockCompanyId &&
+            block.blockedUser.username.toLowerCase() === normalizedBlockUsername,
+        )
+      : null;
 
   const loadBlocks = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getBlockedUsers();
-      setBlocks(data);
+      const [blockData, companyData] = await Promise.all([getBlockedUsers(), getCompanies()]);
+      setBlocks(blockData);
+      setCompanies(companyData);
     } catch (err: unknown) {
       setError(err instanceof Error ? translateText(language, err.message) : text.loadError);
     } finally {
@@ -161,8 +192,16 @@ export default function BlockedUsersPage() {
       setBlockDialog((prev) => ({ ...prev, error: text.usernameRequired }));
       return;
     }
+    if (!blockDialog.companyId) {
+      setBlockDialog((prev) => ({ ...prev, error: text.companyRequired }));
+      return;
+    }
     if (!blockDialog.reason.trim()) {
       setBlockDialog((prev) => ({ ...prev, error: text.reasonRequired }));
+      return;
+    }
+    if (existingBlockForSelection) {
+      setBlockDialog((prev) => ({ ...prev, error: text.alreadyBlocked }));
       return;
     }
 
@@ -170,6 +209,7 @@ export default function BlockedUsersPage() {
     try {
       const newBlock = await blockUser({
         username: blockDialog.username.trim(),
+        companyId: Number(blockDialog.companyId),
         reason: blockDialog.reason.trim(),
       });
       setBlocks((prev) => [newBlock, ...prev]);
@@ -255,6 +295,7 @@ export default function BlockedUsersPage() {
                     </div>
                     <div className="text-sm text-muted-foreground truncate">{block.reason}</div>
                     <div className="text-xs text-muted-foreground mt-1">
+                      {text.company}: {block.company?.name ?? `#${block.companyId}`} &middot;{' '}
                       {text.blockedBy}: {block.coordinator.username} &middot;{' '}
                       {formatDateTime(block.blockedAt, language)}
                     </div>
@@ -291,6 +332,29 @@ export default function BlockedUsersPage() {
             </div>
 
             <div className="space-y-1">
+              <Label htmlFor="block-company">{text.company}</Label>
+              <Select
+                value={blockDialog.companyId || null}
+                onValueChange={(value) =>
+                  setBlockDialog((prev) => ({ ...prev, companyId: value ?? '', error: null }))
+                }
+              >
+                <SelectTrigger id="block-company" className="w-full">
+                  <SelectValue>
+                    {companies.find((company) => String(company.id) === blockDialog.companyId)?.name ?? text.selectCompany}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={String(company.id)}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
               <Label htmlFor="block-reason">{text.reason}</Label>
               <Textarea
                 id="block-reason"
@@ -310,13 +374,20 @@ export default function BlockedUsersPage() {
             {blockDialog.error ? (
               <p className="text-destructive text-sm">{blockDialog.error}</p>
             ) : null}
+            {!blockDialog.error && existingBlockForSelection ? (
+              <p className="text-destructive text-sm">{text.alreadyBlocked}</p>
+            ) : null}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={closeBlockDialog} disabled={blockDialog.isLoading}>
               {text.cancel}
             </Button>
-            <Button variant="destructive" onClick={handleBlock} disabled={blockDialog.isLoading}>
+            <Button
+              variant="destructive"
+              onClick={handleBlock}
+              disabled={blockDialog.isLoading || Boolean(existingBlockForSelection)}
+            >
               {blockDialog.isLoading ? text.blocking : text.block}
             </Button>
           </DialogFooter>

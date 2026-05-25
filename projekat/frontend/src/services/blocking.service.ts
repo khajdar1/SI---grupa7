@@ -18,6 +18,11 @@ export interface CoordinatorInfo {
   username: string;
 }
 
+export interface BlockCompanyInfo {
+  id: number;
+  name: string;
+}
+
 export interface BlockRecord {
   id: number;
   userId: number;
@@ -27,10 +32,12 @@ export interface BlockRecord {
   blockedAt: string;
   blockedUser: BlockedUserInfo;
   coordinator: CoordinatorInfo;
+  company?: BlockCompanyInfo;
 }
 
 export interface BlockUserPayload {
   username: string;
+  companyId: number;
   reason: string;
 }
 
