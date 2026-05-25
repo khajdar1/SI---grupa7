@@ -178,8 +178,8 @@ export default function AdminCategoriesPage() {
     setIsEditing(true);
     setFormData({
       id: category.id,
-      name: translateCategoryName(language, category.name),
-      description: translateCategoryDescription(language, category.description),
+      name: category.name,
+      description: category.description,
     });
     setFormError('');
     setFieldErrors({});
