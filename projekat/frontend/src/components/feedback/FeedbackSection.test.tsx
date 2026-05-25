@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { INTERVENTION_STATUS } from '@shared/enums';
 
 import { FeedbackSection } from './FeedbackSection';
+import { I18nProvider } from '@/lib/i18n';
 import {
   createInterventionFeedback,
   getInterventionFeedback,
@@ -37,6 +39,10 @@ function makeFeedback(overrides: Partial<InterventionFeedback> = {}): Interventi
   };
 }
 
+function renderWithI18n(ui: ReactElement) {
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
+
 describe('FeedbackSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -46,7 +52,7 @@ describe('FeedbackSection', () => {
   it('shows existing feedback to users who can read feedback', async () => {
     getFeedbackMock.mockResolvedValue(makeFeedback());
 
-    render(
+    renderWithI18n(
       <FeedbackSection
         interventionId={42}
         interventionStatus={INTERVENTION_STATUS.RESOLVED}
@@ -64,7 +70,7 @@ describe('FeedbackSection', () => {
     getFeedbackMock.mockResolvedValue(null);
     createFeedbackMock.mockResolvedValue(makeFeedback({ rating: 3, comment: 'Good.' }));
 
-    render(
+    renderWithI18n(
       <FeedbackSection
         interventionId={42}
         interventionStatus={INTERVENTION_STATUS.RESOLVED}
@@ -89,7 +95,7 @@ describe('FeedbackSection', () => {
   });
 
   it('does not render before intervention is resolved', () => {
-    render(
+    renderWithI18n(
       <FeedbackSection
         interventionId={42}
         interventionStatus={INTERVENTION_STATUS.IN_PROGRESS}
@@ -106,7 +112,7 @@ describe('FeedbackSection', () => {
     window.localStorage.setItem('language', 'bs');
     getFeedbackMock.mockResolvedValue(null);
 
-    render(
+    renderWithI18n(
       <FeedbackSection
         interventionId={42}
         interventionStatus={INTERVENTION_STATUS.RESOLVED}
