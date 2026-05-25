@@ -7,6 +7,7 @@ import {
 import { emitToUser } from "../../realtime/socket";
 import { AuditService } from "../../shared/audit.service";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
+import { shouldNotifyUser } from "../../shared/notification-preferences";
 
 export interface ServicerAvailabilityInfo {
   id: number;
@@ -200,17 +201,19 @@ export class AssignmentService {
       createdAssignments.push(assignment);
 
       // Notify the newly assigned servicer in real time
-      const notificationText = `Intervention: ${intervention.name}, Priority: ${intervention.priority}, Location: ${intervention.location}`;
-      const notification = await prisma.notification.create({
-        data: {
-          userId,
-          title: 'You have been assigned a new intervention',
-          text: notificationText,
-          type: 'INTERVENTION_ASSIGNED',
-          interventionId,
-        },
-      });
-      emitToUser(userId, 'notification:new', notification);
+      if (await shouldNotifyUser(userId, 'INTERVENTION_ASSIGNED')) {
+        const notificationText = `Intervention: ${intervention.name}, Priority: ${intervention.priority}, Location: ${intervention.location}`;
+        const notification = await prisma.notification.create({
+          data: {
+            userId,
+            title: 'You have been assigned a new intervention',
+            text: notificationText,
+            type: 'INTERVENTION_ASSIGNED',
+            interventionId,
+          },
+        });
+        emitToUser(userId, 'notification:new', notification);
+      }
 
       // Audit log each new assignment
       await AuditService.record({
