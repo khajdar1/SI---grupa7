@@ -33,6 +33,7 @@ import {
   type CompanyFormData,
 } from '@/lib/company-validation';
 import { clearFieldError, getApiFieldErrors, type FieldErrors } from '@/lib/form-validation';
+import { useI18n } from '@/lib/i18n';
 import type { Company, CompanyStatus } from '@/models/Company';
 import {
   assignCompanyAdmin,
@@ -48,12 +49,15 @@ type FormMode = 'create' | 'edit';
 const COMPANY_STATUSES: CompanyStatus[] = ['PENDING', 'ACTIVE', 'REJECTED', 'INACTIVE'];
 const NO_ADMIN_VALUE = 'NO_ADMIN';
 
-const STATUS_LABELS: Record<CompanyStatus, string> = {
-  PENDING: 'Pending',
-  ACTIVE: 'Active',
-  REJECTED: 'Rejected',
-  INACTIVE: 'Inactive',
-};
+function getStatusLabel(status: CompanyStatus, language: 'en' | 'bs') {
+  const labels: Record<CompanyStatus, { en: string; bs: string }> = {
+    PENDING: { en: 'Pending', bs: 'Na čekanju' },
+    ACTIVE: { en: 'Active', bs: 'Aktivna' },
+    REJECTED: { en: 'Rejected', bs: 'Odbijena' },
+    INACTIVE: { en: 'Inactive', bs: 'Neaktivna' },
+  };
+  return labels[status]?.[language] ?? status;
+}
 
 const emptyAdminForm = {
   ...EMPTY_COMPANY_FORM,
@@ -115,6 +119,7 @@ function toFormData(company: Company): typeof emptyAdminForm {
 
 export default function AdminCompaniesPage() {
   const router = useRouter();
+  const { language, t } = useI18n();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,12 +139,12 @@ export default function AdminCompaniesPage() {
     const inactive = companies.filter((company) => company.status === 'INACTIVE').length;
 
     return [
-      { title: 'Companies', value: companies.length },
-      { title: 'Active', value: active },
-      { title: 'Pending', value: pending },
-      { title: 'Inactive', value: inactive },
+      { title: language === 'bs' ? 'Kompanije' : 'Companies', value: companies.length },
+      { title: language === 'bs' ? 'Aktivne' : 'Active', value: active },
+      { title: language === 'bs' ? 'Na čekanju' : 'Pending', value: pending },
+      { title: language === 'bs' ? 'Neaktivne' : 'Inactive', value: inactive },
     ];
-  }, [companies]);
+  }, [companies, language]);
 
   const companyAdminOptions = useMemo(
     () => users.filter((user) => user.active),
@@ -154,7 +159,7 @@ export default function AdminCompaniesPage() {
       setCompanies(companyList);
       setUsers(userList);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load companies.');
+      setError(requestError instanceof Error ? requestError.message : language === 'bs' ? 'Učitavanje kompanija nije uspjelo.' : 'Failed to load companies.');
     } finally {
       setLoading(false);
     }
@@ -167,7 +172,7 @@ export default function AdminCompaniesPage() {
     if (canUseAdmin) {
       void loadData();
     } else {
-      window.sessionStorage.setItem('authRedirectMessage', 'You do not have permission to manage companies.');
+      window.sessionStorage.setItem('authRedirectMessage', language === 'bs' ? 'Nemate dozvolu za upravljanje kompanijama.' : 'You do not have permission to manage companies.');
       router.replace(`${ROUTES.DASHBOARD}?unauthorized=1`);
       setLoading(false);
     }
@@ -198,7 +203,7 @@ export default function AdminCompaniesPage() {
     const nextErrors = validateCompanyForm(formData);
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setFormError('Please correct the highlighted fields.');
+      setFormError(language === 'bs' ? 'Ispravite označena polja.' : 'Please correct the highlighted fields.');
       setSaving(false);
       return;
     }
@@ -213,12 +218,12 @@ export default function AdminCompaniesPage() {
           status: formData.status,
           adminUserId,
         });
-        setSuccessMessage(`Company ${created.name} created.`);
+        setSuccessMessage(language === 'bs' ? `Kompanija ${created.name} je kreirana.` : `Company ${created.name} created.`);
       } else {
         await updateCompany(formData.id, companyInput);
         await updateCompanyStatus(formData.id, formData.status);
         await assignCompanyAdmin(formData.id, adminUserId);
-        setSuccessMessage('Company updated.');
+        setSuccessMessage(language === 'bs' ? 'Kompanija je ažurirana.' : 'Company updated.');
       }
 
       resetForm();
@@ -233,7 +238,7 @@ export default function AdminCompaniesPage() {
       );
 
       setFieldErrors(backendFieldErrors);
-      setFormError(requestError instanceof Error ? requestError.message : 'Company save failed.');
+      setFormError(requestError instanceof Error ? requestError.message : language === 'bs' ? 'Spremanje kompanije nije uspjelo.' : 'Company save failed.');
     } finally {
       setSaving(false);
     }
@@ -246,9 +251,13 @@ export default function AdminCompaniesPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Companies"
-        subtitle="Registration approvals, company profiles, and company admin ownership."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Admin', href: ROUTES.ADMIN }, { label: 'Companies' }]}
+        title={language === 'bs' ? 'Kompanije' : 'Companies'}
+        subtitle={
+          language === 'bs'
+            ? 'Odobravanje registracija, profili kompanija i vlasništvo administratorskih računa.'
+            : 'Registration approvals, company profiles, and company admin ownership.'
+        }
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: 'Admin', href: ROUTES.ADMIN }, { label: language === 'bs' ? 'Kompanije' : 'Companies' }]}
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -263,8 +272,8 @@ export default function AdminCompaniesPage() {
       <div className="grid gap-6 xl:grid-cols-[430px_1fr]">
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle>{formMode === 'create' ? 'New Company' : 'Edit Company'}</CardTitle>
-            <CardDescription>{formMode === 'create' ? 'Create an active or pending company.' : formData.name}</CardDescription>
+            <CardTitle>{formMode === 'create' ? (language === 'bs' ? 'Nova kompanija' : 'New Company') : (language === 'bs' ? 'Uredi kompaniju' : 'Edit Company')}</CardTitle>
+            <CardDescription>{formMode === 'create' ? (language === 'bs' ? 'Kreirajte aktivnu kompaniju ili kompaniju na čekanju.' : 'Create an active or pending company.') : formData.name}</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -289,12 +298,14 @@ export default function AdminCompaniesPage() {
                     }}
                   >
                     <SelectTrigger id="status" className="w-full">
-                      <SelectValue />
+                      <SelectValue>
+                        {getStatusLabel(formData.status as CompanyStatus, language)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {COMPANY_STATUSES.map((status) => (
                         <SelectItem key={status} value={status}>
-                          {STATUS_LABELS[status]}
+                          {getStatusLabel(status, language)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -302,7 +313,7 @@ export default function AdminCompaniesPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="companyAdmin">Company admin</Label>
+                  <Label htmlFor="companyAdmin">{language === 'bs' ? 'Administrator kompanije' : 'Company admin'}</Label>
                   <Select
                     value={formData.adminUserId || NO_ADMIN_VALUE}
                     onValueChange={(value) => {
@@ -314,10 +325,17 @@ export default function AdminCompaniesPage() {
                     }}
                   >
                     <SelectTrigger id="companyAdmin" className="w-full">
-                      <SelectValue placeholder="Select user" />
+                      <SelectValue>
+                        {formData.adminUserId
+                          ? (() => {
+                              const u = companyAdminOptions.find((user) => String(user.id) === formData.adminUserId);
+                              return u ? `${u.firstName} ${u.lastName} (@${u.username})` : (language === 'bs' ? 'Odaberite korisnika' : 'Select user');
+                            })()
+                          : language === 'bs' ? 'Bez administratora kompanije' : 'No company admin'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_ADMIN_VALUE}>No company admin</SelectItem>
+                      <SelectItem value={NO_ADMIN_VALUE}>{language === 'bs' ? 'Bez administratora kompanije' : 'No company admin'}</SelectItem>
                       {companyAdminOptions.map((user) => (
                         <SelectItem key={user.id} value={String(user.id)}>
                           {user.firstName} {user.lastName} (@{user.username})
@@ -331,12 +349,12 @@ export default function AdminCompaniesPage() {
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={saving}>
                   {formMode === 'create' ? <Plus className="size-4" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-                  {saving ? 'Saving...' : formMode === 'create' ? 'Create' : 'Save'}
+                  {saving ? (language === 'bs' ? 'Spremanje...' : 'Saving...') : formMode === 'create' ? (language === 'bs' ? 'Kreiraj' : 'Create') : (language === 'bs' ? 'Spremi' : 'Save')}
                 </Button>
                 {formMode === 'edit' ? (
                   <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
                     <X className="size-4" aria-hidden="true" />
-                    Cancel
+                    {language === 'bs' ? 'Odustani' : 'Cancel'}
                   </Button>
                 ) : null}
               </div>
@@ -347,12 +365,12 @@ export default function AdminCompaniesPage() {
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <CardTitle>Company Registry</CardTitle>
-              <CardDescription>Admin view across active, pending, rejected, and inactive companies.</CardDescription>
+              <CardTitle>{language === 'bs' ? 'Registar kompanija' : 'Company Registry'}</CardTitle>
+              <CardDescription>{language === 'bs' ? 'Administratorski pregled aktivnih, odbijenih, neaktivnih i kompanija na čekanju.' : 'Admin view across active, pending, rejected, and inactive companies.'}</CardDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={loadData} disabled={loading}>
               <RefreshCw className="size-4" aria-hidden="true" />
-              Refresh
+              {language === 'bs' ? 'Osvježi' : 'Refresh'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -360,7 +378,7 @@ export default function AdminCompaniesPage() {
               columns={[
                 {
                   key: 'name',
-                  header: 'Company',
+                  header: language === 'bs' ? 'Kompanija' : 'Company',
                   render: (_, row) => (
                     <div className="min-w-52">
                       <p className="font-medium text-foreground">{row.name}</p>
@@ -377,14 +395,14 @@ export default function AdminCompaniesPage() {
                     const status = value as CompanyStatus | undefined;
                     return (
                       <Badge variant={getStatusBadgeVariant(status)}>
-                        {status ? STATUS_LABELS[status] : 'Unknown'}
+                        {status ? getStatusLabel(status, language) : language === 'bs' ? 'Nepoznato' : 'Unknown'}
                       </Badge>
                     );
                   },
                 },
                 {
                   key: 'adminUserId',
-                  header: 'Company Admin',
+                  header: language === 'bs' ? 'Administrator kompanije' : 'Company Admin',
                   width: UI.TABLE_COLUMN_WIDTHS.COMPANY_ADMIN,
                   render: (_, row) =>
                     row.adminUser ? (
@@ -398,13 +416,13 @@ export default function AdminCompaniesPage() {
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: language === 'bs' ? 'Akcije' : 'Actions',
                   width: UI.TABLE_COLUMN_WIDTHS.COMPANY_ACTIONS,
                   render: (_, row) => (
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => handleEdit(row)}>
                         <Pencil className="size-4" aria-hidden="true" />
-                        Edit
+                        {language === 'bs' ? 'Uredi' : 'Edit'}
                       </Button>
                       {row.status !== 'ACTIVE' ? (
                         <Button
@@ -412,12 +430,12 @@ export default function AdminCompaniesPage() {
                           size="sm"
                           onClick={async () => {
                             await updateCompanyStatus(row.id, 'ACTIVE');
-                            setSuccessMessage('Company activated.');
+                            setSuccessMessage(language === 'bs' ? 'Kompanija je aktivirana.' : 'Company activated.');
                             await loadData();
                           }}
                         >
                           <Building2 className="size-4" aria-hidden="true" />
-                          Activate
+                          {language === 'bs' ? 'Aktiviraj' : 'Activate'}
                         </Button>
                       ) : null}
                     </div>
@@ -429,8 +447,8 @@ export default function AdminCompaniesPage() {
               isLoading={loading}
               error={error || null}
               onRetry={loadData}
-              emptyTitle="No companies"
-              emptyDescription="Create or approve a company to begin."
+              emptyTitle={language === 'bs' ? 'Nema kompanija' : 'No companies'}
+              emptyDescription={language === 'bs' ? 'Kreirajte ili odobrite kompaniju za početak.' : 'Create or approve a company to begin.'}
             />
           </CardContent>
         </Card>

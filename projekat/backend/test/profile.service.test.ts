@@ -59,6 +59,7 @@ function buildProfileUser(overrides: Record<string, unknown> = {}) {
     lastName: "Admin",
     username: "ana.admin",
     email: "ana.admin@example.com",
+    language: "en",
     active: true,
     externalIdentities: [{ provider: "keycloak", providerSubject: "kc-7" }],
     ...overrides,
@@ -80,6 +81,7 @@ test("ProfileService - getProfile returns current user's contact data", async ()
     lastName: "Admin",
     username: "ana.admin",
     email: "ana.admin@example.com",
+    language: "en",
     active: true,
   });
 });
@@ -93,6 +95,7 @@ test("ProfileService - updateProfile rejects duplicate email", async () => {
       firstName: "Ana",
       lastName: "Admin",
       email: "taken@example.com",
+      language: "en",
     }),
   ).rejects.toBeInstanceOf(ProfileConflictError);
 
@@ -109,6 +112,7 @@ test("ProfileService - updateProfile updates Keycloak and local profile", async 
     buildProfileUser({
       firstName: "Anela",
       email: "anela@example.com",
+      language: "bs",
     }),
   );
 
@@ -116,6 +120,7 @@ test("ProfileService - updateProfile updates Keycloak and local profile", async 
     firstName: "Anela",
     lastName: "Admin",
     email: "anela@example.com",
+    language: "bs",
   });
 
   expect(updateKeycloakUserMock).toHaveBeenCalledWith("admin-token", "kc-7", {
@@ -124,6 +129,12 @@ test("ProfileService - updateProfile updates Keycloak and local profile", async 
     email: "anela@example.com",
   });
   expect(updated.email).toBe("anela@example.com");
+  expect(updated.language).toBe("bs");
+  expect(userUpdateMock).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({ language: "bs" }),
+    }),
+  );
 });
 
 test("ProfileService - changePassword rejects invalid current password", async () => {

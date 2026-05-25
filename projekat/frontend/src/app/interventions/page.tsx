@@ -57,11 +57,17 @@ import {
   type InterventionOptions,
 } from "@/services/interventions.service";
 import { getCategories } from "@/services/categories.service";
-import { getPriorityLabel } from "@/services/sla.service";
 import { AssignerModal } from "@/components/assignments/AssignerModal";
 import { Users } from "lucide-react";
 import { BulkActionToolbar } from "@/components/interventions/BulkActionToolbar";
 import { BulkResultSummary } from "@/components/interventions/BulkResultSummary";
+import {
+  translateCategoryName,
+  translateInterventionStatus,
+  translateLocationValue,
+  translatePriority,
+  useI18n,
+} from "@/lib/i18n";
 
 const ALL_CATEGORY = "ALL";
 const ALL_STATUS = "ALL";
@@ -216,12 +222,12 @@ function toDatetimeLocal(value: string | null) {
   return offsetDate.toISOString().slice(0, 16);
 }
 
-function formatDateTime(value: string | null) {
+function formatDateTime(value: string | null, language: "en" | "bs" = "en") {
   if (!value) {
     return "";
   }
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(language === "bs" ? "bs-BA" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
@@ -276,6 +282,7 @@ function SelectAllCheckbox({ checked, indeterminate, onChange }: SelectAllCheckb
 
 export default function InterventionsPage() {
   const router = useRouter();
+  const { language, t } = useI18n();
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [categories, setCategories] = useState<Category[]>([]);
   const [options, setOptions] = useState<InterventionOptions>({
@@ -366,7 +373,11 @@ export default function InterventionsPage() {
           (item) => String(item.id) === selectedCategory,
         );
 
-        if (!category || row.categoryName !== category.name) {
+        if (
+          !category ||
+          translateCategoryName(language, row.categoryName) !==
+            translateCategoryName(language, category.name)
+        ) {
           return false;
         }
       }
@@ -393,29 +404,52 @@ export default function InterventionsPage() {
 
       return true;
     });
-  }, [categories, rows, selectedCategory, selectedServicer, selectedStatus, selectedType]);
+  }, [categories, language, rows, selectedCategory, selectedServicer, selectedStatus, selectedType]);
 
   const allFilteredSelected = filteredRows.length > 0 && selectedIds.length === filteredRows.length;
  
   const someFilteredSelected = selectedIds.length > 0 && selectedIds.length < filteredRows.length;
 
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((category) => {
+      const label = translateCategoryName(language, category.name);
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
+  }, [categories, language]);
+
+  const visibleOptionCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return options.categories.filter((category) => {
+      const label = translateCategoryName(language, category.name);
+      if (seen.has(label)) return false;
+      seen.add(label);
+      return true;
+    });
+  }, [language, options.categories]);
+
   const filterOptions = [
-    { value: ALL_CATEGORY, label: "All categories" },
-    ...categories.map((category) => ({
+    { value: ALL_CATEGORY, label: language === "bs" ? "Sve kategorije" : "All categories" },
+    ...visibleCategories.map((category) => ({
       value: String(category.id),
-      label: category.name,
+      label: translateCategoryName(language, category.name),
     })),
   ];
   const statusFilterOptions = [
-    { value: ALL_STATUS, label: "All statuses" },
-    { value: "NEW", label: "Open" },
-    { value: "ASSIGNED", label: "Assigned" },
-    { value: "IN_PROGRESS", label: "In progress" },
+    { value: ALL_STATUS, label: language === "bs" ? "Svi statusi" : "All statuses" },
+    { value: "NEW", label: translateInterventionStatus(language, "NEW") },
+    { value: "ASSIGNED", label: translateInterventionStatus(language, "ASSIGNED") },
+    { value: "IN_PROGRESS", label: translateInterventionStatus(language, "IN_PROGRESS") },
+    { value: "RESOLVED", label: translateInterventionStatus(language, "RESOLVED") },
+    { value: "CANCELLED", label: translateInterventionStatus(language, "CANCELLED") },
+    { value: "REJECTED", label: translateInterventionStatus(language, "REJECTED") },
   ];
   const typeFilterOptions = [
-    { value: ALL_TYPE, label: "All types" },
-    { value: "ISSUE", label: "Issue" },
-    { value: "PREVENTIVE", label: "Preventive" },
+    { value: ALL_TYPE, label: language === "bs" ? "Svi tipovi" : "All types" },
+    { value: "ISSUE", label: language === "bs" ? "Kvar" : "Issue" },
+    { value: "PREVENTIVE", label: language === "bs" ? "Preventivno" : "Preventive" },
   ];
   const servicerFilterOptions = useMemo(() => {
     const servicers = new Map<string, string>();
@@ -430,13 +464,13 @@ export default function InterventionsPage() {
     });
 
     return [
-      { value: ALL_SERVICERS, label: "All servicers" },
-      { value: UNASSIGNED_SERVICERS, label: "Unassigned" },
+      { value: ALL_SERVICERS, label: language === "bs" ? "Svi serviseri" : "All servicers" },
+      { value: UNASSIGNED_SERVICERS, label: language === "bs" ? "Nedodijeljeno" : "Unassigned" },
       ...Array.from(servicers.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], "en"))
+        .sort((a, b) => a[1].localeCompare(b[1], language === "bs" ? "bs" : "en"))
         .map(([value, label]) => ({ value, label })),
     ];
-  }, [rows]);
+  }, [language, rows]);
   const isFiltered =
     selectedCategory !== ALL_CATEGORY ||
     selectedStatus !== ALL_STATUS ||
@@ -450,7 +484,10 @@ export default function InterventionsPage() {
     setSelectedServicer(ALL_SERVICERS);
   };
 
-  const emptyDescription = "No intervention records available yet.";
+  const emptyDescription =
+    language === "bs"
+      ? "Još nema evidentiranih intervencija."
+      : "No intervention records available yet.";
   const activeViewMode = canPlanInterventions ? viewMode : "list";
 
   const clearError = (field: string) => {
@@ -470,7 +507,7 @@ export default function InterventionsPage() {
         if (report) {
           next.companyId = String(report.company.id);
           next.categoryId = String(report.category.id);
-          next.location = report.location;
+          next.location = translateLocationValue(language, report.location);
         }
       }
 
@@ -614,8 +651,8 @@ export default function InterventionsPage() {
       await loadData();
       setSuccessMessage(
         editingIntervention
-          ? "Intervention updated."
-          : "Intervention created.",
+          ? language === "bs" ? "Intervencija je ažurirana." : "Intervention updated."
+          : language === "bs" ? "Intervencija je kreirana." : "Intervention created.",
       );
       setIsDialogOpen(false);
     } catch (requestError: unknown) {
@@ -634,7 +671,9 @@ export default function InterventionsPage() {
       setFormError(
         requestError instanceof Error
           ? requestError.message
-          : "Failed to save intervention.",
+          : language === "bs"
+            ? "Spremanje intervencije nije uspjelo."
+            : "Failed to save intervention.",
       );
     } finally {
       setIsSubmitting(false);
@@ -672,12 +711,14 @@ const handleBulkActionComplete = async (
     try {
       setIsExportingPdf(true);
       setError(null);
-      await downloadInterventionsPdf();
+      await downloadInterventionsPdf(language);
     } catch (requestError) {
       setError(
         requestError instanceof Error
           ? requestError.message
-          : "Failed to export interventions to PDF.",
+          : language === "bs"
+            ? "Izvoz intervencija u PDF nije uspio."
+            : "Failed to export interventions to PDF.",
       );
     } finally {
       setIsExportingPdf(false);
@@ -688,7 +729,7 @@ const handleBulkActionComplete = async (
     ...(canViewInterventions
       ? [
           {
-            label: "Export PDF",
+            label: language === "bs" ? "Izvoz PDF" : "Export PDF",
             onClick: handleExportPdf,
             icon: <Download className="mr-2 h-4 w-4" />,
             variant: "outline" as const,
@@ -699,13 +740,20 @@ const handleBulkActionComplete = async (
     ...(canPlanInterventions
       ? [
           {
-            label: "Map",
+            label: language === "bs" ? "Mapa" : "Map",
             href: ROUTES.MAP,
             icon: <MapIcon className="mr-2 h-4 w-4" />,
             variant: "outline" as const,
           },
           {
-            label: activeViewMode === "list" ? "Calendar" : "List",
+            label:
+              activeViewMode === "list"
+                ? language === "bs"
+                  ? "Kalendar"
+                  : "Calendar"
+                : language === "bs"
+                  ? "Lista"
+                  : "List",
             onClick: () => setViewMode((v) => (v === "list" ? "calendar" : "list")),
           },
         ]
@@ -715,17 +763,21 @@ const handleBulkActionComplete = async (
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Interventions"
-        subtitle="Plan and track active intervention work with clear ownership and deadlines."
+        title={t("nav.interventions")}
+        subtitle={
+          language === "bs"
+            ? "Planirajte i pratite aktivne intervencije sa jasnim zaduženjima i rokovima."
+            : "Plan and track active intervention work with clear ownership and deadlines."
+        }
         breadcrumbs={[
-          { label: "Dashboard", href: ROUTES.DASHBOARD },
-          { label: "Interventions" },
+          { label: t("nav.dashboard"), href: ROUTES.DASHBOARD },
+          { label: t("nav.interventions") },
         ]}
         secondaryActions={pageSecondaryActions.length > 0 ? pageSecondaryActions : undefined}
         primaryAction={
           canPlanInterventions
             ? {
-                label: "New Intervention",
+                label: language === "bs" ? "Nova intervencija" : "New Intervention",
                 href: ROUTES.INTERVENTION_NEW,
                 icon: <Plus className="mr-2 h-4 w-4" />,
               }
@@ -745,28 +797,28 @@ const handleBulkActionComplete = async (
         filters={[
           {
             key: "category",
-            label: "Category",
+            label: t("interventionDetail.category"),
             options: filterOptions,
             value: selectedCategory,
             onChange: setSelectedCategory,
           },
           {
             key: "status",
-            label: "Status",
+            label: t("interventionDetail.status"),
             options: statusFilterOptions,
             value: selectedStatus,
             onChange: setSelectedStatus,
           },
           {
             key: "type",
-            label: "Type",
+            label: language === "bs" ? "Tip" : "Type",
             options: typeFilterOptions,
             value: selectedType,
             onChange: setSelectedType,
           },
           {
             key: "servicer",
-            label: "Servicer",
+            label: language === "bs" ? "Serviser" : "Servicer",
             options: servicerFilterOptions,
             value: selectedServicer,
             onChange: setSelectedServicer,
@@ -811,7 +863,11 @@ const handleBulkActionComplete = async (
                 render: (_value: unknown, row: InterventionListItem) => (
                   <input
                     type="checkbox"
-                    aria-label={`Select intervention ${row.id}`}
+                    aria-label={
+                      language === "bs"
+                        ? `Odaberi intervenciju ${row.id}`
+                        : `Select intervention ${row.id}`
+                    }
                     checked={selectedIds.includes(Number(row.id))}
                     onChange={(e) => { e.stopPropagation(); toggleSelectRow(Number(row.id)); }}
                     onClick={(e) => e.stopPropagation()}
@@ -836,7 +892,7 @@ const handleBulkActionComplete = async (
           },
           {
             key: "title",
-            header: "Title",
+            header: language === "bs" ? "Naziv" : "Title",
             render: (value, row) => (
               <Link
                 href={ROUTES.INTERVENTION(String(row.id))}
@@ -848,10 +904,10 @@ const handleBulkActionComplete = async (
           },
           {
             key: "location",
-            header: "Location",
+            header: t("interventionDetail.location"),
             width: "16rem",
             render: (value) => {
-              const location = String(value ?? "");
+              const location = translateLocationValue(language, String(value ?? ""));
               return (
                 <span className="block max-w-64 truncate" title={location}>
                   {location}
@@ -859,10 +915,14 @@ const handleBulkActionComplete = async (
               );
             },
           },
-          { key: "categoryName", header: "Category" },
+          {
+            key: "categoryName",
+            header: t("interventionDetail.category"),
+            render: (value) => translateCategoryName(language, String(value ?? "")),
+          },
           {
             key: "priority",
-            header: "Priority",
+            header: t("interventionDetail.priority"),
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_PRIORITY,
             render: (value) => (
               <PriorityBadge
@@ -872,7 +932,7 @@ const handleBulkActionComplete = async (
           },
           {
             key: "status",
-            header: "Status",
+            header: t("interventionDetail.status"),
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_STATUS,
             render: (value) => (
               <InterventionStatusBadge
@@ -883,26 +943,28 @@ const handleBulkActionComplete = async (
 
           {
             key: "faultReport",
-            header: "Fault Report",
+            header: language === "bs" ? "Prijava kvara" : "Fault Report",
             render: (_value, row) =>
               row.faultReport ? (
                 <span className="text-sm text-muted-foreground">
                   FR-{String(row.faultReport.id).padStart(5, "0")}
                 </span>
               ) : (
-                <span className="text-sm text-muted-foreground">Planned</span>
+                <span className="text-sm text-muted-foreground">
+                  {language === "bs" ? "Planirano" : "Planned"}
+                </span>
               ),
           },
           {
             key: "dueAt",
-            header: "Due",
+            header: t("interventionDetail.due"),
             render: (value, row) => (
               <div className="flex flex-col gap-1">
-                <span>{formatDateTime(value as string | null)}</span>
+                <span>{formatDateTime(value as string | null, language)}</span>
                 {row.isOverdue && (
                   <Badge variant="destructive" className="w-fit text-[10px] py-0 px-1">
                     <TriangleAlert className="mr-1 h-3 w-3" />
-                    Overdue
+                    {language === "bs" ? "Kasni" : "Overdue"}
                   </Badge>
                 )}
               </div>
@@ -910,19 +972,19 @@ const handleBulkActionComplete = async (
           },
           {
             key: "createdAt",
-            header: "Created",
+            header: language === "bs" ? "Kreirano" : "Created",
             render: (value) => (
-              <span>{formatDateTime(value as string | null)}</span>
+              <span>{formatDateTime(value as string | null, language)}</span>
             ),
           },
           {
             key: "owner",
-            header: "Owner",
+            header: language === "bs" ? "Vlasnik" : "Owner",
             width: UI.TABLE_COLUMN_WIDTHS.INTERVENTIONS_OWNER,
           },
           {
             key: "assignments",
-            header: "Assigned",
+            header: language === "bs" ? "Dodijeljeno" : "Assigned",
             render: (_value: unknown, row: InterventionListItem) => {
               if (!row.assignments || row.assignments.length === 0) {
                 return <span className="text-xs text-muted-foreground">—</span>;
@@ -936,7 +998,7 @@ const handleBulkActionComplete = async (
                   ))}
                   {row.assignments.length > 2 && (
                     <div className="text-xs text-muted-foreground">
-                      +{row.assignments.length - 2} more
+                      +{row.assignments.length - 2} {language === "bs" ? "više" : "more"}
                     </div>
                   )}
                 </div>
@@ -956,7 +1018,7 @@ const handleBulkActionComplete = async (
                       return (
                         <Button type="button" variant="ghost" size="sm" disabled>
                           <Pencil className="mr-2 h-4 w-4" />
-                          Edit
+                          {t("interventionDetail.edit")}
                         </Button>
                       );
                     }
@@ -971,7 +1033,7 @@ const handleBulkActionComplete = async (
                       >
                         <Link href={ROUTES.INTERVENTION_EDIT(row.id)}>
                           <Pencil className="mr-2 h-4 w-4" />
-                          Edit
+                          {t("interventionDetail.edit")}
                         </Link>
                       </Button>
                     );
@@ -986,7 +1048,11 @@ const handleBulkActionComplete = async (
         error={error}
         onRetry={() => loadData()}
         onRowClick={(row) => router.push(ROUTES.INTERVENTION(row.id))}
-        emptyTitle="No interventions in this category"
+        emptyTitle={
+          language === "bs"
+            ? "Nema intervencija za odabrane filtere"
+            : "No interventions in this category"
+        }
         emptyDescription={emptyDescription}
         />
       ) : (
@@ -1002,12 +1068,18 @@ const handleBulkActionComplete = async (
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingIntervention ? "Edit Intervention" : "New Intervention"}
+              {editingIntervention
+                ? t("interventionDetail.edit")
+                : language === "bs" ? "Nova intervencija" : "New Intervention"}
             </DialogTitle>
             <DialogDescription>
               {editingIntervention
-                ? "Changes are allowed while the intervention is open or in progress."
-                : "Create a scheduled intervention from a fault report or as planned maintenance."}
+                ? language === "bs"
+                  ? "Izmjene su dozvoljene dok je intervencija otvorena ili u toku."
+                  : "Changes are allowed while the intervention is open or in progress."
+                : language === "bs"
+                  ? "Kreirajte planiranu intervenciju iz prijave kvara ili kao planirano održavanje."
+                  : "Create a scheduled intervention from a fault report or as planned maintenance."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1018,7 +1090,9 @@ const handleBulkActionComplete = async (
 
             {editingIntervention ? (
               <div className="space-y-2">
-                <Label htmlFor="fault-report">Fault Report</Label>
+                <Label htmlFor="fault-report">
+                  {language === "bs" ? "Prijava kvara" : "Fault Report"}
+                </Label>
                 <Select
                   value={formState.faultReportId}
                   onValueChange={(value) =>
@@ -1026,14 +1100,16 @@ const handleBulkActionComplete = async (
                   }
                 >
                   <SelectTrigger id="fault-report" className="w-full">
-                    <SelectValue placeholder="No fault report" />
+                    <SelectValue placeholder={language === "bs" ? "Bez prijave kvara" : "No fault report"} />
                   </SelectTrigger>
                   <SelectContent
                     align="start"
                     className="w-[min(36rem,var(--available-width))]"
                   >
                     <SelectItem value={NO_FAULT_REPORT}>
-                      No fault report - planned maintenance
+                      {language === "bs"
+                        ? "Bez prijave kvara - planirano održavanje"
+                        : "No fault report - planned maintenance"}
                     </SelectItem>
                     {options.faultReports.map((faultReport) => (
                       <SelectItem
@@ -1047,7 +1123,7 @@ const handleBulkActionComplete = async (
                               {formatFaultReportCode(faultReport.id)}
                             </span>
                             <span className="truncate text-foreground">
-                              {faultReport.category.name}
+                              {translateCategoryName(language, faultReport.category.name)}
                             </span>
                           </span>
                           <span className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -1055,10 +1131,12 @@ const handleBulkActionComplete = async (
                               {faultReport.company.name}
                             </span>
                             <span>
-                              {formatDateTime(faultReport.reportedAt)}
+                              {formatDateTime(faultReport.reportedAt, language)}
                             </span>
                             <span className="truncate">
-                              {faultReport.location || "No location"}
+                              {faultReport.location
+                                ? translateLocationValue(language, faultReport.location)
+                                : (language === "bs" ? "Bez lokacije" : "No location")}
                             </span>
                           </span>
                         </span>
@@ -1073,16 +1151,21 @@ const handleBulkActionComplete = async (
                         {formatFaultReportCode(selectedFaultReport.id)}
                       </span>
                       <span className="text-muted-foreground">
-                        Reported{" "}
-                        {formatDateTime(selectedFaultReport.reportedAt)}
+                        {language === "bs" ? "Prijavljeno" : "Reported"}{" "}
+                        {formatDateTime(selectedFaultReport.reportedAt, language)}
                       </span>
                     </div>
                     <div className="grid gap-1 text-muted-foreground sm:grid-cols-2">
-                      <span>Company: {selectedFaultReport.company.name}</span>
-                      <span>Category: {selectedFaultReport.category.name}</span>
+                      <span>{t("interventionDetail.company")}: {selectedFaultReport.company.name}</span>
+                      <span>
+                        {t("interventionDetail.category")}:{" "}
+                        {translateCategoryName(language, selectedFaultReport.category.name)}
+                      </span>
                       <span className="sm:col-span-2">
-                        Location:{" "}
-                        {selectedFaultReport.location || "No location"}
+                        {t("interventionDetail.location")}:{" "}
+                        {selectedFaultReport.location
+                          ? translateLocationValue(language, selectedFaultReport.location)
+                          : (language === "bs" ? "Bez lokacije" : "No location")}
                       </span>
                     </div>
                   </div>
@@ -1092,7 +1175,9 @@ const handleBulkActionComplete = async (
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="intervention-name">Name</Label>
+                <Label htmlFor="intervention-name">
+                  {language === "bs" ? "Naziv" : "Name"}
+                </Label>
                 <Input
                   id="intervention-name"
                   value={formState.name}
@@ -1113,7 +1198,7 @@ const handleBulkActionComplete = async (
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="intervention-location">Location</Label>
+                <Label htmlFor="intervention-location">{t("interventionDetail.location")}</Label>
                 <Input
                   id="intervention-location"
                   value={formState.location}
@@ -1138,7 +1223,7 @@ const handleBulkActionComplete = async (
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="priority">Priority</Label>
+                <Label htmlFor="priority">{t("interventionDetail.priority")}</Label>
                 <Select
                   value={formState.priority}
                   onValueChange={(value) => updateField("priority", value ?? "")}
@@ -1150,24 +1235,24 @@ const handleBulkActionComplete = async (
                       fieldErrors.priority ? "priority-error" : undefined
                     }
                   >
-                    <SelectValue placeholder="Select priority">
+                    <SelectValue placeholder={language === "bs" ? "Odaberite prioritet" : "Select priority"}>
                       {formState.priority
-                        ? getPriorityLabel(formState.priority as any)
+                        ? translatePriority(language, formState.priority)
                         : undefined}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={PRIORITY.CRITICAL}>
-                      {getPriorityLabel(PRIORITY.CRITICAL)}
+                      {translatePriority(language, PRIORITY.CRITICAL)}
                     </SelectItem>
                     <SelectItem value={PRIORITY.HIGH}>
-                      {getPriorityLabel(PRIORITY.HIGH)}
+                      {translatePriority(language, PRIORITY.HIGH)}
                     </SelectItem>
                     <SelectItem value={PRIORITY.MEDIUM}>
-                      {getPriorityLabel(PRIORITY.MEDIUM)}
+                      {translatePriority(language, PRIORITY.MEDIUM)}
                     </SelectItem>
                     <SelectItem value={PRIORITY.LOW}>
-                      {getPriorityLabel(PRIORITY.LOW)}
+                      {translatePriority(language, PRIORITY.LOW)}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1182,7 +1267,7 @@ const handleBulkActionComplete = async (
             {formState.faultReportId === NO_FAULT_REPORT ? (
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
+                  <Label htmlFor="company">{t("interventionDetail.company")}</Label>
                   <Select
                     value={formState.companyId}
                     onValueChange={(value) =>
@@ -1196,7 +1281,7 @@ const handleBulkActionComplete = async (
                         fieldErrors.companyId ? "company-error" : undefined
                       }
                     >
-                      <SelectValue placeholder="Select company" />
+                      <SelectValue placeholder={language === "bs" ? "Odaberite kompaniju" : "Select company"} />
                     </SelectTrigger>
                     <SelectContent>
                       {options.companies.map((company) => (
@@ -1214,7 +1299,7 @@ const handleBulkActionComplete = async (
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
+                  <Label htmlFor="category">{t("interventionDetail.category")}</Label>
                   <Select
                     value={formState.categoryId}
                     onValueChange={(value) =>
@@ -1228,15 +1313,15 @@ const handleBulkActionComplete = async (
                         fieldErrors.categoryId ? "category-error" : undefined
                       }
                     >
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue placeholder={language === "bs" ? "Odaberite kategoriju" : "Select category"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {options.categories.map((category) => (
+                      {visibleOptionCategories.map((category) => (
                         <SelectItem
                           key={category.id}
                           value={String(category.id)}
                         >
-                          {category.name}
+                          {translateCategoryName(language, category.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1252,7 +1337,9 @@ const handleBulkActionComplete = async (
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="started-at">Planned Start</Label>
+                <Label htmlFor="started-at">
+                  {language === "bs" ? "Planirani početak" : "Planned Start"}
+                </Label>
                 <Input
                   id="started-at"
                   type="datetime-local"
@@ -1274,7 +1361,7 @@ const handleBulkActionComplete = async (
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="due-at">Due Date</Label>
+                <Label htmlFor="due-at">{t("interventionDetail.due")}</Label>
                 <Input
                   id="due-at"
                   type="datetime-local"
@@ -1295,7 +1382,7 @@ const handleBulkActionComplete = async (
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description">{t("interventionDetail.description")}</Label>
               <Textarea
                 id="description"
                 value={formState.description}
@@ -1320,7 +1407,7 @@ const handleBulkActionComplete = async (
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
               >
-                Cancel
+                {language === "bs" ? "Odustani" : "Cancel"}
               </Button>
               {editingIntervention && canPlanInterventions && (
                 <Button
@@ -1329,11 +1416,13 @@ const handleBulkActionComplete = async (
                   onClick={openAssignerModal}
                 >
                   <Users className="mr-2 h-4 w-4" />
-                  Assign Servicers
+                  {language === "bs" ? "Dodijeli servisere" : "Assign Servicers"}
                 </Button>
               )}
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Saving..." : "Save Intervention"}
+                {isSubmitting
+                  ? language === "bs" ? "Spremanje..." : "Saving..."
+                  : language === "bs" ? "Spremi intervenciju" : "Save Intervention"}
               </Button>
             </DialogFooter>
           </form>

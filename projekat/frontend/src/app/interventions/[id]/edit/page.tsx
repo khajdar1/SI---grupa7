@@ -2,7 +2,7 @@
 
 export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
 import { ROUTES, VALIDATION } from '@/constants';
@@ -30,6 +30,14 @@ import {
   validateSafeText,
   type FieldErrors,
 } from '@/lib/form-validation';
+import {
+  translateCategoryName,
+  translateLocationValue,
+  translatePriority,
+  translateText,
+  useI18n,
+  type TranslationKey,
+} from '@/lib/i18n';
 import { getCategories } from '@/services/categories.service';
 import { getCompanies } from '@/services/companies.service';
 import type { Priority } from '@shared/enums';
@@ -43,22 +51,22 @@ import {
 const EDITABLE_STATUSES = new Set(['NEW', 'IN_PROGRESS']);
 
 const PRIORITY_OPTIONS = [
-  { value: 'LOW', label: 'Low' },
-  { value: 'MEDIUM', label: 'Medium' },
-  { value: 'HIGH', label: 'High' },
-  { value: 'CRITICAL', label: 'Critical' },
+  { value: 'LOW' },
+  { value: 'MEDIUM' },
+  { value: 'HIGH' },
+  { value: 'CRITICAL' },
 ] as const;
 
 const TYPE_OPTIONS = [
-  { value: 'ISSUE', label: 'Issue (reactive)' },
-  { value: 'PREVENTIVE', label: 'Preventive maintenance' },
+  { value: 'ISSUE', labelKey: 'interventionForm.issueReactive' },
+  { value: 'PREVENTIVE', labelKey: 'interventionForm.preventiveMaintenance' },
 ] as const;
 
 const RECURRING_PERIOD_OPTIONS = [
-  { value: '', label: 'No recurrence' },
-  { value: 'DAILY', label: 'Daily' },
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'MONTHLY', label: 'Monthly' },
+  { value: '', labelKey: 'interventionForm.noRecurrence' },
+  { value: 'DAILY', labelKey: 'interventionForm.daily' },
+  { value: 'WEEKLY', labelKey: 'interventionForm.weekly' },
+  { value: 'MONTHLY', labelKey: 'interventionForm.monthly' },
 ] as const;
 
 interface FormState {
@@ -80,9 +88,20 @@ function isoDateToInput(iso: string | null): string {
   return iso.slice(0, 10);
 }
 
+function getTypeLabel(type: string, t: (key: TranslationKey) => string): string {
+  return t(TYPE_OPTIONS.find((option) => option.value === type)?.labelKey ?? 'interventionForm.issueReactive');
+}
+
+function getRecurringPeriodLabel(value: string, t: (key: TranslationKey) => string): string {
+  return t(
+    RECURRING_PERIOD_OPTIONS.find((option) => option.value === value)?.labelKey ?? 'interventionForm.noRecurrence',
+  );
+}
+
 export default function EditInterventionPage() {
   const params = useParams();
   const router = useRouter();
+  const { language, t } = useI18n();
   const interventionId = Number(params.id);
 
   const [intervention, setIntervention] = useState<InterventionDetail | null>(null);
@@ -113,7 +132,7 @@ export default function EditInterventionPage() {
 
   const loadData = async () => {
     if (!Number.isInteger(interventionId) || interventionId <= 0) {
-      setLoadError('Invalid intervention identifier.');
+      setLoadError(t('interventionDetail.invalidId'));
       setIsLoading(false);
       return;
     }
@@ -133,7 +152,7 @@ export default function EditInterventionPage() {
       setForm({
         name: detail.name,
         description: detail.description,
-        location: detail.location,
+        location: translateLocationValue(language, detail.location),
         categoryId: String(detail.categoryId),
         companyId: String(detail.companyId),
         priority: detail.priority,
@@ -144,7 +163,7 @@ export default function EditInterventionPage() {
         recurringPeriod: detail.recurringPeriod ?? '',
       });
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : 'Failed to load intervention.');
+      setLoadError(translateText(language, err instanceof Error ? err.message : t('interventionDetail.loadFailed')));
     } finally {
       setIsLoading(false);
     }
@@ -152,7 +171,7 @@ export default function EditInterventionPage() {
 
   useEffect(() => {
     void loadData();
-  }, [interventionId]);
+  }, [interventionId, language]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -219,11 +238,13 @@ export default function EditInterventionPage() {
     if (form.faultReportId.trim()) {
       const parsed = parseInt(form.faultReportId.trim(), 10);
       if (!Number.isInteger(parsed) || parsed <= 0) {
-        errors.faultReportId = 'Fault report ID must be a positive integer.';
+        errors.faultReportId = translateText(language, 'Fault report ID must be a positive integer.');
       }
     }
 
-    return errors;
+    return Object.fromEntries(
+      Object.entries(errors).map(([field, message]) => [field, translateText(language, message)]),
+    );
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -269,7 +290,7 @@ export default function EditInterventionPage() {
         setFieldErrors(backendErrors);
       }
 
-      setSubmitError(err instanceof Error ? err.message : 'Failed to update intervention.');
+      setSubmitError(translateText(language, err instanceof Error ? err.message : t('interventionForm.updateFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -288,12 +309,15 @@ export default function EditInterventionPage() {
       );
       setRecurrenceSuccess(
         form.recurringPeriod
-          ? `Recurrence updated to: ${form.recurringPeriod.toLowerCase()}.`
-          : 'Recurrence stopped. No new instances will be generated.',
+          ? t('interventionForm.recurrenceUpdated').replace(
+              '{period}',
+              getRecurringPeriodLabel(form.recurringPeriod, t).toLocaleLowerCase(language),
+            )
+          : t('interventionForm.recurrenceStopped'),
       );
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Failed to update recurrence.',
+        translateText(language, err instanceof Error ? err.message : t('interventionForm.recurrenceUpdateFailed')),
       );
     } finally {
       setIsUpdatingRecurrence(false);
@@ -301,21 +325,33 @@ export default function EditInterventionPage() {
   };
 
   const isEditable = intervention && EDITABLE_STATUSES.has(intervention.status);
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((category) => {
+      const label = translateCategoryName(language, category.name).trim().toLocaleLowerCase(language);
+      if (seen.has(label)) {
+        return false;
+      }
+
+      seen.add(label);
+      return true;
+    });
+  }, [categories, language]);
 
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title={intervention ? `Edit: ${intervention.name}` : `Edit Intervention #${interventionId}`}
-        subtitle="Modify intervention details. Editing is only allowed while the status is Open or In Progress."
+        title={intervention ? `${t('interventionForm.edit')}: ${intervention.name}` : `${t('interventionForm.editIntervention')} #${interventionId}`}
+        subtitle={t('interventionForm.editSubtitle')}
         breadcrumbs={[
-          { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Interventions', href: ROUTES.INTERVENTIONS },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('nav.interventions'), href: ROUTES.INTERVENTIONS },
           { label: `#${interventionId}`, href: ROUTES.INTERVENTION(String(interventionId)) },
-          { label: 'Edit' },
+          { label: t('interventionForm.edit') },
         ]}
         secondaryActions={[
           {
-            label: 'Cancel',
+            label: t('interventionForm.cancel'),
             href: ROUTES.INTERVENTION(String(interventionId)),
             variant: 'outline',
           },
@@ -324,7 +360,7 @@ export default function EditInterventionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Intervention Details</CardTitle>
+          <CardTitle>{t('interventionForm.details')}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -337,9 +373,8 @@ export default function EditInterventionPage() {
             <p className="text-sm text-destructive">{loadError}</p>
           ) : !isEditable ? (
             <p className="text-sm text-muted-foreground">
-              This intervention cannot be edited because its current status is{' '}
-              <strong>{intervention?.status}</strong>. Only interventions with status Open or In
-              Progress can be modified.
+              {t('interventionForm.notEditablePrefix')}{' '}
+              <strong>{intervention?.status}</strong>. {t('interventionForm.notEditableSuffix')}
             </p>
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -348,7 +383,7 @@ export default function EditInterventionPage() {
               ) : null}
 
               <div className="space-y-2">
-                <Label htmlFor="name">Name *</Label>
+                <Label htmlFor="name">{t('interventionForm.name')} *</Label>
                 <Input
                   id="name"
                   value={form.name}
@@ -362,7 +397,7 @@ export default function EditInterventionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">{t('interventionForm.description')} *</Label>
                 <Textarea
                   id="description"
                   value={form.description}
@@ -376,7 +411,7 @@ export default function EditInterventionPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
+                <Label htmlFor="location">{t('interventionForm.location')} *</Label>
                 <Input
                   id="location"
                   value={form.location}
@@ -391,7 +426,7 @@ export default function EditInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
+                  <Label htmlFor="category">{t('interventionForm.category')} *</Label>
                   <Select
                     value={form.categoryId}
                     onValueChange={(v) => handleChange('categoryId', v ?? '')}
@@ -401,12 +436,16 @@ export default function EditInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.categoryId)}
                       aria-describedby={fieldErrors.categoryId ? 'category-error' : undefined}
                     >
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue>
+                        {categories.find((c) => String(c.id) === form.categoryId)
+                          ? translateCategoryName(language, categories.find((c) => String(c.id) === form.categoryId)?.name ?? '')
+                          : t('interventionForm.selectCategory')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((c) => (
+                      {visibleCategories.map((c) => (
                         <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}
+                          {translateCategoryName(language, c.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -417,7 +456,7 @@ export default function EditInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company *</Label>
+                  <Label htmlFor="company">{t('interventionForm.company')} *</Label>
                   <Select
                     value={form.companyId}
                     onValueChange={(v) => handleChange('companyId', v ?? '')}
@@ -427,7 +466,9 @@ export default function EditInterventionPage() {
                       aria-invalid={Boolean(fieldErrors.companyId)}
                       aria-describedby={fieldErrors.companyId ? 'company-error' : undefined}
                     >
-                      <SelectValue placeholder="Select company" />
+                      <SelectValue>
+                        {companies.find((c) => String(c.id) === form.companyId)?.name ?? t('interventionForm.selectCompany')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {companies.map((c) => (
@@ -445,18 +486,18 @@ export default function EditInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
+                  <Label htmlFor="priority">{t('interventionForm.priority')}</Label>
                   <Select
                     value={form.priority}
                     onValueChange={(v) => handleChange('priority', v ?? '')}
                   >
                     <SelectTrigger id="priority">
-                      <SelectValue />
+                      <SelectValue>{translatePriority(language, form.priority)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {PRIORITY_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {translatePriority(language, o.value)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -464,18 +505,18 @@ export default function EditInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="type">Type</Label>
+                  <Label htmlFor="type">{t('interventionForm.type')}</Label>
                   <Select
                     value={form.type}
                     onValueChange={(v) => handleChange('type', v ?? '')}
                   >
                     <SelectTrigger id="type">
-                      <SelectValue />
+                      <SelectValue>{getTypeLabel(form.type, t)}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {TYPE_OPTIONS.map((o) => (
                         <SelectItem key={o.value} value={o.value}>
-                          {o.label}
+                          {t(o.labelKey)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -485,7 +526,7 @@ export default function EditInterventionPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="startedAt">Start Date (optional)</Label>
+                  <Label htmlFor="startedAt">{t('interventionForm.startDateOptional')}</Label>
                   <Input
                     id="startedAt"
                     type="date"
@@ -500,7 +541,7 @@ export default function EditInterventionPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dueAt">Due Date (optional)</Label>
+                  <Label htmlFor="dueAt">{t('interventionForm.dueDateOptional')}</Label>
                   <Input
                     id="dueAt"
                     type="date"
@@ -517,7 +558,7 @@ export default function EditInterventionPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="faultReportId">
-                  Fault Report ID (optional — link to existing report)
+                  {t('interventionForm.faultReportIdOptional')}
                 </Label>
                 <Input
                   id="faultReportId"
@@ -535,18 +576,20 @@ export default function EditInterventionPage() {
               </div>
 
              <div className="space-y-2">
-                <Label htmlFor="recurringPeriod">Recurrence</Label>
+                <Label htmlFor="recurringPeriod">{t('interventionForm.recurrence')}</Label>
                 <Select
                   value={form.recurringPeriod}
                   onValueChange={(v) => handleChange('recurringPeriod', v ?? '')}
                 >
                   <SelectTrigger id="recurringPeriod">
-                    <SelectValue placeholder="No recurrence" />
+                    <SelectValue placeholder={t('interventionForm.noRecurrence')}>
+                      {getRecurringPeriodLabel(form.recurringPeriod, t)}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {RECURRING_PERIOD_OPTIONS.map((o) => (
                       <SelectItem key={o.value} value={o.value}>
-                        {o.label}
+                        {t(o.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -560,13 +603,13 @@ export default function EditInterventionPage() {
                   disabled={isUpdatingRecurrence}
                   onClick={() => { void handleRecurrenceUpdate(); }}
                 >
-                  {isUpdatingRecurrence ? 'Saving...' : 'Update Recurrence'}
+                  {isUpdatingRecurrence ? t('interventionForm.saving') : t('interventionForm.updateRecurrence')}
                 </Button>
               </div>
 
               <div className="flex flex-wrap gap-2 pt-2">
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  {isSubmitting ? t('interventionForm.saving') : t('interventionForm.saveChanges')}
                 </Button>
               </div>
             </form>

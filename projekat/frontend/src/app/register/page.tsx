@@ -8,11 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROUTES } from '@/constants';
+import { translateText, useI18n } from '@/lib/i18n';
 
 import { getPasswordStrength } from './register.validation';
 import { useRegister } from './useRegister';
 
 export default function RegisterPage() {
+  const { language } = useI18n();
   const {
     formData,
     errors,
@@ -36,23 +38,23 @@ export default function RegisterPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Create Account"
-        subtitle="Register to access the service intervention platform."
-        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Register' }]}
+        title={translateText(language, 'Create Account')}
+        subtitle={translateText(language, 'Register to access the service intervention platform.')}
+        breadcrumbs={[{ label: translateText(language, 'Home'), href: ROUTES.HOME }, { label: translateText(language, 'Register') }]}
       />
 
       <Card className="max-w-3xl">
         <CardHeader className="space-y-1">
-          <CardTitle>Create account</CardTitle>
-          <CardDescription>Enter user details and set secure credentials.</CardDescription>
+          <CardTitle>{translateText(language, 'Create account')}</CardTitle>
+          <CardDescription>{translateText(language, 'Enter user details and set secure credentials.')}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {serverError ? <p className="text-sm text-destructive">{serverError}</p> : null}
-          {success ? <p className="text-sm text-emerald-600">Registration successful. Redirecting...</p> : null}
+          {success ? <p className="text-sm text-emerald-600">{translateText(language, 'Registration successful. Redirecting...')}</p> : null}
 
           <form className="grid gap-4 md:grid-cols-2" onSubmit={handleSubmit} noValidate>
             <div className="space-y-2">
-              <Label htmlFor="firstName">First name</Label>
+              <Label htmlFor="firstName">{translateText(language, 'First name')}</Label>
               <Input
                 id="firstName"
                 type="text"
@@ -70,7 +72,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="lastName">Last name</Label>
+              <Label htmlFor="lastName">{translateText(language, 'Last name')}</Label>
               <Input
                 id="lastName"
                 type="text"
@@ -88,7 +90,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">{translateText(language, 'Username')}</Label>
               <Input
                 id="username"
                 type="text"
@@ -124,7 +126,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{translateText(language, 'Password')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -142,7 +144,7 @@ export default function RegisterPage() {
               />
               {formData.password ? (
                 <p id="register-password-help" className={`text-xs ${strengthColorClass}`}>
-                  Password strength: {strength.label}
+                  {translateText(language, 'Password strength')}: {translateText(language, strength.label)}
                 </p>
               ) : null}
               {errors.password ? (
@@ -153,7 +155,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword">Confirm password</Label>
+              <Label htmlFor="confirmPassword">{translateText(language, 'Confirm password')}</Label>
               <Input
                 id="confirmPassword"
                 type="password"
@@ -175,10 +177,10 @@ export default function RegisterPage() {
                 type="submit"
                 disabled={submitting || success}
               >
-                {submitting ? 'Creating...' : 'Create account'}
+                {submitting ? translateText(language, 'Creating...') : translateText(language, 'Create account')}
               </Button>
               <Button asChild type="button" variant="outline">
-                <Link href={ROUTES.LOGIN}>Back to login</Link>
+                <Link href={ROUTES.LOGIN}>{translateText(language, 'Back to login')}</Link>
               </Button>
             </div>
           </form>

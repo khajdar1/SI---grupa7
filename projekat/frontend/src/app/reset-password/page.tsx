@@ -9,10 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ROUTES } from '@/constants';
+import { translateText, useI18n } from '@/lib/i18n';
 
 import { useResetPassword } from './useResetPassword';
 
 export default function ResetPasswordPage() {
+  const { t, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
@@ -46,7 +48,7 @@ export default function ResetPasswordPage() {
           </div>
           <div>
             <p className="text-2xl font-black tracking-tight gradient-text">ServisIS</p>
-            <p className="mt-1 text-xs text-muted-foreground">Intervention management system</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('login.productSubtitle')}</p>
           </div>
         </div>
 
@@ -55,13 +57,13 @@ export default function ResetPasswordPage() {
           <div className="mb-1 flex items-center gap-2">
             <KeyRound className="size-5 text-primary" />
             <h1 className="text-xl font-black tracking-tight">
-              {isConfirmMode ? 'New password' : 'Forgot password'}
+              {isConfirmMode ? translateText(language, 'New password') : translateText(language, 'Forgot password')}
             </h1>
           </div>
           <p className="text-sm text-muted-foreground mb-6">
             {isConfirmMode
-              ? 'Enter and confirm your new password.'
-              : 'Enter your email address and we will send you a reset link.'}
+              ? translateText(language, 'Enter and confirm your new password.')
+              : translateText(language, 'Enter your email address and we will send you a reset link.')}
           </p>
 
           {message ? (
@@ -91,7 +93,7 @@ export default function ResetPasswordPage() {
             {isConfirmMode ? (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="password">New password</Label>
+                  <Label htmlFor="password">{translateText(language, 'New password')}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -111,7 +113,7 @@ export default function ResetPasswordPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm new password</Label>
+                  <Label htmlFor="confirmPassword">{translateText(language, 'Confirm new password')}</Label>
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -132,7 +134,7 @@ export default function ResetPasswordPage() {
               </>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="email">Email address</Label>
+                <Label htmlFor="email">{translateText(language, 'Email address')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -161,10 +163,10 @@ export default function ResetPasswordPage() {
               {submitting ? (
                 <span className="flex items-center gap-2">
                   <span className="spinner" />
-                  {isConfirmMode ? 'Saving...' : 'Sending...'}
+                  {isConfirmMode ? translateText(language, 'Saving...') : translateText(language, 'Sending...')}
                 </span>
               ) : (
-                isConfirmMode ? 'Reset password' : 'Send link'
+                isConfirmMode ? translateText(language, 'Reset password') : translateText(language, 'Send link')
               )}
             </Button>
           </form>

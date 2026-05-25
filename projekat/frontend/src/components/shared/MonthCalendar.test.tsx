@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
+import type { ReactElement } from 'react';
 import MonthCalendar from './MonthCalendar';
 import { PRIORITY } from '@shared/enums';
+import { I18nProvider } from '@/lib/i18n';
 
 type TestEvent = {
   id: string;
@@ -16,8 +18,11 @@ describe('MonthCalendar', () => {
   const mockedUseRouter = vi.mocked(useRouter);
   const fixedNow = new Date('2026-05-15T12:00:00.000Z');
 
+  const renderWithI18n = (ui: ReactElement) =>
+    render(<I18nProvider>{ui}</I18nProvider>);
+
   const renderCalendar = (events: TestEvent[] = []) =>
-    render(<MonthCalendar events={events} />);
+    renderWithI18n(<MonthCalendar events={events} />);
 
   beforeEach(() => {
     vi.useFakeTimers();

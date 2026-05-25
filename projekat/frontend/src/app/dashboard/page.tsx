@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants';
+import { useI18n, type LanguageCode, type TranslationKey } from '@/lib/i18n';
 import type { Company } from '@/models/Company';
 import { getMyCompany } from '@/services/companies.service';
 import { getDashboardSnapshot, type DashboardSnapshot } from '@/services/dashboard.service';
@@ -390,6 +391,163 @@ const SUPPORT_TICKET_ACTION: DashboardAction = {
   icon: <Ticket className="size-5 text-rose-600" aria-hidden="true" />,
 };
 
+const DASHBOARD_TEXT_KEYS: Record<string, TranslationKey> = {
+  Admin: 'dashboard.role.admin',
+  'Admin Dashboard': 'dashboard.admin.title',
+  'System governance, configuration, and account control from one place.': 'dashboard.admin.subtitle',
+  'Manage users': 'dashboard.admin.primaryAction',
+  'Administration focus': 'dashboard.admin.focusTitle',
+  'Keep account roles and company ownership current.': 'dashboard.admin.focusRoles',
+  'Review active categories, SLA profiles, and attachment rules.': 'dashboard.admin.focusRules',
+  'Use reports and management metrics to spot operational risk.': 'dashboard.admin.focusReports',
+  Users: 'dashboard.action.users',
+  'Create accounts, assign roles, and activate or deactivate users.': 'dashboard.action.usersDescription',
+  Companies: 'dashboard.action.companies',
+  'Approve registrations and assign company administrators.': 'dashboard.action.companiesDescription',
+  Categories: 'dashboard.action.categories',
+  'Maintain the fault categories used by intake and interventions.': 'dashboard.action.categoriesDescription',
+  'Attachment rules': 'dashboard.action.attachmentRules',
+  'Control upload limits and allowed file types.': 'dashboard.action.attachmentRulesDescription',
+  'Company Admin': 'dashboard.role.companyAdmin',
+  'Company Dashboard': 'dashboard.company.title',
+  'Company profile, fault intake, and service request follow-up.': 'dashboard.company.subtitle',
+  'Company profile': 'dashboard.company.primaryAction',
+  'Company focus': 'dashboard.company.focusTitle',
+  'Keep contact, address, and identification data up to date.': 'dashboard.company.focusContact',
+  'Submit service requests with enough location and category detail.': 'dashboard.company.focusRequests',
+  'Track accessible interventions connected to your reports.': 'dashboard.company.focusTrack',
+  'Update the profile connected to your company admin account.': 'dashboard.action.companyProfileDescription',
+  'Fault intake': 'dashboard.action.faultIntake',
+  'Report a regular issue or emergency service request.': 'dashboard.action.faultIntakeDescription',
+  Profile: 'dashboard.action.profile',
+  'Review your account information and password settings.': 'dashboard.action.profilePasswordDescription',
+  Management: 'dashboard.role.management',
+  'Management Dashboard': 'dashboard.management.title',
+  'Executive overview of intervention volume, completion, and service quality.': 'dashboard.management.subtitle',
+  'Open analytics': 'dashboard.management.primaryAction',
+  'Management focus': 'dashboard.management.focusTitle',
+  'Monitor active work, completed interventions, and resolution time.': 'dashboard.management.focusMonitor',
+  'Use reports to evaluate SLA compliance and operational throughput.': 'dashboard.management.focusReports',
+  'Review intervention history for recurring locations or categories.': 'dashboard.management.focusHistory',
+  Analytics: 'dashboard.action.analytics',
+  'Open the detailed management metrics workspace.': 'dashboard.action.analyticsDescription',
+  Reports: 'dashboard.action.reports',
+  'Review intervention reports and service performance.': 'dashboard.action.reportsDescription',
+  History: 'dashboard.action.history',
+  'Inspect completed and archived intervention records.': 'dashboard.action.historyDescription',
+  Coordinator: 'dashboard.role.coordinator',
+  'Coordinator Dashboard': 'dashboard.coordinator.title',
+  'Plan interventions, assign servicers, and keep urgent work moving.': 'dashboard.coordinator.subtitle',
+  'New intervention': 'dashboard.coordinator.primaryAction',
+  'Coordination focus': 'dashboard.coordinator.focusTitle',
+  'Convert requests into planned work with clear priority and deadlines.': 'dashboard.coordinator.focusPlan',
+  'Assign servicers before open work becomes overdue.': 'dashboard.coordinator.focusAssign',
+  'Use map and reports views when triaging field operations.': 'dashboard.coordinator.focusMap',
+  'Plan work': 'dashboard.action.planWork',
+  'Create planned maintenance or schedule new intervention work.': 'dashboard.action.planWorkDescription',
+  Assignments: 'dashboard.action.assignments',
+  'Balance workload and assign technicians.': 'dashboard.action.assignmentsDescription',
+  Map: 'dashboard.action.map',
+  'Review intervention locations spatially.': 'dashboard.action.mapDescription',
+  'Open reported faults that need operational follow-up.': 'dashboard.action.faultFollowupDescription',
+  Technician: 'dashboard.role.technician',
+  'Technician Dashboard': 'dashboard.technician.title',
+  'Your assigned interventions, deadlines, and field reporting shortcuts.': 'dashboard.technician.subtitle',
+  'My interventions': 'dashboard.technician.primaryAction',
+  'Field focus': 'dashboard.technician.focusTitle',
+  'Start assigned work and keep intervention status current.': 'dashboard.technician.focusStart',
+  'Submit service reports when work is completed.': 'dashboard.technician.focusReports',
+  'Use history for context from similar previous interventions.': 'dashboard.technician.focusHistory',
+  'Assigned work': 'dashboard.action.assignedWork',
+  'Open your active intervention queue.': 'dashboard.action.assignedWorkDescription',
+  'Write or update intervention reports.': 'dashboard.action.writeReportsDescription',
+  'Review resolved interventions and prior field notes.': 'dashboard.action.fieldHistoryDescription',
+  'Support Agent': 'dashboard.role.supportAgent',
+  'Support Dashboard': 'dashboard.support.title',
+  'Follow support tickets and keep user conversations moving.': 'dashboard.support.subtitle',
+  'Open tickets': 'dashboard.support.primaryAction',
+  'Support focus': 'dashboard.support.focusTitle',
+  'Review new support tickets and respond inside the ticket thread.': 'dashboard.support.focusReview',
+  'Escalate suspicious or sensitive conversations to an admin for review.': 'dashboard.support.focusEscalate',
+  'Close tickets only after the support conversation is complete.': 'dashboard.support.focusClose',
+  Tickets: 'dashboard.action.tickets',
+  'Open the support ticket queue and continue conversations.': 'dashboard.action.ticketsDescription',
+  'Fault reports': 'dashboard.action.faultReports',
+  'Review submitted reports before answering user questions.': 'dashboard.action.faultReportsDescription',
+  Interventions: 'dashboard.action.interventions',
+  'Check intervention status, priority, assignment, and timing.': 'dashboard.action.interventionsDescription',
+  'Review your support account information.': 'dashboard.action.supportProfileDescription',
+  User: 'dashboard.role.user',
+  'User Dashboard': 'dashboard.user.title',
+  'Submit faults and follow the interventions connected to your requests.': 'dashboard.user.subtitle',
+  'Report a fault': 'dashboard.user.primaryAction',
+  'User focus': 'dashboard.user.focusTitle',
+  'Report service problems with location, category, and attachments.': 'dashboard.user.focusReport',
+  'Follow active interventions created from your reports.': 'dashboard.user.focusFollow',
+  'Keep your profile data current for service communication.': 'dashboard.user.focusProfile',
+  'Fault report': 'dashboard.action.faultReport',
+  'Submit a regular report or emergency request.': 'dashboard.action.userFaultDescription',
+  'Track interventions you are allowed to view.': 'dashboard.action.myInterventionsDescription',
+  'Update your personal account details.': 'dashboard.action.personalProfileDescription',
+  'Support ticket': 'dashboard.action.supportTicket',
+  'Create a support ticket for application questions or problems.': 'dashboard.action.supportTicketDescription',
+  'Active users': 'dashboard.stat.activeUsers',
+  'Active interventions': 'dashboard.stat.activeInterventions',
+  'API status': 'dashboard.stat.apiStatus',
+  Completed: 'dashboard.stat.completed',
+  'Avg. resolution': 'dashboard.stat.avgResolution',
+  'High priority active': 'dashboard.stat.highPriorityActive',
+  'Open work': 'dashboard.stat.openWork',
+  Unassigned: 'dashboard.stat.unassigned',
+  Overdue: 'dashboard.stat.overdue',
+  'New requests': 'dashboard.stat.newRequests',
+  'Assigned to me': 'dashboard.stat.assignedToMe',
+  'In progress': 'dashboard.stat.inProgress',
+  'Due soon': 'dashboard.stat.dueSoon',
+  'High priority': 'dashboard.stat.highPriority',
+  'Support tickets': 'dashboard.stat.supportTickets',
+  'Open support': 'dashboard.stat.openSupport',
+  'Admin escalations': 'dashboard.stat.adminEscalations',
+  'Company status': 'dashboard.stat.companyStatus',
+  'Open requests': 'dashboard.stat.openRequests',
+  'Active categories': 'dashboard.stat.activeCategories',
+  'My open requests': 'dashboard.stat.myOpenRequests',
+  Assigned: 'dashboard.stat.assigned',
+  New: 'dashboard.stat.new',
+};
+
+function translateDashboardText(t: (key: TranslationKey) => string, value: string): string {
+  const key = DASHBOARD_TEXT_KEYS[value];
+  return key ? t(key) : value;
+}
+
+function translateAction(t: (key: TranslationKey) => string, action: DashboardAction): DashboardAction {
+  return {
+    ...action,
+    title: translateDashboardText(t, action.title),
+    description: translateDashboardText(t, action.description),
+  };
+}
+
+function translateRoleConfig(
+  t: (key: TranslationKey) => string,
+  config: RoleDashboardConfig,
+): RoleDashboardConfig {
+  return {
+    ...config,
+    label: translateDashboardText(t, config.label),
+    title: translateDashboardText(t, config.title),
+    subtitle: translateDashboardText(t, config.subtitle),
+    primaryAction: {
+      ...config.primaryAction,
+      label: translateDashboardText(t, config.primaryAction.label),
+    },
+    focusTitle: translateDashboardText(t, config.focusTitle),
+    focusItems: config.focusItems.map((item) => translateDashboardText(t, item)),
+    actions: config.actions.map((action) => translateAction(t, action)),
+  };
+}
+
 function decodeJwtPayload(token: string): {
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
@@ -455,12 +613,12 @@ function hasRole(roles: readonly string[], role: DashboardRole): boolean {
   return ROLE_ALIASES[role].some((alias) => normalizedRoles.has(alias));
 }
 
-function formatDateTime(value: string | null): string {
+function formatDateTime(value: string | null, language: LanguageCode, t: (key: TranslationKey) => string): string {
   if (!value) {
-    return 'No deadline';
+    return t('dashboard.noDeadline');
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
@@ -476,6 +634,29 @@ function formatHours(hours: number | null): string {
   }
 
   return `${hours.toFixed(1)} h`;
+}
+
+function formatPriority(value: string, t: (key: TranslationKey) => string): string {
+  const keyByPriority: Record<string, TranslationKey> = {
+    LOW: 'priority.low',
+    MEDIUM: 'priority.medium',
+    HIGH: 'priority.high',
+    CRITICAL: 'priority.critical',
+  };
+
+  return keyByPriority[value] ? t(keyByPriority[value]) : value;
+}
+
+function formatInterventionStatus(value: string, t: (key: TranslationKey) => string): string {
+  const keyByStatus: Record<string, TranslationKey> = {
+    NEW: 'interventionStatus.new',
+    ASSIGNED: 'interventionStatus.assigned',
+    IN_PROGRESS: 'interventionStatus.inProgress',
+    COMPLETED: 'interventionStatus.completed',
+    CANCELLED: 'interventionStatus.cancelled',
+  };
+
+  return keyByStatus[value] ? t(keyByStatus[value]) : value.replace(/_/g, ' ');
 }
 
 function getInterventionSummary(interventions: InterventionListItem[], currentUserId?: number) {
@@ -508,26 +689,34 @@ function getInterventionSummary(interventions: InterventionListItem[], currentUs
   };
 }
 
-function getRecentItems(interventions: InterventionListItem[]): ActivityItem[] {
+function getRecentItems(
+  interventions: InterventionListItem[],
+  language: LanguageCode,
+  t: (key: TranslationKey) => string,
+): ActivityItem[] {
   return interventions.slice(0, 5).map((item) => ({
     title: item.name,
     description: `${item.companyName} - ${item.location}`,
     href: ROUTES.INTERVENTION(item.id),
-    meta: `${item.priority} / ${item.status} / ${formatDateTime(item.dueAt)}`,
+    meta: `${formatPriority(item.priority, t)} / ${formatInterventionStatus(item.status, t)} / ${formatDateTime(item.dueAt, language, t)}`,
   }));
 }
 
 function StatSkeletonGrid() {
+  const { t } = useI18n();
+
   return (
-    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Loading dashboard statistics">
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label={t('dashboard.loadingStats')}>
       {[...Array(4)].map((_, index) => (
-        <StatCard key={index} title="Loading" value="-" isLoading />
+        <StatCard key={index} title={t('dashboard.loading')} value="-" isLoading />
       ))}
     </section>
   );
 }
 
 function QuickActionCard({ action }: { action: DashboardAction }) {
+  const { t } = useI18n();
+
   return (
     <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_28px_rgba(15,23,42,0.08)]">
       <CardContent className="flex h-full flex-col gap-4 p-5">
@@ -543,7 +732,7 @@ function QuickActionCard({ action }: { action: DashboardAction }) {
         </div>
         <Button asChild variant="outline" className="mt-auto justify-between">
           <Link href={action.href}>
-            Open
+            {t('dashboard.open')}
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </Button>
@@ -582,12 +771,14 @@ function ActivityList({
   items: ActivityItem[];
   isLoading: boolean;
 }) {
+  const { t } = useI18n();
+
   return (
     <Card className="border border-slate-200/70 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)]">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="size-5 text-primary" aria-hidden="true" />
-          Recent active work
+          {t('dashboard.recentActiveWork')}
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -615,8 +806,8 @@ function ActivityList({
           </div>
         ) : (
           <EmptyState
-            title="No active work"
-            description="There are no active interventions in this dashboard scope right now."
+            title={t('dashboard.noActiveWork')}
+            description={t('dashboard.noActiveWorkDescription')}
             className="min-h-40"
           />
         )}
@@ -633,18 +824,19 @@ function buildRoleStats(params: {
   users: ManagedUser[];
   company: Company | null;
   currentUserId?: number;
+  t: (key: TranslationKey) => string;
 }) {
-  const { role, snapshot, interventions, managementStats, users, company, currentUserId } = params;
+  const { role, snapshot, interventions, managementStats, users, company, currentUserId, t } = params;
   const summary = getInterventionSummary(interventions, currentUserId);
 
   if (role === 'ADMIN') {
     const activeUsers = users.filter((user) => user.active).length;
     return [
-      { title: 'Users', value: users.length, icon: <Users className="size-5 text-primary" aria-hidden="true" /> },
-      { title: 'Active users', value: activeUsers, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
-      { title: 'Active interventions', value: summary.active, icon: <Wrench className="size-5 text-violet-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.users'), value: users.length, icon: <Users className="size-5 text-primary" aria-hidden="true" /> },
+      { title: t('dashboard.stat.activeUsers'), value: activeUsers, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.activeInterventions'), value: summary.active, icon: <Wrench className="size-5 text-violet-600" aria-hidden="true" /> },
       {
-        title: 'API status',
+        title: t('dashboard.stat.apiStatus'),
         value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
         icon: <Shield className="size-5 text-amber-600" aria-hidden="true" />,
       },
@@ -654,22 +846,22 @@ function buildRoleStats(params: {
   if (role === 'MENADZMENT') {
     return [
       {
-        title: 'Active interventions',
+        title: t('dashboard.stat.activeInterventions'),
         value: managementStats?.activeCount ?? summary.active,
         icon: <Wrench className="size-5 text-primary" aria-hidden="true" />,
       },
       {
-        title: 'Completed',
+        title: t('dashboard.stat.completed'),
         value: managementStats?.completedCount ?? '-',
         icon: <CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" />,
       },
       {
-        title: 'Avg. resolution',
+        title: t('dashboard.stat.avgResolution'),
         value: managementStats ? formatHours(managementStats.averageResolutionHours) : '-',
         icon: <Clock className="size-5 text-violet-600" aria-hidden="true" />,
       },
       {
-        title: 'High priority active',
+        title: t('dashboard.stat.highPriorityActive'),
         value: summary.highPriority,
         icon: <AlertTriangle className="size-5 text-amber-600" aria-hidden="true" />,
       },
@@ -678,29 +870,29 @@ function buildRoleStats(params: {
 
   if (role === 'KOORDINATOR') {
     return [
-      { title: 'Open work', value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
-      { title: 'Unassigned', value: summary.unassigned, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
-      { title: 'Overdue', value: summary.overdue, icon: <Clock className="size-5 text-rose-600" aria-hidden="true" /> },
-      { title: 'New requests', value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.openWork'), value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
+      { title: t('dashboard.stat.unassigned'), value: summary.unassigned, icon: <UserCheck className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.overdue'), value: summary.overdue, icon: <Clock className="size-5 text-rose-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.newRequests'), value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
     ];
   }
 
   if (role === 'SERVISER') {
     return [
-      { title: 'Assigned to me', value: summary.assignedToMe, icon: <Wrench className="size-5 text-primary" aria-hidden="true" /> },
-      { title: 'In progress', value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
-      { title: 'Due soon', value: summary.dueSoon, icon: <Clock className="size-5 text-amber-600" aria-hidden="true" /> },
-      { title: 'High priority', value: summary.highPriority, icon: <AlertTriangle className="size-5 text-rose-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.assignedToMe'), value: summary.assignedToMe, icon: <Wrench className="size-5 text-primary" aria-hidden="true" /> },
+      { title: t('dashboard.stat.inProgress'), value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.dueSoon'), value: summary.dueSoon, icon: <Clock className="size-5 text-amber-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.highPriority'), value: summary.highPriority, icon: <AlertTriangle className="size-5 text-rose-600" aria-hidden="true" /> },
     ];
   }
 
   if (role === 'SUPPORT_AGENT') {
     return [
-      { title: 'Support tickets', value: '-', icon: <Ticket className="size-5 text-primary" aria-hidden="true" /> },
-      { title: 'Open support', value: '-', icon: <ClipboardList className="size-5 text-emerald-600" aria-hidden="true" /> },
-      { title: 'Admin escalations', value: '-', icon: <Shield className="size-5 text-amber-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.supportTickets'), value: '-', icon: <Ticket className="size-5 text-primary" aria-hidden="true" /> },
+      { title: t('dashboard.stat.openSupport'), value: '-', icon: <ClipboardList className="size-5 text-emerald-600" aria-hidden="true" /> },
+      { title: t('dashboard.stat.adminEscalations'), value: '-', icon: <Shield className="size-5 text-amber-600" aria-hidden="true" /> },
       {
-        title: 'API status',
+        title: t('dashboard.stat.apiStatus'),
         value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
         icon: <Shield className="size-5 text-violet-600" aria-hidden="true" />,
       },
@@ -710,22 +902,22 @@ function buildRoleStats(params: {
   if (role === 'KOMPANIJA_ADMIN') {
     return [
       {
-        title: 'Company status',
+        title: t('dashboard.stat.companyStatus'),
         value: company?.status ?? '-',
         icon: <Factory className="size-5 text-primary" aria-hidden="true" />,
       },
       {
-        title: 'Open requests',
+        title: t('dashboard.stat.openRequests'),
         value: summary.active,
         icon: <ClipboardList className="size-5 text-emerald-600" aria-hidden="true" />,
       },
       {
-        title: 'Active categories',
+        title: t('dashboard.stat.activeCategories'),
         value: snapshot?.stats.find((stat) => stat.title === 'Active categories')?.value ?? '-',
         icon: <Tag className="size-5 text-violet-600" aria-hidden="true" />,
       },
       {
-        title: 'API status',
+        title: t('dashboard.stat.apiStatus'),
         value: snapshot?.stats.find((stat) => stat.title === 'API status')?.value ?? '-',
         icon: <Shield className="size-5 text-amber-600" aria-hidden="true" />,
       },
@@ -733,14 +925,15 @@ function buildRoleStats(params: {
   }
 
   return [
-    { title: 'My open requests', value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
-    { title: 'In progress', value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
-    { title: 'Assigned', value: summary.assigned, icon: <UserCheck className="size-5 text-violet-600" aria-hidden="true" /> },
-    { title: 'New', value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
+    { title: t('dashboard.stat.myOpenRequests'), value: summary.active, icon: <ClipboardList className="size-5 text-primary" aria-hidden="true" /> },
+    { title: t('dashboard.stat.inProgress'), value: summary.inProgress, icon: <RefreshCw className="size-5 text-emerald-600" aria-hidden="true" /> },
+    { title: t('dashboard.stat.assigned'), value: summary.assigned, icon: <UserCheck className="size-5 text-violet-600" aria-hidden="true" /> },
+    { title: t('dashboard.stat.new'), value: summary.newItems, icon: <Ticket className="size-5 text-amber-600" aria-hidden="true" /> },
   ];
 }
 
 export default function DashboardPage() {
+  const { language, t } = useI18n();
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [sessionRoles, setSessionRoles] = useState<string[]>([]);
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
@@ -752,7 +945,8 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
 
   const role = useMemo(() => resolveDashboardRole(sessionRoles), [sessionRoles]);
-  const config = ROLE_CONFIG[role];
+  const baseConfig = ROLE_CONFIG[role];
+  const config = useMemo(() => translateRoleConfig(t, baseConfig), [baseConfig, t]);
   const currentUserId = sessionUser?.id;
 
   const loadDashboard = async () => {
@@ -787,7 +981,7 @@ export default function DashboardPage() {
         setSnapshot(snapshotResult.value);
       } else {
         setSnapshot(null);
-        setError(snapshotResult.reason instanceof Error ? snapshotResult.reason.message : 'Failed to load dashboard snapshot.');
+        setError(snapshotResult.reason instanceof Error ? snapshotResult.reason.message : t('dashboard.loadSnapshotError'));
       }
 
       setInterventions(interventionsResult.status === 'fulfilled' ? interventionsResult.value.items : []);
@@ -813,13 +1007,14 @@ export default function DashboardPage() {
         users,
         company,
         currentUserId,
+        t,
       }),
-    [company, currentUserId, interventions, managementStats, role, snapshot, users],
+    [company, currentUserId, interventions, managementStats, role, snapshot, t, users],
   );
-  const recentItems = useMemo(() => getRecentItems(interventions), [interventions]);
+  const recentItems = useMemo(() => getRecentItems(interventions, language, t), [interventions, language, t]);
   const quickActions = useMemo(
-    () => (role === 'SUPPORT_AGENT' ? config.actions : [...config.actions, SUPPORT_TICKET_ACTION]),
-    [config.actions, role],
+    () => (role === 'SUPPORT_AGENT' ? config.actions : [...config.actions, translateAction(t, SUPPORT_TICKET_ACTION)]),
+    [config.actions, role, t],
   );
   const displayName = sessionUser?.firstName
     ? `${sessionUser.firstName}${sessionUser.lastName ? ` ${sessionUser.lastName}` : ''}`
@@ -829,14 +1024,14 @@ export default function DashboardPage() {
     <PageLayout className="space-y-6">
       <PageHeader
         title={config.title}
-        subtitle={displayName ? `${config.subtitle} Signed in as ${displayName}.` : config.subtitle}
-        breadcrumbs={[{ label: 'Home', href: ROUTES.HOME }, { label: 'Dashboard' }]}
+        subtitle={displayName ? `${config.subtitle} ${t('dashboard.signedInAs')} ${displayName}.` : config.subtitle}
+        breadcrumbs={[{ label: t('nav.home'), href: ROUTES.HOME }, { label: t('nav.dashboard') }]}
         primaryAction={{
           ...config.primaryAction,
         }}
         secondaryActions={[
           {
-            label: 'Refresh',
+            label: t('dashboard.refresh'),
             onClick: () => void loadDashboard(),
             variant: 'outline',
             icon: <RefreshCw className="size-4" aria-hidden="true" />,
@@ -846,13 +1041,13 @@ export default function DashboardPage() {
       />
 
       {error ? (
-        <EmptyState title="System snapshot unavailable" description={error} action={{ label: 'Retry', onClick: loadDashboard }} />
+        <EmptyState title={t('dashboard.snapshotUnavailable')} description={error} action={{ label: t('dashboard.retry'), onClick: loadDashboard }} />
       ) : null}
 
       {isLoading ? (
         <StatSkeletonGrid />
       ) : (
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label={`${config.label} dashboard statistics`}>
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label={`${config.label} ${t('dashboard.statsAria')}`}>
           {roleStats.map((stat) => (
             <StatCard
               key={stat.title}
@@ -867,7 +1062,7 @@ export default function DashboardPage() {
 
       <FocusPanel config={config} />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={`${config.label} dashboard shortcuts`}>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label={`${config.label} ${t('dashboard.shortcutsAria')}`}>
         {quickActions.map((action) => (
           <QuickActionCard key={action.title} action={action} />
         ))}
@@ -880,7 +1075,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <LayoutDashboard className="size-5 text-primary" aria-hidden="true" />
-              System snapshot
+              {t('dashboard.systemSnapshot')}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -894,18 +1089,18 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {snapshot.stats.map((stat) => (
                   <div key={stat.title} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50/70 px-3 py-2">
-                    <span className="text-sm text-muted-foreground">{stat.title}</span>
+                    <span className="text-sm text-muted-foreground">{translateDashboardText(t, stat.title)}</span>
                     <span className="text-sm font-semibold tabular-nums">{stat.value}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No system snapshot data available.</p>
+              <p className="text-sm text-muted-foreground">{t('dashboard.noSnapshotData')}</p>
             )}
 
             <Button asChild className="mt-4 w-full justify-between" variant="outline">
               <Link href={ROUTES.SETTINGS}>
-                Open settings
+                {t('dashboard.openSettings')}
                 <Settings className="size-4" aria-hidden="true" />
               </Link>
             </Button>

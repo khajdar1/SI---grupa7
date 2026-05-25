@@ -1242,3 +1242,52 @@ Tiketi za podršku su odvojen kanal od intervencija – tiču se problema s apli
 - Deblokiranje mora **odmah omogućiti korisniku** da ponovo podnosi prijave.
 - Svaka akcija blokiranja i deblokiranja mora biti **evidentirana u logu** s imenom koordinatora i vremenskom oznakom.
 - Blokiranje korisnika **ne smije automatski deaktivirati korisnički račun** – to je odvojena admin akcija.
+
+---
+
+### PBI-040 – Settings page
+
+**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 5 SP | **Sprint:** Backlog
+
+#### User Storiji
+
+> **Story 1 –** Kao **prijavljeni korisnik**, želim **na Settings stranici podesiti lične preference aplikacije kao što su jezik prikaza i osnovne postavke notifikacija**, kako bih **mogao koristiti sistem na način koji odgovara mom radu bez traženja tih opcija po različitim ekranima**.
+
+> **Story 2 –** Kao **administrator**, želim **na Settings stranici vidjeti pregled sistemskih konfiguracija i brze prečice prema SLA pravilima, attachment pravilima, kategorijama, korisnicima i firmama**, kako bih **brže došao do operativnih postavki bez dupliranja postojećih admin stranica**.
+
+> **Story 3 –** Kao **korisnik bez administratorskih privilegija**, želim **vidjeti samo postavke koje smijem mijenjati**, kako bih **imao jasan i siguran interfejs bez opcija koje ne mogu koristiti**.
+
+> **Story 4 –** Kao **sistem**, moram **čuvati promjene postavki po korisniku i primjenjivati role-based kontrolu pristupa**, kako bih **spriječio neovlaštene izmjene konfiguracije i zadržao konzistentno korisničko iskustvo nakon ponovne prijave**.
+
+#### Poslovna vrijednost
+
+Trenutna Settings stranica je placeholder i ne daje korisniku stvarnu vrijednost. Centralizirana Settings stranica smanjuje konfuziju u navigaciji, povezuje postojeće administrativne konfiguracije na jedno mjesto i uvodi prostor za lične preference bez miješanja s profilnim podacima kao što su ime, email i lozinka.
+
+#### Pretpostavke i otvorena pitanja
+
+- Settings stranica ne mijenja osnovne profilne podatke; za ime, email i lozinku korisnik se preusmjerava na Profile.
+- Admin konfiguracije ostaju na postojećim admin stranicama, a Settings služi kao role-based ulazna tačka i pregled.
+- Otvoreno pitanje: Koje kategorije notifikacija korisnik smije isključiti, a koje moraju ostati obavezne zbog operativne sigurnosti?
+- Otvoreno pitanje: Da li se jezik primjenjuje odmah nakon čuvanja ili nakon osvježavanja stranice?
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-015 (Upravljanje korisničkim profilom), PBI-031 (Višejezična podrška), PBI-012 (Notifikacije), PBI-035 (SLA konfiguracija), PBI-033 (Attachment konfiguracija)
+- **Veza s:** PBI-013 (Admin upravljanje računima), PBI-032 (Upravljanje kategorijama), PBI-029 (Notifikacija za tikete)
+
+---
+
+#### Acceptance Kriteriji
+
+- Settings stranica mora biti dostupna samo **prijavljenim korisnicima**; neprijavljeni korisnik mora biti preusmjeren na login ili vidjeti Access Denied prikaz.
+- Stranica ne smije prikazivati placeholder/empty state kao primarni sadržaj, nego mora imati stvarne sekcije za korisničke postavke.
+- Svaki prijavljeni korisnik mora moći **pregledati i promijeniti jezik prikaza** iz liste podržanih jezika.
+- Odabrani jezik mora biti **sačuvan po korisničkom računu** i mora ostati primijenjen nakon odjave i ponovne prijave.
+- Korisnik mora moći **pregledati postavke notifikacija** po kategorijama koje sistem podržava.
+- Sistem ne smije dozvoliti isključivanje notifikacija koje su označene kao **obavezne za operativni tok** bez posebne administratorske odluke.
+- Admin mora na Settings stranici vidjeti **role-based prečice** prema SLA konfiguraciji, attachment konfiguraciji, kategorijama, korisnicima i firmama.
+- Korisnik bez admin uloge ne smije vidjeti niti koristiti admin konfiguracijske kontrole ili prečice koje nisu namijenjene njegovoj ulozi.
+- Klik na admin prečicu mora otvoriti postojeću relevantnu admin stranicu, bez dupliranja forme unutar Settings stranice.
+- Ako čuvanje postavki ne uspije, sistem mora prikazati jasnu grešku i ne smije prikazati da su promjene uspješno sačuvane.
+- Nakon uspješnog čuvanja, sistem mora prikazati potvrdu i osvježiti lokalno stanje bez potrebe za ručnim ponovnim unosom.
+- Sve izmjene sistemskih konfiguracija pokrenute iz Settings konteksta moraju poštovati postojeći backend RBAC i audit pravila.

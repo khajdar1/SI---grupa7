@@ -50,3 +50,17 @@ export function hasSessionRole(allowedRoles: Set<string>): boolean {
   const roles = getSessionRoles();
   return Array.from(roles).some((role) => allowedRoles.has(role));
 }
+
+export function getSessionUserId(): number | null {
+  if (typeof window === 'undefined') return null;
+
+  const rawUser = window.localStorage.getItem('user');
+  if (!rawUser) return null;
+
+  try {
+    const user = JSON.parse(rawUser) as { id?: unknown };
+    return typeof user.id === 'number' && Number.isInteger(user.id) ? user.id : null;
+  } catch {
+    return null;
+  }
+}

@@ -1,3 +1,5 @@
+import { DEFAULT_LANGUAGE, type LanguageCode, translateText } from './i18n';
+
 export type FieldErrors = Record<string, string>;
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -8,18 +10,31 @@ export function getTrimmedValue(value: string) {
   return value.trim();
 }
 
+function getCurrentLanguage(): LanguageCode {
+  if (typeof window === "undefined") {
+    return DEFAULT_LANGUAGE;
+  }
+
+  const stored = window.localStorage.getItem("language") ?? window.localStorage.getItem("servisis-language");
+  return stored === "bs" ? "bs" : DEFAULT_LANGUAGE;
+}
+
+export function translateValidationMessage(message: string, language: LanguageCode = getCurrentLanguage()) {
+  return translateText(language, message);
+}
+
 export function validateRequired(value: string, message: string) {
-  return getTrimmedValue(value) ? "" : message;
+  return getTrimmedValue(value) ? "" : translateValidationMessage(message);
 }
 
 export function validateEmail(value: string, requiredMessage: string, invalidMessage: string) {
   const trimmed = getTrimmedValue(value);
 
   if (!trimmed) {
-    return requiredMessage;
+    return translateValidationMessage(requiredMessage);
   }
 
-  return EMAIL_REGEX.test(trimmed) ? "" : invalidMessage;
+  return EMAIL_REGEX.test(trimmed) ? "" : translateValidationMessage(invalidMessage);
 }
 
 export function containsUnsafeMarkup(value: string) {
@@ -40,7 +55,7 @@ export function validateSafeText(
   const trimmed = getTrimmedValue(value);
 
   if (options.requiredMessage && !trimmed) {
-    return options.requiredMessage;
+    return translateValidationMessage(options.requiredMessage);
   }
 
   if (!trimmed) {
@@ -48,22 +63,22 @@ export function validateSafeText(
   }
 
   if (typeof options.minLength === "number" && trimmed.length < options.minLength) {
-    return options.minLengthMessage ?? `Must be at least ${options.minLength} characters.`;
+    return translateValidationMessage(options.minLengthMessage ?? `Must be at least ${options.minLength} characters.`);
   }
 
   if (typeof options.maxLength === "number" && trimmed.length > options.maxLength) {
-    return options.maxLengthMessage ?? `Must be at most ${options.maxLength} characters.`;
+    return translateValidationMessage(options.maxLengthMessage ?? `Must be at most ${options.maxLength} characters.`);
   }
 
   if (containsUnsafeMarkup(trimmed)) {
-    return options.unsafeMessage ?? "HTML and script content are not allowed.";
+    return translateValidationMessage(options.unsafeMessage ?? "HTML and script content are not allowed.");
   }
 
   return "";
 }
 
 export function validateRequiredSelection(value: string, message: string) {
-  return getTrimmedValue(value) ? "" : message;
+  return getTrimmedValue(value) ? "" : translateValidationMessage(message);
 }
 
 export function validatePersonName(
@@ -92,8 +107,9 @@ export function validatePersonName(
 
   return PERSON_NAME_REGEX.test(trimmed)
     ? ""
-    : options.invalidMessage ??
-        "Only letters, spaces, apostrophes, and hyphens are allowed.";
+    : translateValidationMessage(
+        options.invalidMessage ?? "Only letters, spaces, apostrophes, and hyphens are allowed.",
+      );
 }
 
 export function clearFieldError<T extends FieldErrors>(errors: T, field: string) {
@@ -110,11 +126,11 @@ export function validateCalendarDate(value: string, requiredMessage: string, inv
   const trimmed = getTrimmedValue(value);
 
   if (!trimmed) {
-    return requiredMessage;
+    return translateValidationMessage(requiredMessage);
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return invalidMessage;
+    return translateValidationMessage(invalidMessage);
   }
 
   const [year, month, day] = trimmed.split("-").map(Number);
@@ -125,7 +141,7 @@ export function validateCalendarDate(value: string, requiredMessage: string, inv
     candidate.getUTCMonth() === month - 1 &&
     candidate.getUTCDate() === day;
 
-  return isExactMatch ? "" : invalidMessage;
+  return isExactMatch ? "" : translateValidationMessage(invalidMessage);
 }
 
 export function getApiFieldErrors(error: any): FieldErrors {
@@ -136,7 +152,7 @@ export function getApiFieldErrors(error: any): FieldErrors {
   if (responseErrors && typeof responseErrors === "object") {
     return Object.entries(responseErrors).reduce<FieldErrors>((acc, [key, value]) => {
       if (typeof value === "string" && value.trim()) {
-        acc[key] = value;
+        acc[key] = translateValidationMessage(value);
         return acc;
       }
 
@@ -146,7 +162,7 @@ export function getApiFieldErrors(error: any): FieldErrors {
         );
 
         if (firstMessage) {
-          acc[key] = firstMessage;
+          acc[key] = translateValidationMessage(firstMessage);
         }
       }
 
@@ -167,7 +183,7 @@ export function getApiFieldErrors(error: any): FieldErrors {
       field.field.trim() &&
       field.message.trim()
     ) {
-      acc[field.field] = field.message;
+      acc[field.field] = translateValidationMessage(field.message);
     }
 
     return acc;

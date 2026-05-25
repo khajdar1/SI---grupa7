@@ -17,6 +17,7 @@ import {
   assignServicers,
   type ServicerLoad,
 } from '@/services/assignment.service';
+import { translateText, useI18n } from '@/lib/i18n';
 
 export interface AssignerModalProps {
   interventionId: number;
@@ -38,6 +39,7 @@ export function AssignerModal({
   onSave,
   currentAssignedUserIds = [],
 }: AssignerModalProps) {
+  const { language, t } = useI18n();
   const [servicers, setServicers] = useState<ServicerLoad[]>([]);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<number>>(
     new Set(currentAssignedUserIds),
@@ -60,7 +62,7 @@ export function AssignerModal({
         setSelectedUserIds(new Set(currentAssignedUserIds));
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to load servicers',
+          err instanceof Error ? translateText(language, err.message) : t('assignments.noActiveServicers'),
         );
       } finally {
         setIsLoading(false);
@@ -82,7 +84,7 @@ export function AssignerModal({
 
   const handleSave = async () => {
     if (selectedUserIds.size === 0) {
-      setError('Please select at least one servicer');
+      setError(t('assignments.selectOne'));
       return;
     }
 
@@ -94,7 +96,7 @@ export function AssignerModal({
       onSave(userIds);
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save assignments');
+      setError(err instanceof Error ? translateText(language, err.message) : t('profile.updateFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -104,10 +106,9 @@ export function AssignerModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign Servicers</DialogTitle>
+          <DialogTitle>{t('assignments.assignServicers')}</DialogTitle>
           <DialogDescription>
-            Select one or more servicers to assign to this intervention.
-            Servicers are sorted by their current workload.
+            {t('assignments.assignDescription')}
           </DialogDescription>
         </DialogHeader>
 
@@ -124,7 +125,7 @@ export function AssignerModal({
             </div>
           ) : servicers.length === 0 ? (
             <div className="py-8 text-center text-sm text-gray-500">
-              No active servicers available
+              {t('assignments.noActiveServicers')}
             </div>
           ) : (
             <div className="max-h-64 space-y-2 overflow-y-auto border rounded-md p-3">
@@ -155,7 +156,7 @@ export function AssignerModal({
                     </div>
                   </label>
                   <Badge variant="secondary" className="whitespace-nowrap">
-                    {servicer.activeInterventionCount} active
+                    {servicer.activeInterventionCount} {t('assignments.active')}
                   </Badge>
                 </div>
               ))}
@@ -165,13 +166,13 @@ export function AssignerModal({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
+            {t('tickets.cancel')}
           </Button>
           <Button
             onClick={handleSave}
             disabled={isSaving || selectedUserIds.size === 0 || isLoading}
           >
-            {isSaving ? 'Saving...' : `Assign (${selectedUserIds.size})`}
+            {isSaving ? t('common.saving') : `${t('assignments.assign')} (${selectedUserIds.size})`}
           </Button>
         </DialogFooter>
       </DialogContent>

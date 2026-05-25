@@ -10,7 +10,9 @@ import {
   getApiFieldErrors,
   validateRequired,
 } from '@/lib/form-validation';
+import { translateText, useI18n } from '@/lib/i18n';
 import { login, logout } from '@/services/auth.service';
+import { getMyProfile, updateMyProfile } from '@/services/profile.service';
 
 function getTokenRoles(token: string): string[] {
   try {
@@ -41,6 +43,7 @@ function getPostLoginRoute(accessToken: string): string {
 
 export function useLogin() {
   const router = useRouter();
+  const { language, setLanguage, t } = useI18n();
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -57,8 +60,8 @@ export function useLogin() {
     e.preventDefault();
 
     const nextErrors = {
-      username: validateRequired(formData.username, 'Username is required.'),
-      password: validateRequired(formData.password, 'Password is required.'),
+      username: validateRequired(formData.username, t('validation.usernameRequired')),
+      password: validateRequired(formData.password, t('validation.passwordRequired')),
     };
 
     const filteredErrors = Object.fromEntries(
@@ -67,7 +70,7 @@ export function useLogin() {
 
     if (Object.keys(filteredErrors).length > 0) {
       setErrors(filteredErrors);
-      setServerError('Please correct the highlighted fields.');
+      setServerError(t('profile.correctFields'));
       return;
     }
 
@@ -85,6 +88,10 @@ export function useLogin() {
       localStorage.setItem('token', response.accessToken);
       localStorage.setItem('refreshToken', response.refreshToken);
       localStorage.setItem('user', JSON.stringify(response.user));
+      if (response.user.language) {
+        localStorage.setItem('language', response.user.language);
+        setLanguage(response.user.language, { persistToProfile: false });
+      }
 
       router.push(getPostLoginRoute(response.accessToken));
     } catch (error: unknown) {
@@ -102,8 +109,8 @@ export function useLogin() {
 
       setServerError(
         error instanceof Error
-          ? error.message
-          : 'Login failed. Please check your credentials.',
+          ? translateText(language, error.message)
+          : t('login.failed'),
       );
     } finally {
       setSubmitting(false);
@@ -116,13 +123,29 @@ export function useLogin() {
       const refreshToken = localStorage.getItem('refreshToken');
 
       if (token) {
+        try {
+          const profile = await getMyProfile();
+          if (profile.language !== language) {
+            await updateMyProfile({
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              email: profile.email,
+              language,
+            });
+          }
+        } catch {
+          // The navbar persists language immediately; this is a best-effort fallback before session cleanup.
+        }
+
         await logout({ token, refreshToken });
       }
     } catch {
       // Intentionally swallow network logout errors and clear local session.
     } finally {
       Cookies.remove('token', { path: '/' });
-      localStorage.clear();
+      localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
       router.replace(ROUTES.LOGIN);
     }
   }

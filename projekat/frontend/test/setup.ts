@@ -1,6 +1,9 @@
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import '@testing-library/jest-dom/vitest';
+import * as matchers from '@testing-library/jest-dom/matchers';
+import { expect } from 'vitest';
+
+expect.extend(matchers);
 
 // Cleanup after each test
 afterEach(() => {
@@ -9,13 +12,13 @@ afterEach(() => {
 
 // Mock next/navigation
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({
+  useRouter: vi.fn(() => ({
     push: vi.fn(),
     replace: vi.fn(),
     prefetch: vi.fn(),
     back: vi.fn(),
     forward: vi.fn(),
     refresh: vi.fn(),
-  }),
-  useParams: () => ({}),
+  })),
+  useParams: vi.fn(() => ({})),
 }));

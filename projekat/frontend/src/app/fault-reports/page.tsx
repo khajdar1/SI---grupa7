@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ROUTES, UI } from '@/constants';
 import { hasSessionRole } from '@/lib/auth';
 import { clearFieldError, getApiFieldErrors, validateRequired } from '@/lib/form-validation';
+import { translateCategoryName, translateInterventionStatus, translateLocationValue, translateText, useI18n, type LanguageCode, type TranslationKey } from '@/lib/i18n';
 import type {
   FaultReportCategoryOption,
   FaultReportCompanyOption,
@@ -42,6 +43,8 @@ type EmergencyTemplate = {
   id: string;
   label: string;
   description: string;
+  labelKey: TranslationKey;
+  descriptionKey: TranslationKey;
 };
 
 const EMERGENCY_TEMPLATES: readonly EmergencyTemplate[] = [
@@ -49,29 +52,37 @@ const EMERGENCY_TEMPLATES: readonly EmergencyTemplate[] = [
     id: 'power-outage',
     label: 'Power Outage',
     description: 'Complete or partial power outage requiring immediate response.',
+    labelKey: 'faultReports.emergency.powerOutage',
+    descriptionKey: 'faultReports.emergency.powerOutageDescription',
   },
   {
     id: 'water-leak',
     label: 'Water Leak',
     description: 'Flooding, pipe failure, or continuous leak on site.',
+    labelKey: 'faultReports.emergency.waterLeak',
+    descriptionKey: 'faultReports.emergency.waterLeakDescription',
   },
   {
     id: 'elevator-failure',
     label: 'Elevator Failure',
     description: 'Elevator stall or malfunction with potential safety impact.',
+    labelKey: 'faultReports.emergency.elevatorFailure',
+    descriptionKey: 'faultReports.emergency.elevatorFailureDescription',
   },
   {
     id: 'network-outage',
     label: 'Network Outage',
     description: 'Critical network connectivity incident affecting operations.',
+    labelKey: 'faultReports.emergency.networkOutage',
+    descriptionKey: 'faultReports.emergency.networkOutageDescription',
   },
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
 
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+function formatDateTime(value: string, language: LanguageCode): string {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
@@ -101,6 +112,7 @@ function inferMimeType(file: File): string {
 }
 
 export default function FaultReportsPage() {
+  const { language, t } = useI18n();
   const [reportMode, setReportMode] = useState<ReportMode>('emergency');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSupportAgent, setIsSupportAgent] = useState(false);
@@ -139,6 +151,18 @@ export default function FaultReportsPage() {
     [templateId],
   );
 
+  useEffect(() => {
+    if (language !== 'bs') {
+      return;
+    }
+
+    setFieldErrors((current) =>
+      Object.fromEntries(Object.entries(current).map(([field, message]) => [field, translateText(language, message)])),
+    );
+    setError((current) => (current ? translateText(language, current) : current));
+    setSuccessMessage((current) => (current ? translateText(language, current) : current));
+  }, [language]);
+
   const loadOptions = async () => {
     try {
       setIsLoading(true);
@@ -157,7 +181,7 @@ export default function FaultReportsPage() {
         setCategoryId(String(activeCategories[0].id));
       }
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load intake options.');
+      setError(translateText(language, requestError instanceof Error ? requestError.message : 'Failed to load intake options.'));
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +194,7 @@ export default function FaultReportsPage() {
       setFaultReports(reports);
       setError('');
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load fault reports.');
+      setError(translateText(language, requestError instanceof Error ? requestError.message : 'Failed to load fault reports.'));
     } finally {
       setIsLoading(false);
     }
@@ -203,7 +227,7 @@ export default function FaultReportsPage() {
 
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setFieldErrors((current) => ({ ...current, location: 'Geolocation is not supported on this device.' }));
+      setFieldErrors((current) => ({ ...current, location: t('faultReports.geolocationUnsupported') }));
       return;
     }
 
@@ -213,13 +237,13 @@ export default function FaultReportsPage() {
         const nextLongitude = Number(position.coords.longitude.toFixed(6));
         setLatitude(nextLatitude);
         setLongitude(nextLongitude);
-        setLocation(`Detected location (${nextLatitude}, ${nextLongitude})`);
+        setLocation(translateLocationValue(language, `Detected location (${nextLatitude}, ${nextLongitude})`));
         clearError('location');
       },
       () => {
         setFieldErrors((current) => ({
           ...current,
-          location: 'Location access failed. Allow permission or enter location manually.',
+          location: t('faultReports.locationAccessFailed'),
         }));
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -242,7 +266,9 @@ export default function FaultReportsPage() {
     if (rejectedFiles > 0) {
       setFieldErrors((current) => ({
         ...current,
-        attachments: `${rejectedFiles} attachment(s) exceeded ${UI.MAX_FILE_SIZE_MB} MB limit.`,
+        attachments: t('faultReports.attachmentLimitExceeded')
+          .replace('{count}', String(rejectedFiles))
+          .replace('{size}', String(UI.MAX_FILE_SIZE_MB)),
       }));
       return;
     }
@@ -269,7 +295,7 @@ export default function FaultReportsPage() {
       if (descriptionError) nextErrors.description = descriptionError;
 
       if (!locationError && location.trim().length < 3) {
-        nextErrors.location = 'Location must have at least 3 characters.';
+        nextErrors.location = translateText(language, 'Location must have at least 3 characters.');
       }
     }
 
@@ -281,12 +307,12 @@ export default function FaultReportsPage() {
       if (reporterPhoneError) nextErrors.reporterPhone = reporterPhoneError;
 
       if (!reporterPhoneError && reporterPhone.trim().length < 5) {
-        nextErrors.reporterPhone = 'Reporter phone must have at least 5 characters.';
+        nextErrors.reporterPhone = translateText(language, 'Reporter phone must have at least 5 characters.');
       }
     }
 
     if (reporterEmail.trim().length > 0 && !EMAIL_REGEX.test(reporterEmail.trim())) {
-      nextErrors.reporterEmail = 'Invalid email format.';
+      nextErrors.reporterEmail = translateText(language, 'Invalid email format.');
     }
 
     return nextErrors;
@@ -344,7 +370,7 @@ export default function FaultReportsPage() {
 
       const response = await submitFaultReport(payload);
       setSuccessMessage(
-        `Report submitted successfully. Reference ${response.referenceNumber} created.`,
+        `${t('faultReports.reportSubmitted')} ${t('faultReports.referenceCreated').replace('{reference}', response.referenceNumber)}`
       );
       setCreatedInterventionId(response.interventionId);
 
@@ -370,7 +396,7 @@ export default function FaultReportsPage() {
         setFieldErrors(backendFieldErrors);
       }
 
-      setError(requestError instanceof Error ? requestError.message : 'Failed to submit report.');
+      setError(translateText(language, requestError instanceof Error ? requestError.message : 'Failed to submit report.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -427,19 +453,30 @@ export default function FaultReportsPage() {
   };
 
   const noIntakeOptions = companies.length === 0 || categories.length === 0;
+  const visibleCategories = useMemo(() => {
+    const seen = new Set<string>();
+    return categories.filter((category) => {
+      const label = translateCategoryName(language, category.name);
+      if (seen.has(label)) {
+        return false;
+      }
+      seen.add(label);
+      return true;
+    });
+  }, [categories, language]);
 
   if (isSupportAgent) {
     return (
       <PageLayout className="space-y-6">
         <PageHeader
-          title="Fault Reports"
-          subtitle="Review submitted fault reports and related intervention status."
-          breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Fault Reports' }]}
+          title={t('faultReports.title')}
+          subtitle={t('faultReports.supportSubtitle')}
+          breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('faultReports.title') }]}
         />
 
         <Card>
           <CardHeader>
-            <CardTitle>Submitted Reports</CardTitle>
+            <CardTitle>{t('faultReports.submittedReports')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
@@ -450,14 +487,14 @@ export default function FaultReportsPage() {
               </div>
             ) : error ? (
               <EmptyState
-                title="Fault reports unavailable"
+                title={t('faultReports.unavailable')}
                 description={error}
-                action={{ label: 'Retry', onClick: () => void loadFaultReports() }}
+                action={{ label: t('faultReports.retry'), onClick: () => void loadFaultReports() }}
               />
             ) : faultReports.length === 0 ? (
               <EmptyState
-                title="No fault reports"
-                description="There are no submitted fault reports to review right now."
+                title={t('faultReports.emptyTitle')}
+                description={t('faultReports.emptyDescription')}
               />
             ) : (
               <div className="space-y-3">
@@ -474,21 +511,23 @@ export default function FaultReportsPage() {
                         <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-semibold">FR-{String(report.id).padStart(5, '0')}</span>
-                            <Badge variant="outline">{report.category.name}</Badge>
+                            <Badge variant="outline">{translateCategoryName(language, report.category.name)}</Badge>
                             {latestIntervention ? (
-                              <Badge variant="secondary">{latestIntervention.status.replace(/_/g, ' ')}</Badge>
+                              <Badge variant="secondary">
+                                {translateInterventionStatus(language, latestIntervention.status)}
+                              </Badge>
                             ) : null}
                           </div>
                           <p className="text-sm text-foreground line-clamp-2">{report.description}</p>
                           <p className="text-xs text-muted-foreground">
-                            {report.company.name} - {report.location || 'No location'} - {formatDateTime(report.reportedAt)}
+                            {report.company.name} - {report.location ? translateLocationValue(language, report.location) : t('faultReports.noLocation')} - {formatDateTime(report.reportedAt, language)}
                           </p>
                         </div>
 
                         {latestIntervention ? (
                           <Button asChild variant="outline" size="sm" className="shrink-0">
                             <Link href={ROUTES.INTERVENTION(String(latestIntervention.id))}>
-                              Open intervention
+                              {t('faultReports.openIntervention')}
                             </Link>
                           </Button>
                         ) : null}
@@ -523,14 +562,14 @@ export default function FaultReportsPage() {
         }}
       />
       <PageHeader
-        title="Fault Reports"
-        subtitle="Report incidents quickly and route them into intervention workflow."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Fault Reports' }]}
+        title={t('faultReports.title')}
+        subtitle={t('faultReports.subtitle')}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('faultReports.title') }]}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Submit Fault Report</CardTitle>
+          <CardTitle>{t('faultReports.submitTitle')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading ? (
@@ -542,9 +581,9 @@ export default function FaultReportsPage() {
             </div>
           ) : error && noIntakeOptions ? (
             <EmptyState
-              title="Intake options unavailable"
+              title={t('faultReports.intakeUnavailable')}
               description={error}
-              action={{ label: 'Retry', onClick: () => void loadOptions() }}
+              action={{ label: t('faultReports.retry'), onClick: () => void loadOptions() }}
             />
           ) : (
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -557,7 +596,7 @@ export default function FaultReportsPage() {
                       href={ROUTES.INTERVENTION(String(createdInterventionId))}
                       className="font-medium underline underline-offset-4"
                     >
-                      Open intervention #{createdInterventionId}
+                      {t('faultReports.openCreatedIntervention').replace('{id}', String(createdInterventionId))}
                     </Link>
                   ) : null}
                 </div>
@@ -571,19 +610,19 @@ export default function FaultReportsPage() {
                       variant={reportMode === 'regular' ? 'default' : 'outline'}
                       onClick={() => setReportMode('regular')}
                     >
-                      Regular
+                      {t('faultReports.regular')}
                     </Button>
                     <Button
                       type="button"
                       variant={reportMode === 'emergency' ? 'default' : 'outline'}
                       onClick={() => setReportMode('emergency')}
                     >
-                      Emergency
+                      {t('faultReports.emergency')}
                     </Button>
                   </>
                 ) : (
                   <p className="text-xs text-muted-foreground">
-                    Guest users can submit emergency reports only.
+                    {t('faultReports.regularGuestOnly')}
                   </p>
                 )}
               </div>
@@ -592,7 +631,7 @@ export default function FaultReportsPage() {
                 <>
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="company">Company</Label>
+                      <Label htmlFor="company">{t('faultReports.company')}</Label>
                       <Select
                         value={companyId}
                         onValueChange={(value) => {
@@ -605,7 +644,9 @@ export default function FaultReportsPage() {
                           aria-invalid={Boolean(fieldErrors.companyId)}
                           aria-describedby={fieldErrors.companyId ? 'company-error' : undefined}
                         >
-                          <SelectValue placeholder="Select company" />
+                          <SelectValue>
+                            {companies.find((c) => String(c.id) === companyId)?.name ?? t('faultReports.selectCompany')}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {companies.map((company) => (
@@ -623,7 +664,7 @@ export default function FaultReportsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="category">Category</Label>
+                      <Label htmlFor="category">{t('faultReports.category')}</Label>
                       <Select
                         value={categoryId}
                         onValueChange={(value) => {
@@ -636,12 +677,14 @@ export default function FaultReportsPage() {
                           aria-invalid={Boolean(fieldErrors.categoryId)}
                           aria-describedby={fieldErrors.categoryId ? 'category-error' : undefined}
                         >
-                          <SelectValue placeholder="Select category" />
+                          <SelectValue>
+                            {translateCategoryName(language, categories.find((c) => String(c.id) === categoryId)?.name ?? t('faultReports.selectCategory'))}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
-                          {categories.map((category) => (
+                          {visibleCategories.map((category) => (
                             <SelectItem key={category.id} value={String(category.id)}>
-                              {category.name}
+                              {translateCategoryName(language, category.name)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -655,7 +698,7 @@ export default function FaultReportsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="location">Location</Label>
+                    <Label htmlFor="location">{t('faultReports.location')}</Label>
                     <Input
                       id="location"
                       value={location}
@@ -670,11 +713,11 @@ export default function FaultReportsPage() {
                     />
                     <div className="flex flex-wrap gap-2">
                       <Button type="button" variant="outline" onClick={handleUseCurrentLocation}>
-                        Use Current Location
+                        {t('faultReports.useCurrentLocation')}
                       </Button>
                       {latitude !== null && longitude !== null ? (
                         <p className="self-center text-xs text-muted-foreground">
-                          Coordinates: {latitude}, {longitude}
+                          {t('faultReports.coordinates')} {latitude}, {longitude}
                         </p>
                       ) : null}
                     </div>
@@ -686,7 +729,7 @@ export default function FaultReportsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">{t('faultReports.description')}</Label>
                     <Textarea
                       id="description"
                       value={description}
@@ -707,7 +750,7 @@ export default function FaultReportsPage() {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="template">Emergency Type</Label>
+                    <Label htmlFor="template">{t('faultReports.emergencyType')}</Label>
                     <Select
                       value={templateId}
                       onValueChange={(value) => {
@@ -715,23 +758,23 @@ export default function FaultReportsPage() {
                       }}
                     >
                       <SelectTrigger id="template">
-                        <SelectValue />
+                        <SelectValue>{t(selectedTemplate.labelKey)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         {EMERGENCY_TEMPLATES.map((template) => (
                           <SelectItem key={template.id} value={template.id}>
-                            {template.label}
+                            {t(template.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">{selectedTemplate.description}</p>
+                    <p className="text-xs text-muted-foreground">{t(selectedTemplate.descriptionKey)}</p>
                   </div>
 
                   {!isAuthenticated ? (
                     <div className="grid gap-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label htmlFor="reporter-name">Reporter Name</Label>
+                        <Label htmlFor="reporter-name">{t('faultReports.reporterName')}</Label>
                         <Input
                           id="reporter-name"
                           value={reporterName}
@@ -750,7 +793,7 @@ export default function FaultReportsPage() {
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="reporter-phone">Reporter Phone</Label>
+                        <Label htmlFor="reporter-phone">{t('faultReports.reporterPhone')}</Label>
                         <Input
                           id="reporter-phone"
                           value={reporterPhone}
@@ -774,7 +817,7 @@ export default function FaultReportsPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="reporter-email">
-                  Reporter Email {isAuthenticated ? '(optional)' : '(optional for guests)'}
+                  {isAuthenticated ? t('faultReports.reporterEmailOptional') : t('faultReports.reporterEmailGuestOptional')}
                 </Label>
                 <Input
                   id="reporter-email"
@@ -797,16 +840,30 @@ export default function FaultReportsPage() {
               {isAuthenticated ? (
                 <div className="space-y-2">
                   <Label htmlFor="attachments">
-                    Attachments (max {UI.MAX_FILE_SIZE_MB} MB per file)
+                    {t('faultReports.attachmentsLabel').replace('{size}', String(UI.MAX_FILE_SIZE_MB))}
                   </Label>
-                  <Input
+                  <input
                     id="attachments"
                     type="file"
                     multiple
                     onChange={handleAttachmentChange}
                     aria-invalid={Boolean(fieldErrors.attachments)}
                     aria-describedby={fieldErrors.attachments ? 'attachments-error' : undefined}
+                    className="absolute h-px w-px overflow-hidden whitespace-nowrap border-0 p-0"
+                    style={{ clip: 'rect(0 0 0 0)', clipPath: 'inset(50%)' }}
                   />
+                  <div className="flex min-h-10 flex-wrap items-center gap-3 rounded-md border border-input bg-background px-3 py-2">
+                    <Button type="button" variant="outline" size="sm" asChild>
+                      <label htmlFor="attachments" className="cursor-pointer">
+                        {t('faultReports.attachmentChoose')}
+                      </label>
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {attachments.length === 0
+                        ? t('faultReports.attachmentNone')
+                        : t('faultReports.attachmentSelected').replace('{count}', String(attachments.length))}
+                    </span>
+                  </div>
                   {attachments.length > 0 ? (
                     <div className="space-y-2">
                       {attachments.map((file, index) => (
@@ -815,7 +872,7 @@ export default function FaultReportsPage() {
                             {file.name} ({Math.round(file.size / 1024)} KB)
                           </p>
                           <Button type="button" variant="ghost" size="sm" onClick={() => removeAttachment(index)}>
-                            Remove
+                            {t('faultReports.remove')}
                           </Button>
                         </div>
                       ))}
@@ -834,10 +891,10 @@ export default function FaultReportsPage() {
                   type="submit"
                   disabled={isSubmitting || noIntakeOptions}
                 >
-                  {isSubmitting ? 'Submitting...' : 'Submit Fault Report'}
+                  {isSubmitting ? t('faultReports.submitting') : t('faultReports.submit')}
                 </Button>
                 <Button asChild type="button" variant="outline">
-                  <Link href={ROUTES.INTERVENTIONS}>View Interventions</Link>
+                  <Link href={ROUTES.INTERVENTIONS}>{t('faultReports.viewInterventions')}</Link>
                 </Button>
               </div>
             </form>

@@ -5,6 +5,7 @@ import { ShieldOff, LogIn, ArrowLeft } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ROUTES } from '@/constants';
+import { useI18n } from '@/lib/i18n';
 
 interface AccessDeniedProps {
   reason?: 'unauthenticated' | 'unauthorized';
@@ -12,6 +13,29 @@ interface AccessDeniedProps {
 }
 
 export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin' }: AccessDeniedProps) {
+  const { language, t } = useI18n();
+  const text = language === 'bs'
+    ? {
+        titlePrefix: 'Pristup',
+        titleHighlight: 'odbijen',
+        title: 'Pristup odbijen',
+        signedInRequired: 'Morate biti prijavljeni za pristup ovoj stranici.',
+        noPermission: 'Nemate dozvolu za pristup ovoj stranici.',
+        requiredRole: 'Potrebna uloga:',
+        back: 'Nazad',
+        backHome: 'Nazad na početnu',
+      }
+    : {
+        titlePrefix: 'Access',
+        titleHighlight: 'denied',
+        title: 'Access denied',
+        signedInRequired: 'You must be signed in to access this page.',
+        noPermission: 'You do not have permission to access this page.',
+        requiredRole: 'Required role:',
+        back: 'Back',
+        backHome: 'Back to home',
+      };
+
   if (reason === 'unauthenticated') {
     return (
       <div className="flex min-h-[68vh] flex-col items-center justify-center px-4 text-center animate-fade-in-up">
@@ -24,23 +48,23 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
         </div>
 
         <h1 className="mb-3 text-3xl font-black tracking-tight">
-          Access <span className="gradient-text">denied</span>
+          {text.titlePrefix} <span className="gradient-text">{text.titleHighlight}</span>
         </h1>
         <p className="mb-8 max-w-sm text-muted-foreground leading-relaxed">
-          You must be signed in to access this page.
+          {text.signedInRequired}
         </p>
 
         <div className="flex flex-wrap justify-center gap-3">
           <Button asChild className="btn-glow h-11 rounded-xl px-6">
             <Link href={ROUTES.LOGIN}>
               <LogIn className="mr-2 size-4" aria-hidden="true" />
-              Login
+              {t('nav.login')}
             </Link>
           </Button>
           <Button variant="outline" asChild className="h-11 rounded-xl px-6 glass-card border-0">
             <Link href={ROUTES.HOME}>
               <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
-              Back
+              {text.back}
             </Link>
           </Button>
         </div>
@@ -58,12 +82,12 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
         </div>
       </div>
 
-      <h1 className="mb-3 text-3xl font-black tracking-tight">Access denied</h1>
+      <h1 className="mb-3 text-3xl font-black tracking-tight">{text.title}</h1>
       <p className="mb-2 max-w-sm text-muted-foreground leading-relaxed">
-        You do not have permission to access this page.
+        {text.noPermission}
       </p>
       <p className="mb-8 max-w-sm text-xs text-muted-foreground">
-        Required role:{' '}
+        {text.requiredRole}{' '}
         <span className="rounded-md bg-rose-50 px-2 py-0.5 font-semibold text-rose-600">
           {requiredRole}
         </span>
@@ -72,7 +96,7 @@ export function AccessDenied({ reason = 'unauthenticated', requiredRole = 'Admin
       <Button variant="outline" asChild className="h-11 rounded-xl px-6 glass-card border-0">
         <Link href={ROUTES.HOME}>
           <ArrowLeft className="mr-2 size-4" aria-hidden="true" />
-          Back to home
+          {text.backHome}
         </Link>
       </Button>
     </div>

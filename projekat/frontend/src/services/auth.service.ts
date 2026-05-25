@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
+import type { LanguageCode } from '@/lib/i18n';
 
 import { getResponseData, withServiceError } from './errors';
 
@@ -12,6 +13,7 @@ interface LoginUser {
   id: number;
   username: string;
   email: string;
+  language?: LanguageCode;
   role?: string;
   [key: string]: unknown;
 }

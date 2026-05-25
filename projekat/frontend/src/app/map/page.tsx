@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { ROUTES } from '@/constants';
 import { cn } from '@/lib/utils';
+import { translateCategoryName, translateInterventionStatus, translateText, useI18n, type LanguageCode } from '@/lib/i18n';
 import { getMapInterventions, type MapIntervention } from '@/services/maps.service';
 
 const ALL = 'ALL';
@@ -57,12 +58,12 @@ function unproject(point: Point, zoom: number): MapCenter {
   };
 }
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, language: LanguageCode) {
   if (!value) {
-    return 'Not scheduled';
+    return language === 'bs' ? 'Nije zakazano' : 'Not scheduled';
   }
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
@@ -88,6 +89,7 @@ function InterventionMap({
   selected: MapIntervention | null;
   onSelect: (item: MapIntervention | null) => void;
 }) {
+  const { language, t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ pointerId: number; start: Point; center: Point } | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -180,16 +182,16 @@ function InterventionMap({
     <div className="overflow-hidden rounded-lg border bg-slate-100">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-background p-2">
         <div className="text-sm text-muted-foreground">
-          {items.length} mapped intervention{items.length === 1 ? '' : 's'}
+          {items.length} {language === 'bs' ? 'mapiranih intervencija' : `mapped intervention${items.length === 1 ? '' : 's'}`}
         </div>
         <div className="flex items-center gap-1">
-          <Button type="button" variant="outline" size="sm" onClick={() => updateZoom(zoom + 1)} aria-label="Zoom in">
+          <Button type="button" variant="outline" size="sm" onClick={() => updateZoom(zoom + 1)} aria-label={language === 'bs' ? 'Uvećaj' : 'Zoom in'}>
             <Plus className="size-4" />
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={() => updateZoom(zoom - 1)} aria-label="Zoom out">
+          <Button type="button" variant="outline" size="sm" onClick={() => updateZoom(zoom - 1)} aria-label={language === 'bs' ? 'Umanji' : 'Zoom out'}>
             <Minus className="size-4" />
           </Button>
-          <Button type="button" variant="outline" size="sm" onClick={resetView} aria-label="Reset map">
+          <Button type="button" variant="outline" size="sm" onClick={resetView} aria-label={language === 'bs' ? 'Resetuj mapu' : 'Reset map'}>
             <LocateFixed className="size-4" />
           </Button>
         </div>
@@ -275,7 +277,7 @@ function InterventionMap({
                 <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{selected.location}</p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => onSelect(null)}>
-                Close
+                {language === 'bs' ? 'Zatvori' : 'Close'}
               </Button>
             </div>
 
@@ -285,19 +287,19 @@ function InterventionMap({
                 <InterventionStatusBadge status={selected.status} />
               </div>
               <p>
-                <span className="text-muted-foreground">Company:</span> {selected.companyName}
+                <span className="text-muted-foreground">{t('interventionDetail.company')}:</span> {selected.companyName}
               </p>
               <p>
-                <span className="text-muted-foreground">Category:</span> {selected.categoryName}
+                <span className="text-muted-foreground">{t('interventionDetail.category')}:</span> {translateCategoryName(language, selected.categoryName)}
               </p>
               <p>
-                <span className="text-muted-foreground">Servicer:</span>{' '}
+                <span className="text-muted-foreground">{language === 'bs' ? 'Serviser' : 'Servicer'}:</span>{' '}
                 {selected.assignments.length > 0
                   ? selected.assignments.map((assignment) => assignment.label).join(', ')
-                  : 'Unassigned'}
+                  : (language === 'bs' ? 'Nedodijeljeno' : 'Unassigned')}
               </p>
               <p>
-                <span className="text-muted-foreground">Due:</span> {formatDate(selected.dueAt)}
+                <span className="text-muted-foreground">{t('interventionDetail.due')}:</span> {formatDate(selected.dueAt, language)}
               </p>
             </div>
           </div>
@@ -312,6 +314,7 @@ function InterventionMap({
 }
 
 export default function MapPage() {
+  const { language, t } = useI18n();
   const [items, setItems] = useState<MapIntervention[]>([]);
   const [status, setStatus] = useState(ALL);
   const [servicerId, setServicerId] = useState(ALL);
@@ -332,7 +335,7 @@ export default function MapPage() {
         current && response.items.some((item) => item.id === current.id) ? current : null,
       );
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load map data.');
+      setError(translateText(language, requestError instanceof Error ? requestError.message : 'Failed to load map data.'));
     } finally {
       setIsLoading(false);
     }
@@ -359,12 +362,12 @@ export default function MapPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Intervention Map"
-        subtitle="Spatial view of geocoded, non-archived interventions."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Map' }]}
+        title={language === 'bs' ? 'Mapa intervencija' : 'Intervention Map'}
+        subtitle={language === 'bs' ? 'Prostorni prikaz geokodiranih, nearhiviranih intervencija.' : 'Spatial view of geocoded, non-archived interventions.'}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('nav.map') }]}
         secondaryActions={[
           {
-            label: 'List',
+            label: language === 'bs' ? 'Lista' : 'List',
             href: ROUTES.INTERVENTIONS,
             variant: 'outline',
           },
@@ -373,34 +376,44 @@ export default function MapPage() {
 
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-3 lg:flex-row lg:items-center">
         <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:flex lg:flex-row">
-          <Select value={status} onValueChange={(value) => setStatus(value ?? ALL)}>
-            <SelectTrigger className="w-full sm:min-w-48">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All statuses</SelectItem>
-              <SelectItem value="NEW">Open</SelectItem>
-              <SelectItem value="ASSIGNED">Assigned</SelectItem>
-              <SelectItem value="IN_PROGRESS">In progress</SelectItem>
-              <SelectItem value="RESOLVED">Resolved</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground px-1">{t('interventionDetail.status')}</span>
+            <Select value={status} onValueChange={(value) => setStatus(value ?? ALL)}>
+              <SelectTrigger className="w-full sm:min-w-48">
+                <SelectValue>
+                  {status === ALL ? (language === 'bs' ? 'Svi statusi' : 'All statuses') : translateInterventionStatus(language, status)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{language === 'bs' ? 'Svi statusi' : 'All statuses'}</SelectItem>
+                <SelectItem value="NEW">{translateInterventionStatus(language, 'NEW')}</SelectItem>
+                <SelectItem value="ASSIGNED">{translateInterventionStatus(language, 'ASSIGNED')}</SelectItem>
+                <SelectItem value="IN_PROGRESS">{translateInterventionStatus(language, 'IN_PROGRESS')}</SelectItem>
+                <SelectItem value="RESOLVED">{translateInterventionStatus(language, 'RESOLVED')}</SelectItem>
+                <SelectItem value="CANCELLED">{translateInterventionStatus(language, 'CANCELLED')}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Select value={servicerId} onValueChange={(value) => setServicerId(value ?? ALL)}>
-            <SelectTrigger className="w-full sm:min-w-56">
-              <SelectValue placeholder="Servicer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All servicers</SelectItem>
-              <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-              {servicerOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground px-1">{language === 'bs' ? 'Serviser' : 'Servicer'}</span>
+            <Select value={servicerId} onValueChange={(value) => setServicerId(value ?? ALL)}>
+              <SelectTrigger className="w-full sm:min-w-56">
+                <SelectValue>
+                  {servicerId === ALL ? (language === 'bs' ? 'Svi serviseri' : 'All servicers') : servicerId === UNASSIGNED ? (language === 'bs' ? 'Nedodijeljeno' : 'Unassigned') : (servicerOptions.find((o) => o.value === servicerId)?.label ?? servicerId)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>{language === 'bs' ? 'Svi serviseri' : 'All servicers'}</SelectItem>
+                <SelectItem value={UNASSIGNED}>{language === 'bs' ? 'Nedodijeljeno' : 'Unassigned'}</SelectItem>
+                {servicerOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -414,12 +427,12 @@ export default function MapPage() {
               }}
             >
               <RotateCcw className="mr-2 size-4" />
-              Clear
+              {language === 'bs' ? 'Očisti' : 'Clear'}
             </Button>
           ) : null}
           <Button type="button" variant="outline" onClick={() => void loadData()} disabled={isLoading}>
             {isLoading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-            Refresh
+            {t('dashboard.refresh')}
           </Button>
         </div>
       </div>
@@ -427,15 +440,15 @@ export default function MapPage() {
       {isLoading ? (
         <div className="flex h-[68vh] min-h-[420px] items-center justify-center rounded-lg border bg-muted/30 text-sm text-muted-foreground">
           <Loader2 className="mr-2 size-4 animate-spin" />
-          Loading map data...
+          {language === 'bs' ? 'Učitavanje podataka mape...' : 'Loading map data...'}
         </div>
       ) : error ? (
-        <EmptyState title="Map data unavailable" description={error} action={{ label: 'Retry', onClick: () => void loadData() }} />
+        <EmptyState title={language === 'bs' ? 'Podaci mape nisu dostupni' : 'Map data unavailable'} description={error} action={{ label: t('faultReports.retry'), onClick: () => void loadData() }} />
       ) : items.length === 0 ? (
         <EmptyState
-          title="No mapped interventions"
-          description="No interventions with validated coordinates match the selected filters."
-          action={{ label: 'Open interventions', onClick: () => { window.location.href = ROUTES.INTERVENTIONS; } }}
+          title={language === 'bs' ? 'Nema mapiranih intervencija' : 'No mapped interventions'}
+          description={language === 'bs' ? 'Nijedna intervencija s potvrđenim koordinatama ne odgovara odabranim filterima.' : 'No interventions with validated coordinates match the selected filters.'}
+          action={{ label: language === 'bs' ? 'Otvori intervencije' : 'Open interventions', onClick: () => { window.location.href = ROUTES.INTERVENTIONS; } }}
         />
       ) : (
         <InterventionMap items={items} selected={selected} onSelect={setSelected} />
