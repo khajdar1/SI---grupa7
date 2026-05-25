@@ -40,6 +40,7 @@ function makeFeedback(overrides: Partial<InterventionFeedback> = {}): Interventi
 describe('FeedbackSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
   });
 
   it('shows existing feedback to users who can read feedback', async () => {
@@ -99,5 +100,23 @@ describe('FeedbackSection', () => {
 
     expect(screen.queryByText('User Feedback')).not.toBeInTheDocument();
     expect(getFeedbackMock).not.toHaveBeenCalled();
+  });
+
+  it('uses Bosnian translations when the saved language is Bosnian', async () => {
+    window.localStorage.setItem('language', 'bs');
+    getFeedbackMock.mockResolvedValue(null);
+
+    render(
+      <FeedbackSection
+        interventionId={42}
+        interventionStatus={INTERVENTION_STATUS.RESOLVED}
+        canRead={false}
+        canSubmit
+      />,
+    );
+
+    expect(await screen.findByText('Feedback korisnika')).toBeInTheDocument();
+    expect(screen.getByText('Ocjena')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /posalji feedback/i })).toBeInTheDocument();
   });
 });

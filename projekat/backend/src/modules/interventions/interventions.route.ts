@@ -89,6 +89,27 @@ const ARCHIVABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.CANCELLED,
 ]);
 
+const FEEDBACK_NOTIFICATION_COPY = {
+  en: {
+    title: "Intervention resolved",
+    text: (name: string) =>
+      `Intervention "${name}" has been resolved. Please leave feedback about the service.`,
+  },
+  bs: {
+    title: "Intervencija zavrsena",
+    text: (name: string) =>
+      `Intervencija "${name}" je zavrsena. Molimo ostavite feedback o usluzi.`,
+  },
+} as const;
+
+type FeedbackNotificationLanguage = keyof typeof FEEDBACK_NOTIFICATION_COPY;
+
+function normalizeFeedbackNotificationLanguage(
+  language: string | null | undefined,
+): FeedbackNotificationLanguage {
+  return language === "bs" ? "bs" : "en";
+}
+
 function getCurrentMinute(): Date {
   const now = new Date();
   now.setSeconds(0, 0);
@@ -379,13 +400,20 @@ async function createFeedbackRequestNotificationOnce(input: {
     return;
   }
 
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = FEEDBACK_NOTIFICATION_COPY[language];
+
   await prisma.notification.create({
     data: {
       userId: input.reporterUserId,
       interventionId: input.interventionId,
       type: NotificationType.FEEDBACK_REQUEST,
-      title: "Intervention resolved",
-      text: `Intervention "${input.interventionName}" has been resolved. Please leave feedback about the service.`,
+      title: copy.title,
+      text: copy.text(input.interventionName),
     },
   });
 }

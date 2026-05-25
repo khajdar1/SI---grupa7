@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
+import { getStoredLanguage, translateKey } from '@/lib/i18n';
 
 import { getResponseData } from './errors';
 
@@ -30,7 +31,7 @@ export async function getInterventionFeedback(
 ): Promise<InterventionFeedback | null> {
   return getResponseData(
     () => api.get<InterventionFeedback | null>(API_ENDPOINTS.FEEDBACK.BY_INTERVENTION(interventionId)),
-    'Failed to load feedback.',
+    translateKey(getStoredLanguage(), 'feedback.loadError'),
   );
 }
 
@@ -40,6 +41,6 @@ export async function createInterventionFeedback(
 ): Promise<InterventionFeedback> {
   return getResponseData(
     () => api.post<InterventionFeedback>(API_ENDPOINTS.FEEDBACK.BY_INTERVENTION(interventionId), payload),
-    'Failed to submit feedback.',
+    translateKey(getStoredLanguage(), 'feedback.submitError'),
   );
 }
