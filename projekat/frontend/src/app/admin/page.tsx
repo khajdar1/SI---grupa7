@@ -30,11 +30,13 @@ import { ROUTES, UI } from '@/constants';
 import {
   clearFieldError,
   getApiFieldErrors,
+  translateValidationMessage,
   validateEmail,
   validatePersonName,
   validateRequiredSelection,
   validateSafeText,
 } from '@/lib/form-validation';
+import { useI18n } from '@/lib/i18n';
 import type { Company } from '@/models/Company';
 import { getCompanies } from '@/services/companies.service';
 import {
@@ -65,6 +67,24 @@ const ROLE_LABELS: Record<ManagedUserRole, string> = {
   ADMIN: 'Admin',
 };
 const NO_COMPANY_VALUE = 'NO_COMPANY';
+
+function getRoleLabel(role: ManagedUserRole, language: 'en' | 'bs') {
+  if (language !== 'bs') {
+    return ROLE_LABELS[role] ?? role;
+  }
+
+  const labels: Record<ManagedUserRole, string> = {
+    KORISNIK: 'Korisnik',
+    SERVISER: 'Serviser',
+    KOORDINATOR: 'Koordinator',
+    MENADZMENT: 'Menadžment',
+    KOMPANIJA_ADMIN: 'Admin kompanije',
+    SUPPORT_AGENT: 'Agent podrške',
+    ADMIN: 'Admin',
+  };
+
+  return labels[role] ?? role;
+}
 
 const emptyForm = {
   id: 0,
@@ -138,6 +158,7 @@ function getRoleBadgeVariant(role: ManagedUserRole | null): 'default' | 'seconda
 
 export default function AdminPage() {
   const router = useRouter();
+  const { language, t } = useI18n();
   const [users, setUsers] = useState<ManagedUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,12 +180,12 @@ export default function AdminPage() {
     const admins = users.filter((user) => user.role === 'ADMIN').length;
 
     return [
-      { title: 'Users', value: users.length },
-      { title: 'Active', value: activeUsers },
-      { title: 'Inactive', value: inactiveUsers },
-      { title: 'Admins', value: admins },
+      { title: language === 'bs' ? 'Korisnici' : 'Users', value: users.length },
+      { title: language === 'bs' ? 'Aktivno' : 'Active', value: activeUsers },
+      { title: language === 'bs' ? 'Neaktivno' : 'Inactive', value: inactiveUsers },
+      { title: language === 'bs' ? 'Admini' : 'Admins', value: admins },
     ];
-  }, [users]);
+  }, [language, users]);
 
   const loadAdminData = async () => {
     try {
@@ -174,7 +195,7 @@ export default function AdminPage() {
       setUsers(userList);
       setCompanies(companyList);
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Failed to load admin data.');
+      setError(requestError instanceof Error ? requestError.message : translateValidationMessage('Failed to load admin data.', language));
     } finally {
       setLoading(false);
     }
@@ -189,7 +210,7 @@ export default function AdminPage() {
     if (canUseAdmin) {
       void loadAdminData();
     } else {
-      window.sessionStorage.setItem('authRedirectMessage', 'You do not have permission to access the admin area.');
+      window.sessionStorage.setItem('authRedirectMessage', translateValidationMessage('You do not have permission to access the admin area.', language));
       router.replace(`${getUnauthorizedRedirectRoute(token)}?unauthorized=1`);
       setLoading(false);
     }
@@ -247,11 +268,11 @@ export default function AdminPage() {
       if (usernameError) nextErrors.username = usernameError;
 
       if (!formData.password) {
-        nextErrors.password = 'Password is required.';
+        nextErrors.password = translateValidationMessage('Password is required.', language);
       } else if (formData.password.length < 8) {
-        nextErrors.password = 'Password must be at least 8 characters.';
+        nextErrors.password = translateValidationMessage('Password must be at least 8 characters.', language);
       } else if (!/[0-9]/.test(formData.password) || !/[A-Z]/.test(formData.password)) {
-        nextErrors.password = 'Password must contain one uppercase letter and one number.';
+        nextErrors.password = translateValidationMessage('Password must contain one uppercase letter and one number.', language);
       }
     }
 
@@ -275,7 +296,7 @@ export default function AdminPage() {
     const nextErrors = validateForm();
     if (Object.keys(nextErrors).length > 0) {
       setFieldErrors(nextErrors);
-      setFormError('Please correct the highlighted fields.');
+      setFormError(translateValidationMessage('Please correct the highlighted fields.', language));
       setSaving(false);
       return;
     }
@@ -293,7 +314,7 @@ export default function AdminPage() {
           role: formData.role,
           companyId,
         });
-        setSuccessMessage('User created.');
+        setSuccessMessage(language === 'bs' ? 'Korisnik je kreiran.' : 'User created.');
       } else {
         await updateUser(formData.id, {
           firstName: formData.firstName,
@@ -302,7 +323,7 @@ export default function AdminPage() {
           role: formData.role,
           companyId,
         });
-        setSuccessMessage('User updated.');
+        setSuccessMessage(language === 'bs' ? 'Korisnik je ažuriran.' : 'User updated.');
       }
 
       resetForm();
@@ -317,7 +338,7 @@ export default function AdminPage() {
       );
 
       setFieldErrors(backendFieldErrors);
-      setFormError(requestError instanceof Error ? requestError.message : 'User save failed.');
+      setFormError(requestError instanceof Error ? requestError.message : translateValidationMessage('User save failed.', language));
     } finally {
       setSaving(false);
     }
@@ -331,18 +352,18 @@ export default function AdminPage() {
     try {
       if (pendingAction.type === 'activate') {
         await activateUser(pendingAction.user.id);
-        setSuccessMessage('User reactivated.');
+        setSuccessMessage(language === 'bs' ? 'Korisnik je reaktiviran.' : 'User reactivated.');
       } else if (pendingAction.type === 'deactivate') {
         await deactivateUser(pendingAction.user.id);
-        setSuccessMessage('User deactivated.');
+        setSuccessMessage(language === 'bs' ? 'Korisnik je deaktiviran.' : 'User deactivated.');
       } else {
         await deleteUser(pendingAction.user.id);
-        setSuccessMessage('User deleted.');
+        setSuccessMessage(language === 'bs' ? 'Korisnik je obrisan.' : 'User deleted.');
       }
 
       await loadAdminData();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Action failed.');
+      setError(requestError instanceof Error ? requestError.message : translateValidationMessage('Action failed.', language));
     } finally {
       setPendingAction(null);
     }
@@ -356,8 +377,8 @@ export default function AdminPage() {
     <PageLayout className="space-y-6">
       <PageHeader
         title="Admin"
-        subtitle="Account governance dashboard."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Admin' }]}
+        subtitle={language === 'bs' ? 'Kontrolna ploča za upravljanje korisničkim računima.' : 'Account governance dashboard.'}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: 'Admin' }]}
       />
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
@@ -372,8 +393,8 @@ export default function AdminPage() {
       <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle>{formMode === 'create' ? 'New User' : 'Edit User'}</CardTitle>
-            <CardDescription>{formMode === 'create' ? 'Create a Keycloak-backed account.' : formData.username}</CardDescription>
+            <CardTitle>{formMode === 'create' ? (language === 'bs' ? 'Novi korisnik' : 'New User') : (language === 'bs' ? 'Uredi korisnika' : 'Edit User')}</CardTitle>
+            <CardDescription>{formMode === 'create' ? (language === 'bs' ? 'Kreiraj korisnički račun povezan s Keycloakom.' : 'Create a Keycloak-backed account.') : formData.username}</CardDescription>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit} noValidate>
@@ -381,7 +402,7 @@ export default function AdminPage() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First name</Label>
+                  <Label htmlFor="firstName">{language === 'bs' ? 'Ime' : 'First name'}</Label>
                   <Input
                     id="firstName"
                     value={formData.firstName}
@@ -395,7 +416,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last name</Label>
+                  <Label htmlFor="lastName">{language === 'bs' ? 'Prezime' : 'Last name'}</Label>
                   <Input
                     id="lastName"
                     value={formData.lastName}
@@ -410,7 +431,7 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">{language === 'bs' ? 'Korisničko ime' : 'Username'}</Label>
                 <Input
                   id="username"
                   value={formData.username}
@@ -441,7 +462,7 @@ export default function AdminPage() {
 
               {formMode === 'create' ? (
                 <div className="space-y-2">
-                  <Label htmlFor="password">Temporary password</Label>
+                  <Label htmlFor="password">{language === 'bs' ? 'Privremena lozinka' : 'Temporary password'}</Label>
                   <Input
                     id="password"
                     type="password"
@@ -458,7 +479,7 @@ export default function AdminPage() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
+                  <Label htmlFor="role">{language === 'bs' ? 'Uloga' : 'Role'}</Label>
                   <Select
                     value={formData.role}
                     onValueChange={(value) => {
@@ -468,13 +489,13 @@ export default function AdminPage() {
                   >
                     <SelectTrigger id="role" className="w-full">
                       <SelectValue>
-                        {ROLE_LABELS[formData.role as ManagedUserRole] ?? formData.role}
+                        {getRoleLabel(formData.role as ManagedUserRole, language)}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {MANAGED_USER_ROLES.map((role) => (
                         <SelectItem key={role} value={role}>
-                          {ROLE_LABELS[role]}
+                          {getRoleLabel(role, language)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -482,7 +503,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="company">Company</Label>
+                  <Label htmlFor="company">{language === 'bs' ? 'Kompanija' : 'Company'}</Label>
                   <Select
                     value={formData.companyId || NO_COMPANY_VALUE}
                     onValueChange={(value) => {
@@ -496,12 +517,12 @@ export default function AdminPage() {
                     <SelectTrigger id="company" className="w-full" aria-invalid={Boolean(fieldErrors.companyId)}>
                       <SelectValue>
                         {formData.companyId
-                          ? (companies.find((c) => String(c.id) === formData.companyId)?.name ?? 'Select company')
-                          : 'No company'}
+                          ? (companies.find((c) => String(c.id) === formData.companyId)?.name ?? (language === 'bs' ? 'Odaberite kompaniju' : 'Select company'))
+                          : language === 'bs' ? 'Bez kompanije' : 'No company'}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_COMPANY_VALUE}>No company</SelectItem>
+                      <SelectItem value={NO_COMPANY_VALUE}>{language === 'bs' ? 'Bez kompanije' : 'No company'}</SelectItem>
                       {companies.map((company) => (
                         <SelectItem key={company.id} value={String(company.id)}>
                           {company.name}
@@ -516,12 +537,12 @@ export default function AdminPage() {
               <div className="flex flex-wrap gap-2">
                 <Button type="submit" disabled={saving}>
                   {formMode === 'create' ? <Plus className="size-4" aria-hidden="true" /> : <Save className="size-4" aria-hidden="true" />}
-                  {saving ? 'Saving...' : formMode === 'create' ? 'Create' : 'Save'}
+                  {saving ? (language === 'bs' ? 'Spremanje...' : 'Saving...') : formMode === 'create' ? (language === 'bs' ? 'Kreiraj' : 'Create') : (language === 'bs' ? 'Spremi' : 'Save')}
                 </Button>
                 {formMode === 'edit' ? (
                   <Button type="button" variant="outline" onClick={resetForm}>
                     <X className="size-4" aria-hidden="true" />
-                    Cancel
+                    {language === 'bs' ? 'Odustani' : 'Cancel'}
                   </Button>
                 ) : null}
               </div>
@@ -532,12 +553,16 @@ export default function AdminPage() {
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
-              <CardTitle>Users</CardTitle>
-              <CardDescription>Keycloak roles with local account status and company assignment.</CardDescription>
+              <CardTitle>{language === 'bs' ? 'Korisnici' : 'Users'}</CardTitle>
+              <CardDescription>
+                {language === 'bs'
+                  ? 'Keycloak uloge s lokalnim statusom računa i dodjelom kompanije.'
+                  : 'Keycloak roles with local account status and company assignment.'}
+              </CardDescription>
             </div>
             <Button type="button" variant="outline" size="sm" onClick={loadAdminData} disabled={loading}>
               <RefreshCw className="size-4" aria-hidden="true" />
-              Refresh
+              {language === 'bs' ? 'Osvježi' : 'Refresh'}
             </Button>
           </CardHeader>
           <CardContent>
@@ -545,7 +570,7 @@ export default function AdminPage() {
               columns={[
                 {
                   key: 'username',
-                  header: 'User',
+                  header: language === 'bs' ? 'Korisnik' : 'User',
                   render: (_, row) => (
                     <div className="min-w-44">
                       <p className="font-medium text-foreground">{row.firstName} {row.lastName}</p>
@@ -556,11 +581,11 @@ export default function AdminPage() {
                 },
                 {
                   key: 'role',
-                  header: 'Role',
+                  header: language === 'bs' ? 'Uloga' : 'Role',
                   width: UI.TABLE_COLUMN_WIDTHS.USER_ROLE,
                   render: (value) => (
                     <Badge variant={getRoleBadgeVariant(value as ManagedUserRole | null)}>
-                      {value ? ROLE_LABELS[value as ManagedUserRole] : 'Unmapped'}
+                      {value ? getRoleLabel(value as ManagedUserRole, language) : language === 'bs' ? 'Nemapirano' : 'Unmapped'}
                     </Badge>
                   ),
                 },
@@ -569,17 +594,19 @@ export default function AdminPage() {
                   header: 'Status',
                   width: UI.TABLE_COLUMN_WIDTHS.USER_STATUS,
                   render: (value) =>
-                    value ? <Badge variant="secondary">Active</Badge> : <Badge variant="destructive">Inactive</Badge>,
+                    value
+                      ? <Badge variant="secondary">{language === 'bs' ? 'Aktivan' : 'Active'}</Badge>
+                      : <Badge variant="destructive">{language === 'bs' ? 'Neaktivan' : 'Inactive'}</Badge>,
                 },
                 {
                   key: 'companyName',
-                  header: 'Company',
+                  header: language === 'bs' ? 'Kompanija' : 'Company',
                   width: UI.TABLE_COLUMN_WIDTHS.USER_COMPANY,
                   render: (value) => (value ? String(value) : '-'),
                 },
                 {
                   key: 'id',
-                  header: 'Actions',
+                  header: language === 'bs' ? 'Akcije' : 'Actions',
                   width: UI.TABLE_COLUMN_WIDTHS.USER_ACTIONS,
                   render: (_, row) => {
                     const isSelf = currentUserId === row.id;
@@ -587,7 +614,7 @@ export default function AdminPage() {
                       <div className="flex flex-wrap gap-2">
                         <Button type="button" variant="outline" size="sm" onClick={() => handleEdit(row)}>
                           <Pencil className="size-4" aria-hidden="true" />
-                          Edit
+                          {language === 'bs' ? 'Uredi' : 'Edit'}
                         </Button>
                         <Button
                           type="button"
@@ -597,7 +624,7 @@ export default function AdminPage() {
                           onClick={() => setPendingAction({ type: row.active ? 'deactivate' : 'activate', user: row })}
                         >
                           <Power className="size-4" aria-hidden="true" />
-                          {row.active ? 'Deactivate' : 'Activate'}
+                          {row.active ? (language === 'bs' ? 'Deaktiviraj' : 'Deactivate') : (language === 'bs' ? 'Aktiviraj' : 'Activate')}
                         </Button>
                         <Button
                           type="button"
@@ -607,7 +634,7 @@ export default function AdminPage() {
                           onClick={() => setPendingAction({ type: 'delete', user: row })}
                         >
                           <Trash2 className="size-4" aria-hidden="true" />
-                          Delete
+                          {language === 'bs' ? 'Obriši' : 'Delete'}
                         </Button>
                       </div>
                     );
@@ -619,8 +646,8 @@ export default function AdminPage() {
               isLoading={loading}
               error={error || null}
               onRetry={loadAdminData}
-              emptyTitle="No users"
-              emptyDescription="Create the first managed account."
+              emptyTitle={language === 'bs' ? 'Nema korisnika' : 'No users'}
+              emptyDescription={language === 'bs' ? 'Kreirajte prvi upravljani račun.' : 'Create the first managed account.'}
             />
           </CardContent>
         </Card>
@@ -632,24 +659,24 @@ export default function AdminPage() {
         onConfirm={handleConfirmedAction}
         title={
           pendingAction?.type === 'delete'
-            ? 'Delete user?'
+            ? language === 'bs' ? 'Obrisati korisnika?' : 'Delete user?'
             : pendingAction?.type === 'deactivate'
-              ? 'Deactivate user?'
-              : 'Reactivate user?'
+              ? language === 'bs' ? 'Deaktivirati korisnika?' : 'Deactivate user?'
+              : language === 'bs' ? 'Reaktivirati korisnika?' : 'Reactivate user?'
         }
         description={
           pendingAction?.type === 'delete'
-            ? 'Deletion is blocked when the user is linked to active interventions.'
+            ? language === 'bs' ? 'Brisanje je blokirano kada je korisnik povezan s aktivnim intervencijama.' : 'Deletion is blocked when the user is linked to active interventions.'
             : pendingAction?.type === 'deactivate'
-              ? 'The user will lose access immediately.'
-              : 'The user will be able to sign in again.'
+              ? language === 'bs' ? 'Korisnik će odmah izgubiti pristup.' : 'The user will lose access immediately.'
+              : language === 'bs' ? 'Korisnik će se ponovo moći prijaviti.' : 'The user will be able to sign in again.'
         }
         confirmLabel={
           pendingAction?.type === 'delete'
-            ? 'Delete'
+            ? language === 'bs' ? 'Obriši' : 'Delete'
             : pendingAction?.type === 'deactivate'
-              ? 'Deactivate'
-              : 'Reactivate'
+              ? language === 'bs' ? 'Deaktiviraj' : 'Deactivate'
+              : language === 'bs' ? 'Reaktiviraj' : 'Reactivate'
         }
         variant={pendingAction?.type === 'delete' ? 'danger' : 'warning'}
       />

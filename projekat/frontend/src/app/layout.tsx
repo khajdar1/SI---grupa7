@@ -5,6 +5,7 @@ import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 
 import { AppNavigation, AuthRedirectNotice } from '@/components/shared';
+import { I18nProvider } from '@/lib/i18n';
 import '@/styles/global.css';
 
 const inter = Inter({
@@ -26,13 +27,15 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={inter.variable}>
       <body>
-        <div className="min-h-screen bg-background">
-          <AppNavigation />
-          <Suspense fallback={null}>
-            <AuthRedirectNotice />
-          </Suspense>
-          <main className="mx-auto w-full max-w-[var(--content-max-width)] pb-10">{children}</main>
-        </div>
+        <I18nProvider>
+          <div className="min-h-screen bg-background">
+            <AppNavigation />
+            <Suspense fallback={null}>
+              <AuthRedirectNotice />
+            </Suspense>
+            <main className="mx-auto w-full max-w-[var(--content-max-width)] pb-10">{children}</main>
+          </div>
+        </I18nProvider>
       </body>
     </html>
   );

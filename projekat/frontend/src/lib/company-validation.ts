@@ -1,6 +1,7 @@
 import {
   validateEmail,
   validateSafeText,
+  translateValidationMessage,
   type FieldErrors,
 } from './form-validation';
 
@@ -49,7 +50,7 @@ export function validateCompanyForm(data: CompanyFormData): FieldErrors {
 
   const phone = data.phone.trim();
   if (phone && !PHONE_REGEX.test(phone)) {
-    errors.phone = 'Phone number format is invalid.';
+    errors.phone = translateValidationMessage('Phone number format is invalid.');
   }
 
   const addressError = validateSafeText(data.address, { maxLength: 200 });

@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { hasSessionRole } from '@/lib/auth';
+import { translateText, useI18n, type LanguageCode } from '@/lib/i18n';
 import {
   blockUser,
   getBlockedUsers,
@@ -27,11 +28,67 @@ import {
 } from '@/services/blocking.service';
 
 const COORDINATOR_ROLES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
-
 const MAX_REASON_LENGTH = 1000;
 
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat('bs-BA', {
+const copy = {
+  en: {
+    title: 'Blocked Users',
+    blockUser: 'Block user',
+    listTitle: 'Blocked users list',
+    empty: 'No blocked users.',
+    accessDenied: 'You do not have permission to access this page.',
+    loadError: 'Failed to load blocked users.',
+    unblockError: 'Failed to unblock user.',
+    usernameRequired: 'Username is required.',
+    reasonRequired: 'Reason is required.',
+    blockError: 'Failed to block user.',
+    blockedBy: 'Blocked by',
+    unblock: 'Unblock',
+    blockDialogTitle: 'Block user',
+    blockDialogDescription: 'Enter the username and reason for blocking. The blocked user will not be able to submit fault reports to your company.',
+    username: 'Username',
+    usernamePlaceholder: 'e.g. user1',
+    reason: 'Blocking reason',
+    reasonPlaceholder: 'Describe the blocking reason...',
+    cancel: 'Cancel',
+    blocking: 'Blocking...',
+    block: 'Block',
+    confirmUnblock: 'Confirm unblock',
+    unblockDescriptionStart: 'Are you sure you want to unblock user',
+    unblockDescriptionEnd: 'The user will be able to submit fault reports again immediately.',
+    unblocking: 'Unblocking...',
+  },
+  bs: {
+    title: 'Blokirani korisnici',
+    blockUser: 'Blokiraj korisnika',
+    listTitle: 'Lista blokiranih korisnika',
+    empty: 'Nema blokiranih korisnika.',
+    accessDenied: 'Nemate dozvolu za pristup ovoj stranici.',
+    loadError: 'Ucitavanje blokiranih korisnika nije uspjelo.',
+    unblockError: 'Deblokiranje korisnika nije uspjelo.',
+    usernameRequired: 'Korisnicko ime je obavezno.',
+    reasonRequired: 'Razlog je obavezan.',
+    blockError: 'Blokiranje korisnika nije uspjelo.',
+    blockedBy: 'Blokirao',
+    unblock: 'Deblokiraj',
+    blockDialogTitle: 'Blokiraj korisnika',
+    blockDialogDescription: 'Unesite korisnicko ime i razlog blokiranja. Blokirani korisnik nece moci podnositi prijave kvarova vasoj kompaniji.',
+    username: 'Korisnicko ime',
+    usernamePlaceholder: 'npr. korisnik1',
+    reason: 'Razlog blokiranja',
+    reasonPlaceholder: 'Opisite razlog blokiranja...',
+    cancel: 'Odustani',
+    blocking: 'Blokiranje...',
+    block: 'Blokiraj',
+    confirmUnblock: 'Potvrdi deblokiranje',
+    unblockDescriptionStart: 'Da li ste sigurni da zelite deblokirati korisnika',
+    unblockDescriptionEnd: 'Korisnik ce odmah moci ponovo podnositi prijave kvarova.',
+    unblocking: 'Deblokiranje...',
+  },
+} as const;
+
+function formatDateTime(value: string, language: LanguageCode): string {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value));
@@ -68,6 +125,8 @@ const INITIAL_UNBLOCK_STATE: UnblockDialogState = {
 };
 
 export default function BlockedUsersPage() {
+  const { language } = useI18n();
+  const text = copy[language];
   const [blocks, setBlocks] = useState<BlockRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +142,7 @@ export default function BlockedUsersPage() {
       const data = await getBlockedUsers();
       setBlocks(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load blocked users.');
+      setError(err instanceof Error ? translateText(language, err.message) : text.loadError);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +150,7 @@ export default function BlockedUsersPage() {
 
   useEffect(() => {
     void loadBlocks();
-  }, []);
+  }, [language]);
 
   const openBlockDialog = () => setBlockDialog({ ...INITIAL_BLOCK_STATE, isOpen: true });
 
@@ -99,24 +158,27 @@ export default function BlockedUsersPage() {
 
   const handleBlock = async () => {
     if (!blockDialog.username.trim()) {
-      setBlockDialog((prev) => ({ ...prev, error: 'Korisničko ime je obavezno.' }));
+      setBlockDialog((prev) => ({ ...prev, error: text.usernameRequired }));
       return;
     }
     if (!blockDialog.reason.trim()) {
-      setBlockDialog((prev) => ({ ...prev, error: 'Razlog je obavezan.' }));
+      setBlockDialog((prev) => ({ ...prev, error: text.reasonRequired }));
       return;
     }
 
     setBlockDialog((prev) => ({ ...prev, isLoading: true, error: null }));
     try {
-      const newBlock = await blockUser({ username: blockDialog.username.trim(), reason: blockDialog.reason.trim() });
+      const newBlock = await blockUser({
+        username: blockDialog.username.trim(),
+        reason: blockDialog.reason.trim(),
+      });
       setBlocks((prev) => [newBlock, ...prev]);
       closeBlockDialog();
     } catch (err: unknown) {
       setBlockDialog((prev) => ({
         ...prev,
         isLoading: false,
-        error: err instanceof Error ? err.message : 'Neuspješno blokiranje korisnika.',
+        error: err instanceof Error ? translateText(language, err.message) : text.blockError,
       }));
     }
   };
@@ -141,7 +203,7 @@ export default function BlockedUsersPage() {
       setBlocks((prev) => prev.filter((b) => b.id !== unblockDialog.blockId));
       closeUnblockDialog();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to unblock user.');
+      setError(err instanceof Error ? translateText(language, err.message) : text.unblockError);
       closeUnblockDialog();
     }
   };
@@ -149,10 +211,8 @@ export default function BlockedUsersPage() {
   if (!canManage) {
     return (
       <PageLayout>
-        <PageHeader title="Blokirani korisnici" />
-        <p className="text-muted-foreground mt-4">
-          Nemate dozvolu za pristup ovoj stranici.
-        </p>
+        <PageHeader title={text.title} />
+        <p className="text-muted-foreground mt-4">{text.accessDenied}</p>
       </PageLayout>
     );
   }
@@ -160,20 +220,18 @@ export default function BlockedUsersPage() {
   return (
     <PageLayout>
       <PageHeader
-        title="Blokirani korisnici"
+        title={text.title}
         primaryAction={{
-          label: 'Blokiraj korisnika',
+          label: text.blockUser,
           onClick: openBlockDialog,
         }}
       />
 
-      {error && (
-        <p className="text-destructive text-sm mb-4">{error}</p>
-      )}
+      {error ? <p className="text-destructive text-sm mb-4">{error}</p> : null}
 
       <Card>
         <CardHeader>
-          <CardTitle>Lista blokiranih korisnika</CardTitle>
+          <CardTitle>{text.listTitle}</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -183,9 +241,7 @@ export default function BlockedUsersPage() {
               ))}
             </div>
           ) : blocks.length === 0 ? (
-            <p className="text-muted-foreground text-sm py-6 text-center">
-              Nema blokiranih korisnika.
-            </p>
+            <p className="text-muted-foreground text-sm py-6 text-center">{text.empty}</p>
           ) : (
             <div className="divide-y">
               {blocks.map((block) => (
@@ -199,16 +255,12 @@ export default function BlockedUsersPage() {
                     </div>
                     <div className="text-sm text-muted-foreground truncate">{block.reason}</div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Blokirao: {block.coordinator.username} &middot;{' '}
-                      {formatDateTime(block.blockedAt)}
+                      {text.blockedBy}: {block.coordinator.username} &middot;{' '}
+                      {formatDateTime(block.blockedAt, language)}
                     </div>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openUnblockDialog(block)}
-                  >
-                    Deblokiraj
+                  <Button variant="outline" size="sm" onClick={() => openUnblockDialog(block)}>
+                    {text.unblock}
                   </Button>
                 </div>
               ))}
@@ -217,24 +269,20 @@ export default function BlockedUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Block user dialog */}
       <Dialog open={blockDialog.isOpen} onOpenChange={(open) => !open && closeBlockDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Blokiraj korisnika</DialogTitle>
-            <DialogDescription>
-              Unesite ID korisnika i razlog blokiranja. Blokirani korisnik neće moći
-              podnositi prijave kvarova vašoj kompaniji.
-            </DialogDescription>
+            <DialogTitle>{text.blockDialogTitle}</DialogTitle>
+            <DialogDescription>{text.blockDialogDescription}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1">
-              <Label htmlFor="block-username">Korisničko ime</Label>
+              <Label htmlFor="block-username">{text.username}</Label>
               <Input
                 id="block-username"
                 type="text"
-                placeholder="npr. korisnik1"
+                placeholder={text.usernamePlaceholder}
                 value={blockDialog.username}
                 onChange={(e) =>
                   setBlockDialog((prev) => ({ ...prev, username: e.target.value, error: null }))
@@ -243,10 +291,10 @@ export default function BlockedUsersPage() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="block-reason">Razlog blokiranja</Label>
+              <Label htmlFor="block-reason">{text.reason}</Label>
               <Textarea
                 id="block-reason"
-                placeholder="Opišite razlog blokiranja..."
+                placeholder={text.reasonPlaceholder}
                 maxLength={MAX_REASON_LENGTH}
                 rows={3}
                 value={blockDialog.reason}
@@ -259,35 +307,29 @@ export default function BlockedUsersPage() {
               </p>
             </div>
 
-            {blockDialog.error && (
+            {blockDialog.error ? (
               <p className="text-destructive text-sm">{blockDialog.error}</p>
-            )}
+            ) : null}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={closeBlockDialog} disabled={blockDialog.isLoading}>
-              Odustani
+              {text.cancel}
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBlock}
-              disabled={blockDialog.isLoading}
-            >
-              {blockDialog.isLoading ? 'Blokiranje...' : 'Blokiraj'}
+            <Button variant="destructive" onClick={handleBlock} disabled={blockDialog.isLoading}>
+              {blockDialog.isLoading ? text.blocking : text.block}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Unblock confirm dialog */}
       <Dialog open={unblockDialog.isOpen} onOpenChange={(open) => !open && closeUnblockDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Potvrdi deblokiranje</DialogTitle>
+            <DialogTitle>{text.confirmUnblock}</DialogTitle>
             <DialogDescription>
-              Da li ste sigurni da želite deblokirat korisnika{' '}
-              <strong>{unblockDialog.username}</strong>? Korisnik će odmah moći ponovo
-              podnositi prijave kvarova.
+              {text.unblockDescriptionStart}{' '}
+              <strong>{unblockDialog.username}</strong>? {text.unblockDescriptionEnd}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -296,10 +338,10 @@ export default function BlockedUsersPage() {
               onClick={closeUnblockDialog}
               disabled={unblockDialog.isLoading}
             >
-              Odustani
+              {text.cancel}
             </Button>
             <Button onClick={handleUnblock} disabled={unblockDialog.isLoading}>
-              {unblockDialog.isLoading ? 'Deblokiranje...' : 'Deblokiraj'}
+              {unblockDialog.isLoading ? text.unblocking : text.unblock}
             </Button>
           </DialogFooter>
         </DialogContent>

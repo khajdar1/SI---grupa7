@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/constants';
 import { api } from '@/lib/api';
+import type { LanguageCode } from '@/lib/i18n';
 
 import { getResponseData } from './errors';
 
@@ -9,6 +10,7 @@ export interface UserProfile {
   lastName: string;
   username: string;
   email: string;
+  language: LanguageCode;
   active: boolean;
 }
 
@@ -16,6 +18,7 @@ export interface UpdateProfileInput {
   firstName: string;
   lastName: string;
   email: string;
+  language: LanguageCode;
 }
 
 export interface ChangePasswordInput {

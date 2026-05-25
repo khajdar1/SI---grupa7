@@ -31,6 +31,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  translateCategoryName,
+  translateInterventionStatus,
+  useI18n,
+  type LanguageCode,
+} from '@/lib/i18n';
+import {
   getInterventionById,
   getInterventionHistory,
   getInterventions,
@@ -48,15 +54,17 @@ const WITH_REPORT = 'WITH_REPORT';
 const WITHOUT_REPORT = 'WITHOUT_REPORT';
 const UNKNOWN_REPORT = 'UNKNOWN_REPORT';
 
-const STATUS_FILTERS = [
+function buildStatusFilters(language: LanguageCode) {
+  return [
   { value: ALL, label: 'All statuses' },
-  { value: INTERVENTION_STATUS.NEW, label: 'Open' },
-  { value: INTERVENTION_STATUS.ASSIGNED, label: 'Assigned' },
-  { value: INTERVENTION_STATUS.IN_PROGRESS, label: 'In progress' },
-  { value: INTERVENTION_STATUS.RESOLVED, label: 'Resolved' },
-  { value: INTERVENTION_STATUS.CANCELLED, label: 'Cancelled' },
-  { value: INTERVENTION_STATUS.REJECTED, label: 'Rejected' },
-];
+  { value: INTERVENTION_STATUS.NEW, label: translateInterventionStatus(language, INTERVENTION_STATUS.NEW) },
+  { value: INTERVENTION_STATUS.ASSIGNED, label: translateInterventionStatus(language, INTERVENTION_STATUS.ASSIGNED) },
+  { value: INTERVENTION_STATUS.IN_PROGRESS, label: translateInterventionStatus(language, INTERVENTION_STATUS.IN_PROGRESS) },
+  { value: INTERVENTION_STATUS.RESOLVED, label: translateInterventionStatus(language, INTERVENTION_STATUS.RESOLVED) },
+  { value: INTERVENTION_STATUS.CANCELLED, label: translateInterventionStatus(language, INTERVENTION_STATUS.CANCELLED) },
+  { value: INTERVENTION_STATUS.REJECTED, label: translateInterventionStatus(language, INTERVENTION_STATUS.REJECTED) },
+  ];
+}
 
 const PRIORITY_FILTERS = [
   { value: ALL, label: 'All priorities' },
@@ -98,22 +106,22 @@ type ReportRow = ReportIntervention & {
   isReportKnown: boolean;
 };
 
-function formatDateTime(value: string | null | undefined) {
+function formatDateTime(value: string | null | undefined, language: LanguageCode) {
   if (!value) return '-';
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '-';
 
-  return new Intl.DateTimeFormat('en-US', {
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date);
 }
 
-function getReportLabel(row: ReportRow) {
-  if (!row.isReportKnown) return 'Checking';
-  if (row.reportError) return 'Unavailable';
-  return row.report ? 'Submitted' : 'Missing';
+function getReportLabel(row: ReportRow, language: LanguageCode) {
+  if (!row.isReportKnown) return language === 'bs' ? 'Provjera' : 'Checking';
+  if (row.reportError) return language === 'bs' ? 'Nedostupno' : 'Unavailable';
+  return row.report ? (language === 'bs' ? 'Poslan' : 'Submitted') : (language === 'bs' ? 'Nedostaje' : 'Missing');
 }
 
 function getSelectedIdFromUrl() {
@@ -164,6 +172,7 @@ async function loadAllHistoryInterventions(): Promise<ReportIntervention[]> {
 }
 
 export default function ReportsPage() {
+  const { language, t } = useI18n();
   const [interventions, setInterventions] = useState<ReportIntervention[]>([]);
   const [selectedIntervention, setSelectedIntervention] =
     useState<ReportIntervention | null>(null);
@@ -385,19 +394,19 @@ export default function ReportsPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Reports"
-        subtitle="Review submitted intervention reports and follow up on missing documentation."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Reports' }]}
+        title={t('nav.reports')}
+        subtitle={language === 'bs' ? 'Pregledajte poslane izvještaje intervencija i pratite dokumentaciju koja nedostaje.' : 'Review submitted intervention reports and follow up on missing documentation.'}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('nav.reports') }]}
         secondaryActions={[
           {
-            label: 'History',
+            label: t('nav.history'),
             href: ROUTES.HISTORY,
             variant: 'outline',
             icon: <Hourglass className="mr-2 h-4 w-4" />,
           },
         ]}
         primaryAction={{
-          label: 'Refresh',
+          label: t('dashboard.refresh'),
           onClick: loadData,
           isLoading: isLoading || isLoadingReports,
           icon: <BarChart2 className="mr-2 h-4 w-4" />,
@@ -406,25 +415,25 @@ export default function ReportsPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title="Interventions"
+          title={t('nav.interventions')}
           value={rows.length}
           isLoading={isLoading}
           icon={<ClipboardList className="size-5" />}
         />
         <StatCard
-          title="Submitted reports"
+          title={language === 'bs' ? 'Poslani izvještaji' : 'Submitted reports'}
           value={submittedCount}
           isLoading={isLoading || isLoadingReports}
           icon={<CheckCircle2 className="size-5" />}
         />
         <StatCard
-          title="Missing reports"
+          title={language === 'bs' ? 'Izvještaji koji nedostaju' : 'Missing reports'}
           value={missingCount}
           isLoading={isLoading || isLoadingReports}
           icon={<FileText className="size-5" />}
         />
         <StatCard
-          title="Selected"
+          title={language === 'bs' ? 'Odabrano' : 'Selected'}
           value={selectedInterventionId ? `#${selectedInterventionId}` : '-'}
           isLoading={isLoading}
           icon={<ExternalLink className="size-5" />}
@@ -435,29 +444,45 @@ export default function ReportsPage() {
         search={{
           value: search,
           onChange: setSearch,
-          placeholder: 'Search intervention, location, owner...',
+          placeholder: language === 'bs' ? 'Pretraži intervenciju, lokaciju, odgovornu osobu...' : 'Search intervention, location, owner...',
         }}
         filters={[
           {
             key: 'report-state',
-            label: 'Report',
+            label: t('nav.reports'),
             value: selectedReportState,
             onChange: setSelectedReportState,
-            options: REPORT_FILTERS,
+            options: REPORT_FILTERS.map((option) => ({
+              ...option,
+              label: option.value === ALL ? (language === 'bs' ? 'Svi izvještaji' : option.label)
+                : option.value === WITH_REPORT ? (language === 'bs' ? 'Poslan' : option.label)
+                : option.value === WITHOUT_REPORT ? (language === 'bs' ? 'Nedostaje' : option.label)
+                : (language === 'bs' ? 'Nije provjereno' : option.label),
+            })),
           },
           {
             key: 'status',
-            label: 'Status',
+            label: t('interventionDetail.status'),
             value: selectedStatus,
             onChange: setSelectedStatus,
-            options: STATUS_FILTERS,
+            options: buildStatusFilters(language).map((option) => ({
+              ...option,
+              label: option.value === ALL && language === 'bs' ? 'Svi statusi' : option.label,
+            })),
           },
           {
             key: 'priority',
-            label: 'Priority',
+            label: t('interventionDetail.priority'),
             value: selectedPriority,
             onChange: setSelectedPriority,
-            options: PRIORITY_FILTERS,
+            options: PRIORITY_FILTERS.map((option) => ({
+              ...option,
+              label: option.value === ALL ? (language === 'bs' ? 'Svi prioriteti' : option.label)
+                : option.value === PRIORITY.CRITICAL ? t('priority.critical')
+                : option.value === PRIORITY.HIGH ? t('priority.high')
+                : option.value === PRIORITY.MEDIUM ? t('priority.medium')
+                : t('priority.low'),
+            })),
           },
         ]}
         isFiltered={isFiltered}
@@ -469,7 +494,7 @@ export default function ReportsPage() {
           columns={[
             {
               key: 'name',
-              header: 'Intervention',
+              header: t('nav.interventions'),
               render: (_value, row) => (
                 <div className="min-w-0">
                   <p className="font-medium text-foreground">#{row.id}</p>
@@ -479,35 +504,35 @@ export default function ReportsPage() {
                 </div>
               ),
             },
-            { key: 'location', header: 'Location' },
-            { key: 'categoryName', header: 'Category' },
+            { key: 'location', header: t('interventionDetail.location') },
+            { key: 'categoryName', header: t('interventionDetail.category'), render: (value) => translateCategoryName(language, String(value)) },
             {
               key: 'priority',
-              header: 'Priority',
+              header: t('interventionDetail.priority'),
               render: (value) => <PriorityBadge priority={value as Priority} />,
             },
             {
               key: 'status',
-              header: 'Status',
+              header: t('interventionDetail.status'),
               render: (value) => (
                 <InterventionStatusBadge status={value as InterventionStatus} />
               ),
             },
             {
               key: 'report',
-              header: 'Report',
+              header: t('nav.reports'),
               render: (_value, row) => (
                 <Badge
                   variant={row.reportError ? 'destructive' : row.report ? 'default' : 'outline'}
                 >
-                  {getReportLabel(row)}
+                  {getReportLabel(row, language)}
                 </Badge>
               ),
             },
             {
               key: 'reportDate',
-              header: 'Saved',
-              render: (_value, row) => formatDateTime(row.report?.reportDate),
+              header: language === 'bs' ? 'Spremljeno' : 'Saved',
+              render: (_value, row) => formatDateTime(row.report?.reportDate, language),
             },
             {
               key: 'actions',
@@ -523,7 +548,7 @@ export default function ReportsPage() {
                     selectRow(row);
                   }}
                 >
-                  View
+                  {language === 'bs' ? 'Pregled' : 'View'}
                 </Button>
               ),
             },
@@ -534,13 +559,14 @@ export default function ReportsPage() {
           error={error}
           onRetry={loadData}
           onRowClick={selectRow}
-          emptyTitle="No reports match the filters"
-          emptyDescription="Adjust filters or refresh the reporting overview."
+          emptyTitle={language === 'bs' ? 'Nema izvještaja za odabrane filtere' : 'No reports match the filters'}
+          emptyDescription={language === 'bs' ? 'Promijenite filtere ili osvježite pregled izvještaja.' : 'Adjust filters or refresh the reporting overview.'}
         />
 
         <ReportPreview
           row={selectedRow}
           isLoading={isLoading || (Boolean(selectedInterventionId) && isLoadingReports)}
+          language={language}
         />
       </section>
     </PageLayout>
@@ -550,15 +576,17 @@ export default function ReportsPage() {
 function ReportPreview({
   row,
   isLoading,
+  language,
 }: {
   row: ReportRow | null;
   isLoading: boolean;
+  language: LanguageCode;
 }) {
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Report Preview</CardTitle>
+          <CardTitle>{language === 'bs' ? 'Pregled izvještaja' : 'Report Preview'}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 5 }, (_, index) => (
@@ -572,8 +600,8 @@ function ReportPreview({
   if (!row) {
     return (
       <EmptyState
-        title="Select an intervention"
-        description="Choose a row from the report overview to inspect the submitted report."
+        title={language === 'bs' ? 'Odaberite intervenciju' : 'Select an intervention'}
+        description={language === 'bs' ? 'Odaberite red iz pregleda izvještaja za pregled poslanog izvještaja.' : 'Choose a row from the report overview to inspect the submitted report.'}
       />
     );
   }
@@ -581,10 +609,10 @@ function ReportPreview({
   if (row.reportError) {
     return (
       <EmptyState
-        title="Report unavailable"
+        title={language === 'bs' ? 'Izvještaj nije dostupan' : 'Report unavailable'}
         description={row.reportError}
         action={{
-          label: 'Open intervention',
+          label: language === 'bs' ? 'Otvori intervenciju' : 'Open intervention',
           onClick: () => {
             window.location.href = ROUTES.INTERVENTION(row.id);
           },
@@ -598,13 +626,13 @@ function ReportPreview({
       <CardHeader className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle>Intervention #{row.id}</CardTitle>
+            <CardTitle>{language === 'bs' ? 'Intervencija' : 'Intervention'} #{row.id}</CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">{row.name}</p>
           </div>
           <Button variant="outline" size="sm" asChild>
             <Link href={ROUTES.INTERVENTION(row.id)}>
               <ExternalLink className="mr-2 h-4 w-4" />
-              Open
+              {language === 'bs' ? 'Otvori' : 'Open'}
             </Link>
           </Button>
         </div>
@@ -612,19 +640,19 @@ function ReportPreview({
           <InterventionStatusBadge status={row.status} />
           <PriorityBadge priority={row.priority} />
           <Badge variant={row.report ? 'default' : 'outline'}>
-            {row.report ? 'Submitted' : 'Missing'}
+            {row.report ? (language === 'bs' ? 'Poslan' : 'Submitted') : (language === 'bs' ? 'Nedostaje' : 'Missing')}
           </Badge>
         </div>
       </CardHeader>
 
       <CardContent className="space-y-5">
         <div className="grid gap-3 text-sm sm:grid-cols-2">
-          <InfoItem label="Company" value={row.companyName} />
-          <InfoItem label="Category" value={row.categoryName} />
-          <InfoItem label="Location" value={row.location} />
-          <InfoItem label="Owner" value={row.owner} />
-          <InfoItem label="Started" value={formatDateTime(row.startedAt)} />
-          <InfoItem label="Due" value={formatDateTime(row.dueAt)} />
+          <InfoItem label={language === 'bs' ? 'Kompanija' : 'Company'} value={row.companyName} />
+          <InfoItem label={language === 'bs' ? 'Kategorija' : 'Category'} value={translateCategoryName(language, row.categoryName)} />
+          <InfoItem label={language === 'bs' ? 'Lokacija' : 'Location'} value={row.location} />
+          <InfoItem label={language === 'bs' ? 'Odgovorna osoba' : 'Owner'} value={row.owner} />
+          <InfoItem label={language === 'bs' ? 'Početak' : 'Started'} value={formatDateTime(row.startedAt, language)} />
+          <InfoItem label={language === 'bs' ? 'Rok' : 'Due'} value={formatDateTime(row.dueAt, language)} />
         </div>
 
         {row.report ? (
@@ -635,21 +663,21 @@ function ReportPreview({
                 {row.report.author.firstName} {row.report.author.lastName}
               </p>
               <p className="text-xs text-muted-foreground">
-                Saved {formatDateTime(row.report.reportDate)}
+                {language === 'bs' ? 'Spremljeno' : 'Saved'} {formatDateTime(row.report.reportDate, language)}
               </p>
             </div>
 
-            <ReportTextBlock label="Work Description" value={row.report.description} />
+            <ReportTextBlock label={language === 'bs' ? 'Opis rada' : 'Work Description'} value={row.report.description} />
             {row.report.material ? (
-              <ReportTextBlock label="Materials Used" value={row.report.material} />
+              <ReportTextBlock label={language === 'bs' ? 'Korišteni materijali' : 'Materials Used'} value={row.report.material} />
             ) : null}
             {row.report.notes ? (
-              <ReportTextBlock label="Notes" value={row.report.notes} />
+              <ReportTextBlock label={language === 'bs' ? 'Bilješke' : 'Notes'} value={row.report.notes} />
             ) : null}
           </div>
         ) : (
           <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
-            This intervention does not have a submitted report yet.
+            {language === 'bs' ? 'Ova intervencija još nema poslan izvještaj.' : 'This intervention does not have a submitted report yet.'}
           </p>
         )}
       </CardContent>

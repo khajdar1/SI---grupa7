@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getComments, createComment, type Comment } from '@/services/comments.service';
+import { translateText, useI18n } from '@/lib/i18n';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -75,10 +76,10 @@ function getSessionInfo(): { canComment: boolean; displayName: string } {
   return { canComment, displayName };
 }
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string, language: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '-';
-  return date.toLocaleString('en-US', {
+  return date.toLocaleString(language === 'bs' ? 'bs-BA' : 'en-US', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -98,6 +99,7 @@ interface CommentsSectionProps {
 }
 
 export function CommentsSection({ interventionId }: CommentsSectionProps) {
+  const { language, t } = useI18n();
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +117,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       const data = await getComments(String(interventionId));
       setComments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load comments.');
+      setError(err instanceof Error ? translateText(language, err.message) : t('comments.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -147,7 +149,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       setComments((prev) => [...prev, newComment]);
       setText('');
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to send comment.');
+      setSubmitError(err instanceof Error ? translateText(language, err.message) : t('comments.sendFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -164,7 +166,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MessageCircle className="h-5 w-5" />
-          Comments
+          {t('comments.title')}
           {comments.length > 0 && (
             <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
               {comments.length}
@@ -191,7 +193,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
           ) : comments.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
               <MessageCircle className="h-8 w-8 opacity-40" />
-              <p className="text-sm">No comments yet. Be the first to comment.</p>
+              <p className="text-sm">{t('comments.empty')}</p>
             </div>
           ) : (
             comments.map((comment) => (
@@ -209,7 +211,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
                     </span>
                     <span className="text-xs text-muted-foreground">@{comment.author.username}</span>
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {formatDateTime(comment.createdAt)}
+                      {formatDateTime(comment.createdAt, language)}
                     </span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">{comment.text}</p>
@@ -237,7 +239,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Write a comment... (Ctrl+Enter to send)"
+                  placeholder={t('comments.placeholder')}
                   rows={3}
                   disabled={isSubmitting}
                   className="resize-none flex-1"
@@ -248,7 +250,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
                   size="icon"
                   onClick={() => void handleSubmit()}
                   disabled={!text.trim() || isSubmitting}
-                  title="Send comment (Ctrl+Enter)"
+                  title={t('comments.sendTitle')}
                   className="self-end"
                 >
                   <Send className="h-4 w-4" />
@@ -262,7 +264,7 @@ export function CommentsSection({ interventionId }: CommentsSectionProps) {
           </div>
         ) : (
           <p className="border-t pt-4 text-center text-xs text-muted-foreground">
-            Only intervention participants can add comments.
+            {t('comments.participantsOnly')}
           </p>
         )}
       </CardContent>

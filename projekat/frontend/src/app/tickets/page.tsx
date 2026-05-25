@@ -25,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { EmptyState, PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
 import { getSessionRoles } from '@/lib/auth';
+import { useI18n } from '@/lib/i18n';
 import {
   createTicket,
   getTicketCategories,
@@ -33,13 +34,6 @@ import {
   type TicketListItem,
   type TicketStatus,
 } from '@/services/tickets.service';
-
-const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: 'Open',
-  IN_PROGRESS: 'In progress',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
-};
 
 const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   OPEN: 'default',
@@ -52,15 +46,24 @@ const ADMIN_ROLE_NAMES = new Set(['admin', 'administrator']);
 const SUPPORT_AGENT_ROLE_NAMES = new Set(['supportagent', 'agentpodrske']);
 
 function TicketStatusBadge({ status, blocked }: { status: TicketStatus; blocked?: boolean }) {
+  const { t } = useI18n();
+
   if (blocked) {
-    return <Badge variant="destructive">Blocked</Badge>;
+    return <Badge variant="destructive">{t('tickets.blocked')}</Badge>;
   }
 
   return (
     <Badge variant={STATUS_VARIANTS[status]}>
-      {STATUS_LABELS[status]}
+      {getStatusLabel(status, t)}
     </Badge>
   );
+}
+
+function getStatusLabel(status: TicketStatus, t: ReturnType<typeof useI18n>['t']): string {
+  if (status === 'OPEN') return t('status.open');
+  if (status === 'IN_PROGRESS') return t('status.inProgress');
+  if (status === 'RESOLVED') return t('status.resolved');
+  return t('status.closed');
 }
 
 interface CreateTicketFormState {
@@ -74,6 +77,7 @@ const INITIAL_FORM: CreateTicketFormState = { title: '', categoryId: '', message
 function TicketsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
   const [tickets, setTickets] = useState<TicketListItem[]>([]);
   const [ticketCategories, setTicketCategories] = useState<TicketCategory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,7 +119,7 @@ function TicketsPageContent() {
       const data = await getUserTickets();
       setTickets(data);
     } catch {
-      setError('Unable to load tickets. Please try again.');
+      setError(t('tickets.loadError'));
     } finally {
       setLoading(false);
     }
@@ -139,18 +143,18 @@ function TicketsPageContent() {
     e.preventDefault();
 
     if (!form.title.trim() || form.title.trim().length < 3) {
-      setFormError('Title must be at least 3 characters.');
+      setFormError(t('tickets.titleMin'));
       return;
     }
 
     const categoryId = Number(form.categoryId);
     if (!Number.isInteger(categoryId) || categoryId <= 0) {
-      setFormError('Select a request category.');
+      setFormError(t('tickets.categoryRequired'));
       return;
     }
 
     if (!form.message.trim()) {
-      setFormError('Problem description is required.');
+      setFormError(t('tickets.descriptionRequired'));
       return;
     }
 
@@ -166,7 +170,7 @@ function TicketsPageContent() {
       setForm(INITIAL_FORM);
       setDialogOpen(false);
     } catch {
-      setFormError('Unable to create ticket. Please try again.');
+      setFormError(t('tickets.createError'));
     } finally {
       setSubmitting(false);
     }
@@ -186,13 +190,13 @@ function TicketsPageContent() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Support Tickets"
-        subtitle="Track your support requests."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Tickets' }]}
+        title={t('tickets.title')}
+        subtitle={t('tickets.subtitle')}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: t('tickets.breadcrumb') }]}
         primaryAction={
           canCreateTicket
             ? {
-                label: 'New ticket',
+                label: t('tickets.newTicket'),
                 onClick: () => setDialogOpen(true),
                 icon: <Plus className="size-4" />,
               }
@@ -204,7 +208,7 @@ function TicketsPageContent() {
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Create support ticket</DialogTitle>
+            <DialogTitle>{t('tickets.createTitle')}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleCreateTicket} className="space-y-4 pt-2">
@@ -216,10 +220,10 @@ function TicketsPageContent() {
             ) : null}
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-title">Title</Label>
+              <Label htmlFor="ticket-title">{t('tickets.fieldTitle')}</Label>
               <Input
                 id="ticket-title"
-                placeholder="Short problem summary..."
+                placeholder={t('tickets.titlePlaceholder')}
                 value={form.title}
                 onChange={(e) => handleFormChange('title', e.target.value)}
                 maxLength={150}
@@ -227,7 +231,7 @@ function TicketsPageContent() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-category">Request category</Label>
+              <Label htmlFor="ticket-category">{t('tickets.requestCategory')}</Label>
               <Select
                 value={form.categoryId}
                 onValueChange={(value) => handleFormChange('categoryId', value ?? '')}
@@ -236,7 +240,7 @@ function TicketsPageContent() {
                 <SelectTrigger id="ticket-category">
                   <SelectValue>
                     {ticketCategories.find((c) => String(c.id) === form.categoryId)?.name
-                      ?? (ticketCategories.length === 0 ? 'No categories available' : 'Select a category...')}
+                      ?? (ticketCategories.length === 0 ? t('tickets.noCategories') : t('tickets.selectCategory'))}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
@@ -250,10 +254,10 @@ function TicketsPageContent() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="ticket-message">Problem description</Label>
+              <Label htmlFor="ticket-message">{t('tickets.problemDescription')}</Label>
               <Textarea
                 id="ticket-message"
-                placeholder="Describe the problem or question in detail..."
+                placeholder={t('tickets.problemPlaceholder')}
                 value={form.message}
                 onChange={(e) => handleFormChange('message', e.target.value)}
                 rows={5}
@@ -268,10 +272,10 @@ function TicketsPageContent() {
                 onClick={() => handleDialogOpenChange(false)}
                 disabled={submitting}
               >
-                Cancel
+                {t('tickets.cancel')}
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Creating...' : 'Create ticket'}
+                {submitting ? t('tickets.creating') : t('tickets.create')}
               </Button>
             </div>
           </form>
@@ -292,16 +296,16 @@ function TicketsPageContent() {
         </div>
       ) : tickets.length === 0 ? (
         <EmptyState
-          title="No tickets"
+          title={t('tickets.noTickets')}
           description={
             canCreateTicket
-              ? 'Create a ticket to ask a question or report a problem.'
-              : 'There are no open tickets to process right now.'
+              ? t('tickets.emptyUser')
+              : t('tickets.emptyAgent')
           }
           action={
             canCreateTicket
               ? {
-                  label: 'New ticket',
+                  label: t('tickets.newTicket'),
                   onClick: () => setDialogOpen(true),
                 }
               : undefined

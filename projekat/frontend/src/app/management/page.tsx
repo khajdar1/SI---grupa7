@@ -8,6 +8,7 @@ import { AccessDenied, PageHeader, PageLayout, StatCard } from '@/components/sha
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants';
+import { translatePriority, translateText, useI18n } from '@/lib/i18n';
 import {
   getManagementDashboard,
   type ManagementDashboardStats,
@@ -70,6 +71,7 @@ function PriorityTableSkeleton() {
 }
 
 export default function ManagementDashboardPage() {
+  const { language, t } = useI18n();
   const [authorized, setAuthorized] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -83,7 +85,7 @@ export default function ManagementDashboardPage() {
       const data = await getManagementDashboard();
       setStats(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load data.');
+      setError(translateText(language, err instanceof Error ? err.message : 'Failed to load data.'));
     } finally {
       setLoading(false);
     }
@@ -114,11 +116,11 @@ export default function ManagementDashboardPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title="Management Dashboard"
-        subtitle="Overview of key intervention system metrics."
-        breadcrumbs={[{ label: 'Dashboard', href: ROUTES.DASHBOARD }, { label: 'Management Dashboard' }]}
+        title={language === 'bs' ? 'Menadžment kontrolna ploča' : 'Management Dashboard'}
+        subtitle={language === 'bs' ? 'Pregled ključnih metrika sistema intervencija.' : 'Overview of key intervention system metrics.'}
+        breadcrumbs={[{ label: t('nav.dashboard'), href: ROUTES.DASHBOARD }, { label: language === 'bs' ? 'Menadžment kontrolna ploča' : 'Management Dashboard' }]}
         primaryAction={{
-          label: 'Refresh',
+          label: t('dashboard.refresh'),
           onClick: () => void loadStats(),
           variant: 'outline',
           icon: <RefreshCw className="mr-1.5 size-4" aria-hidden="true" />,
@@ -135,19 +137,19 @@ export default function ManagementDashboardPage() {
       {/* Stat cards */}
       <section className="grid gap-4 sm:grid-cols-3" aria-label="Statistics">
         <StatCard
-          title="Active Interventions"
+          title={language === 'bs' ? 'Aktivne intervencije' : 'Active Interventions'}
           value={stats?.activeCount ?? 0}
           icon={<Wrench className="size-5 text-primary" aria-hidden="true" />}
           isLoading={loading}
         />
         <StatCard
-          title="Completed Interventions"
+          title={language === 'bs' ? 'Završene intervencije' : 'Completed Interventions'}
           value={stats?.completedCount ?? 0}
           icon={<CheckCircle2 className="size-5 text-emerald-600" aria-hidden="true" />}
           isLoading={loading}
         />
         <StatCard
-          title="Avg. Resolution Time"
+          title={language === 'bs' ? 'Prosj. vrijeme rješavanja' : 'Avg. Resolution Time'}
           value={stats ? formatHours(stats.averageResolutionHours) : '-'}
           icon={<Clock className="size-5 text-violet-500" aria-hidden="true" />}
           isLoading={loading}
@@ -160,20 +162,20 @@ export default function ManagementDashboardPage() {
           <div className="icon-bg-purple flex size-10 items-center justify-center rounded-xl">
             <BarChart2 className="size-5 text-purple-600" aria-hidden="true" />
           </div>
-          <CardTitle className="text-base font-bold">Priority Distribution</CardTitle>
+          <CardTitle className="text-base font-bold">{language === 'bs' ? 'Distribucija prioriteta' : 'Priority Distribution'}</CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
             <PriorityTableSkeleton />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm" aria-label="Intervention distribution by priority">
+              <table className="w-full text-sm" aria-label={language === 'bs' ? 'Distribucija intervencija po prioritetu' : 'Intervention distribution by priority'}>
                 <thead>
                   <tr className="border-b border-slate-100 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <th className="pb-3 pr-4">Priority</th>
-                    <th className="pb-3 px-4 text-right">Total</th>
-                    <th className="pb-3 px-4 text-right">Active</th>
-                    <th className="pb-3 pl-4 text-right">Completed</th>
+                    <th className="pb-3 pr-4">{t('interventionDetail.priority')}</th>
+                    <th className="pb-3 px-4 text-right">{language === 'bs' ? 'Ukupno' : 'Total'}</th>
+                    <th className="pb-3 px-4 text-right">{language === 'bs' ? 'Aktivno' : 'Active'}</th>
+                    <th className="pb-3 pl-4 text-right">{language === 'bs' ? 'Završeno' : 'Completed'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
@@ -184,7 +186,7 @@ export default function ManagementDashboardPage() {
                           className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${PRIORITY_BADGE_CLASS[row.priority]}`}
                         >
                           <TrendingUp className="size-3" aria-hidden="true" />
-                          {PRIORITY_LABELS[row.priority]}
+                          {translatePriority(language, row.priority)}
                         </span>
                       </td>
                       <td className="py-3 px-4 text-right font-black tabular-nums">{row.total}</td>

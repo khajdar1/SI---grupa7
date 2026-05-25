@@ -4,6 +4,7 @@ import type { InterventionStatus } from '@shared/enums';
 import { INTERVENTION_STATUS } from '@shared/enums';
 
 import { Badge } from '@/components/ui/badge';
+import { useI18n, type TranslationKey } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 type StatusConfig = {
@@ -54,7 +55,16 @@ export function InterventionStatusBadge({
   status,
   className,
 }: InterventionStatusBadgeProps) {
+  const { t } = useI18n();
   const config = STATUS_CONFIG[status];
+  const labelKeys: Record<InterventionStatus, TranslationKey> = {
+    [INTERVENTION_STATUS.NEW]: 'interventionStatus.new',
+    [INTERVENTION_STATUS.ASSIGNED]: 'interventionStatus.assigned',
+    [INTERVENTION_STATUS.IN_PROGRESS]: 'interventionStatus.inProgress',
+    [INTERVENTION_STATUS.RESOLVED]: 'interventionStatus.resolved',
+    [INTERVENTION_STATUS.CANCELLED]: 'interventionStatus.cancelled',
+    [INTERVENTION_STATUS.REJECTED]: 'interventionStatus.rejected',
+  };
   const statusClassMap: Record<InterventionStatus, string> = {
     [INTERVENTION_STATUS.NEW]: 'status-token-new',
     [INTERVENTION_STATUS.ASSIGNED]: 'status-token-assigned',
@@ -66,7 +76,7 @@ export function InterventionStatusBadge({
 
   return (
     <Badge className={cn('border-transparent font-medium', statusClassMap[status], className)}>
-      {config.label}
+      {labelKeys[status] ? t(labelKeys[status]) : config.label}
     </Badge>
   );
 }

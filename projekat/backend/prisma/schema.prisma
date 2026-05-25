@@ -95,6 +95,7 @@ model User {
   lastName             String
   username             String                  @unique
   email                String                  @unique
+  language             String                  @default("en") @db.VarChar(10)
   active               Boolean                 @default(true)
   companyId            Int?
   company              Company?                @relation("CompanyUsers", fields: [companyId], references: [id], onDelete: SetNull)

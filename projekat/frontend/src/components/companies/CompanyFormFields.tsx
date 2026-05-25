@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { clearFieldError, type FieldErrors } from '@/lib/form-validation';
 import type { CompanyFormData } from '@/lib/company-validation';
+import { useI18n } from '@/lib/i18n';
 
 interface CompanyFormFieldsProps<TFormData extends CompanyFormData> {
   formData: TFormData;
@@ -37,11 +38,26 @@ export function CompanyFormFields<TFormData extends CompanyFormData>({
   setFieldErrors,
   disabled = false,
 }: CompanyFormFieldsProps<TFormData>) {
+  const { language } = useI18n();
+  const getLabel = (label: string) => {
+    if (language !== 'bs') return label;
+    const labels: Record<string, string> = {
+      'Company name': 'Naziv kompanije',
+      'Contact person': 'Kontakt osoba',
+      'Company type': 'Tip kompanije',
+      Email: 'Email',
+      Phone: 'Telefon',
+      Address: 'Adresa',
+      'Identification number': 'Identifikacioni broj',
+    };
+    return labels[label] ?? label;
+  };
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {fields.map((field) => (
         <div className="space-y-2" key={field.name}>
-          <Label htmlFor={field.name}>{field.label}</Label>
+          <Label htmlFor={field.name}>{getLabel(field.label)}</Label>
           <Input
             id={field.name}
             type={field.type ?? 'text'}

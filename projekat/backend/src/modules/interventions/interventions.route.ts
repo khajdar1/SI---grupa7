@@ -658,6 +658,8 @@ interventionsRouter.get(
       orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     });
 
+    const language = req.query.language === 'bs' ? 'bs' : 'en';
+
     const rows: InterventionPdfRow[] = interventions.map((i) => ({
       name: i.name,
       priority: String(i.priority),
@@ -668,16 +670,17 @@ interventionsRouter.get(
           ? i.assignments
               .map((a) => `${a.user.firstName} ${a.user.lastName}`.trim())
               .join(', ')
-          : 'Unassigned',
+          : language === 'bs' ? 'Nedodijeljeno' : 'Unassigned',
       createdAt: i.createdAt?.toISOString() ?? null,
       startedAt: i.startedAt?.toISOString() ?? null,
       dueAt: i.dueAt?.toISOString() ?? null,
     }));
 
-    const pdfBuffer = await generateInterventionsPdf(rows, { title: 'Interventions Export' });
+    const pdfBuffer = await generateInterventionsPdf(rows, { language });
 
     res.setHeader('Content-Type', 'application/pdf');
-    const filename = `interventions-${new Date().toISOString().slice(0,10)}.pdf`;
+    const filenamePrefix = language === 'bs' ? 'intervencije' : 'interventions';
+    const filename = `${filenamePrefix}-${new Date().toISOString().slice(0,10)}.pdf`;
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.status(200).send(pdfBuffer);
   }),

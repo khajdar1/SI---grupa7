@@ -50,6 +50,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ROUTES } from '@/constants';
+import { useI18n, type LanguageCode } from '@/lib/i18n';
 import { socket } from '@/lib/socket';
 import { getNotifications, markNotificationAsRead, type NotificationItem } from '@/services/notifications.service';
 import {
@@ -166,6 +167,96 @@ function isAdminReviewNotification(notification: NotificationItem): boolean {
   );
 }
 
+function translateNotificationTitle(notification: NotificationItem, language: LanguageCode): string {
+  if (language !== 'bs') {
+    return notification.title;
+  }
+
+  const titleTranslations: Record<string, string> = {
+    'New fault report': 'Nova prijava kvara',
+    'You have been assigned a new intervention': 'Dodijeljena vam je nova intervencija',
+    'New support ticket': 'Novi tiket podrške',
+    'Ticket closed': 'Tiket zatvoren',
+    'Ticket reply': 'Odgovor na tiket',
+    'New ticket reply': 'Novi odgovor na tiket',
+    'Admin review requested': 'Zatražen admin pregled',
+    'Support trazi admin pregled': 'Podrška traži admin pregled',
+    'User blocked': 'Korisnik blokiran',
+    'User unblocked': 'Korisnik odblokiran',
+  };
+
+  return titleTranslations[notification.title] ?? notification.title;
+}
+
+function translatePriority(value: string): string {
+  const priorityTranslations: Record<string, string> = {
+    LOW: 'Nizak',
+    MEDIUM: 'Srednji',
+    HIGH: 'Visok',
+    CRITICAL: 'Kritičan',
+    low: 'nizak',
+    medium: 'srednji',
+    high: 'visok',
+    critical: 'kritičan',
+  };
+
+  return priorityTranslations[value] ?? value;
+}
+
+function translateNotificationText(notification: NotificationItem, language: LanguageCode): string {
+  if (language !== 'bs') {
+    return notification.text;
+  }
+
+  const unknownLocation = 'Nepoznata lokacija';
+  let text = notification.text
+    .replace(/\bUnknown location\b/g, unknownLocation)
+    .replace(/\blocation:/gi, 'lokacija:')
+    .replace(/\bLocation:/g, 'Lokacija:')
+    .replace(/\bPriority:/g, 'Prioritet:')
+    .replace(/\bIntervention:/g, 'Intervencija:')
+    .replace(/\bReason:/g, 'Razlog:');
+
+  const ticketClosedMatch = text.match(/^Ticket #(\d+): (.+) has been closed\.$/);
+  if (ticketClosedMatch) {
+    return `Tiket #${ticketClosedMatch[1]}: ${ticketClosedMatch[2]} je zatvoren.`;
+  }
+
+  const agentReplyMatch = text.match(/^An agent replied to ticket #(\d+): (.+)$/);
+  if (agentReplyMatch) {
+    return `Agent je odgovorio na tiket #${agentReplyMatch[1]}: ${agentReplyMatch[2]}`;
+  }
+
+  const userReplyMatch = text.match(/^The user replied to ticket #(\d+): (.+)$/);
+  if (userReplyMatch) {
+    return `Korisnik je odgovorio na tiket #${userReplyMatch[1]}: ${userReplyMatch[2]}`;
+  }
+
+  const userBlockedWithReasonMatch = text.match(/^User (.+) \((.+)\) was blocked from ticket #(\d+): (.+)\. Reason: (.+)$/);
+  if (userBlockedWithReasonMatch) {
+    return `Korisnik ${userBlockedWithReasonMatch[1]} (${userBlockedWithReasonMatch[2]}) je blokiran na tiketu #${userBlockedWithReasonMatch[3]}: ${userBlockedWithReasonMatch[4]}. Razlog: ${userBlockedWithReasonMatch[5]}`;
+  }
+
+  const userBlockedMatch = text.match(/^User (.+) was blocked from ticket #(\d+)\.$/);
+  if (userBlockedMatch) {
+    return `Korisnik ${userBlockedMatch[1]} je blokiran na tiketu #${userBlockedMatch[2]}.`;
+  }
+
+  const userUnblockedWithTicketMatch = text.match(/^User (.+) \((.+)\) was unblocked from ticket #(\d+): (.+)\.$/);
+  if (userUnblockedWithTicketMatch) {
+    return `Korisnik ${userUnblockedWithTicketMatch[1]} (${userUnblockedWithTicketMatch[2]}) je odblokiran na tiketu #${userUnblockedWithTicketMatch[3]}: ${userUnblockedWithTicketMatch[4]}.`;
+  }
+
+  const userUnblockedMatch = text.match(/^User (.+) was unblocked from ticket #(\d+)\.$/);
+  if (userUnblockedMatch) {
+    return `Korisnik ${userUnblockedMatch[1]} je odblokiran na tiketu #${userUnblockedMatch[2]}.`;
+  }
+
+  text = text.replace(/\bPriority: ([^,]+)/g, (_, priority: string) => `Prioritet: ${translatePriority(priority)}`);
+
+  return text;
+}
+
 function decodeJwtPayload(token: string): {
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
@@ -257,6 +348,7 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
 function NavLink({ item, pathname, showIcon = true }: { item: NavItem; pathname: string; showIcon?: boolean }) {
   const isActive = isRouteActive(pathname, item.to);
   const icon = NAV_ICONS[item.to];
+  const { translateNavLabel } = useI18n();
 
   return (
     <Link
@@ -267,7 +359,7 @@ function NavLink({ item, pathname, showIcon = true }: { item: NavItem; pathname:
       )}
     >
       {showIcon && icon ? <span className="shrink-0">{icon}</span> : null}
-      {item.label}
+      {translateNavLabel(item.label)}
     </Link>
   );
 }
@@ -284,6 +376,8 @@ function NavDropdown({
   pathname: string;
 }) {
   const hasActiveItem = items.some((item) => isRouteActive(pathname, item.to));
+  const { translateNavLabel } = useI18n();
+  const translatedLabel = translateNavLabel(label);
 
   return (
     <DropdownMenu>
@@ -298,12 +392,12 @@ function NavDropdown({
           )}
         >
           <span className="shrink-0">{icon}</span>
-          {label}
+          {translatedLabel}
           <ChevronDown className="size-3.5 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">
-        <DropdownMenuLabel className="text-xs text-muted-foreground">{label}</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs text-muted-foreground">{translatedLabel}</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {items.map((item) => {
           const isActive = isRouteActive(pathname, item.to);
@@ -313,7 +407,7 @@ function NavDropdown({
             <DropdownMenuItem asChild key={item.to}>
               <Link href={item.to} className={cn('flex items-center gap-2', isActive && 'font-medium text-primary')}>
                 {itemIcon ? <span className="shrink-0 text-muted-foreground">{itemIcon}</span> : null}
-                {item.label}
+                {translateNavLabel(item.label)}
               </Link>
             </DropdownMenuItem>
           );
@@ -326,6 +420,7 @@ function NavDropdown({
 export function AppNavigation() {
   const pathname = usePathname();
   const router = useRouter();
+  const { language, t, translateNavLabel } = useI18n();
   const [authState, setAuthState] = useState<AuthState>('unknown');
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -406,6 +501,10 @@ export function AppNavigation() {
   }, [authState, sessionUser?.id]);
 
   async function handleMarkRead(notificationId: number) {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
+    );
+
     try {
       await markNotificationAsRead(notificationId);
       setNotifications((prev) =>
@@ -417,13 +516,14 @@ export function AppNavigation() {
   }
 
   function handleNotificationClick(notification: NotificationItem) {
+    void handleMarkRead(notification.id);
+
     if (isAdminReviewNotification(notification)) {
-      setReviewNotification(notification);
+      setReviewNotification({ ...notification, read: true });
       setNotifOpen(false);
       return;
     }
 
-    void handleMarkRead(notification.id);
     setNotifOpen(false);
     if (notification.interventionId) {
       router.push(`/interventions/${notification.interventionId}`);
@@ -519,7 +619,7 @@ export function AppNavigation() {
                 <NavLink item={ticketNavItem} pathname={pathname} />
                 {workItems.length > 0 ? (
                   <NavDropdown
-                    label="Work"
+                    label={t('nav.work')}
                     icon={<Wrench className="size-4" />}
                     items={workItems}
                     pathname={pathname}
@@ -527,7 +627,7 @@ export function AppNavigation() {
                 ) : null}
                 {operationsItems.length > 0 ? (
                   <NavDropdown
-                    label="Operations"
+                    label={t('nav.operations')}
                     icon={<ClipboardList className="size-4" />}
                     items={operationsItems}
                     pathname={pathname}
@@ -540,7 +640,7 @@ export function AppNavigation() {
 
         <div className="hidden shrink-0 items-center gap-2 sm:flex">
           {isAdmin ? (
-            <NavDropdown label="Admin" icon={<Shield className="size-4" />} items={ADMIN_NAV_ITEMS} pathname={pathname} />
+            <NavDropdown label={t('nav.admin')} icon={<Shield className="size-4" />} items={ADMIN_NAV_ITEMS} pathname={pathname} />
           ) : null}
           {isAuthenticated ? (
             <DropdownMenu open={notifOpen} onOpenChange={setNotifOpen}>
@@ -560,15 +660,15 @@ export function AppNavigation() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-80">
                 <DropdownMenuLabel className="flex items-center justify-between">
-                  <span>Notifications</span>
+                  <span>{t('nav.notifications')}</span>
                   {unreadCount > 0 ? (
-                    <Badge variant="secondary" className="text-xs">{unreadCount} unread</Badge>
+                    <Badge variant="secondary" className="text-xs">{unreadCount} {t('nav.unread')}</Badge>
                   ) : null}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {notifications.length === 0 ? (
                   <div className="px-3 py-4 text-center text-sm text-muted-foreground">
-                    No notifications.
+                    {t('nav.noNotifications')}
                   </div>
                 ) : (
                   notifications.slice(0, 10).map((notif) => (
@@ -579,13 +679,15 @@ export function AppNavigation() {
                     >
                       <div className="flex w-full items-center justify-between gap-2">
                         <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
-                          {notif.title}
+                          {translateNotificationTitle(notif, language)}
                         </span>
                         {!notif.read ? (
                           <span className="size-2 shrink-0 rounded-full bg-primary" />
                         ) : null}
                       </div>
-                      <span className="text-xs text-muted-foreground line-clamp-2">{notif.text}</span>
+                      <span className="text-xs text-muted-foreground line-clamp-2">
+                        {translateNotificationText(notif, language)}
+                      </span>
                     </DropdownMenuItem>
                   ))
                 )}
@@ -610,7 +712,7 @@ export function AppNavigation() {
                   <>
                     <DropdownMenuLabel className="font-normal">
                       <div className="flex flex-col gap-0.5">
-                        <span className="text-xs text-muted-foreground">Signed in as</span>
+                        <span className="text-xs text-muted-foreground">{t('nav.signedInAs')}</span>
                         <span className="font-medium">@{sessionUser.username}</span>
                       </div>
                     </DropdownMenuLabel>
@@ -624,7 +726,7 @@ export function AppNavigation() {
                     <DropdownMenuItem asChild key={item.to}>
                       <Link href={item.to} className="flex items-center gap-2">
                         {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                        {item.label}
+                        {translateNavLabel(item.label)}
                       </Link>
                     </DropdownMenuItem>
                   );
@@ -641,13 +743,13 @@ export function AppNavigation() {
               >
                 <Link href={ROUTES.LOGIN} className="flex items-center gap-1.5">
                   <LogIn className="size-4" />
-                  Login
+                  {t('nav.login')}
                 </Link>
               </Button>
               <Button asChild size="sm" className="btn-glow h-8 rounded-lg px-4">
                 <Link href={ROUTES.REGISTER} className="flex items-center gap-1.5">
                   <UserPlus className="size-4" />
-                  Register
+                  {t('nav.register')}
                 </Link>
               </Button>
             </div>
@@ -664,7 +766,7 @@ export function AppNavigation() {
                 className="h-9 w-9 rounded-lg p-0 transition-all duration-200 hover:bg-slate-100/80"
               >
                 <Menu className="size-4" />
-                <span className="sr-only">Open menu</span>
+                <span className="sr-only">{t('nav.openMenu')}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
@@ -674,7 +776,7 @@ export function AppNavigation() {
                     <div className="flex items-center gap-2">
                       <span className="avatar-gradient flex size-8 items-center justify-center rounded-full text-xs">{initials}</span>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Signed in as</span>
+                        <span className="text-xs text-muted-foreground">{t('nav.signedInAs')}</span>
                         <span className="font-medium">@{sessionUser.username}</span>
                       </div>
                     </div>
@@ -683,7 +785,7 @@ export function AppNavigation() {
                 </>
               ) : null}
 
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Navigation</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">{t('nav.navigation')}</DropdownMenuLabel>
               {visiblePrimaryItems.map((item) => {
                 const icon = NAV_ICONS[item.to];
                 const isActive = isRouteActive(pathname, item.to);
@@ -692,7 +794,7 @@ export function AppNavigation() {
                   <DropdownMenuItem asChild key={item.to}>
                     <Link href={item.to} className={cn('flex items-center gap-2', isActive && 'font-medium text-primary')}>
                       {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                      {item.label}
+                      {translateNavLabel(item.label)}
                     </Link>
                   </DropdownMenuItem>
                 );
@@ -700,17 +802,16 @@ export function AppNavigation() {
 
               {isAuthenticated ? (
                 <>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href={ticketNavItem.to} className="flex items-center gap-2">
                       <span className="text-muted-foreground">{NAV_ICONS[ROUTES.TICKETS]}</span>
-                      {ticketNavItem.label}
+                      {translateNavLabel(ticketNavItem.label)}
                     </Link>
                   </DropdownMenuItem>
                   {operationsItems.length > 0 ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">Operations</DropdownMenuLabel>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('nav.operations')}</DropdownMenuLabel>
                       {operationsItems.map((item) => {
                         const icon = NAV_ICONS[item.to];
 
@@ -718,7 +819,7 @@ export function AppNavigation() {
                           <DropdownMenuItem asChild key={item.to}>
                             <Link href={item.to} className="flex items-center gap-2">
                               {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                              {item.label}
+                              {translateNavLabel(item.label)}
                             </Link>
                           </DropdownMenuItem>
                         );
@@ -729,7 +830,7 @@ export function AppNavigation() {
                   {isAdmin ? (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">Admin</DropdownMenuLabel>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">{t('nav.admin')}</DropdownMenuLabel>
                       {ADMIN_NAV_ITEMS.map((item) => {
                         const icon = NAV_ICONS[item.to];
 
@@ -737,7 +838,7 @@ export function AppNavigation() {
                           <DropdownMenuItem asChild key={item.to}>
                             <Link href={item.to} className="flex items-center gap-2">
                               {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                              {item.label}
+                              {translateNavLabel(item.label)}
                             </Link>
                           </DropdownMenuItem>
                         );
@@ -746,7 +847,7 @@ export function AppNavigation() {
                   ) : null}
 
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Account</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">{t('nav.account')}</DropdownMenuLabel>
                   {visibleAccountItems.map((item) => {
                     const icon = NAV_ICONS[item.to];
 
@@ -754,7 +855,7 @@ export function AppNavigation() {
                       <DropdownMenuItem asChild key={item.to}>
                         <Link href={item.to} className="flex items-center gap-2">
                           {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                          {item.label}
+                          {translateNavLabel(item.label)}
                         </Link>
                       </DropdownMenuItem>
                     );
@@ -763,7 +864,7 @@ export function AppNavigation() {
               ) : authState === 'guest' ? (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Authentication</DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">{t('nav.authentication')}</DropdownMenuLabel>
                   {AUTH_NAV_ITEMS.map((item) => {
                     const icon = NAV_ICONS[item.to];
 
@@ -771,7 +872,7 @@ export function AppNavigation() {
                       <DropdownMenuItem asChild key={item.to}>
                         <Link href={item.to} className="flex items-center gap-2">
                           {icon ? <span className="text-muted-foreground">{icon}</span> : null}
-                          {item.label}
+                          {translateNavLabel(item.label)}
                         </Link>
                       </DropdownMenuItem>
                     );
@@ -785,20 +886,20 @@ export function AppNavigation() {
       <Dialog open={Boolean(reviewNotification)} onOpenChange={(open) => !open && setReviewNotification(null)}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Admin review requested</DialogTitle>
+            <DialogTitle>{t('nav.adminReviewTitle')}</DialogTitle>
             <DialogDescription>
-              A support agent asked you to join this ticket conversation.
+              {t('nav.adminReviewDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="rounded-lg border bg-slate-50 px-4 py-3 text-sm leading-relaxed text-foreground">
-            {reviewNotification?.text}
+            {reviewNotification ? translateNotificationText(reviewNotification, language) : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => void handleReviewReject()}>
-              Reject
+              {t('common.reject')}
             </Button>
             <Button type="button" onClick={() => void handleReviewJoin()}>
-              Join
+              {t('common.join')}
             </Button>
           </DialogFooter>
         </DialogContent>

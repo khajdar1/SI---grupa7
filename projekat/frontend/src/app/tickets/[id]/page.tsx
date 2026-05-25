@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PageHeader, PageLayout } from '@/components/shared';
 import { ROUTES } from '@/constants';
 import { hasSessionRole } from '@/lib/auth';
+import { translateText, useI18n } from '@/lib/i18n';
 import { socket } from '@/lib/socket';
 import {
   addTicketMessage,
@@ -39,13 +40,6 @@ import {
   type TicketStatus,
 } from '@/services/tickets.service';
 
-const STATUS_LABELS: Record<TicketStatus, string> = {
-  OPEN: 'Open',
-  IN_PROGRESS: 'In progress',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Closed',
-};
-
 const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   OPEN: 'default',
   IN_PROGRESS: 'secondary',
@@ -55,6 +49,13 @@ const STATUS_VARIANTS: Record<TicketStatus, 'default' | 'secondary' | 'destructi
 
 const SUPPORT_AGENT_ROLES = new Set(['supportagent', 'agentpodrske']);
 const ADMIN_ROLES = new Set(['admin', 'administrator']);
+
+function getStatusLabel(status: TicketStatus, t: ReturnType<typeof useI18n>['t']): string {
+  if (status === 'OPEN') return t('status.open');
+  if (status === 'IN_PROGRESS') return t('status.inProgress');
+  if (status === 'RESOLVED') return t('status.resolved');
+  return t('status.closed');
+}
 
 type TicketMessageCreatedEvent = {
   ticketId: number;
@@ -92,6 +93,7 @@ function getCurrentUserId(): number | null {
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const ticketId = Number(id);
+  const { language, t } = useI18n();
 
   const [ticket, setTicket] = useState<TicketDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,14 +209,14 @@ export default function TicketDetailPage() {
         setReviewAdmins(admins);
         setReviewAdminId((current) => current || (admins[0]?.id ? String(admins[0].id) : ''));
       } catch {
-        setReviewError('Unable to load admins.');
+        setReviewError(t('tickets.loadAdminsError'));
       } finally {
         setReviewAdminsLoading(false);
       }
     }
 
     void loadAdmins();
-  }, [isSupportAgent, reviewDialogOpen]);
+  }, [isSupportAgent, reviewDialogOpen, t]);
 
   async function loadTicket() {
     try {
@@ -223,7 +225,7 @@ export default function TicketDetailPage() {
       const data = await getTicketById(ticketId);
       setTicket(data);
     } catch {
-      setError('Unable to load ticket. Please try again.');
+      setError(t('tickets.loadError'));
     } finally {
       setLoading(false);
     }
@@ -240,7 +242,7 @@ export default function TicketDetailPage() {
       appendTicketMessage(msg);
       setMessageText('');
     } catch (requestError) {
-      setSendError(requestError instanceof Error ? requestError.message : 'Message could not be sent. Please try again.');
+      setSendError(requestError instanceof Error ? translateText(language, requestError.message) : t('tickets.messageSendError'));
     } finally {
       setSending(false);
     }
@@ -264,12 +266,12 @@ export default function TicketDetailPage() {
 
     const adminUserId = Number(reviewAdminId);
     if (!Number.isInteger(adminUserId) || adminUserId <= 0) {
-      setReviewError('Select the admin you want to notify.');
+      setReviewError(t('tickets.selectAdminError'));
       return;
     }
 
     if (reviewReason.trim().length < 10) {
-      setReviewError('Reason for calling an admin to the ticket must be at least 10 characters.');
+      setReviewError(t('tickets.reviewReasonMin'));
       return;
     }
 
@@ -281,7 +283,7 @@ export default function TicketDetailPage() {
       setReviewAdminId('');
       setReviewDialogOpen(false);
     } catch {
-      setReviewError('Admin review request could not be sent. Please try again.');
+      setReviewError(t('tickets.reviewSendError'));
     } finally {
       setReviewSubmitting(false);
     }
@@ -291,7 +293,7 @@ export default function TicketDetailPage() {
     e.preventDefault();
 
     if (blockReason.trim().length < 10) {
-      setBlockError('Reason for blocking a user on the ticket must be at least 10 characters.');
+      setBlockError(t('tickets.blockReasonMin'));
       return;
     }
 
@@ -304,7 +306,7 @@ export default function TicketDetailPage() {
       setBlockReason('');
       setBlockDialogOpen(false);
     } catch {
-      setBlockError('User could not be blocked. Please try again.');
+      setBlockError(t('tickets.blockError'));
     } finally {
       setBlockSubmitting(false);
     }
@@ -318,7 +320,7 @@ export default function TicketDetailPage() {
       setBlockedUserLabel(null);
       setTicket((prev) => (prev ? { ...prev, userBlocked: unblocked.ticketUserBlocked } : prev));
     } catch (requestError) {
-      setSendError(requestError instanceof Error ? requestError.message : 'User could not be unblocked. Please try again.');
+      setSendError(requestError instanceof Error ? translateText(language, requestError.message) : t('tickets.unblockError'));
     } finally {
       setUnblockSubmitting(false);
     }
@@ -345,16 +347,16 @@ export default function TicketDetailPage() {
     return (
       <PageLayout className="space-y-6">
         <PageHeader
-          title="Ticket"
+          title={t('tickets.ticket')}
           breadcrumbs={[
-            { label: 'Dashboard', href: ROUTES.DASHBOARD },
-            { label: 'Tickets', href: ROUTES.TICKETS },
-            { label: 'Error' },
+            { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+            { label: t('tickets.breadcrumb'), href: ROUTES.TICKETS },
+            { label: t('tickets.error') },
           ]}
         />
         <div className="flex items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertCircle className="size-4 shrink-0" />
-          {error ?? 'Ticket was not found.'}
+          {error ?? t('tickets.notFound')}
         </div>
       </PageLayout>
     );
@@ -365,8 +367,8 @@ export default function TicketDetailPage() {
       <PageHeader
         title={ticket.title}
         breadcrumbs={[
-          { label: 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: 'Tickets', href: ROUTES.TICKETS },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('tickets.breadcrumb'), href: ROUTES.TICKETS },
           { label: `#${ticket.id}` },
         ]}
       />
@@ -378,12 +380,12 @@ export default function TicketDetailPage() {
           <span className="text-xs text-muted-foreground">#{ticket.id}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Status:</span>
-          <Badge variant={STATUS_VARIANTS[ticket.status]}>{STATUS_LABELS[ticket.status]}</Badge>
+          <span className="text-xs text-muted-foreground">{t('tickets.status')}</span>
+          <Badge variant={STATUS_VARIANTS[ticket.status]}>{getStatusLabel(ticket.status, t)}</Badge>
         </div>
-        {isTicketUserBlocked ? <Badge variant="destructive">Blocked on ticket</Badge> : null}
+        {isTicketUserBlocked ? <Badge variant="destructive">{t('tickets.blockedOnTicket')}</Badge> : null}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <span>Category:</span>
+          <span>{t('tickets.category')}</span>
           <span className="font-medium text-foreground">{ticket.category}</span>
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -392,20 +394,20 @@ export default function TicketDetailPage() {
         </div>
         {canManageTicket && ticket.status !== 'CLOSED' ? (
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Change status:</span>
+            <span className="text-xs text-muted-foreground">{t('tickets.changeStatus')}</span>
             <Select
               value={ticket.status}
               onValueChange={handleStatusChange}
               disabled={statusUpdating}
             >
               <SelectTrigger className="h-7 w-36 text-xs">
-                <SelectValue />
+                <span className="flex-1 text-left">{getStatusLabel(ticket.status, t)}</span>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="OPEN">Open</SelectItem>
-                <SelectItem value="IN_PROGRESS">In progress</SelectItem>
-                <SelectItem value="RESOLVED">Resolved</SelectItem>
-                <SelectItem value="CLOSED">Closed</SelectItem>
+                <SelectItem value="OPEN">{t('status.open')}</SelectItem>
+                <SelectItem value="IN_PROGRESS">{t('status.inProgress')}</SelectItem>
+                <SelectItem value="RESOLVED">{t('status.resolved')}</SelectItem>
+                <SelectItem value="CLOSED">{t('status.closed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -419,7 +421,7 @@ export default function TicketDetailPage() {
             onClick={() => setReviewDialogOpen(true)}
           >
             <ShieldAlert className="size-3.5" />
-            Admin review
+            {t('tickets.adminReview')}
           </Button>
         ) : null}
         {isAdmin && currentUserId !== ticket.userId && !isTicketUserBlocked ? (
@@ -431,7 +433,7 @@ export default function TicketDetailPage() {
             onClick={() => setBlockDialogOpen(true)}
           >
             <UserX className="size-3.5" />
-            Block on ticket
+            {t('tickets.blockOnTicket')}
           </Button>
         ) : null}
         {isAdmin && currentUserId !== ticket.userId && isTicketUserBlocked ? (
@@ -443,7 +445,7 @@ export default function TicketDetailPage() {
             onClick={handleUnblockTicketUser}
           >
             <Unlock className="size-3.5" />
-            {unblockSubmitting ? 'Unblocking...' : 'Unblock on ticket'}
+            {unblockSubmitting ? t('tickets.unblocking') : t('tickets.unblockOnTicket')}
           </Button>
         ) : null}
       </div>
@@ -451,7 +453,7 @@ export default function TicketDetailPage() {
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Request admin review</DialogTitle>
+            <DialogTitle>{t('tickets.requestAdminReview')}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleRequestAdminReview} className="space-y-4 pt-2">
@@ -471,9 +473,9 @@ export default function TicketDetailPage() {
             >
               <SelectTrigger className="w-full">
                 <SelectValue>
-                  {reviewAdminsLoading ? 'Loading admins...' : (() => {
+                  {reviewAdminsLoading ? t('tickets.loadingAdmins') : (() => {
                     const a = reviewAdmins.find((admin) => String(admin.id) === reviewAdminId);
-                    return a ? (`${a.firstName} ${a.lastName}`.trim() || a.username) + ` - ${a.email}` : 'Select an admin';
+                    return a ? (`${a.firstName} ${a.lastName}`.trim() || a.username) + ` - ${a.email}` : t('tickets.selectAdmin');
                   })()}
                 </SelectValue>
               </SelectTrigger>
@@ -493,7 +495,7 @@ export default function TicketDetailPage() {
               }}
               rows={4}
               maxLength={1000}
-              placeholder="Explain why this admin should review the user or conversation..."
+              placeholder={t('tickets.reviewPlaceholder')}
             />
             <div className="flex justify-end gap-2">
               <Button
@@ -502,13 +504,13 @@ export default function TicketDetailPage() {
                 disabled={reviewSubmitting}
                 onClick={() => setReviewDialogOpen(false)}
               >
-                Cancel
+                {t('tickets.cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={reviewSubmitting || reviewAdminsLoading || !reviewAdminId}
               >
-                {reviewSubmitting ? 'Sending...' : 'Send to admin'}
+                {reviewSubmitting ? t('tickets.sending') : t('tickets.sendToAdmin')}
               </Button>
             </div>
           </form>
@@ -518,7 +520,7 @@ export default function TicketDetailPage() {
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
-            <DialogTitle>Block user on this ticket</DialogTitle>
+            <DialogTitle>{t('tickets.blockUserTitle')}</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleBlockTicketUser} className="space-y-4 pt-2">
@@ -536,7 +538,7 @@ export default function TicketDetailPage() {
               }}
               rows={4}
               maxLength={1000}
-              placeholder="Write the reason for blocking this user on this ticket..."
+              placeholder={t('tickets.blockPlaceholder')}
             />
             <div className="flex justify-end gap-2">
               <Button
@@ -545,10 +547,10 @@ export default function TicketDetailPage() {
                 disabled={blockSubmitting}
                 onClick={() => setBlockDialogOpen(false)}
               >
-                Cancel
+                {t('tickets.cancel')}
               </Button>
               <Button type="submit" variant="destructive" disabled={blockSubmitting}>
-                {blockSubmitting ? 'Blocking...' : 'Block'}
+                {blockSubmitting ? t('tickets.blocking') : t('tickets.block')}
               </Button>
             </div>
           </form>
@@ -558,17 +560,17 @@ export default function TicketDetailPage() {
       <div className="glass-card flex h-[min(72vh,720px)] min-h-[520px] flex-col overflow-hidden rounded-xl">
         <div className="flex items-center justify-between border-b bg-white/70 px-4 py-3">
           <div>
-            <h2 className="text-sm font-semibold text-foreground">Conversation</h2>
+            <h2 className="text-sm font-semibold text-foreground">{t('tickets.conversation')}</h2>
             <p className="text-xs text-muted-foreground">
-              {ticket.status === 'CLOSED' ? 'Ticket is closed' : 'Active ticket'}
+              {ticket.status === 'CLOSED' ? t('tickets.closedTicket') : t('tickets.activeTicket')}
             </p>
           </div>
-          <Badge variant={STATUS_VARIANTS[ticket.status]}>{STATUS_LABELS[ticket.status]}</Badge>
+          <Badge variant={STATUS_VARIANTS[ticket.status]}>{getStatusLabel(ticket.status, t)}</Badge>
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/70 p-4">
           {ticket.messages.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">No messages.</p>
+            <p className="py-12 text-center text-sm text-muted-foreground">{t('tickets.noMessages')}</p>
           ) : (
             ticket.messages.map((msg) => {
               const isMine = currentUserId !== null && msg.author.id === currentUserId;
@@ -613,7 +615,7 @@ export default function TicketDetailPage() {
         {isTicketUserBlocked ? (
           <div className="flex items-center justify-center gap-2 border-t bg-white p-4 text-center text-sm text-muted-foreground">
             <Lock className="size-4" />
-            This ticket is blocked. New messages are not allowed.
+            {t('tickets.blockedNoMessages')}
           </div>
         ) : ticket.status !== 'CLOSED' ? (
           <form onSubmit={handleSendMessage} className="space-y-2 border-t bg-white p-4">
@@ -625,7 +627,7 @@ export default function TicketDetailPage() {
             ) : null}
             <div className="flex items-end gap-2 rounded-2xl border bg-slate-50/80 p-2">
               <Textarea
-                placeholder="Write a message..."
+                placeholder={t('tickets.writeMessage')}
                 value={messageText}
                 onChange={(e) => {
                   setMessageText(e.target.value);
@@ -648,15 +650,15 @@ export default function TicketDetailPage() {
                 className="h-10 shrink-0 gap-1.5 rounded-xl px-4"
               >
                 <Send className="size-3.5" />
-                {sending ? 'Sending...' : 'Send'}
+                {sending ? t('tickets.sending') : t('tickets.send')}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">Enter = send · Shift+Enter = new line</p>
+            <p className="text-xs text-muted-foreground">{t('tickets.sendHint')}</p>
           </form>
         ) : (
           <div className="flex items-center justify-center gap-2 border-t bg-white p-4 text-center text-sm text-muted-foreground">
             <Lock className="size-4" />
-            This ticket is closed. New messages are not allowed.
+            {t('tickets.closedNoMessages')}
           </div>
         )}
       </div>
