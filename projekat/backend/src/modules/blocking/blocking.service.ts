@@ -22,6 +22,10 @@ export interface BlockRecord {
   blockedAt: Date;
   blockedUser: BlockedUserInfo;
   coordinator: CoordinatorInfo;
+  company?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface BlockInput {
@@ -41,8 +45,8 @@ export interface IBlockingRepository {
   findExistingBlock(userId: number, companyId: number): Promise<{ id: number } | null>;
   findUserById(userId: number): Promise<{ id: number; active: boolean } | null>;
   findUserByUsername(username: string): Promise<{ id: number; active: boolean } | null>;
-  getCoordinatorCompanyId(coordinatorId: number): Promise<number | null>;
-  listBlocksByCompany(companyId: number): Promise<BlockRecord[]>;
+  findCompanyById(companyId: number): Promise<{ id: number } | null>;
+  listBlocks(): Promise<BlockRecord[]>;
   createBlock(input: BlockInput): Promise<BlockRecord>;
   deleteBlock(blockId: number): Promise<void>;
 }
@@ -94,12 +98,12 @@ export class BlockingService {
     private readonly auditLogger: IBlockingAuditLogger,
   ) {}
 
-  async listBlockedUsers(companyId: number): Promise<BlockRecord[]> {
-    return this.repository.listBlocksByCompany(companyId);
+  async listBlockedUsers(): Promise<BlockRecord[]> {
+    return this.repository.listBlocks();
   }
 
   async blockUser(
-    input: { userId: number; reason: string },
+    input: { userId: number; companyId: number; reason: string },
     coordinatorId: number,
     actor: BlockingActor,
   ): Promise<BlockRecord> {
@@ -107,17 +111,17 @@ export class BlockingService {
       throw new BlockingForbiddenError('A coordinator cannot block their own account.');
     }
 
-    const companyId = await this.repository.getCoordinatorCompanyId(coordinatorId);
-    if (!companyId) {
-      throw new BlockingForbiddenError('You are not associated with a company.');
-    }
-
     const user = await this.repository.findUserById(input.userId);
     if (!user) {
       throw new BlockingValidationError('User to block was not found.');
     }
 
-    const existing = await this.repository.findExistingBlock(input.userId, companyId);
+    const company = await this.repository.findCompanyById(input.companyId);
+    if (!company) {
+      throw new BlockingValidationError('Company to block from was not found.');
+    }
+
+    const existing = await this.repository.findExistingBlock(input.userId, input.companyId);
     if (existing) {
       throw new BlockingConflictError('User is already blocked for this company.');
     }
@@ -125,7 +129,7 @@ export class BlockingService {
     const block = await this.repository.createBlock({
       userId: input.userId,
       coordinatorId,
-      companyId,
+      companyId: input.companyId,
       reason: input.reason,
     });
 
@@ -135,10 +139,10 @@ export class BlockingService {
       entityId: block.id,
       actorId: actor.id,
       actorUsername: actor.username,
-      details: `User ${block.blockedUser.username} blocked by ${actor.username} for company ${companyId}. Reason: ${input.reason}`,
+      details: `User ${block.blockedUser.username} blocked by ${actor.username} for company ${input.companyId}. Reason: ${input.reason}`,
       newValues: {
         userId: input.userId,
-        companyId,
+        companyId: input.companyId,
         reason: input.reason,
       },
     });
@@ -148,21 +152,12 @@ export class BlockingService {
 
   async unblockUser(
     blockId: number,
-    coordinatorId: number,
+    _coordinatorId: number,
     actor: BlockingActor,
   ): Promise<void> {
-    const companyId = await this.repository.getCoordinatorCompanyId(coordinatorId);
-    if (!companyId) {
-      throw new BlockingForbiddenError('You are not associated with a company.');
-    }
-
     const block = await this.repository.findBlockById(blockId);
     if (!block) {
       throw new BlockingNotFoundError();
-    }
-
-    if (block.companyId !== companyId) {
-      throw new BlockingForbiddenError('You can only manage blocks within your own company.');
     }
 
     await this.repository.deleteBlock(blockId);
@@ -173,7 +168,7 @@ export class BlockingService {
       entityId: blockId,
       actorId: actor.id,
       actorUsername: actor.username,
-      details: `User ${block.blockedUser.username} unblocked by ${actor.username} for company ${companyId}.`,
+      details: `User ${block.blockedUser.username} unblocked by ${actor.username} for company ${block.companyId}.`,
       oldValues: {
         userId: block.userId,
         companyId: block.companyId,

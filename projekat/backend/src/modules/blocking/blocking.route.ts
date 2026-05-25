@@ -49,6 +49,12 @@ const blockSelect = {
       username: true,
     },
   },
+  company: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
 } as const;
 
 const prismaBlockingRepository: IBlockingRepository = {
@@ -76,17 +82,14 @@ const prismaBlockingRepository: IBlockingRepository = {
       select: { id: true, active: true },
     }),
 
-  getCoordinatorCompanyId: async (coordinatorId) => {
-    const user = await prisma.user.findUnique({
-      where: { id: coordinatorId },
-      select: { companyId: true },
-    });
-    return user?.companyId ?? null;
-  },
+  findCompanyById: async (companyId) =>
+    prisma.company.findUnique({
+      where: { id: companyId },
+      select: { id: true },
+    }),
 
-  listBlocksByCompany: async (companyId) =>
+  listBlocks: async () =>
     prisma.userBlock.findMany({
-      where: { companyId },
       select: blockSelect,
       orderBy: { blockedAt: 'desc' },
     }) as Promise<BlockRecord[]>,
@@ -159,19 +162,12 @@ blockingRouter.get(
   '/',
   authorizeRoles(COORDINATOR_OR_ADMIN_ROLES),
   asyncHandler(async (req, res) => {
-    const coordinatorId = req.user?.localUserId;
-    if (!coordinatorId) {
+    if (!req.user?.localUserId) {
       res.status(HTTP_STATUS.UNAUTHORIZED).json({ message: 'Authenticated context is missing.' });
       return;
     }
 
-    const companyId = await prismaBlockingRepository.getCoordinatorCompanyId(coordinatorId);
-    if (!companyId) {
-      res.status(HTTP_STATUS.FORBIDDEN).json({ message: 'You are not associated with a company.' });
-      return;
-    }
-
-    const blocks = await blockingService.listBlockedUsers(companyId);
+    const blocks = await blockingService.listBlockedUsers();
     res.json(blocks);
   }),
 );
@@ -187,7 +183,11 @@ blockingRouter.post(
       return;
     }
 
-    const { username, reason } = req.body as { username: string; reason: string };
+    const { username, companyId, reason } = req.body as {
+      username: string;
+      companyId: number;
+      reason: string;
+    };
 
     const targetUser = await prismaBlockingRepository.findUserByUsername(username);
     if (!targetUser) {
@@ -196,7 +196,7 @@ blockingRouter.post(
     }
 
     try {
-      const block = await blockingService.blockUser({ userId: targetUser.id, reason }, actor.id, actor);
+      const block = await blockingService.blockUser({ userId: targetUser.id, companyId, reason }, actor.id, actor);
       res.status(HTTP_STATUS.CREATED).json(block);
     } catch (error) {
       sendMappedError(res, error);
