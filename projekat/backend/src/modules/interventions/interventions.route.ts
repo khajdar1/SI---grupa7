@@ -2,8 +2,10 @@ import {
   InterventionStatus,
   InterventionType,
   NotificationType,
+  PauseReason,
   Priority,
   RecurringPeriod,
+  ReportStatus,
 } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
@@ -58,6 +60,10 @@ const EDITABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.NEW,
   InterventionStatus.IN_PROGRESS,
 ]);
+const PAUSABLE_STATUSES = new Set<InterventionStatus>([
+  InterventionStatus.ASSIGNED,
+  InterventionStatus.IN_PROGRESS,
+]);
 const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
   InterventionStatus,
   ReadonlySet<InterventionStatus>
@@ -74,12 +80,22 @@ const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
     new Set<InterventionStatus>([
       InterventionStatus.IN_PROGRESS,
       InterventionStatus.CANCELLED,
+      InterventionStatus.ON_HOLD,
     ]),
   ],
   [
     InterventionStatus.IN_PROGRESS,
     new Set<InterventionStatus>([
       InterventionStatus.RESOLVED,
+      InterventionStatus.CANCELLED,
+      InterventionStatus.ON_HOLD,
+    ]),
+  ],
+  [
+    InterventionStatus.ON_HOLD,
+    new Set<InterventionStatus>([
+      InterventionStatus.ASSIGNED,
+      InterventionStatus.IN_PROGRESS,
       InterventionStatus.CANCELLED,
     ]),
   ],
@@ -181,8 +197,27 @@ const interventionHistoryQuerySchema = z.object({
   ).default(false),
 });
 
+const knowledgeBaseQuerySchema = z.object({
+  text: z.string().trim().min(1).max(200).optional(),
+  location: z.string().trim().min(1).max(200).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+});
+
 const interventionStatusUpdateSchema = z.object({
   status: z.nativeEnum(InterventionStatus),
+});
+
+const interventionPauseSchema = z.object({
+  reason: z.nativeEnum(PauseReason),
+  otherReason: z.string().trim().max(1000).optional().nullable(),
+  responsibleUserId: z.coerce.number().int().positive().optional().nullable(),
+}).refine((value) => value.reason !== PauseReason.OTHER || Boolean(value.otherReason?.trim()), {
+  path: ["otherReason"],
+  message: "Additional explanation is required when reason is Other.",
+});
+
+const interventionResumeSchema = z.object({
+  note: z.string().trim().max(1000).optional().nullable(),
 });
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
@@ -286,6 +321,38 @@ async function resolveCreator(req: Request) {
   }
 
   return user;
+}
+
+async function ensurePausePermission(req: Request, interventionId: number) {
+  if (hasAnyRole(req, COORDINATOR_ACTION_ROLES)) {
+    return;
+  }
+
+  const localUserId = req.user?.localUserId;
+  if (!localUserId) {
+    throw new ForbiddenError("You do not have permission to pause this intervention.");
+  }
+
+  const assignment = await prisma.assignment.findFirst({
+    where: { interventionId, userId: localUserId },
+    select: { id: true },
+  });
+
+  if (!assignment) {
+    throw new ForbiddenError("Only assigned servicers can pause this intervention.");
+  }
+}
+
+function mapPauseReason(reason: PauseReason): string {
+  const labels: Record<PauseReason, string> = {
+    [PauseReason.WAITING_FOR_CUSTOMER]: "Waiting for customer",
+    [PauseReason.WAITING_FOR_MATERIAL]: "Waiting for material",
+    [PauseReason.WAITING_FOR_EXTERNAL_CONTRACTOR]: "Waiting for external contractor",
+    [PauseReason.WAITING_FOR_APPROVAL]: "Waiting for approval",
+    [PauseReason.OTHER]: "Other",
+  };
+
+  return labels[reason];
 }
 
 async function resolvePlanningContext(
@@ -469,6 +536,17 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
+  pauses?: Array<{
+    id: number;
+    reason: PauseReason;
+    otherReason: string | null;
+    previousStatus: InterventionStatus;
+    pausedAt: Date;
+    resumedAt: Date | null;
+    resumeNote: string | null;
+    pausedBy: { id: number; firstName: string; lastName: string; username: string };
+    responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
+  }>;
   
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
@@ -522,6 +600,61 @@ function mapIntervention(intervention: {
         },
         assignedAt: assignment.assignedAt.toISOString(),
       })) ?? [],
+    pauses:
+      intervention.pauses?.map((pause) => ({
+        id: pause.id,
+        reason: pause.reason,
+        otherReason: pause.otherReason,
+        previousStatus: pause.previousStatus,
+        pausedAt: pause.pausedAt.toISOString(),
+        resumedAt: pause.resumedAt?.toISOString() ?? null,
+        resumeNote: pause.resumeNote,
+        pausedBy: pause.pausedBy,
+        responsibleUser: pause.responsibleUser,
+      })) ?? [],
+  };
+}
+
+function buildLocationSearchTerm(location: string): string | null {
+  const compact = compactStoredLocation(location).trim();
+  if (compact.length < 3) {
+    return null;
+  }
+
+  return compact.length > 80 ? compact.slice(0, 80) : compact;
+}
+
+function mapKnowledgeSolution(report: {
+  id: number;
+  description: string;
+  material: string | null;
+  notes: string | null;
+  reportDate: Date;
+  isRecommended: boolean;
+  recommendedAt: Date | null;
+  intervention: {
+    id: number;
+    name: string;
+    description: string;
+    location: string;
+    createdAt: Date;
+    category: { id: number; name: string };
+  };
+}) {
+  return {
+    reportId: report.id,
+    title: report.intervention.name,
+    problemDescription: report.intervention.description,
+    solution: report.description,
+    material: report.material,
+    notes: report.notes,
+    locationHint: compactStoredLocation(report.intervention.location),
+    categoryId: report.intervention.category.id,
+    categoryName: report.intervention.category.name,
+    reportDate: report.reportDate.toISOString(),
+    interventionDate: report.intervention.createdAt.toISOString(),
+    isRecommended: report.isRecommended,
+    recommendedAt: report.recommendedAt?.toISOString() ?? null,
   };
 }
 
@@ -570,6 +703,27 @@ const interventionInclude = {
           lastName: true,
           username: true,
           email: true,
+        },
+      },
+    },
+  },
+  pauses: {
+    orderBy: { pausedAt: "desc" },
+    include: {
+      pausedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+      responsibleUser: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
         },
       },
     },
@@ -632,6 +786,7 @@ interventionsRouter.get(
             InterventionStatus.NEW,
             InterventionStatus.ASSIGNED,
             InterventionStatus.IN_PROGRESS,
+            InterventionStatus.ON_HOLD,
           ],
         },
         ...(hasOperationalView
@@ -913,7 +1068,7 @@ const intervention = await prisma.intervention.create({
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt: null,
+        startedAt: plannedStart,
         dueAt: input.dueAt ?? await calculateDueAt(input.priority, plannedStart),
         recurringPeriod,
         nextGenerationAt,
@@ -926,6 +1081,199 @@ const intervention = await prisma.intervention.create({
     });
 
     res.status(HTTP_STATUS.CREATED).json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/pause",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(interventionPauseSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    await ensurePausePermission(req, id);
+    const actor = await resolveCreator(req);
+    const input = req.body as z.infer<typeof interventionPauseSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        startedAt: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be paused.");
+    }
+
+    if (!PAUSABLE_STATUSES.has(existing.status)) {
+      throw new ForbiddenError("Only assigned or in-progress interventions can be paused.");
+    }
+
+    const activePause = await prisma.interventionPause.findFirst({
+      where: { interventionId: id, resumedAt: null },
+      select: { id: true },
+    });
+
+    if (activePause) {
+      throw new BadRequestError("Intervention is already paused.");
+    }
+
+    const { intervention, pause } = await prisma.$transaction(async (tx) => {
+      const pauseRecord = await tx.interventionPause.create({
+        data: {
+          interventionId: id,
+          pausedById: actor.id,
+          responsibleUserId: input.responsibleUserId ?? actor.id,
+          reason: input.reason,
+          otherReason: input.reason === PauseReason.OTHER ? input.otherReason?.trim() ?? null : null,
+          previousStatus: existing.status,
+        },
+      });
+      await tx.statusHistory.create({
+        data: {
+          interventionId: id,
+          authorId: actor.id,
+          oldStatus: existing.status,
+          newStatus: InterventionStatus.ON_HOLD,
+        },
+      });
+      const updatedIntervention = await tx.intervention.update({
+        where: { id },
+        data: { status: InterventionStatus.ON_HOLD },
+        include: interventionInclude,
+      });
+
+      return { intervention: updatedIntervention, pause: pauseRecord };
+    });
+
+    await AuditService.record({
+      action: "INTERVENTION_PAUSED",
+      entity: "Intervention",
+      entityId: id,
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Intervention #${id} paused. Reason: ${mapPauseReason(input.reason)}.`,
+      newValues: {
+        pauseId: pause.id,
+        reason: input.reason,
+        otherReason: input.otherReason ?? null,
+        previousStatus: existing.status,
+      },
+    });
+
+    if (input.reason === PauseReason.WAITING_FOR_CUSTOMER && existing.faultReport?.userId) {
+      if (await shouldNotifyUser(existing.faultReport.userId, 'INTERVENTION_PAUSED')) {
+        await prisma.notification.create({
+          data: {
+            userId: existing.faultReport.userId,
+            title: "Intervention paused",
+            text: `Intervention "${existing.name}" is waiting for your input before work can continue.`,
+            type: NotificationType.INTERVENTION_PAUSED,
+            interventionId: id,
+          },
+        });
+      }
+    }
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/resume",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(interventionResumeSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    await ensurePausePermission(req, id);
+    const actor = await resolveCreator(req);
+    const input = req.body as z.infer<typeof interventionResumeSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: { id: true, status: true, archived: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be resumed.");
+    }
+
+    if (existing.status !== InterventionStatus.ON_HOLD) {
+      throw new ForbiddenError("Only paused interventions can be resumed.");
+    }
+
+    const activePause = await prisma.interventionPause.findFirst({
+      where: { interventionId: id, resumedAt: null },
+      select: { id: true, previousStatus: true },
+      orderBy: { pausedAt: "desc" },
+    });
+
+    if (!activePause) {
+      throw new BadRequestError("Active pause record was not found.");
+    }
+
+    const nextStatus =
+      activePause.previousStatus === InterventionStatus.ASSIGNED ||
+      activePause.previousStatus === InterventionStatus.IN_PROGRESS
+        ? activePause.previousStatus
+        : InterventionStatus.IN_PROGRESS;
+
+    const intervention = await prisma.$transaction(async (tx) => {
+      await tx.interventionPause.update({
+        where: { id: activePause.id },
+        data: {
+          resumedAt: new Date(),
+          resumedById: actor.id,
+          resumeNote: input.note?.trim() || null,
+        },
+      });
+      await tx.statusHistory.create({
+        data: {
+          interventionId: id,
+          authorId: actor.id,
+          oldStatus: InterventionStatus.ON_HOLD,
+          newStatus: nextStatus,
+        },
+      });
+      return tx.intervention.update({
+        where: { id },
+        data: { status: nextStatus },
+        include: interventionInclude,
+      });
+    });
+
+    await AuditService.record({
+      action: "INTERVENTION_RESUMED",
+      entity: "Intervention",
+      entityId: id,
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Intervention #${id} resumed.`,
+      newValues: {
+        pauseId: activePause.id,
+        status: nextStatus,
+        note: input.note ?? null,
+      },
+    });
+
+    res.json(mapIntervention(intervention));
   }),
 );
 
@@ -943,6 +1291,7 @@ interventionsRouter.patch(
         id: true,
         name: true,
         status: true,
+        startedAt: true,
         archived: true,
         faultReport: {
           select: {
@@ -960,6 +1309,10 @@ interventionsRouter.patch(
       throw new ForbiddenError("Archived interventions cannot have their status changed.");
     }
 
+    if (input.status === InterventionStatus.ON_HOLD) {
+      throw new BadRequestError("Use the pause action to put an intervention on hold.");
+    }
+
     const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
 
     if (!allowedTargets?.has(input.status)) {
@@ -975,7 +1328,7 @@ interventionsRouter.patch(
         where: { id },
         data: {
           status: input.status,
-          ...(input.status === InterventionStatus.IN_PROGRESS
+          ...(input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt
             ? { startedAt: new Date() }
             : {}),
         },
@@ -1042,6 +1395,7 @@ interventionsRouter.patch(
         latitude: resolvedLocation.latitude,
         longitude: resolvedLocation.longitude,
         priority: input.priority,
+        startedAt: input.startedAt ?? existing.startedAt,
         type: input.faultReportId
           ? InterventionType.ISSUE
           : InterventionType.PREVENTIVE,
@@ -1087,6 +1441,108 @@ interventionsRouter.get(
 
     res.json({
       ...mapIntervention(intervention),
+    });
+  }),
+);
+
+interventionsRouter.get(
+  "/:id/knowledge-base",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const parsedQuery = knowledgeBaseQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      throw new BadRequestError(
+        "Invalid knowledge base filters.",
+        parsedQuery.error.issues.map((issue) => ({
+          field: issue.path.join(".") || "query",
+          message: issue.message,
+        })),
+      );
+    }
+    const query = parsedQuery.data;
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        categoryId: true,
+        location: true,
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const locationTerm = buildLocationSearchTerm(query.location ?? intervention.location);
+    const textTerm = query.text?.trim();
+    const categoryId = query.categoryId ?? intervention.categoryId;
+    const textFilters = textTerm
+      ? [
+          { description: { contains: textTerm } },
+          { material: { contains: textTerm } },
+          { notes: { contains: textTerm } },
+          { intervention: { description: { contains: textTerm } } },
+          { intervention: { name: { contains: textTerm } } },
+        ]
+      : [];
+
+    const reports = await prisma.report.findMany({
+      where: {
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        interventionId: { not: intervention.id },
+        AND: [
+          {
+            intervention: {
+              categoryId,
+            },
+          },
+          ...(locationTerm
+            ? [
+                {
+                  intervention: {
+                    location: { contains: locationTerm },
+                  },
+                },
+              ]
+            : []),
+          ...(textFilters.length > 0 ? [{ OR: textFilters }] : []),
+        ],
+      },
+      orderBy: [
+        { isRecommended: "desc" },
+        { recommendedAt: "desc" },
+        { reportDate: "desc" },
+      ],
+      take: 8,
+      select: {
+        id: true,
+        description: true,
+        material: true,
+        notes: true,
+        reportDate: true,
+        isRecommended: true,
+        recommendedAt: true,
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            location: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const solutions = reports.map(mapKnowledgeSolution);
+
+    res.json({
+      message: "Knowledge base solutions loaded successfully.",
+      data: solutions,
     });
   }),
 );
@@ -1197,12 +1653,17 @@ async function applyBulkStatusChange(
   existing: {
     status: InterventionStatus;
     archived: boolean;
+    startedAt?: Date | null;
     name?: string;
     faultReport?: { userId: number | null } | null;
   },
 ): Promise<BulkActionItemResult> {
   if (existing.archived) {
     return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+  }
+
+  if (targetStatus === InterventionStatus.ON_HOLD) {
+    return { id, success: false, reason: "Use the pause action to put an intervention on hold." };
   }
 
   const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
@@ -1220,7 +1681,7 @@ async function applyBulkStatusChange(
       where: { id },
       data: {
         status: targetStatus,
-        ...(targetStatus === InterventionStatus.IN_PROGRESS
+        ...(targetStatus === InterventionStatus.IN_PROGRESS && !existing.startedAt
           ? { startedAt: new Date() }
           : {}),
       },
@@ -1386,6 +1847,13 @@ interventionsRouter.post(
               return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
             }
             const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(record.status);
+            if (input.payload.status === InterventionStatus.ON_HOLD) {
+              return {
+                id,
+                success: false,
+                reason: "Use the pause action to put an intervention on hold.",
+              };
+            }
             if (!allowedTargets?.has(input.payload.status)) {
               return {
                 id,

@@ -1,5 +1,6 @@
 import { api } from '@/lib/api';
 import { API_ENDPOINTS } from '@/constants';
+
 export interface MaterialItem {
   name: string;
   quantity: number;
@@ -20,9 +21,13 @@ export interface InterventionReport {
   materialItems: MaterialItem[];
   notes: string | null;
   status: 'DRAFT' | 'FINALIZED';
+  isRecommended: boolean;
+  recommendedAt: string | null;
+  recommendedById: number | null;
   author: ReportAuthor;
   reportDate: string;
 }
+
 export interface CreateReportPayload {
   description: string;
   materialItems?: MaterialItem[];
@@ -114,5 +119,33 @@ export async function getMaterialSuggestions(interventionId: number): Promise<st
     return response.data.data ?? [];
   } catch {
     return [];
+  }
+}
+
+export async function finalizeInterventionReport(
+  interventionId: number,
+): Promise<InterventionReport> {
+  try {
+    const response = await api.patch<ReportApiResponse>(
+      API_ENDPOINTS.INTERVENTIONS.REPORT_FINALIZE(interventionId),
+    );
+    return response.data.data;
+  } catch (error: unknown) {
+    throw toServiceError(error, 'Failed to finalize the report.');
+  }
+}
+
+export async function setInterventionReportRecommendation(
+  interventionId: number,
+  recommended: boolean,
+): Promise<InterventionReport> {
+  try {
+    const response = await api.patch<ReportApiResponse>(
+      API_ENDPOINTS.INTERVENTIONS.REPORT_RECOMMENDATION(interventionId),
+      { recommended },
+    );
+    return response.data.data;
+  } catch (error: unknown) {
+    throw toServiceError(error, 'Failed to update the recommendation.');
   }
 }

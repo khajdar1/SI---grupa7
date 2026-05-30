@@ -46,6 +46,9 @@ export interface ReportRecord {
   notes: string | null;
   reportDate: Date;
   status: ReportStatus;
+  isRecommended: boolean;
+  recommendedAt: Date | null;
+  recommendedById: number | null;
   author: ReportAuthorRecord;
 }
 export interface IReportRepository {
@@ -60,6 +63,7 @@ export interface IReportRepository {
   ): Promise<ReportRecord>;
   update(id: number, input: UpdateReportInput): Promise<ReportRecord>;
   finalizeReport(id: number): Promise<ReportRecord>;
+  setRecommendation(id: number, recommended: boolean, coordinatorId: number): Promise<ReportRecord>;
 }
 export class ReportService {
   constructor(private readonly repository: IReportRepository) {}
@@ -148,5 +152,27 @@ export class ReportService {
     if (existing.status === ReportStatus.FINALIZED) return existing;
 
     return this.repository.finalizeReport(existing.id);
+  }
+
+  async setRecommendation(
+    interventionId: number,
+    coordinatorId: number,
+    recommended: boolean,
+  ): Promise<ReportRecord> {
+    const intervention = await this.repository.findInterventionById(interventionId);
+    if (!intervention) {
+      throw new NotFoundError('Intervention not found.');
+    }
+
+    const existing = await this.repository.findByInterventionId(interventionId);
+    if (!existing) {
+      throw new NotFoundError('Report not found for this intervention.');
+    }
+
+    if (existing.status !== ReportStatus.FINALIZED) {
+      throw new ForbiddenError('Only finalized reports can be marked as recommended solutions.');
+    }
+
+    return this.repository.setRecommendation(existing.id, recommended, coordinatorId);
   }
 }

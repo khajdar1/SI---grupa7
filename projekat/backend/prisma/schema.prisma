@@ -18,6 +18,7 @@ enum InterventionStatus {
   NEW
   ASSIGNED
   IN_PROGRESS
+  ON_HOLD
   RESOLVED
   CANCELLED
   REJECTED
@@ -60,6 +61,15 @@ enum NotificationType {
   AUTO_ASSIGNMENT
   NEW_TICKET
   TICKET_REPLY
+  INTERVENTION_PAUSED
+}
+
+enum PauseReason {
+  WAITING_FOR_CUSTOMER
+  WAITING_FOR_MATERIAL
+  WAITING_FOR_EXTERNAL_CONTRACTOR
+  WAITING_FOR_APPROVAL
+  OTHER
 }
 
 enum CompanyStatus {
@@ -107,6 +117,7 @@ model User {
   createdFaultReports   FaultReport[]           @relation("FaultReportAuthor")
   createdInterventions  Intervention[]          @relation("InterventionCreator")
   reports              Report[]                @relation("ReportAuthor")
+  recommendedReports   Report[]                @relation("ReportRecommendedBy")
   assignments          Assignment[]
   comments             InterventionComment[]   @relation("CommentAuthor")
   statusChanges        StatusHistory[]         @relation("StatusHistoryAuthor")
@@ -118,6 +129,9 @@ model User {
   blocksReceived       UserBlock[]             @relation("BlockedUser")
   blocksMade           UserBlock[]             @relation("BlockCreatedBy")
   preferences          UserPreference?
+  unavailablePeriods   ServicerUnavailability[] @relation("ServicerUnavailablePeriods")
+  pauseActions         InterventionPause[]      @relation("PauseActor")
+  pauseResponsibilities InterventionPause[]     @relation("PauseResponsibleUser")
 }
 
 model UserPreference {
@@ -232,6 +246,43 @@ model Intervention {
   statusHistory     StatusHistory[]
   feedback          Feedback?
   notifications     Notification[]
+  pauses            InterventionPause[]
+}
+
+model ServicerUnavailability {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  startAt     DateTime
+  endAt       DateTime
+  reason      String    @db.VarChar(500)
+  canceledAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation("ServicerUnavailablePeriods", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startAt, endAt])
+  @@index([canceledAt])
+}
+
+model InterventionPause {
+  id                    Int                @id @default(autoincrement())
+  interventionId         Int
+  pausedById             Int
+  responsibleUserId      Int?
+  reason                 PauseReason
+  otherReason            String?            @db.VarChar(1000)
+  previousStatus         InterventionStatus
+  pausedAt               DateTime           @default(now())
+  resumedAt              DateTime?
+  resumedById            Int?
+  resumeNote             String?            @db.VarChar(1000)
+  intervention           Intervention       @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  pausedBy               User               @relation("PauseActor", fields: [pausedById], references: [id])
+  responsibleUser        User?              @relation("PauseResponsibleUser", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([interventionId, resumedAt])
+  @@index([reason])
+  @@index([pausedAt])
 }
 
 model Report {
@@ -243,9 +294,15 @@ model Report {
   notes         String?        @db.LongText
   reportDate    DateTime       @default(now())
   status        ReportStatus   @default(DRAFT)
+  isRecommended Boolean        @default(false)
+  recommendedAt DateTime?
+  recommendedById Int?
   intervention  Intervention   @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   author        User           @relation("ReportAuthor", fields: [authorId], references: [id])
+  recommendedBy User?          @relation("ReportRecommendedBy", fields: [recommendedById], references: [id], onDelete: SetNull)
   attachments   Attachment[]
+
+  @@index([isRecommended])
 }
 
 model Attachment {

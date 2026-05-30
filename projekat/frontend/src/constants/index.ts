@@ -81,6 +81,9 @@ export const API_ENDPOINTS = {
     REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
     MATERIAL_SUGGESTIONS: (id: number | string) =>
       `/api/v1/interventions/${id}/reports/material-suggestions`,
+    REPORT_FINALIZE: (id: number | string) => `/api/v1/interventions/${id}/reports/finalize`,
+    REPORT_RECOMMENDATION: (id: number | string) => `/api/v1/interventions/${id}/reports/recommendation`,
+    KNOWLEDGE_BASE: (id: number | string) => `/api/v1/interventions/${id}/knowledge-base`,
     BULK_ACTIONS: '/api/v1/interventions/bulk-actions',
   },
   ATTACHMENTS: {
@@ -90,6 +93,10 @@ export const API_ENDPOINTS = {
   },
   ASSIGNMENTS: {
     BASE: '/api/v1/assignments',
+  },
+  AVAILABILITY: {
+    ME: '/api/v1/availability/me',
+    BY_ID: (id: number | string) => `/api/v1/availability/me/${id}`,
   },
   REPORTS: {
     BASE: '/api/v1/reports',
@@ -127,6 +134,7 @@ export const API_ENDPOINTS = {
   },
   FEEDBACK: {
     BY_INTERVENTION: (id: number | string) => `/api/v1/feedback/${id}`,
+    ANALYTICS: '/api/v1/feedback/analytics',
   },
 } as const;
 

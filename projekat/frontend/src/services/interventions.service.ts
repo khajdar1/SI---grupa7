@@ -46,7 +46,27 @@ export interface InterventionListItem {
     };
     assignedAt: string;
   }>;
+  pauses?: InterventionPause[];
 }
+
+export interface InterventionPause {
+  id: number;
+  reason: PauseReason;
+  otherReason: string | null;
+  previousStatus: InterventionStatus;
+  pausedAt: string;
+  resumedAt: string | null;
+  resumeNote: string | null;
+  pausedBy: { id: number; firstName: string; lastName: string; username: string };
+  responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
+}
+
+export type PauseReason =
+  | 'WAITING_FOR_CUSTOMER'
+  | 'WAITING_FOR_MATERIAL'
+  | 'WAITING_FOR_EXTERNAL_CONTRACTOR'
+  | 'WAITING_FOR_APPROVAL'
+  | 'OTHER';
 
 export interface InterventionFormPayload {
   name: string;
@@ -116,6 +136,33 @@ export interface InterventionHistoryQuery {
   pageSize?: number;
 }
 
+export interface KnowledgeBaseSolution {
+  reportId: number;
+  title: string;
+  problemDescription: string;
+  solution: string;
+  material: string | null;
+  notes: string | null;
+  locationHint: string;
+  categoryId: number;
+  categoryName: string;
+  reportDate: string;
+  interventionDate: string;
+  isRecommended: boolean;
+  recommendedAt: string | null;
+}
+
+export interface KnowledgeBaseResponse {
+  message: string;
+  data: KnowledgeBaseSolution[];
+}
+
+export interface KnowledgeBaseQuery {
+  text?: string;
+  location?: string;
+  categoryId?: number | string;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
 }
@@ -183,6 +230,7 @@ export interface InterventionDetail {
     };
     assignedAt: string;
   }>;
+  pauses?: InterventionPause[];
 }
 
 export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
@@ -313,6 +361,30 @@ export async function getInterventionHistory(
   );
 }
 
+export async function getInterventionKnowledgeBase(
+  id: string | number,
+  query: KnowledgeBaseQuery = {},
+): Promise<KnowledgeBaseResponse> {
+  const params = new URLSearchParams();
+  if (query.text?.trim()) {
+    params.set('text', query.text.trim());
+  }
+  if (query.location?.trim()) {
+    params.set('location', query.location.trim());
+  }
+  if (query.categoryId !== undefined && query.categoryId !== '') {
+    params.set('categoryId', String(query.categoryId));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<KnowledgeBaseResponse>(
+      `${API_ENDPOINTS.INTERVENTIONS.KNOWLEDGE_BASE(id)}${suffix}`,
+    ),
+    'Failed to load recommended solutions.',
+  );
+}
+
 export async function createIntervention(payload: InterventionFormPayload): Promise<InterventionListItem> {
   return getResponseData(
     () => api.post<InterventionListItem>(API_ENDPOINTS.INTERVENTIONS.BASE, payload),
@@ -343,6 +415,26 @@ export async function updateInterventionStatus(
       { status },
     ),
     'Failed to update intervention status.',
+  );
+}
+
+export async function pauseIntervention(
+  id: string | number,
+  payload: { reason: PauseReason; otherReason?: string | null; responsibleUserId?: number | null },
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/pause`, payload),
+    'Failed to pause intervention.',
+  );
+}
+
+export async function resumeIntervention(
+  id: string | number,
+  payload: { note?: string | null } = {},
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/resume`, payload),
+    'Failed to resume intervention.',
   );
 }
 
