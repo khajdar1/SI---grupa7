@@ -1,7 +1,7 @@
 'use client';
 export const runtime = 'edge';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { useParams } from 'next/navigation';
 
 import { INTERVENTION_STATUS, type InterventionStatus } from '@shared/enums';
@@ -21,6 +21,7 @@ import { FeedbackSection } from '@/components/feedback/FeedbackSection';
 import { ReportSection } from '@/components/reports/ReportSection';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InterventionStatusBadge } from '@/components/shared/InterventionStatusBadge';
 import { PriorityBadge } from '@/components/shared/PriorityBadge';
@@ -33,8 +34,12 @@ import {
   type AttachmentListItem,
 } from '@/services/attachments.service';
 import {
+  confirmExecutionConfirmation,
   getInterventionById,
+  rejectExecutionConfirmation,
+  requestExecutionConfirmation,
   updateInterventionStatus,
+  type ExecutionConfirmationDetail,
   type InterventionDetail,
   type KnowledgeBaseSolution,
 } from '@/services/interventions.service';
@@ -93,6 +98,13 @@ const REPORT_READ_ROLES = new Set([
 ]);
 
 const REPORT_WRITE_ROLES = new Set(['serviser']);
+const PENDING_EXECUTION_STATUS = 'PENDING';
+const NOT_CONFIRMED_EXECUTION_STATUSES = new Set([
+  'NOT_REQUESTED',
+  'PENDING',
+  'REJECTED',
+  'CLOSED_WITHOUT_CONFIRMATION',
+]);
 
 interface DeleteState {
   isOpen: boolean;
@@ -125,6 +137,18 @@ const INITIAL_BLOCK_REPORTER_STATE: BlockReporterState = {
   error: null,
 };
 
+interface CloseWithoutConfirmationState {
+  isOpen: boolean;
+  reason: string;
+  isLoading: boolean;
+}
+
+const INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE: CloseWithoutConfirmationState = {
+  isOpen: false,
+  reason: '',
+  isLoading: false,
+};
+
 export default function InterventionDetailPage() {
   const { language, t } = useI18n();
   const params = useParams();
@@ -143,8 +167,18 @@ export default function InterventionDetailPage() {
     notes: string | null;
   } | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isUpdatingConfirmation, setIsUpdatingConfirmation] = useState(false);
+  const [confirmationPin, setConfirmationPin] = useState('');
+  const [confirmationPinInput, setConfirmationPinInput] = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [closeWithoutConfirmationState, setCloseWithoutConfirmationState] = useState(
+    INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE,
+  );
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [blockReporterState, setBlockReporterState] = useState<BlockReporterState>(INITIAL_BLOCK_REPORTER_STATE);
+  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawingSignatureRef = useRef(false);
+  const lastSignaturePointRef = useRef<{ x: number; y: number } | null>(null);
 
   const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
@@ -186,7 +220,13 @@ export default function InterventionDetailPage() {
     });
   };
 
-  const handleStatusChange = async (status: InterventionStatus) => {
+  const setExecutionConfirmation = (confirmation: ExecutionConfirmationDetail) => {
+    setIntervention((current) =>
+      current ? { ...current, executionConfirmation: confirmation } : current,
+    );
+  };
+
+  const handleStatusChange = async (status: InterventionStatus, confirmationBypassReason?: string) => {
     if (!intervention) return;
 
     setIsUpdatingStatus(true);
@@ -194,17 +234,161 @@ export default function InterventionDetailPage() {
     setSuccessMessage('');
 
     try {
-      const updated = await updateInterventionStatus(intervention.id, status);
+      const updated = await updateInterventionStatus(intervention.id, status, confirmationBypassReason);
       setIntervention((current) => ({
         ...updated,
         assignments: current?.assignments ?? updated.assignments,
       }));
+      setCloseWithoutConfirmationState(INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE);
       setSuccessMessage(t('interventionDetail.statusUpdated'));
     } catch (err: unknown) {
       setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.statusUpdateFailed'));
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleCloseClick = () => {
+    if (!intervention) return;
+
+    if (NOT_CONFIRMED_EXECUTION_STATUSES.has(intervention.executionConfirmation.status)) {
+      setCloseWithoutConfirmationState((prev) => ({ ...prev, isOpen: true }));
+      return;
+    }
+
+    void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
+  };
+
+  const handleRequestExecutionConfirmation = async () => {
+    if (!intervention) return;
+
+    setIsUpdatingConfirmation(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const response = await requestExecutionConfirmation(intervention.id);
+      setExecutionConfirmation(response.confirmation);
+      setConfirmationPin(response.pin);
+      setSuccessMessage(t('interventionDetail.confirmationRequested'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationRequestFailed'));
+    } finally {
+      setIsUpdatingConfirmation(false);
+    }
+  };
+
+  const handleConfirmPin = async () => {
+    if (!intervention || !confirmationPinInput.trim()) return;
+
+    setIsUpdatingConfirmation(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const confirmation = await confirmExecutionConfirmation(intervention.id, {
+        method: 'PIN',
+        pin: confirmationPinInput.trim(),
+      });
+      setExecutionConfirmation(confirmation);
+      setConfirmationPin('');
+      setConfirmationPinInput('');
+      setSuccessMessage(t('interventionDetail.confirmationConfirmed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationConfirmFailed'));
+    } finally {
+      setIsUpdatingConfirmation(false);
+    }
+  };
+
+  const handleConfirmSignature = async () => {
+    if (!intervention || !signatureCanvasRef.current) return;
+
+    setIsUpdatingConfirmation(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const confirmation = await confirmExecutionConfirmation(intervention.id, {
+        method: 'SIGNATURE',
+        signatureData: signatureCanvasRef.current.toDataURL('image/png'),
+      });
+      setExecutionConfirmation(confirmation);
+      setConfirmationPin('');
+      clearSignature();
+      setSuccessMessage(t('interventionDetail.confirmationConfirmed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationConfirmFailed'));
+    } finally {
+      setIsUpdatingConfirmation(false);
+    }
+  };
+
+  const handleRejectConfirmation = async () => {
+    if (!intervention || !rejectionReason.trim()) return;
+
+    setIsUpdatingConfirmation(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const confirmation = await rejectExecutionConfirmation(intervention.id, {
+        reason: rejectionReason.trim(),
+      });
+      setExecutionConfirmation(confirmation);
+      setConfirmationPin('');
+      setRejectionReason('');
+      setSuccessMessage(t('interventionDetail.confirmationRejected'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationRejectFailed'));
+    } finally {
+      setIsUpdatingConfirmation(false);
+    }
+  };
+
+  const getSignaturePoint = (event: PointerEvent<HTMLCanvasElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  };
+
+  const startSignature = (event: PointerEvent<HTMLCanvasElement>) => {
+    isDrawingSignatureRef.current = true;
+    lastSignaturePointRef.current = getSignaturePoint(event);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const drawSignature = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingSignatureRef.current || !signatureCanvasRef.current) return;
+
+    const context = signatureCanvasRef.current.getContext('2d');
+    const lastPoint = lastSignaturePointRef.current;
+    const nextPoint = getSignaturePoint(event);
+
+    if (!context || !lastPoint) return;
+
+    context.strokeStyle = '#111827';
+    context.lineWidth = 2;
+    context.lineCap = 'round';
+    context.beginPath();
+    context.moveTo(lastPoint.x, lastPoint.y);
+    context.lineTo(nextPoint.x, nextPoint.y);
+    context.stroke();
+    lastSignaturePointRef.current = nextPoint;
+  };
+
+  const endSignature = () => {
+    isDrawingSignatureRef.current = false;
+    lastSignaturePointRef.current = null;
+  };
+
+  const clearSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    const context = canvas?.getContext('2d');
+    if (!canvas || !context) return;
+    context.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   const openDeleteDialog = (attachment: AttachmentListItem) => {
@@ -289,6 +473,20 @@ export default function InterventionDetailPage() {
           block.blockedUser.username.toLowerCase() === reporterUser.username.toLowerCase(),
       )
     : null;
+  const executionConfirmation = intervention?.executionConfirmation;
+  const confirmationStatus = executionConfirmation?.status ?? 'NOT_REQUESTED';
+  const confirmationIsPending = confirmationStatus === PENDING_EXECUTION_STATUS;
+  const canRequestConfirmation = Boolean(
+    intervention &&
+      canChangeStatus &&
+      intervention.status === INTERVENTION_STATUS.IN_PROGRESS &&
+      confirmationStatus !== 'CONFIRMED',
+  );
+  const canRespondToConfirmation = Boolean(canSubmitFeedback && confirmationIsPending);
+  const confirmationStatusLabel = t(`interventionDetail.confirmationStatus.${confirmationStatus}`);
+  const confirmationMethodLabel = executionConfirmation?.method
+    ? t(`interventionDetail.confirmationMethod.${executionConfirmation.method}`)
+    : '-';
 
   const statusActions: PageHeaderAction[] = intervention
     ? [
@@ -309,7 +507,7 @@ export default function InterventionDetailPage() {
               {
                 label: t('interventionDetail.close'),
                 onClick: () => {
-                  void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
+                  handleCloseClick();
                 },
                 variant: 'outline' as const,
                 isLoading: isUpdatingStatus,
@@ -426,6 +624,168 @@ export default function InterventionDetailPage() {
       ) : null}
 
       {/* ── Fault report reporter / block action ── */}
+      {intervention && executionConfirmation ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('interventionDetail.confirmationTitle')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.confirmationStatus')}</p>
+                <p className="font-medium">{confirmationStatusLabel}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.confirmationMethod')}</p>
+                <p className="font-medium">{confirmationMethodLabel}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.confirmationRequestedAt')}</p>
+                <p className="font-medium">
+                  {executionConfirmation.requestedAt
+                    ? new Date(executionConfirmation.requestedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.confirmationRespondedAt')}</p>
+                <p className="font-medium">
+                  {executionConfirmation.respondedAt
+                    ? new Date(executionConfirmation.respondedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })
+                    : '-'}
+                </p>
+              </div>
+            </div>
+
+            {executionConfirmation.requestedBy ? (
+              <p className="text-sm text-muted-foreground">
+                {t('interventionDetail.confirmationRequestedBy')}: {executionConfirmation.requestedBy}
+              </p>
+            ) : null}
+            {executionConfirmation.confirmedBy ? (
+              <p className="text-sm text-muted-foreground">
+                {t('interventionDetail.confirmationConfirmedBy')}: {executionConfirmation.confirmedBy}
+              </p>
+            ) : null}
+            {executionConfirmation.rejectionReason ? (
+              <p className="text-sm text-destructive">
+                {t('interventionDetail.confirmationRejectionReason')}: {executionConfirmation.rejectionReason}
+              </p>
+            ) : null}
+            {executionConfirmation.bypassReason ? (
+              <p className="text-sm text-muted-foreground">
+                {t('interventionDetail.confirmationBypassReason')}: {executionConfirmation.bypassReason}
+              </p>
+            ) : null}
+
+            {confirmationPin ? (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                {t('interventionDetail.confirmationPin')}: <span className="font-mono text-lg font-semibold">{confirmationPin}</span>
+              </div>
+            ) : null}
+
+            {canRequestConfirmation ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  void handleRequestExecutionConfirmation();
+                }}
+                disabled={isUpdatingConfirmation}
+              >
+                {isUpdatingConfirmation ? t('interventionDetail.confirmationRequesting') : t('interventionDetail.confirmationRequest')}
+              </Button>
+            ) : null}
+
+            {canRespondToConfirmation ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-3">
+                  <Label htmlFor="execution-confirmation-pin">{t('interventionDetail.confirmationEnterPin')}</Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="execution-confirmation-pin"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={confirmationPinInput}
+                      onChange={(event) => setConfirmationPinInput(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        void handleConfirmPin();
+                      }}
+                      disabled={isUpdatingConfirmation || confirmationPinInput.length !== 6}
+                    >
+                      {t('interventionDetail.confirmationConfirmPin')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>{t('interventionDetail.confirmationSignature')}</Label>
+                  <canvas
+                    ref={signatureCanvasRef}
+                    width={520}
+                    height={160}
+                    className="h-40 w-full touch-none rounded-md border bg-white"
+                    onPointerDown={startSignature}
+                    onPointerMove={drawSignature}
+                    onPointerUp={endSignature}
+                    onPointerCancel={endSignature}
+                    onPointerLeave={endSignature}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={clearSignature}
+                      disabled={isUpdatingConfirmation}
+                    >
+                      {t('interventionDetail.confirmationClearSignature')}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        void handleConfirmSignature();
+                      }}
+                      disabled={isUpdatingConfirmation}
+                    >
+                      {t('interventionDetail.confirmationConfirmSignature')}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3 lg:col-span-2">
+                  <Label htmlFor="execution-confirmation-rejection">{t('interventionDetail.confirmationRejectReason')}</Label>
+                  <Textarea
+                    id="execution-confirmation-rejection"
+                    rows={3}
+                    value={rejectionReason}
+                    onChange={(event) => setRejectionReason(event.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => {
+                      void handleRejectConfirmation();
+                    }}
+                    disabled={isUpdatingConfirmation || rejectionReason.trim().length < 3}
+                  >
+                    {t('interventionDetail.confirmationReject')}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
       {isCoordinator && intervention?.faultReport?.reporterUser ? (
         <Card>
           <CardHeader>
@@ -642,6 +1002,61 @@ export default function InterventionDetailPage() {
       </Dialog>
 
       {/* ── Delete attachment dialog ── */}
+      <Dialog
+        open={closeWithoutConfirmationState.isOpen}
+        onOpenChange={(open) =>
+          !open && setCloseWithoutConfirmationState(INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE)
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('interventionDetail.closeWithoutConfirmationTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('interventionDetail.closeWithoutConfirmationDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="close-without-confirmation-reason">
+              {t('interventionDetail.closeWithoutConfirmationReason')}
+            </Label>
+            <Textarea
+              id="close-without-confirmation-reason"
+              rows={4}
+              value={closeWithoutConfirmationState.reason}
+              onChange={(event) =>
+                setCloseWithoutConfirmationState((prev) => ({
+                  ...prev,
+                  reason: event.target.value,
+                }))
+              }
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCloseWithoutConfirmationState(INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE)}
+              disabled={isUpdatingStatus}
+            >
+              {t('tickets.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                setCloseWithoutConfirmationState((prev) => ({ ...prev, isLoading: true }));
+                void handleStatusChange(
+                  INTERVENTION_STATUS.RESOLVED,
+                  closeWithoutConfirmationState.reason.trim(),
+                );
+              }}
+              disabled={isUpdatingStatus || closeWithoutConfirmationState.reason.trim().length < 3}
+            >
+              {isUpdatingStatus || closeWithoutConfirmationState.isLoading
+                ? t('interventionDetail.closing')
+                : t('interventionDetail.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ConfirmDialog
         isOpen={deleteState.isOpen}
         onClose={closeDeleteDialog}

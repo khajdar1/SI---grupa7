@@ -2,7 +2,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 import assert from 'node:assert/strict';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { InterventionStatus } from '@prisma/client';
+import { ExecutionConfirmationStatus, InterventionStatus } from '@prisma/client';
 
 const {
   interventionFindManyMock,
@@ -180,7 +180,12 @@ function seedActor() {
 }
 
 function seedInterventions(
-  records: { id: number; status: InterventionStatus; archived: boolean }[],
+  records: {
+    id: number;
+    status: InterventionStatus;
+    archived: boolean;
+    executionConfirmation?: { status: ExecutionConfirmationStatus } | null;
+  }[],
 ) {
   interventionFindManyMock.mockResolvedValue(records);
 }
@@ -346,7 +351,14 @@ describe('POST /interventions/bulk-actions – STATUS_CHANGE', () => {
   });
 
   test('uspješno mijenja status IN_PROGRESS → RESOLVED', async () => {
-    seedInterventions([{ id: 2, status: InterventionStatus.IN_PROGRESS, archived: false }]);
+    seedInterventions([
+      {
+        id: 2,
+        status: InterventionStatus.IN_PROGRESS,
+        archived: false,
+        executionConfirmation: { status: ExecutionConfirmationStatus.CONFIRMED },
+      },
+    ]);
 
     const res = await request('POST', '/interventions/bulk-actions', {
       body: { action: 'STATUS_CHANGE', interventionIds: [2], payload: { status: 'RESOLVED' } },
@@ -355,6 +367,26 @@ describe('POST /interventions/bulk-actions – STATUS_CHANGE', () => {
     expect(res.status).toBe(200);
     const body = res.body as { totalSucceeded: number };
     expect(body.totalSucceeded).toBe(1);
+  });
+
+  test('odbija bulk zatvaranje bez digitalne potvrde jer nema komentara', async () => {
+    seedInterventions([
+      {
+        id: 2,
+        status: InterventionStatus.IN_PROGRESS,
+        archived: false,
+        executionConfirmation: { status: ExecutionConfirmationStatus.PENDING },
+      },
+    ]);
+
+    const res = await request('POST', '/interventions/bulk-actions', {
+      body: { action: 'STATUS_CHANGE', interventionIds: [2], payload: { status: 'RESOLVED' } },
+    });
+
+    expect(res.status).toBe(422);
+    const body = res.body as { totalSucceeded: number; results: { reason?: string }[] };
+    expect(body.totalSucceeded).toBe(0);
+    expect(body.results[0].reason).toMatch(/without digital confirmation/i);
   });
 
   test('atomarno odbija sve kada jedan prelaz nije dozvoljen – vraća 422', async () => {

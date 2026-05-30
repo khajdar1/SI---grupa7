@@ -1,4 +1,6 @@
 import {
+  ExecutionConfirmationMethod,
+  ExecutionConfirmationStatus,
   InterventionStatus,
   InterventionType,
   NotificationType,
@@ -6,6 +8,7 @@ import {
   RecurringPeriod,
   ReportStatus,
 } from "@prisma/client";
+import { createHash, randomInt } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -190,7 +193,63 @@ const knowledgeBaseQuerySchema = z.object({
 
 const interventionStatusUpdateSchema = z.object({
   status: z.nativeEnum(InterventionStatus),
+  confirmationBypassReason: z.string().trim().min(3).max(1000).optional(),
 });
+
+const confirmationRequestSchema = z.object({});
+
+const confirmationConfirmSchema = z.discriminatedUnion("method", [
+  z.object({
+    method: z.literal(ExecutionConfirmationMethod.PIN),
+    pin: z.string().trim().regex(/^\d{6}$/, "PIN must contain 6 digits."),
+  }),
+  z.object({
+    method: z.literal(ExecutionConfirmationMethod.SIGNATURE),
+    signatureData: z.string().trim().min(10).max(10000),
+  }),
+]);
+
+const confirmationRejectSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+function hashPin(pin: string): string {
+  return createHash("sha256").update(pin).digest("hex");
+}
+
+function generatePin(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+function mapExecutionConfirmation(confirmation: {
+  id?: number;
+  status: ExecutionConfirmationStatus;
+  method: ExecutionConfirmationMethod | null;
+  requestedAt: Date | null;
+  respondedAt: Date | null;
+  rejectionReason: string | null;
+  bypassReason: string | null;
+  requestedBy?: { firstName: string; lastName: string; username: string } | null;
+  confirmedBy?: { firstName: string; lastName: string; username: string } | null;
+}) {
+  return {
+    id: confirmation.id,
+    status: confirmation.status,
+    method: confirmation.method,
+    requestedAt: confirmation.requestedAt?.toISOString() ?? null,
+    respondedAt: confirmation.respondedAt?.toISOString() ?? null,
+    rejectionReason: confirmation.rejectionReason,
+    bypassReason: confirmation.bypassReason,
+    requestedBy: confirmation.requestedBy
+      ? (`${confirmation.requestedBy.firstName} ${confirmation.requestedBy.lastName}`).trim() ||
+        confirmation.requestedBy.username
+      : null,
+    confirmedBy: confirmation.confirmedBy
+      ? (`${confirmation.confirmedBy.firstName} ${confirmation.confirmedBy.lastName}`).trim() ||
+        confirmation.confirmedBy.username
+      : null,
+  };
+}
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
   if (typeof rawId !== "string") {
@@ -476,6 +535,17 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
+  executionConfirmation?: {
+    id: number;
+    status: ExecutionConfirmationStatus;
+    method: ExecutionConfirmationMethod | null;
+    requestedAt: Date;
+    respondedAt: Date | null;
+    rejectionReason: string | null;
+    bypassReason: string | null;
+    requestedBy: { firstName: string; lastName: string; username: string } | null;
+    confirmedBy: { firstName: string; lastName: string; username: string } | null;
+  } | null;
   
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
@@ -529,6 +599,18 @@ function mapIntervention(intervention: {
         },
         assignedAt: assignment.assignedAt.toISOString(),
       })) ?? [],
+    executionConfirmation: intervention.executionConfirmation
+      ? mapExecutionConfirmation(intervention.executionConfirmation)
+      : mapExecutionConfirmation({
+          status: ExecutionConfirmationStatus.NOT_REQUESTED,
+          method: null,
+          requestedAt: null,
+          respondedAt: null,
+          rejectionReason: null,
+          bypassReason: null,
+          requestedBy: null,
+          confirmedBy: null,
+        }),
   };
 }
 
@@ -620,6 +702,31 @@ const interventionInclude = {
           lastName: true,
           username: true,
           email: true,
+        },
+      },
+    },
+  },
+  executionConfirmation: {
+    select: {
+      id: true,
+      status: true,
+      method: true,
+      requestedAt: true,
+      respondedAt: true,
+      rejectionReason: true,
+      bypassReason: true,
+      requestedBy: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+      confirmedBy: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
         },
       },
     },
@@ -994,6 +1101,11 @@ interventionsRouter.patch(
         name: true,
         status: true,
         archived: true,
+        executionConfirmation: {
+          select: {
+            status: true,
+          },
+        },
         faultReport: {
           select: {
             userId: true,
@@ -1019,9 +1131,47 @@ interventionsRouter.patch(
     }
 
     const actor = await resolveCreator(req);
+    const closesIntervention = input.status === InterventionStatus.RESOLVED;
+    const hasUserConfirmation =
+      existing.executionConfirmation?.status === ExecutionConfirmationStatus.CONFIRMED;
 
-    const [intervention] = await prisma.$transaction([
-      prisma.intervention.update({
+    if (closesIntervention && !hasUserConfirmation && !input.confirmationBypassReason?.trim()) {
+      throw new BadRequestError(
+        "Closing an intervention without user confirmation requires a comment.",
+        [
+          {
+            field: "confirmationBypassReason",
+            message: "Comment is required when closing without digital confirmation.",
+          },
+        ],
+      );
+    }
+
+    const intervention = await prisma.$transaction(async (tx) => {
+      if (closesIntervention && !hasUserConfirmation) {
+        await tx.executionConfirmation.upsert({
+          where: { interventionId: id },
+          create: {
+            interventionId: id,
+            requestedById: actor.id,
+            status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+            method: ExecutionConfirmationMethod.NONE,
+            bypassReason: input.confirmationBypassReason!.trim(),
+            respondedAt: new Date(),
+          },
+          update: {
+            status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+            method: ExecutionConfirmationMethod.NONE,
+            pinHash: null,
+            signatureData: null,
+            rejectionReason: null,
+            bypassReason: input.confirmationBypassReason!.trim(),
+            respondedAt: new Date(),
+          },
+        });
+      }
+
+      const updatedIntervention = await tx.intervention.update({
         where: { id },
         data: {
           status: input.status,
@@ -1030,16 +1180,19 @@ interventionsRouter.patch(
             : {}),
         },
         include: interventionInclude,
-      }),
-      prisma.statusHistory.create({
+      });
+
+      await tx.statusHistory.create({
         data: {
           interventionId: id,
           authorId: actor.id,
           oldStatus: existing.status,
           newStatus: input.status,
         },
-      }),
-    ]);
+      });
+
+      return updatedIntervention;
+    });
 
     if (input.status === InterventionStatus.RESOLVED) {
       await createFeedbackRequestNotificationOnce({
@@ -1050,6 +1203,177 @@ interventionsRouter.patch(
     }
 
     res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/request",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(confirmationRequestSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        archived: true,
+        executionConfirmation: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot request execution confirmation.");
+    }
+
+    if (existing.status !== InterventionStatus.IN_PROGRESS) {
+      throw new ForbiddenError(
+        "Execution confirmation can be requested only while the intervention is in progress.",
+      );
+    }
+
+    if (existing.executionConfirmation?.status === ExecutionConfirmationStatus.CONFIRMED) {
+      throw new ForbiddenError("Execution confirmation has already been confirmed.");
+    }
+
+    const actor = await resolveCreator(req);
+    const pin = generatePin();
+    const confirmation = await prisma.executionConfirmation.upsert({
+      where: { interventionId: id },
+      create: {
+        interventionId: id,
+        requestedById: actor.id,
+        status: ExecutionConfirmationStatus.PENDING,
+        pinHash: hashPin(pin),
+        requestedAt: new Date(),
+      },
+      update: {
+        requestedById: actor.id,
+        confirmedById: null,
+        status: ExecutionConfirmationStatus.PENDING,
+        method: null,
+        pinHash: hashPin(pin),
+        signatureData: null,
+        rejectionReason: null,
+        bypassReason: null,
+        requestedAt: new Date(),
+        respondedAt: null,
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    res.status(HTTP_STATUS.CREATED).json({
+      confirmation: mapExecutionConfirmation(confirmation),
+      pin,
+    });
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/confirm",
+  authorizeInterventionAccess,
+  validate(confirmationConfirmSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof confirmationConfirmSchema>;
+
+    const existing = await prisma.executionConfirmation.findUnique({
+      where: { interventionId: id },
+      select: {
+        id: true,
+        status: true,
+        pinHash: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Execution confirmation request not found.");
+    }
+
+    if (existing.status !== ExecutionConfirmationStatus.PENDING) {
+      throw new ForbiddenError("Execution confirmation is not pending.");
+    }
+
+    if (
+      input.method === ExecutionConfirmationMethod.PIN &&
+      existing.pinHash !== hashPin(input.pin)
+    ) {
+      throw new BadRequestError("Invalid confirmation PIN.", [
+        { field: "pin", message: "PIN is not valid for this confirmation request." },
+      ]);
+    }
+
+    const confirmation = await prisma.executionConfirmation.update({
+      where: { interventionId: id },
+      data: {
+        confirmedById: req.user?.localUserId ?? null,
+        status: ExecutionConfirmationStatus.CONFIRMED,
+        method: input.method,
+        pinHash: null,
+        signatureData:
+          input.method === ExecutionConfirmationMethod.SIGNATURE
+            ? input.signatureData
+            : null,
+        rejectionReason: null,
+        bypassReason: null,
+        respondedAt: new Date(),
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    res.json(mapExecutionConfirmation(confirmation));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/reject",
+  authorizeInterventionAccess,
+  validate(confirmationRejectSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof confirmationRejectSchema>;
+
+    const existing = await prisma.executionConfirmation.findUnique({
+      where: { interventionId: id },
+      select: {
+        id: true,
+        status: true,
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Execution confirmation request not found.");
+    }
+
+    if (existing.status !== ExecutionConfirmationStatus.PENDING) {
+      throw new ForbiddenError("Execution confirmation is not pending.");
+    }
+
+    const confirmation = await prisma.executionConfirmation.update({
+      where: { interventionId: id },
+      data: {
+        confirmedById: req.user?.localUserId ?? null,
+        status: ExecutionConfirmationStatus.REJECTED,
+        method: ExecutionConfirmationMethod.NONE,
+        pinHash: null,
+        signatureData: null,
+        rejectionReason: input.reason,
+        bypassReason: null,
+        respondedAt: new Date(),
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    res.json(mapExecutionConfirmation(confirmation));
   }),
 );
 
@@ -1351,6 +1675,7 @@ async function applyBulkStatusChange(
     archived: boolean;
     name?: string;
     faultReport?: { userId: number | null } | null;
+    executionConfirmation?: { status: ExecutionConfirmationStatus } | null;
   },
 ): Promise<BulkActionItemResult> {
   if (existing.archived) {
@@ -1364,6 +1689,17 @@ async function applyBulkStatusChange(
       id,
       success: false,
       reason: `Status transition from ${existing.status} to ${targetStatus} is not allowed.`,
+    };
+  }
+
+  if (
+    targetStatus === InterventionStatus.RESOLVED &&
+    existing.executionConfirmation?.status !== ExecutionConfirmationStatus.CONFIRMED
+  ) {
+    return {
+      id,
+      success: false,
+      reason: "Cannot close intervention without digital confirmation or a closing comment.",
     };
   }
 
@@ -1506,6 +1842,11 @@ interventionsRouter.post(
             userId: true,
           },
         },
+        executionConfirmation: {
+          select: {
+            status: true,
+          },
+        },
       },
     });
 
@@ -1543,6 +1884,16 @@ interventionsRouter.post(
                 id,
                 success: false,
                 reason: `Status transition from ${record.status} to ${input.payload.status} is not allowed.`,
+              };
+            }
+            if (
+              input.payload.status === InterventionStatus.RESOLVED &&
+              record.executionConfirmation?.status !== ExecutionConfirmationStatus.CONFIRMED
+            ) {
+              return {
+                id,
+                success: false,
+                reason: "Cannot close intervention without digital confirmation or a closing comment.",
               };
             }
             return { id, success: true };
