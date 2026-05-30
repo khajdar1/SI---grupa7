@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -12,6 +12,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   getAvailableServicers,
   assignServicers,
@@ -47,6 +49,11 @@ export function AssignerModal({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [overrideReason, setOverrideReason] = useState('');
+  const assignedIdsKey = useMemo(
+    () => currentAssignedUserIds.slice().sort((a, b) => a - b).join(','),
+    [currentAssignedUserIds],
+  );
 
   // Initialize selected servicers from current assignments
   useEffect(() => {
@@ -60,6 +67,7 @@ export function AssignerModal({
         setServicers(data);
         // Initialize selected servicers from current assignments
         setSelectedUserIds(new Set(currentAssignedUserIds));
+        setOverrideReason('');
       } catch (err) {
         setError(
           err instanceof Error ? translateText(language, err.message) : t('assignments.noActiveServicers'),
@@ -70,7 +78,7 @@ export function AssignerModal({
     };
 
     loadServicers();
-  }, [isOpen, interventionId, currentAssignedUserIds]);
+  }, [isOpen, interventionId, assignedIdsKey]);
 
   const handleSelectServicer = (userId: number, checked: boolean) => {
     const newSelected = new Set(selectedUserIds);
@@ -92,7 +100,23 @@ export function AssignerModal({
       setIsSaving(true);
       setError(null);
       const userIds = Array.from(selectedUserIds);
-      await assignServicers(interventionId, userIds);
+      const hasUnavailableSelected = servicers.some(
+        (servicer) => selectedUserIds.has(servicer.id) && servicer.unavailable,
+      );
+      if (hasUnavailableSelected && overrideReason.trim().length < 5) {
+        setError(
+          language === 'bs'
+            ? 'Unesite razlog za rucnu dodjelu nedostupnog servisera.'
+            : 'Enter a reason for manually assigning an unavailable servicer.',
+        );
+        return;
+      }
+
+      await assignServicers(
+        interventionId,
+        userIds,
+        hasUnavailableSelected ? overrideReason.trim() : undefined,
+      );
       onSave(userIds);
       onClose();
     } catch (err) {
@@ -103,7 +127,9 @@ export function AssignerModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) onClose();
+    }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>{t('assignments.assignServicers')}</DialogTitle>
@@ -154,14 +180,49 @@ export function AssignerModal({
                     <div className="text-xs text-gray-500">
                       {servicer.username}
                     </div>
+                    {servicer.unavailable ? (
+                      <div className="mt-1 text-xs text-amber-700">
+                        {language === 'bs' ? 'Nedostupan' : 'Unavailable'}: {servicer.unavailableReason}
+                      </div>
+                    ) : null}
+                    {servicer.sameCompany === false ? (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {language === 'bs' ? 'Druga kompanija' : 'Different company'}
+                      </div>
+                    ) : null}
                   </label>
-                  <Badge variant="secondary" className="whitespace-nowrap">
-                    {servicer.activeInterventionCount} {t('assignments.active')}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    {servicer.sameCompany === false ? (
+                      <Badge variant="outline" className="whitespace-nowrap">
+                        {language === 'bs' ? 'Van firme' : 'Cross-company'}
+                      </Badge>
+                    ) : null}
+                    {servicer.unavailable ? (
+                      <Badge variant="outline" className="whitespace-nowrap border-amber-300 text-amber-700">
+                        {language === 'bs' ? 'Odsutan' : 'Away'}
+                      </Badge>
+                    ) : null}
+                    <Badge variant="secondary" className="whitespace-nowrap">
+                      {servicer.activeInterventionCount} {t('assignments.active')}
+                    </Badge>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+          {servicers.some((servicer) => selectedUserIds.has(servicer.id) && servicer.unavailable) ? (
+            <div className="space-y-2">
+              <Label htmlFor="unavailable-override">
+                {language === 'bs' ? 'Razlog rucne dodjele' : 'Manual assignment reason'}
+              </Label>
+              <Textarea
+                id="unavailable-override"
+                rows={3}
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+              />
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>

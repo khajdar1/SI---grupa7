@@ -6,10 +6,12 @@ import { InterventionStatus } from '@prisma/client';
 const {
   interventionFindUniqueMock,
   feedbackFindUniqueMock,
+  feedbackFindManyMock,
   feedbackCreateMock,
 } = vi.hoisted(() => ({
   interventionFindUniqueMock: vi.fn(),
   feedbackFindUniqueMock: vi.fn(),
+  feedbackFindManyMock: vi.fn(),
   feedbackCreateMock: vi.fn(),
 }));
 
@@ -20,6 +22,7 @@ vi.mock('../src/config/database', () => ({
     },
     feedback: {
       findUnique: feedbackFindUniqueMock,
+      findMany: feedbackFindManyMock,
       create: feedbackCreateMock,
     },
   },
@@ -131,6 +134,7 @@ describe('feedback route', () => {
       faultReport: { userId: 10 },
     });
     feedbackFindUniqueMock.mockResolvedValue(null);
+    feedbackFindManyMock.mockResolvedValue([]);
     feedbackCreateMock.mockResolvedValue(makeFeedback());
   });
 
@@ -195,5 +199,92 @@ describe('feedback route', () => {
     });
 
     expect(response.status).toBe(403);
+  });
+
+  it('returns feedback analytics for management roles', async () => {
+    feedbackFindManyMock.mockResolvedValue([
+      {
+        ...makeFeedback({ rating: 2, comment: 'Late arrival.' }),
+        intervention: {
+          id: 42,
+          name: 'Elevator repair',
+          status: InterventionStatus.RESOLVED,
+          company: { id: 1, name: 'ACME' },
+          category: { id: 5, name: 'Elevator Failure' },
+          reports: [],
+          assignments: [
+            {
+              userId: 7,
+              user: {
+                id: 7,
+                firstName: 'Nedim',
+                lastName: 'Serviser',
+                username: 'nedim.serviser',
+              },
+            },
+          ],
+        },
+      },
+      {
+        ...makeFeedback({ id: 2, rating: 5, comment: 'Excellent.' }),
+        intervention: {
+          id: 43,
+          name: 'Network repair',
+          status: InterventionStatus.RESOLVED,
+          company: { id: 1, name: 'ACME' },
+          category: { id: 6, name: 'Network Outage' },
+          assignments: [],
+          reports: [
+            {
+              authorId: 9,
+              author: {
+                id: 9,
+                firstName: 'Selma',
+                lastName: 'Serviser',
+                username: 'selma.serviser',
+              },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const response = await request('GET', '/feedback/analytics', {
+      roles: ['Management'],
+      localUserId: 3,
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.summary).toMatchObject({
+      feedbackCount: 2,
+      averageRating: 3.5,
+      negativeCount: 1,
+    });
+    expect(response.body.ratingDistribution).toEqual([
+      { rating: 1, count: 0, percentage: 0 },
+      { rating: 2, count: 1, percentage: 50 },
+      { rating: 3, count: 0, percentage: 0 },
+      { rating: 4, count: 0, percentage: 0 },
+      { rating: 5, count: 1, percentage: 50 },
+    ]);
+    expect(response.body.byServicer).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          servicerId: 7,
+          servicerName: 'Nedim Serviser',
+          feedbackCount: 1,
+        }),
+        expect.objectContaining({
+          servicerId: 9,
+          servicerName: 'Selma Serviser',
+          feedbackCount: 1,
+        }),
+      ]),
+    );
+    expect(response.body.negativeFeedback).toHaveLength(1);
+    expect(response.body.negativeFeedback[0]).toMatchObject({
+      interventionId: 42,
+      rating: 2,
+    });
   });
 });

@@ -17,6 +17,12 @@ export interface ServicerAvailabilityInfo {
   email: string;
   active: boolean;
   activeInterventionCount: number;
+  sameCompany?: boolean;
+  companyId?: number | null;
+  unavailable?: boolean;
+  unavailableReason?: string | null;
+  unavailableFrom?: Date | null;
+  unavailableTo?: Date | null;
 }
 
 export interface AssignmentRecord {
@@ -110,11 +116,12 @@ export class AssignmentService {
     userIds: number[],
     actorId: number,
     actorUsername: string,
+    unavailableOverrideReason?: string,
   ): Promise<AssignmentRecord[]> {
     // Validate intervention exists
     const intervention = await prisma.intervention.findUnique({
       where: { id: interventionId },
-      select: { id: true, companyId: true, status: true, name: true, priority: true, location: true },
+      select: { id: true, companyId: true, status: true, name: true, priority: true, location: true, startedAt: true, dueAt: true },
     });
 
     if (!intervention) {
@@ -162,6 +169,32 @@ export class AssignmentService {
     if (servicerUsers.length !== users.length) {
       throw new BadRequestError("Only users with the Technician role can be assigned.", [
         { field: "userIds", message: "Selected users must have the Technician role." },
+      ]);
+    }
+
+    const windowStart = intervention.startedAt ?? new Date();
+    const windowEnd = intervention.dueAt ?? windowStart;
+    const unavailablePeriods = await prisma.servicerUnavailability.findMany({
+      where: {
+        userId: { in: userIds },
+        canceledAt: null,
+        startAt: { lt: windowEnd },
+        endAt: { gt: windowStart },
+      },
+      select: {
+        userId: true,
+        reason: true,
+        startAt: true,
+        endAt: true,
+      },
+    });
+
+    if (unavailablePeriods.length > 0 && !unavailableOverrideReason?.trim()) {
+      throw new BadRequestError("Selected servicer is unavailable for the planned intervention window.", [
+        {
+          field: "unavailableOverrideReason",
+          message: "Manual assignment of an unavailable servicer requires a confirmation reason.",
+        },
       ]);
     }
 
@@ -228,6 +261,23 @@ export class AssignmentService {
           userId,
           method: "MANUAL",
           assignedAt: assignment.assignedAt.toISOString(),
+        },
+      });
+    }
+
+    if (unavailablePeriods.length > 0 && unavailableOverrideReason?.trim()) {
+      await AuditService.record({
+        action: "UNAVAILABLE_SERVICER_ASSIGNMENT_OVERRIDDEN",
+        entity: "Assignment",
+        entityId: interventionId,
+        actorId,
+        actorUsername,
+        details: `Manual assignment continued despite servicer unavailability. Reason: ${unavailableOverrideReason.trim()}`,
+        newValues: {
+          interventionId,
+          userIds,
+          unavailableUserIds: Array.from(new Set(unavailablePeriods.map((period) => period.userId))),
+          overrideReason: unavailableOverrideReason.trim(),
         },
       });
     }
@@ -352,20 +402,20 @@ export class AssignmentService {
   }
 
   /**
-   * Get all active servicers in a company, sorted by active intervention count (least burdened first)
-   * Active interventions = NEW, ASSIGNED, IN_PROGRESS statuses
-   * @param companyId ID of the company
-   * @returns Array of servicers sorted by workload (ascending)
+   * Get all active servicers sorted by current workload.
+   * Active interventions = NEW, ASSIGNED, IN_PROGRESS, ON_HOLD statuses.
+   * Servicers from the intervention company are shown first, but older
+   * interventions can still assign valid technicians from other companies.
    */
   static async getAvailableServicersWithLoad(
     companyId: number,
+    plannedWindow?: { startAt: Date; endAt: Date },
   ): Promise<ServicerAvailabilityInfo[]> {
-    const activeStatuses = ["NEW", "ASSIGNED", "IN_PROGRESS"];
+    const activeStatuses = ["NEW", "ASSIGNED", "IN_PROGRESS", "ON_HOLD"];
 
-    // Get all active users in the company
+    // Get all active users; role filtering below keeps only real servicers.
     const users = await prisma.user.findMany({
       where: {
-        companyId,
         active: true,
       },
       select: {
@@ -375,6 +425,7 @@ export class AssignmentService {
         username: true,
         email: true,
         active: true,
+        companyId: true,
         externalIdentities: {
           select: {
             provider: true,
@@ -385,6 +436,31 @@ export class AssignmentService {
     }) as RoleCheckedUser[];
 
     const servicers = await filterServicersByRole(users);
+    const unavailableByUserId = new Map<number, { reason: string; startAt: Date; endAt: Date }>();
+
+    if (plannedWindow && servicers.length > 0) {
+      const unavailablePeriods = await prisma.servicerUnavailability.findMany({
+        where: {
+          userId: { in: servicers.map((servicer) => servicer.id) },
+          canceledAt: null,
+          startAt: { lt: plannedWindow.endAt },
+          endAt: { gt: plannedWindow.startAt },
+        },
+        select: {
+          userId: true,
+          reason: true,
+          startAt: true,
+          endAt: true,
+        },
+        orderBy: { startAt: "asc" },
+      });
+
+      unavailablePeriods.forEach((period) => {
+        if (!unavailableByUserId.has(period.userId)) {
+          unavailableByUserId.set(period.userId, period);
+        }
+      });
+    }
 
     // Get assignment counts for each servicer, filtered to active interventions
     const servicersWithLoad: ServicerAvailabilityInfo[] = await Promise.all(
@@ -399,6 +475,8 @@ export class AssignmentService {
           },
         });
 
+        const unavailablePeriod = unavailableByUserId.get(servicer.id);
+
         return {
           id: servicer.id,
           firstName: servicer.firstName,
@@ -407,13 +485,21 @@ export class AssignmentService {
           email: servicer.email,
           active: servicer.active,
           activeInterventionCount: count,
+          sameCompany: servicer.companyId === companyId,
+          unavailable: Boolean(unavailablePeriod),
+          unavailableReason: unavailablePeriod?.reason ?? null,
+          unavailableFrom: unavailablePeriod?.startAt ?? null,
+          unavailableTo: unavailablePeriod?.endAt ?? null,
         };
       }),
     );
 
     // Sort by active intervention count (ascending) — least burdened first
     servicersWithLoad.sort(
-      (a, b) => a.activeInterventionCount - b.activeInterventionCount,
+      (a, b) =>
+        Number(b.sameCompany) - Number(a.sameCompany) ||
+        Number(a.unavailable) - Number(b.unavailable) ||
+        a.activeInterventionCount - b.activeInterventionCount,
     );
 
     return servicersWithLoad;

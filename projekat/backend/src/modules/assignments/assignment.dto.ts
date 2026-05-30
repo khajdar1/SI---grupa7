@@ -8,6 +8,7 @@ export const assignServicersSchema = z.object({
     .array(z.coerce.number().int().positive())
     .min(1, "At least one servicer must be assigned.")
     .max(100, "Cannot assign more than 100 servicers."),
+  unavailableOverrideReason: z.string().trim().min(5).max(1000).optional(),
 });
 
 export type AssignServicersDto = z.infer<typeof assignServicersSchema>;
@@ -42,6 +43,11 @@ export const servicerAvailabilitySchema = z.object({
   email: z.string().email(),
   active: z.boolean(),
   activeInterventionCount: z.number().int().nonnegative(),
+  sameCompany: z.boolean().optional(),
+  unavailable: z.boolean().optional(),
+  unavailableReason: z.string().nullable().optional(),
+  unavailableFrom: z.date().nullable().optional(),
+  unavailableTo: z.date().nullable().optional(),
 });
 
 export type ServicerAvailabilityDto = z.infer<

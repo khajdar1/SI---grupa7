@@ -2,7 +2,7 @@
 export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, KeyRound, Save, UserCircle2 } from 'lucide-react';
+import { CalendarX2, CheckCircle2, KeyRound, Save, UserCircle2 } from 'lucide-react';
 
 import { PageHeader, PageLayout } from '@/components/shared';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,20 @@ import {
   validatePersonName,
 } from '@/lib/form-validation';
 import { translateText, useI18n } from '@/lib/i18n';
+import { hasSessionRole } from '@/lib/auth';
 import {
   changeMyPassword,
   getMyProfile,
   updateMyProfile,
   type UserProfile,
 } from '@/services/profile.service';
+import {
+  cancelUnavailability,
+  createUnavailability,
+  getMyUnavailability,
+  updateUnavailability,
+  type UnavailabilityPeriod,
+} from '@/services/availability.service';
 
 type ProfileForm = Pick<UserProfile, 'firstName' | 'lastName' | 'email'>;
 type PasswordForm = {
@@ -36,6 +44,21 @@ const EMPTY_PASSWORD_FORM: PasswordForm = {
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
+};
+const SERVICER_ROLES = new Set(['serviser']);
+
+type AvailabilityForm = {
+  id: number | null;
+  startAt: string;
+  endAt: string;
+  reason: string;
+};
+
+const EMPTY_AVAILABILITY_FORM: AvailabilityForm = {
+  id: null,
+  startAt: '',
+  endAt: '',
+  reason: '',
 };
 
 function readServiceFieldErrors(error: unknown) {
@@ -84,6 +107,11 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [canManageAvailability, setCanManageAvailability] = useState(false);
+  const [availability, setAvailability] = useState<UnavailabilityPeriod[]>([]);
+  const [availabilityForm, setAvailabilityForm] = useState<AvailabilityForm>(EMPTY_AVAILABILITY_FORM);
+  const [availabilityMessage, setAvailabilityMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [savingAvailability, setSavingAvailability] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -94,11 +122,16 @@ export default function ProfilePage() {
         if (!active) return;
 
         setProfile(currentProfile);
+        const isServicer = hasSessionRole(SERVICER_ROLES);
+        setCanManageAvailability(isServicer);
         setProfileForm({
           firstName: currentProfile.firstName,
           lastName: currentProfile.lastName,
           email: currentProfile.email,
         });
+        if (isServicer) {
+          setAvailability(await getMyUnavailability());
+        }
       } catch (error) {
         if (!active) return;
         setProfileMessage({
@@ -209,6 +242,84 @@ export default function ProfilePage() {
     } finally {
       setSavingPassword(false);
     }
+  }
+
+  async function handleAvailabilitySubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setAvailabilityMessage(null);
+
+    if (!availabilityForm.startAt || !availabilityForm.endAt || !availabilityForm.reason.trim()) {
+      setAvailabilityMessage({
+        type: 'error',
+        text: language === 'bs' ? 'Unesite pocetak, kraj i razlog odsustva.' : 'Enter start, end, and reason.',
+      });
+      return;
+    }
+
+    if (new Date(availabilityForm.endAt) <= new Date(availabilityForm.startAt)) {
+      setAvailabilityMessage({
+        type: 'error',
+        text: language === 'bs' ? 'Kraj odsustva mora biti nakon pocetka.' : 'End must be after start.',
+      });
+      return;
+    }
+
+    setSavingAvailability(true);
+    try {
+      const payload = {
+        startAt: new Date(availabilityForm.startAt).toISOString(),
+        endAt: new Date(availabilityForm.endAt).toISOString(),
+        reason: availabilityForm.reason.trim(),
+      };
+      const saved = availabilityForm.id
+        ? await updateUnavailability(availabilityForm.id, payload)
+        : await createUnavailability(payload);
+
+      setAvailability((current) => {
+        const exists = current.some((item) => item.id === saved.id);
+        return exists
+          ? current.map((item) => (item.id === saved.id ? saved : item))
+          : [saved, ...current];
+      });
+      setAvailabilityForm(EMPTY_AVAILABILITY_FORM);
+      setAvailabilityMessage({
+        type: 'success',
+        text: language === 'bs' ? 'Dostupnost je sacuvana.' : 'Availability saved.',
+      });
+    } catch (error) {
+      setAvailabilityMessage({
+        type: 'error',
+        text: error instanceof Error ? translateText(language, error.message) : 'Failed to save availability.',
+      });
+    } finally {
+      setSavingAvailability(false);
+    }
+  }
+
+  async function handleCancelAvailability(id: number) {
+    setAvailabilityMessage(null);
+    try {
+      const updated = await cancelUnavailability(id);
+      setAvailability((current) => current.map((item) => (item.id === id ? updated : item)));
+      setAvailabilityMessage({
+        type: 'success',
+        text: language === 'bs' ? 'Odsustvo je otkazano.' : 'Unavailability period canceled.',
+      });
+    } catch (error) {
+      setAvailabilityMessage({
+        type: 'error',
+        text: error instanceof Error ? translateText(language, error.message) : 'Failed to cancel availability.',
+      });
+    }
+  }
+
+  function editAvailability(period: UnavailabilityPeriod) {
+    setAvailabilityForm({
+      id: period.id,
+      startAt: toDatetimeLocal(period.startAt),
+      endAt: toDatetimeLocal(period.endAt),
+      reason: period.reason,
+    });
   }
 
   return (
@@ -401,6 +512,115 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {canManageAvailability ? (
+        <Card className="stat-card-glow">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+              <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/10">
+                <CalendarX2 className="size-5 text-amber-700" />
+              </div>
+              <div>
+                <CardTitle className="text-base">
+                  {language === 'bs' ? 'Dostupnost servisera' : 'Servicer Availability'}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  {language === 'bs' ? 'Unesite periode kada niste dostupni za nove intervencije.' : 'Enter periods when you are unavailable for new interventions.'}
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {availabilityMessage ? <InlineMessage type={availabilityMessage.type} text={availabilityMessage.text} /> : null}
+            <form className="grid gap-4 lg:grid-cols-[1fr_1fr_1.4fr_auto]" onSubmit={handleAvailabilitySubmit}>
+              <div className="space-y-2">
+                <Label htmlFor="availability-start">{language === 'bs' ? 'Pocetak' : 'Start'}</Label>
+                <Input
+                  id="availability-start"
+                  type="datetime-local"
+                  value={availabilityForm.startAt}
+                  onChange={(event) => setAvailabilityForm((previous) => ({ ...previous, startAt: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="availability-end">{language === 'bs' ? 'Kraj' : 'End'}</Label>
+                <Input
+                  id="availability-end"
+                  type="datetime-local"
+                  value={availabilityForm.endAt}
+                  onChange={(event) => setAvailabilityForm((previous) => ({ ...previous, endAt: event.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="availability-reason">{language === 'bs' ? 'Razlog' : 'Reason'}</Label>
+                <Input
+                  id="availability-reason"
+                  value={availabilityForm.reason}
+                  onChange={(event) => setAvailabilityForm((previous) => ({ ...previous, reason: event.target.value }))}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button type="submit" disabled={savingAvailability}>
+                  {savingAvailability ? (language === 'bs' ? 'Spremanje...' : 'Saving...') : availabilityForm.id ? (language === 'bs' ? 'Azuriraj' : 'Update') : (language === 'bs' ? 'Dodaj' : 'Add')}
+                </Button>
+                {availabilityForm.id ? (
+                  <Button type="button" variant="outline" onClick={() => setAvailabilityForm(EMPTY_AVAILABILITY_FORM)}>
+                    {language === 'bs' ? 'Odustani' : 'Cancel'}
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+
+            <div className="space-y-2">
+              {availability.length === 0 ? (
+                <p className="rounded-lg border border-dashed bg-muted/30 p-4 text-sm text-muted-foreground">
+                  {language === 'bs' ? 'Nema evidentiranih odsustava.' : 'No unavailability periods recorded.'}
+                </p>
+              ) : (
+                availability.map((period) => (
+                  <div key={period.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm">
+                    <div>
+                      <p className="font-medium">
+                        {formatDateTime(period.startAt, language)} - {formatDateTime(period.endAt, language)}
+                      </p>
+                      <p className="text-muted-foreground">{period.reason}</p>
+                      {period.canceledAt ? (
+                        <p className="text-xs text-destructive">{language === 'bs' ? 'Otkazano' : 'Canceled'}</p>
+                      ) : null}
+                    </div>
+                    {!period.canceledAt && new Date(period.endAt) > new Date() ? (
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => editAvailability(period)}>
+                          {language === 'bs' ? 'Uredi' : 'Edit'}
+                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => void handleCancelAvailability(period.id)}>
+                          {language === 'bs' ? 'Otkazi' : 'Cancel'}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
     </PageLayout>
   );
+}
+
+function toDatetimeLocal(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return offsetDate.toISOString().slice(0, 16);
+}
+
+function formatDateTime(value: string, language: 'en' | 'bs') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 }

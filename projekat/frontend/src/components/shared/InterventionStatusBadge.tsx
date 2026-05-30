@@ -29,6 +29,11 @@ const STATUS_CONFIG = {
     bg: 'var(--status-in-progress-bg)',
     color: 'var(--status-in-progress)',
   },
+  [INTERVENTION_STATUS.ON_HOLD]: {
+    label: 'On Hold',
+    bg: 'var(--status-assigned-bg)',
+    color: 'var(--status-assigned)',
+  },
   [INTERVENTION_STATUS.RESOLVED]: {
     label: 'Resolved',
     bg: 'var(--status-resolved-bg)',
@@ -61,6 +66,7 @@ export function InterventionStatusBadge({
     [INTERVENTION_STATUS.NEW]: 'interventionStatus.new',
     [INTERVENTION_STATUS.ASSIGNED]: 'interventionStatus.assigned',
     [INTERVENTION_STATUS.IN_PROGRESS]: 'interventionStatus.inProgress',
+    [INTERVENTION_STATUS.ON_HOLD]: 'interventionStatus.onHold',
     [INTERVENTION_STATUS.RESOLVED]: 'interventionStatus.resolved',
     [INTERVENTION_STATUS.CANCELLED]: 'interventionStatus.cancelled',
     [INTERVENTION_STATUS.REJECTED]: 'interventionStatus.rejected',
@@ -69,6 +75,7 @@ export function InterventionStatusBadge({
     [INTERVENTION_STATUS.NEW]: 'status-token-new',
     [INTERVENTION_STATUS.ASSIGNED]: 'status-token-assigned',
     [INTERVENTION_STATUS.IN_PROGRESS]: 'status-token-in-progress',
+    [INTERVENTION_STATUS.ON_HOLD]: 'status-token-assigned',
     [INTERVENTION_STATUS.RESOLVED]: 'status-token-resolved',
     [INTERVENTION_STATUS.CANCELLED]: 'status-token-cancelled',
     [INTERVENTION_STATUS.REJECTED]: 'status-token-rejected',
