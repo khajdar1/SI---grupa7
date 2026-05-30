@@ -91,6 +91,10 @@ export const API_ENDPOINTS = {
   ASSIGNMENTS: {
     BASE: '/api/v1/assignments',
   },
+  AVAILABILITY: {
+    ME: '/api/v1/availability/me',
+    BY_ID: (id: number | string) => `/api/v1/availability/me/${id}`,
+  },
   REPORTS: {
     BASE: '/api/v1/reports',
   },
@@ -126,6 +130,7 @@ export const API_ENDPOINTS = {
   },
   FEEDBACK: {
     BY_INTERVENTION: (id: number | string) => `/api/v1/feedback/${id}`,
+    ANALYTICS: '/api/v1/feedback/analytics',
   },
 } as const;
 

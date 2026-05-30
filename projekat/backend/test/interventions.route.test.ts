@@ -406,7 +406,7 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
-  it("does not set startedAt when creating a planned intervention", async () => {
+  it("stores the planned start date when creating a planned intervention", async () => {
     const response = await request("POST", "/interventions", {
       body: basePayload,
     });
@@ -414,7 +414,8 @@ describe("PBI-004 interventions route", () => {
     expect(response.status).toBe(201);
     expect(interventionCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        startedAt: null,
+        startedAt: new Date(basePayload.startedAt),
+        dueAt: new Date(basePayload.dueAt),
       }),
       include: expect.any(Object),
     });
@@ -689,6 +690,8 @@ describe("PBI-004 interventions route", () => {
         name: faultReportPayload.name,
         faultReportId: 7,
         priority: Priority.HIGH,
+        startedAt: new Date(faultReportPayload.startedAt),
+        dueAt: new Date(faultReportPayload.dueAt),
       }),
       include: expect.any(Object),
     });
@@ -1071,6 +1074,7 @@ describe("PBI-004 interventions route", () => {
             InterventionStatus.NEW,
             InterventionStatus.ASSIGNED,
             InterventionStatus.IN_PROGRESS,
+            InterventionStatus.ON_HOLD,
           ],
         },
       },

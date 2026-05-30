@@ -11,6 +11,11 @@ export interface ServicerLoad {
   email: string;
   active: boolean;
   activeInterventionCount: number;
+  sameCompany?: boolean;
+  unavailable?: boolean;
+  unavailableReason?: string | null;
+  unavailableFrom?: string | null;
+  unavailableTo?: string | null;
 }
 
 export interface AssignmentResponse {
@@ -31,19 +36,32 @@ interface AssignmentListPayload<T> {
   data?: T[];
 }
 
+function normalizeAssignmentList<T>(payload: unknown): T[] {
+  if (Array.isArray(payload)) {
+    return payload as T[];
+  }
+
+  if (typeof payload === 'object' && payload !== null) {
+    const data = (payload as AssignmentListPayload<T>).data;
+    return Array.isArray(data) ? data : [];
+  }
+
+  return [];
+}
+
 async function getAssignmentList<T>(
-  request: () => Promise<{ data: AssignmentListPayload<T> }>,
+  request: () => Promise<{ data: unknown }>,
   fallbackMessage: string,
 ): Promise<T[]> {
-  const data = await getResponseData(request, fallbackMessage);
-  return data.data || [];
+  const payload = await getResponseData(request, fallbackMessage);
+  return normalizeAssignmentList<T>(payload);
 }
 
 export async function getAvailableServicers(
   interventionId: number,
 ): Promise<ServicerLoad[]> {
   return getAssignmentList<ServicerLoad>(
-    () => api.get<AssignmentListPayload<ServicerLoad>>(
+    () => api.get(
       `${API_ENDPOINTS.ASSIGNMENTS.BASE}/interventions/${interventionId}/assignments/available`,
     ),
     'Failed to fetch available servicers.',
@@ -54,7 +72,7 @@ export async function getInterventionAssignments(
   interventionId: number,
 ): Promise<AssignmentResponse[]> {
   return getAssignmentList<AssignmentResponse>(
-    () => api.get<AssignmentListPayload<AssignmentResponse>>(
+    () => api.get(
       `${API_ENDPOINTS.ASSIGNMENTS.BASE}/interventions/${interventionId}/assignments`,
     ),
     'Failed to fetch assignments.',
@@ -64,11 +82,12 @@ export async function getInterventionAssignments(
 export async function assignServicers(
   interventionId: number,
   userIds: number[],
+  unavailableOverrideReason?: string,
 ): Promise<AssignmentResponse[]> {
   return getAssignmentList<AssignmentResponse>(
-    () => api.post<AssignmentListPayload<AssignmentResponse>>(
+    () => api.post(
       `${API_ENDPOINTS.ASSIGNMENTS.BASE}/interventions/${interventionId}/assignments`,
-      { userIds },
+      { userIds, unavailableOverrideReason },
     ),
     'Failed to assign servicers.',
   );

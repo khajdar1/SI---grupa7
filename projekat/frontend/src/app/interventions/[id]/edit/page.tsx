@@ -25,7 +25,6 @@ import type { Company } from '@/models/Company';
 import {
   clearFieldError,
   getApiFieldErrors,
-  validateCalendarDate,
   validateRequired,
   validateSafeText,
   type FieldErrors,
@@ -85,7 +84,10 @@ interface FormState {
 
 function isoDateToInput(iso: string | null): string {
   if (!iso) return '';
-  return iso.slice(0, 10);
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
 }
 
 function getTypeLabel(type: string, t: (key: TranslationKey) => string): string {
@@ -96,6 +98,14 @@ function getRecurringPeriodLabel(value: string, t: (key: TranslationKey) => stri
   return t(
     RECURRING_PERIOD_OPTIONS.find((option) => option.value === value)?.labelKey ?? 'interventionForm.noRecurrence',
   );
+}
+
+function isValidDatetimeLocal(value: string) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+}
+
+function datetimeLocalToIso(value: string) {
+  return new Date(value).toISOString();
 }
 
 export default function EditInterventionPage() {
@@ -217,22 +227,22 @@ export default function EditInterventionPage() {
     const companyError = validateRequired(form.companyId, 'Company is required.');
     if (companyError) errors.companyId = companyError;
 
-    if (form.startedAt.trim()) {
-      const startError = validateCalendarDate(
-        form.startedAt,
-        'Start date is required.',
-        'Start date must be in YYYY-MM-DD format.',
-      );
-      if (startError) errors.startedAt = startError;
+    if (form.startedAt.trim() && !isValidDatetimeLocal(form.startedAt)) {
+      errors.startedAt = 'Start date must include a valid date and time.';
     }
 
-    if (form.dueAt.trim()) {
-      const dueError = validateCalendarDate(
-        form.dueAt,
-        'Due date is required.',
-        'Due date must be in YYYY-MM-DD format.',
-      );
-      if (dueError) errors.dueAt = dueError;
+    if (form.dueAt.trim() && !isValidDatetimeLocal(form.dueAt)) {
+      errors.dueAt = 'Due date must include a valid date and time.';
+    }
+
+    if (
+      form.startedAt.trim() &&
+      form.dueAt.trim() &&
+      isValidDatetimeLocal(form.startedAt) &&
+      isValidDatetimeLocal(form.dueAt) &&
+      new Date(form.dueAt) < new Date(form.startedAt)
+    ) {
+      errors.dueAt = 'Due date must be after or equal to planned start date.';
     }
 
     if (form.faultReportId.trim()) {
@@ -269,8 +279,8 @@ export default function EditInterventionPage() {
         categoryId: parseInt(form.categoryId, 10),
         companyId: parseInt(form.companyId, 10),
         priority: form.priority as Priority,
-        startedAt: form.startedAt.trim() || undefined,
-        dueAt: form.dueAt.trim() || undefined,
+        startedAt: form.startedAt.trim() ? datetimeLocalToIso(form.startedAt.trim()) : undefined,
+        dueAt: form.dueAt.trim() ? datetimeLocalToIso(form.dueAt.trim()) : undefined,
         faultReportId: faultReportIdRaw ? parseInt(faultReportIdRaw, 10) : null,
       });
 
@@ -529,7 +539,7 @@ export default function EditInterventionPage() {
                   <Label htmlFor="startedAt">{t('interventionForm.startDateOptional')}</Label>
                   <Input
                     id="startedAt"
-                    type="date"
+                    type="datetime-local"
                     value={form.startedAt}
                     onChange={(e) => handleChange('startedAt', e.target.value)}
                     aria-invalid={Boolean(fieldErrors.startedAt)}
@@ -544,7 +554,7 @@ export default function EditInterventionPage() {
                   <Label htmlFor="dueAt">{t('interventionForm.dueDateOptional')}</Label>
                   <Input
                     id="dueAt"
-                    type="date"
+                    type="datetime-local"
                     value={form.dueAt}
                     onChange={(e) => handleChange('dueAt', e.target.value)}
                     aria-invalid={Boolean(fieldErrors.dueAt)}

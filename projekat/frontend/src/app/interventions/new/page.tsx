@@ -25,7 +25,6 @@ import type { Company } from '@/models/Company';
 import {
   clearFieldError,
   getApiFieldErrors,
-  validateCalendarDate,
   validateRequired,
   validateSafeText,
   type FieldErrors,
@@ -97,6 +96,21 @@ function getRecurringPeriodLabel(value: string, t: (key: TranslationKey) => stri
   return t(
     RECURRING_PERIOD_OPTIONS.find((option) => option.value === value)?.labelKey ?? 'interventionForm.noRecurrence',
   );
+}
+
+function getCurrentDatetimeLocal() {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+function isValidDatetimeLocal(value: string) {
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) && !Number.isNaN(new Date(value).getTime());
+}
+
+function datetimeLocalToIso(value: string) {
+  return new Date(value).toISOString();
 }
 
 export default function NewInterventionPage() {
@@ -189,21 +203,29 @@ export default function NewInterventionPage() {
     if (companyError) errors.companyId = companyError;
 
     if (form.startedAt.trim()) {
-      const startError = validateCalendarDate(
-        form.startedAt,
-        'Start date is required.',
-        'Start date must be in YYYY-MM-DD format.',
-      );
-      if (startError) errors.startedAt = startError;
+      if (!isValidDatetimeLocal(form.startedAt)) {
+        errors.startedAt = 'Start date must include a valid date and time.';
+      } else if (form.startedAt < getCurrentDatetimeLocal()) {
+        errors.startedAt = 'Planned start date cannot be in the past.';
+      }
     }
 
     if (form.dueAt.trim()) {
-      const dueError = validateCalendarDate(
-        form.dueAt,
-        'Due date is required.',
-        'Due date must be in YYYY-MM-DD format.',
-      );
-      if (dueError) errors.dueAt = dueError;
+      if (!isValidDatetimeLocal(form.dueAt)) {
+        errors.dueAt = 'Due date must include a valid date and time.';
+      } else if (form.dueAt < getCurrentDatetimeLocal()) {
+        errors.dueAt = 'Due date cannot be in the past.';
+      }
+    }
+
+    if (
+      form.startedAt.trim() &&
+      form.dueAt.trim() &&
+      isValidDatetimeLocal(form.startedAt) &&
+      isValidDatetimeLocal(form.dueAt) &&
+      new Date(form.dueAt) < new Date(form.startedAt)
+    ) {
+      errors.dueAt = 'Due date must be after or equal to planned start date.';
     }
 
     if (form.faultReportId.trim()) {
@@ -240,8 +262,8 @@ export default function NewInterventionPage() {
         categoryId: parseInt(form.categoryId, 10),
         companyId: parseInt(form.companyId, 10),
         priority: form.priority as Priority,
-        startedAt: form.startedAt.trim() || undefined,
-        dueAt: form.dueAt.trim() || undefined,
+        startedAt: form.startedAt.trim() ? datetimeLocalToIso(form.startedAt.trim()) : undefined,
+        dueAt: form.dueAt.trim() ? datetimeLocalToIso(form.dueAt.trim()) : undefined,
         faultReportId: faultReportIdRaw ? parseInt(faultReportIdRaw, 10) : null,
         recurringPeriod: form.recurringPeriod || null,
       });
@@ -447,7 +469,8 @@ export default function NewInterventionPage() {
                   <Label htmlFor="startedAt">{t('interventionForm.startDateOptional')}</Label>
                   <Input
                     id="startedAt"
-                    type="date"
+                    type="datetime-local"
+                    min={getCurrentDatetimeLocal()}
                     value={form.startedAt}
                     onChange={(e) => handleChange('startedAt', e.target.value)}
                     aria-invalid={Boolean(fieldErrors.startedAt)}
@@ -462,7 +485,8 @@ export default function NewInterventionPage() {
                   <Label htmlFor="dueAt">{t('interventionForm.dueDateOptional')}</Label>
                   <Input
                     id="dueAt"
-                    type="date"
+                    type="datetime-local"
+                    min={getCurrentDatetimeLocal()}
                     value={form.dueAt}
                     onChange={(e) => handleChange('dueAt', e.target.value)}
                     aria-invalid={Boolean(fieldErrors.dueAt)}
