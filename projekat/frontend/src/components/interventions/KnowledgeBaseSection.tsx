@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { BookOpen, Star } from 'lucide-react';
 
-import { ROUTES } from '@/constants';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { translateCategoryName, translateLocationValue, useI18n } from '@/lib/i18n';
 import {
@@ -17,11 +17,19 @@ import {
 
 interface KnowledgeBaseSectionProps {
   interventionId: number;
+  canUseAsTemplate?: boolean;
+  onUseSolution?: (solution: KnowledgeBaseSolution) => void;
 }
 
-export function KnowledgeBaseSection({ interventionId }: KnowledgeBaseSectionProps) {
+export function KnowledgeBaseSection({
+  interventionId,
+  canUseAsTemplate = false,
+  onUseSolution,
+}: KnowledgeBaseSectionProps) {
   const { language, t } = useI18n();
   const [solutions, setSolutions] = useState<KnowledgeBaseSolution[]>([]);
+  const [filters, setFilters] = useState({ text: '', location: '' });
+  const [appliedFilters, setAppliedFilters] = useState({ text: '', location: '' });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,17 +40,13 @@ export function KnowledgeBaseSection({ interventionId }: KnowledgeBaseSectionPro
       setIsLoading(true);
       setError(null);
       try {
-        const response = await getInterventionKnowledgeBase(interventionId);
+        const response = await getInterventionKnowledgeBase(interventionId, appliedFilters);
         if (!cancelled) {
           setSolutions(response.data);
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : t('knowledgeBase.loadFailed'),
-          );
+          setError(err instanceof Error ? err.message : t('knowledgeBase.loadFailed'));
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -53,7 +57,19 @@ export function KnowledgeBaseSection({ interventionId }: KnowledgeBaseSectionPro
     return () => {
       cancelled = true;
     };
-  }, [interventionId, language]);
+  }, [interventionId, appliedFilters, t]);
+
+  const handleSearch = () => {
+    setAppliedFilters({
+      text: filters.text.trim(),
+      location: filters.location.trim(),
+    });
+  };
+
+  const handleReset = () => {
+    setFilters({ text: '', location: '' });
+    setAppliedFilters({ text: '', location: '' });
+  };
 
   return (
     <Card className="stat-card-glow">
@@ -66,6 +82,39 @@ export function KnowledgeBaseSection({ interventionId }: KnowledgeBaseSectionPro
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <div className="space-y-1">
+            <Label htmlFor="knowledge-text">{t('knowledgeBase.searchText')}</Label>
+            <Input
+              id="knowledge-text"
+              value={filters.text}
+              onChange={(event) =>
+                setFilters((current) => ({ ...current, text: event.target.value }))
+              }
+              placeholder={t('knowledgeBase.searchTextPlaceholder')}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="knowledge-location">{t('knowledgeBase.searchLocation')}</Label>
+            <Input
+              id="knowledge-location"
+              value={filters.location}
+              onChange={(event) =>
+                setFilters((current) => ({ ...current, location: event.target.value }))
+              }
+              placeholder={t('knowledgeBase.searchLocationPlaceholder')}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="button" variant="outline" onClick={handleSearch}>
+              {t('knowledgeBase.search')}
+            </Button>
+            <Button type="button" variant="ghost" onClick={handleReset}>
+              {t('knowledgeBase.reset')}
+            </Button>
+          </div>
+        </div>
+
         {error ? (
           <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             {error}
@@ -79,17 +128,15 @@ export function KnowledgeBaseSection({ interventionId }: KnowledgeBaseSectionPro
             ))}
           </div>
         ) : solutions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {t('knowledgeBase.empty')}
-          </p>
+          <p className="text-sm text-muted-foreground">{t('knowledgeBase.empty')}</p>
         ) : (
-          <div className="space-y-5">
-            <SolutionGroup
-              title={t('knowledgeBase.recommendedTitle')}
-              items={solutions}
-              language={language}
-            />
-          </div>
+          <SolutionGroup
+            title={t('knowledgeBase.recommendedTitle')}
+            items={solutions}
+            language={language}
+            canUseAsTemplate={canUseAsTemplate}
+            onUseSolution={onUseSolution}
+          />
         )}
       </CardContent>
     </Card>
@@ -100,21 +147,27 @@ function SolutionGroup({
   title,
   items,
   language,
+  canUseAsTemplate,
+  onUseSolution,
 }: {
   title: string;
   items: KnowledgeBaseSolution[];
   language: 'en' | 'bs';
+  canUseAsTemplate: boolean;
+  onUseSolution?: (solution: KnowledgeBaseSolution) => void;
 }) {
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-semibold">{title}</h3>
       <div className="space-y-3">
         {items.map((item) => (
-          <SolutionCard key={`${item.reportId}-${item.interventionId}`} item={item} language={language} />
+          <SolutionCard
+            key={item.reportId}
+            item={item}
+            language={language}
+            canUseAsTemplate={canUseAsTemplate}
+            onUseSolution={onUseSolution}
+          />
         ))}
       </div>
     </section>
@@ -124,9 +177,13 @@ function SolutionGroup({
 function SolutionCard({
   item,
   language,
+  canUseAsTemplate,
+  onUseSolution,
 }: {
   item: KnowledgeBaseSolution;
   language: 'en' | 'bs';
+  canUseAsTemplate: boolean;
+  onUseSolution?: (solution: KnowledgeBaseSolution) => void;
 }) {
   const { t } = useI18n();
   const reportDate = new Date(item.reportDate).toLocaleDateString(
@@ -139,23 +196,32 @@ function SolutionCard({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium">{item.title}</p>
-            {item.isRecommended ? (
-              <Badge variant="secondary" className="gap-1">
-                <Star className="size-3" />
-                {t('knowledgeBase.recommendedBadge')}
-              </Badge>
-            ) : null}
+            <Badge variant="secondary" className="gap-1">
+              <Star className="size-3" />
+              {t('knowledgeBase.recommendedBadge')}
+            </Badge>
           </div>
           <p className="text-xs text-muted-foreground">
-            {translateCategoryName(language, item.categoryName)} ·{' '}
-            {translateLocationValue(language, item.location)} · {reportDate}
+            {translateCategoryName(language, item.categoryName)} /{' '}
+            {translateLocationValue(language, item.locationHint)} / {reportDate}
           </p>
         </div>
-        <Button asChild variant="outline" size="sm">
-          <Link href={ROUTES.INTERVENTION(item.interventionId)}>
-            {t('knowledgeBase.open')}
-          </Link>
-        </Button>
+        {canUseAsTemplate ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onUseSolution?.(item)}
+          >
+            {t('knowledgeBase.useAsTemplate')}
+          </Button>
+        ) : null}
+      </div>
+      <div className="mb-3 rounded-lg bg-muted/40 p-3">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">
+          {t('knowledgeBase.problem')}
+        </p>
+        <p className="whitespace-pre-wrap text-sm">{item.problemDescription}</p>
       </div>
       <p className="whitespace-pre-wrap text-sm">{item.solution}</p>
       {item.material ? (
@@ -170,9 +236,6 @@ function SolutionCard({
           {item.notes}
         </p>
       ) : null}
-      <p className="mt-2 text-xs text-muted-foreground">
-        {t('knowledgeBase.technician')}: {item.servicer}
-      </p>
     </div>
   );
 }

@@ -182,6 +182,12 @@ const interventionHistoryQuerySchema = z.object({
   ).default(false),
 });
 
+const knowledgeBaseQuerySchema = z.object({
+  text: z.string().trim().min(1).max(200).optional(),
+  location: z.string().trim().min(1).max(200).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+});
+
 const interventionStatusUpdateSchema = z.object({
   status: z.nativeEnum(InterventionStatus),
 });
@@ -543,7 +549,6 @@ function mapKnowledgeSolution(report: {
   reportDate: Date;
   isRecommended: boolean;
   recommendedAt: Date | null;
-  author: { firstName: string; lastName: string; username: string };
   intervention: {
     id: number;
     name: string;
@@ -551,38 +556,20 @@ function mapKnowledgeSolution(report: {
     location: string;
     createdAt: Date;
     category: { id: number; name: string };
-    company: { id: number; name: string };
-    assignments: Array<{
-      user: { firstName: string; lastName: string; username: string };
-    }>;
   };
 }) {
-  const authorName =
-    `${report.author.firstName} ${report.author.lastName}`.trim() ||
-    report.author.username;
-  const servicers = report.intervention.assignments
-    .map((assignment) =>
-      `${assignment.user.firstName} ${assignment.user.lastName}`.trim() ||
-      assignment.user.username,
-    )
-    .filter(Boolean);
-
   return {
     reportId: report.id,
-    interventionId: String(report.intervention.id),
     title: report.intervention.name,
-    interventionDescription: report.intervention.description,
+    problemDescription: report.intervention.description,
     solution: report.description,
     material: report.material,
     notes: report.notes,
-    location: compactStoredLocation(report.intervention.location),
+    locationHint: compactStoredLocation(report.intervention.location),
     categoryId: report.intervention.category.id,
     categoryName: report.intervention.category.name,
-    companyName: report.intervention.company.name,
     reportDate: report.reportDate.toISOString(),
     interventionDate: report.intervention.createdAt.toISOString(),
-    author: authorName,
-    servicer: servicers.length > 0 ? servicers.join(", ") : authorName,
     isRecommended: report.isRecommended,
     recommendedAt: report.recommendedAt?.toISOString() ?? null,
   };
@@ -1159,6 +1146,17 @@ interventionsRouter.get(
   authorizeRoles(INTERVENTION_HISTORY_ROLES),
   asyncHandler(async (req, res) => {
     const id = parseInterventionId(req.params.id);
+    const parsedQuery = knowledgeBaseQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      throw new BadRequestError(
+        "Invalid knowledge base filters.",
+        parsedQuery.error.issues.map((issue) => ({
+          field: issue.path.join(".") || "query",
+          message: issue.message,
+        })),
+      );
+    }
+    const query = parsedQuery.data;
 
     const intervention = await prisma.intervention.findUnique({
       where: { id },
@@ -1173,22 +1171,41 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
-    const locationTerm = buildLocationSearchTerm(intervention.location);
-    const similarityFilters = [
-      { categoryId: intervention.categoryId },
-      ...(locationTerm
-        ? [{ location: { contains: locationTerm } }]
-        : []),
-    ];
+    const locationTerm = buildLocationSearchTerm(query.location ?? intervention.location);
+    const textTerm = query.text?.trim();
+    const categoryId = query.categoryId ?? intervention.categoryId;
+    const textFilters = textTerm
+      ? [
+          { description: { contains: textTerm } },
+          { material: { contains: textTerm } },
+          { notes: { contains: textTerm } },
+          { intervention: { description: { contains: textTerm } } },
+          { intervention: { name: { contains: textTerm } } },
+        ]
+      : [];
 
     const reports = await prisma.report.findMany({
       where: {
         status: ReportStatus.FINALIZED,
         isRecommended: true,
         interventionId: { not: intervention.id },
-        intervention: {
-          OR: similarityFilters,
-        },
+        AND: [
+          {
+            intervention: {
+              categoryId,
+            },
+          },
+          ...(locationTerm
+            ? [
+                {
+                  intervention: {
+                    location: { contains: locationTerm },
+                  },
+                },
+              ]
+            : []),
+          ...(textFilters.length > 0 ? [{ OR: textFilters }] : []),
+        ],
       },
       orderBy: [
         { isRecommended: "desc" },
@@ -1204,13 +1221,6 @@ interventionsRouter.get(
         reportDate: true,
         isRecommended: true,
         recommendedAt: true,
-        author: {
-          select: {
-            firstName: true,
-            lastName: true,
-            username: true,
-          },
-        },
         intervention: {
           select: {
             id: true,
@@ -1219,18 +1229,6 @@ interventionsRouter.get(
             location: true,
             createdAt: true,
             category: { select: { id: true, name: true } },
-            company: { select: { id: true, name: true } },
-            assignments: {
-              select: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true,
-                    username: true,
-                  },
-                },
-              },
-            },
           },
         },
       },

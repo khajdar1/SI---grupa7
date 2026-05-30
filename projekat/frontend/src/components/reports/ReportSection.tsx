@@ -39,6 +39,12 @@ export interface ReportSectionProps {
   canRead: boolean;
   canWrite: boolean;
   canRecommend?: boolean;
+  reportTemplate?: {
+    id: number;
+    description: string;
+    material: string | null;
+    notes: string | null;
+  } | null;
 }
 
 interface FormState {
@@ -63,6 +69,7 @@ export function ReportSection({
   canRead,
   canWrite,
   canRecommend = false,
+  reportTemplate = null,
 }: ReportSectionProps) {
   const { language, t } = useI18n();
   const [report, setReport] = useState<InterventionReport | null>(null);
@@ -111,6 +118,21 @@ export function ReportSection({
   useEffect(() => {
     if (isEditing) descriptionRef.current?.focus();
   }, [isEditing]);
+
+  useEffect(() => {
+    if (!reportTemplate || !canWrite || report?.status === 'FINALIZED') {
+      return;
+    }
+
+    setForm({
+      description: reportTemplate.description,
+      material: reportTemplate.material ?? '',
+      notes: reportTemplate.notes ?? '',
+    });
+    setError(null);
+    setSuccessMessage(t('report.templateApplied'));
+    setIsEditing(true);
+  }, [reportTemplate?.id]);
 
   const handleChange =
     (field: keyof FormState) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {

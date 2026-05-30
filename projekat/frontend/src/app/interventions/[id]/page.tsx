@@ -36,6 +36,7 @@ import {
   getInterventionById,
   updateInterventionStatus,
   type InterventionDetail,
+  type KnowledgeBaseSolution,
 } from '@/services/interventions.service';
 import { blockUser, getBlockedUsers, type BlockRecord } from '@/services/blocking.service';
 import {
@@ -135,6 +136,12 @@ export default function InterventionDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
+  const [reportTemplate, setReportTemplate] = useState<{
+    id: number;
+    description: string;
+    material: string | null;
+    notes: string | null;
+  } | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [blockReporterState, setBlockReporterState] = useState<BlockReporterState>(INITIAL_BLOCK_REPORTER_STATE);
@@ -462,7 +469,18 @@ export default function InterventionDetailPage() {
 
       {/* PBI-055: Knowledge base and recommended solutions */}
       {intervention && (canReadReport || canWriteReport) ? (
-        <KnowledgeBaseSection interventionId={interventionId} />
+        <KnowledgeBaseSection
+          interventionId={interventionId}
+          canUseAsTemplate={canWriteReport}
+          onUseSolution={(solution: KnowledgeBaseSolution) => {
+            setReportTemplate({
+              id: solution.reportId,
+              description: solution.solution,
+              material: solution.material,
+              notes: solution.notes,
+            });
+          }}
+        />
       ) : null}
 
       {/* ── PBI-010: Intervention report ── */}
@@ -473,6 +491,7 @@ export default function InterventionDetailPage() {
           canRead={canReadReport}
           canWrite={canWriteReport}
           canRecommend={canManageIntervention}
+          reportTemplate={reportTemplate}
         />
       ) : null}
 

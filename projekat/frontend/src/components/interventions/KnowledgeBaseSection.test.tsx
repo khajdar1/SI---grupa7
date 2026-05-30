@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,22 +27,18 @@ const getKnowledgeBaseMock = vi.mocked(getInterventionKnowledgeBase);
 function makeSolution(overrides: Partial<KnowledgeBaseSolution> = {}): KnowledgeBaseSolution {
   return {
     reportId: 1,
-    interventionId: '7',
     title: 'Popravka pumpe',
-    interventionDescription: 'Pumpa nije radila.',
+    problemDescription: 'Pumpa nije radila.',
     solution: 'Zamijenjen osigurac i testiran rad pumpe.',
     material: 'Osigurac 16A',
     notes: 'Provjeriti ponovo za 30 dana.',
-    location: 'Objekat A',
+    locationHint: 'Objekat A',
     categoryId: 2,
     categoryName: 'Elektricni kvar',
-    companyName: 'Demo firma',
     reportDate: '2026-05-20T10:00:00.000Z',
     interventionDate: '2026-05-19T10:00:00.000Z',
-    author: 'Amir Servis',
-    servicer: 'Amir Servis',
-    isRecommended: false,
-    recommendedAt: null,
+    isRecommended: true,
+    recommendedAt: '2026-05-21T10:00:00.000Z',
     ...overrides,
   };
 }
@@ -56,33 +53,27 @@ describe('KnowledgeBaseSection', () => {
     window.localStorage.clear();
   });
 
-  it('renders only coordinator-recommended solutions', async () => {
+  it('renders only coordinator-recommended solutions without company or user data', async () => {
     getKnowledgeBaseMock.mockResolvedValue({
       message: 'Knowledge base solutions loaded successfully.',
-      data: [
-        makeSolution({
-          reportId: 1,
-          isRecommended: true,
-          recommendedAt: '2026-05-21T10:00:00.000Z',
-        }),
-      ],
+      data: [makeSolution()],
     });
 
     renderWithI18n(<KnowledgeBaseSection interventionId={42} />);
 
     expect(await screen.findByText('Knowledge base and previous solutions')).toBeInTheDocument();
     expect(screen.getByText('Recommended solutions')).toBeInTheDocument();
+    expect(screen.getByText('Pumpa nije radila.')).toBeInTheDocument();
     expect(screen.getByText('Zamijenjen osigurac i testiran rad pumpe.')).toBeInTheDocument();
-    expect(screen.queryByText('Similar previous interventions')).not.toBeInTheDocument();
     expect(screen.getByText('Recommended')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Open' })).toHaveAttribute(
-      'href',
-      '/interventions/7',
-    );
-    expect(getKnowledgeBaseMock).toHaveBeenCalledWith(42);
+    expect(screen.queryByText('Demo firma')).not.toBeInTheDocument();
+    expect(screen.queryByText('Amir Servis')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open' })).not.toBeInTheDocument();
+    expect(getKnowledgeBaseMock).toHaveBeenCalledWith(42, { text: '', location: '' });
   });
 
-  it('shows empty state when no recommended solutions exist', async () => {
+  it('searches recommended solutions by text and location', async () => {
+    const user = userEvent.setup();
     getKnowledgeBaseMock.mockResolvedValue({
       message: 'Knowledge base solutions loaded successfully.',
       data: [],
@@ -90,18 +81,46 @@ describe('KnowledgeBaseSection', () => {
 
     renderWithI18n(<KnowledgeBaseSection interventionId={42} />);
 
-    expect(
-      await screen.findByText(
-        'No recommended solutions were found for this category or a similar location.',
-      ),
-    ).toBeInTheDocument();
+    await screen.findByText('No recommended solutions were found for this category or a similar location.');
+    await user.type(screen.getByLabelText('Search text'), 'osigurac');
+    await user.type(screen.getByLabelText('Location'), 'Objekat A');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+
+    await waitFor(() => {
+      expect(getKnowledgeBaseMock).toHaveBeenLastCalledWith(42, {
+        text: 'osigurac',
+        location: 'Objekat A',
+      });
+    });
+  });
+
+  it('passes a selected solution back as an editable report template', async () => {
+    const user = userEvent.setup();
+    const onUseSolution = vi.fn();
+    const solution = makeSolution();
+    getKnowledgeBaseMock.mockResolvedValue({
+      message: 'Knowledge base solutions loaded successfully.',
+      data: [solution],
+    });
+
+    renderWithI18n(
+      <KnowledgeBaseSection
+        interventionId={42}
+        canUseAsTemplate
+        onUseSolution={onUseSolution}
+      />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Use as report basis' }));
+
+    expect(onUseSolution).toHaveBeenCalledWith(solution);
   });
 
   it('uses Bosnian labels when saved language is Bosnian', async () => {
     window.localStorage.setItem('language', 'bs');
     getKnowledgeBaseMock.mockResolvedValue({
       message: 'Knowledge base solutions loaded successfully.',
-      data: [makeSolution({ isRecommended: true })],
+      data: [makeSolution()],
     });
 
     renderWithI18n(<KnowledgeBaseSection interventionId={42} />);
