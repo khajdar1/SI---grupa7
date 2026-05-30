@@ -116,6 +116,33 @@ export interface InterventionHistoryQuery {
   pageSize?: number;
 }
 
+export interface KnowledgeBaseSolution {
+  reportId: number;
+  title: string;
+  problemDescription: string;
+  solution: string;
+  material: string | null;
+  notes: string | null;
+  locationHint: string;
+  categoryId: number;
+  categoryName: string;
+  reportDate: string;
+  interventionDate: string;
+  isRecommended: boolean;
+  recommendedAt: string | null;
+}
+
+export interface KnowledgeBaseResponse {
+  message: string;
+  data: KnowledgeBaseSolution[];
+}
+
+export interface KnowledgeBaseQuery {
+  text?: string;
+  location?: string;
+  categoryId?: number | string;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
 }
@@ -310,6 +337,30 @@ export async function getInterventionHistory(
       `${API_ENDPOINTS.INTERVENTIONS.BASE}/history${suffix}`,
     ),
     'Failed to load intervention history.',
+  );
+}
+
+export async function getInterventionKnowledgeBase(
+  id: string | number,
+  query: KnowledgeBaseQuery = {},
+): Promise<KnowledgeBaseResponse> {
+  const params = new URLSearchParams();
+  if (query.text?.trim()) {
+    params.set('text', query.text.trim());
+  }
+  if (query.location?.trim()) {
+    params.set('location', query.location.trim());
+  }
+  if (query.categoryId !== undefined && query.categoryId !== '') {
+    params.set('categoryId', String(query.categoryId));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<KnowledgeBaseResponse>(
+      `${API_ENDPOINTS.INTERVENTIONS.KNOWLEDGE_BASE(id)}${suffix}`,
+    ),
+    'Failed to load recommended solutions.',
   );
 }
 

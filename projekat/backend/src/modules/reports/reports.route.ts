@@ -29,6 +29,7 @@ const VIEW_ROLES = [
 ];
 
 const WRITE_ROLES = ['serviser'];
+const COORDINATOR_ROLES = ['koordinator', 'coordinator', 'admin', 'administrator'];
 
 const REPORT_AUTHOR_SELECT = {
   id: true,
@@ -46,6 +47,9 @@ const REPORT_SELECT = {
   notes: true,
   reportDate: true,
   status: true,
+  isRecommended: true,
+  recommendedAt: true,
+  recommendedById: true,
   author: { select: REPORT_AUTHOR_SELECT },
 } as const;
 
@@ -105,6 +109,17 @@ const prismaReportRepository: IReportRepository = {
       data: { status: 'FINALIZED' },
       select: REPORT_SELECT,
     }),
+
+  setRecommendation: (id, recommended, coordinatorId) =>
+    prisma.report.update({
+      where: { id },
+      data: {
+        isRecommended: recommended,
+        recommendedAt: recommended ? new Date() : null,
+        recommendedById: recommended ? coordinatorId : null,
+      },
+      select: REPORT_SELECT,
+    }),
 };
 
 const reportService = new ReportService(prismaReportRepository);
@@ -125,6 +140,9 @@ function mapReport(record: ReportRecord) {
     material: record.material,
     notes: record.notes,
     status: record.status,
+    isRecommended: record.isRecommended,
+    recommendedAt: record.recommendedAt?.toISOString() ?? null,
+    recommendedById: record.recommendedById,
     author: {
       id: record.author.id,
       firstName: record.author.firstName,
@@ -228,6 +246,61 @@ reportsRouter.patch(
 
     res.json({
       message: 'Report updated successfully.',
+      data: mapReport(report),
+    });
+  }),
+);
+
+reportsRouter.patch(
+  '/finalize',
+  authorizeRoles(WRITE_ROLES),
+  asyncHandler(async (req, res) => {
+    const interventionId = parseInterventionId(String(req.params.interventionId));
+    const actorId = await resolveLocalUserId(req);
+
+    const report = await reportService.finalize(interventionId);
+
+    await AuditService.log({
+      action: 'REPORT_FINALIZED',
+      entity: 'Report',
+      entityId: report.id,
+      userId: actorId,
+      details: `Report #${report.id} for intervention #${interventionId} finalized by user #${actorId}.`,
+    });
+
+    res.json({
+      message: 'Report finalized successfully.',
+      data: mapReport(report),
+    });
+  }),
+);
+
+reportsRouter.patch(
+  '/recommendation',
+  authorizeRoles(COORDINATOR_ROLES),
+  asyncHandler(async (req, res) => {
+    const interventionId = parseInterventionId(String(req.params.interventionId));
+    const actorId = await resolveLocalUserId(req);
+    const recommended = req.body?.recommended !== false;
+
+    const report = await reportService.setRecommendation(
+      interventionId,
+      actorId,
+      recommended,
+    );
+
+    await AuditService.log({
+      action: recommended ? 'REPORT_RECOMMENDED' : 'REPORT_UNRECOMMENDED',
+      entity: 'Report',
+      entityId: report.id,
+      userId: actorId,
+      details: `Report #${report.id} for intervention #${interventionId} recommendation set to ${recommended}.`,
+    });
+
+    res.json({
+      message: recommended
+        ? 'Report marked as a recommended solution.'
+        : 'Report removed from recommended solutions.',
       data: mapReport(report),
     });
   }),

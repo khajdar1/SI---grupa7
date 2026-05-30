@@ -78,6 +78,9 @@ export const API_ENDPOINTS = {
     EXPORT_PDF: '/api/v1/interventions/export/pdf',
     ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
     REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
+    REPORT_FINALIZE: (id: number | string) => `/api/v1/interventions/${id}/reports/finalize`,
+    REPORT_RECOMMENDATION: (id: number | string) => `/api/v1/interventions/${id}/reports/recommendation`,
+    KNOWLEDGE_BASE: (id: number | string) => `/api/v1/interventions/${id}/knowledge-base`,
     BULK_ACTIONS: '/api/v1/interventions/bulk-actions',
   },
   ATTACHMENTS: {

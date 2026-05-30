@@ -2,7 +2,7 @@ import express from "express";
 import type { AddressInfo } from "node:net";
 import type { Request, RequestHandler } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InterventionStatus, InterventionType, NotificationType, Priority } from "@prisma/client";
+import { InterventionStatus, InterventionType, NotificationType, Priority, ReportStatus } from "@prisma/client";
 
 const {
   categoryFindManyMock,
@@ -17,6 +17,7 @@ const {
   interventionFindFirstMock,
   interventionFindUniqueMock,
   interventionUpdateMock,
+  reportFindManyMock,
   statusHistoryCreateMock,
   notificationFindFirstMock,
   notificationCreateMock,
@@ -38,6 +39,7 @@ const {
   interventionFindFirstMock: vi.fn(),
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
+  reportFindManyMock: vi.fn(),
   statusHistoryCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
@@ -71,6 +73,9 @@ vi.mock("../src/config/database", () => ({
       findMany: interventionFindManyMock,
       findUnique: interventionFindUniqueMock,
       update: interventionUpdateMock,
+    },
+    report: {
+      findMany: reportFindManyMock,
     },
     statusHistory: {
       create: statusHistoryCreateMock,
@@ -1331,6 +1336,114 @@ describe("PBI-004 interventions route", () => {
         totalPages: 1,
       },
     });
+  });
+});
+
+describe("PBI-055 knowledge base recommendations", () => {
+  it("returns only coordinator-recommended finalized reports for the same category", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      categoryId: 4,
+      location: "Objekat A",
+    });
+    reportFindManyMock.mockResolvedValue([
+      {
+        id: 31,
+        description: "Zamijenjen osigurac i testiran rad.",
+        material: "Osigurac 16A",
+        notes: null,
+        reportDate: new Date("2026-05-20T10:00:00.000Z"),
+        isRecommended: true,
+        recommendedAt: new Date("2026-05-21T10:00:00.000Z"),
+        intervention: {
+          id: 11,
+          name: "Raniji elektricni kvar",
+          description: "Kvar na pumpi.",
+          location: "Objekat A",
+          createdAt: new Date("2026-05-19T10:00:00.000Z"),
+          category: { id: 4, name: "Elektricni kvar" },
+        },
+      },
+    ]);
+
+    const response = await request("GET", "/interventions/21/knowledge-base", {
+      roles: ["Serviser"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(reportFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        interventionId: { not: 21 },
+        AND: expect.arrayContaining([
+          { intervention: { categoryId: 4 } },
+        ]),
+      }),
+      orderBy: [
+        { isRecommended: "desc" },
+        { recommendedAt: "desc" },
+        { reportDate: "desc" },
+      ],
+      take: 8,
+      select: expect.any(Object),
+    }));
+    expect(response.body).toMatchObject({
+      message: "Knowledge base solutions loaded successfully.",
+      data: [
+        {
+          reportId: 31,
+          problemDescription: "Kvar na pumpi.",
+          solution: "Zamijenjen osigurac i testiran rad.",
+          isRecommended: true,
+        },
+      ],
+    });
+  });
+
+  it("applies text and location filters without returning company or user data", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      categoryId: 4,
+      location: "Objekat A",
+    });
+    reportFindManyMock.mockResolvedValue([]);
+
+    const response = await request(
+      "GET",
+      "/interventions/21/knowledge-base?text=osigurac&location=Objekat%20A",
+      { roles: ["Serviser"] },
+    );
+
+    expect(response.status).toBe(200);
+    expect(reportFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        AND: expect.arrayContaining([
+          { intervention: { categoryId: 4 } },
+          { intervention: { location: { contains: "Objekat A" } } },
+          {
+            OR: expect.arrayContaining([
+              { description: { contains: "osigurac" } },
+              { intervention: { description: { contains: "osigurac" } } },
+            ]),
+          },
+        ]),
+      }),
+      select: expect.not.objectContaining({
+        author: expect.anything(),
+        company: expect.anything(),
+        assignments: expect.anything(),
+      }),
+    }));
+  });
+
+  it("rejects knowledge base access for unauthorized roles", async () => {
+    const response = await request("GET", "/interventions/21/knowledge-base", {
+      roles: ["Korisnik"],
+    });
+
+    expect(response.status).toBe(403);
+    expect(reportFindManyMock).not.toHaveBeenCalled();
   });
 });
 

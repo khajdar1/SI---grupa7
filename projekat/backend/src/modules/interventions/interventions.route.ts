@@ -4,6 +4,7 @@ import {
   NotificationType,
   Priority,
   RecurringPeriod,
+  ReportStatus,
 } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
@@ -179,6 +180,12 @@ const interventionHistoryQuerySchema = z.object({
     (val) => val === 'true' || val === '1' || val === true,
     z.boolean(),
   ).default(false),
+});
+
+const knowledgeBaseQuerySchema = z.object({
+  text: z.string().trim().min(1).max(200).optional(),
+  location: z.string().trim().min(1).max(200).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
 });
 
 const interventionStatusUpdateSchema = z.object({
@@ -522,6 +529,49 @@ function mapIntervention(intervention: {
         },
         assignedAt: assignment.assignedAt.toISOString(),
       })) ?? [],
+  };
+}
+
+function buildLocationSearchTerm(location: string): string | null {
+  const compact = compactStoredLocation(location).trim();
+  if (compact.length < 3) {
+    return null;
+  }
+
+  return compact.length > 80 ? compact.slice(0, 80) : compact;
+}
+
+function mapKnowledgeSolution(report: {
+  id: number;
+  description: string;
+  material: string | null;
+  notes: string | null;
+  reportDate: Date;
+  isRecommended: boolean;
+  recommendedAt: Date | null;
+  intervention: {
+    id: number;
+    name: string;
+    description: string;
+    location: string;
+    createdAt: Date;
+    category: { id: number; name: string };
+  };
+}) {
+  return {
+    reportId: report.id,
+    title: report.intervention.name,
+    problemDescription: report.intervention.description,
+    solution: report.description,
+    material: report.material,
+    notes: report.notes,
+    locationHint: compactStoredLocation(report.intervention.location),
+    categoryId: report.intervention.category.id,
+    categoryName: report.intervention.category.name,
+    reportDate: report.reportDate.toISOString(),
+    interventionDate: report.intervention.createdAt.toISOString(),
+    isRecommended: report.isRecommended,
+    recommendedAt: report.recommendedAt?.toISOString() ?? null,
   };
 }
 
@@ -1087,6 +1137,108 @@ interventionsRouter.get(
 
     res.json({
       ...mapIntervention(intervention),
+    });
+  }),
+);
+
+interventionsRouter.get(
+  "/:id/knowledge-base",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const parsedQuery = knowledgeBaseQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      throw new BadRequestError(
+        "Invalid knowledge base filters.",
+        parsedQuery.error.issues.map((issue) => ({
+          field: issue.path.join(".") || "query",
+          message: issue.message,
+        })),
+      );
+    }
+    const query = parsedQuery.data;
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        categoryId: true,
+        location: true,
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const locationTerm = buildLocationSearchTerm(query.location ?? intervention.location);
+    const textTerm = query.text?.trim();
+    const categoryId = query.categoryId ?? intervention.categoryId;
+    const textFilters = textTerm
+      ? [
+          { description: { contains: textTerm } },
+          { material: { contains: textTerm } },
+          { notes: { contains: textTerm } },
+          { intervention: { description: { contains: textTerm } } },
+          { intervention: { name: { contains: textTerm } } },
+        ]
+      : [];
+
+    const reports = await prisma.report.findMany({
+      where: {
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        interventionId: { not: intervention.id },
+        AND: [
+          {
+            intervention: {
+              categoryId,
+            },
+          },
+          ...(locationTerm
+            ? [
+                {
+                  intervention: {
+                    location: { contains: locationTerm },
+                  },
+                },
+              ]
+            : []),
+          ...(textFilters.length > 0 ? [{ OR: textFilters }] : []),
+        ],
+      },
+      orderBy: [
+        { isRecommended: "desc" },
+        { recommendedAt: "desc" },
+        { reportDate: "desc" },
+      ],
+      take: 8,
+      select: {
+        id: true,
+        description: true,
+        material: true,
+        notes: true,
+        reportDate: true,
+        isRecommended: true,
+        recommendedAt: true,
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            location: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const solutions = reports.map(mapKnowledgeSolution);
+
+    res.json({
+      message: "Knowledge base solutions loaded successfully.",
+      data: solutions,
     });
   }),
 );
