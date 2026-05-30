@@ -107,6 +107,7 @@ model User {
   createdFaultReports   FaultReport[]           @relation("FaultReportAuthor")
   createdInterventions  Intervention[]          @relation("InterventionCreator")
   reports              Report[]                @relation("ReportAuthor")
+  recommendedReports   Report[]                @relation("ReportRecommendedBy")
   assignments          Assignment[]
   comments             InterventionComment[]   @relation("CommentAuthor")
   statusChanges        StatusHistory[]         @relation("StatusHistoryAuthor")
@@ -243,9 +244,15 @@ model Report {
   notes         String?        @db.LongText
   reportDate    DateTime       @default(now())
   status        ReportStatus   @default(DRAFT)
+  isRecommended Boolean        @default(false)
+  recommendedAt DateTime?
+  recommendedById Int?
   intervention  Intervention   @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   author        User           @relation("ReportAuthor", fields: [authorId], references: [id])
+  recommendedBy User?          @relation("ReportRecommendedBy", fields: [recommendedById], references: [id], onDelete: SetNull)
   attachments   Attachment[]
+
+  @@index([isRecommended])
 }
 
 model Attachment {

@@ -116,6 +116,31 @@ export interface InterventionHistoryQuery {
   pageSize?: number;
 }
 
+export interface KnowledgeBaseSolution {
+  reportId: number;
+  interventionId: string;
+  title: string;
+  interventionDescription: string;
+  solution: string;
+  material: string | null;
+  notes: string | null;
+  location: string;
+  categoryId: number;
+  categoryName: string;
+  companyName: string;
+  reportDate: string;
+  interventionDate: string;
+  author: string;
+  servicer: string;
+  isRecommended: boolean;
+  recommendedAt: string | null;
+}
+
+export interface KnowledgeBaseResponse {
+  message: string;
+  data: KnowledgeBaseSolution[];
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
 }
@@ -310,6 +335,17 @@ export async function getInterventionHistory(
       `${API_ENDPOINTS.INTERVENTIONS.BASE}/history${suffix}`,
     ),
     'Failed to load intervention history.',
+  );
+}
+
+export async function getInterventionKnowledgeBase(
+  id: string | number,
+): Promise<KnowledgeBaseResponse> {
+  return getResponseData(
+    () => api.get<KnowledgeBaseResponse>(
+      API_ENDPOINTS.INTERVENTIONS.KNOWLEDGE_BASE(id),
+    ),
+    'Failed to load recommended solutions.',
   );
 }
 

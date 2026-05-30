@@ -4,6 +4,7 @@ import {
   NotificationType,
   Priority,
   RecurringPeriod,
+  ReportStatus,
 } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
@@ -522,6 +523,68 @@ function mapIntervention(intervention: {
         },
         assignedAt: assignment.assignedAt.toISOString(),
       })) ?? [],
+  };
+}
+
+function buildLocationSearchTerm(location: string): string | null {
+  const compact = compactStoredLocation(location).trim();
+  if (compact.length < 3) {
+    return null;
+  }
+
+  return compact.length > 80 ? compact.slice(0, 80) : compact;
+}
+
+function mapKnowledgeSolution(report: {
+  id: number;
+  description: string;
+  material: string | null;
+  notes: string | null;
+  reportDate: Date;
+  isRecommended: boolean;
+  recommendedAt: Date | null;
+  author: { firstName: string; lastName: string; username: string };
+  intervention: {
+    id: number;
+    name: string;
+    description: string;
+    location: string;
+    createdAt: Date;
+    category: { id: number; name: string };
+    company: { id: number; name: string };
+    assignments: Array<{
+      user: { firstName: string; lastName: string; username: string };
+    }>;
+  };
+}) {
+  const authorName =
+    `${report.author.firstName} ${report.author.lastName}`.trim() ||
+    report.author.username;
+  const servicers = report.intervention.assignments
+    .map((assignment) =>
+      `${assignment.user.firstName} ${assignment.user.lastName}`.trim() ||
+      assignment.user.username,
+    )
+    .filter(Boolean);
+
+  return {
+    reportId: report.id,
+    interventionId: String(report.intervention.id),
+    title: report.intervention.name,
+    interventionDescription: report.intervention.description,
+    solution: report.description,
+    material: report.material,
+    notes: report.notes,
+    location: compactStoredLocation(report.intervention.location),
+    categoryId: report.intervention.category.id,
+    categoryName: report.intervention.category.name,
+    companyName: report.intervention.company.name,
+    reportDate: report.reportDate.toISOString(),
+    interventionDate: report.intervention.createdAt.toISOString(),
+    author: authorName,
+    servicer: servicers.length > 0 ? servicers.join(", ") : authorName,
+    isRecommended: report.isRecommended,
+    recommendedAt: report.recommendedAt?.toISOString() ?? null,
   };
 }
 
@@ -1087,6 +1150,97 @@ interventionsRouter.get(
 
     res.json({
       ...mapIntervention(intervention),
+    });
+  }),
+);
+
+interventionsRouter.get(
+  "/:id/knowledge-base",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        categoryId: true,
+        location: true,
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const locationTerm = buildLocationSearchTerm(intervention.location);
+    const similarityFilters = [
+      { categoryId: intervention.categoryId },
+      ...(locationTerm
+        ? [{ location: { contains: locationTerm } }]
+        : []),
+    ];
+
+    const reports = await prisma.report.findMany({
+      where: {
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        interventionId: { not: intervention.id },
+        intervention: {
+          OR: similarityFilters,
+        },
+      },
+      orderBy: [
+        { isRecommended: "desc" },
+        { recommendedAt: "desc" },
+        { reportDate: "desc" },
+      ],
+      take: 8,
+      select: {
+        id: true,
+        description: true,
+        material: true,
+        notes: true,
+        reportDate: true,
+        isRecommended: true,
+        recommendedAt: true,
+        author: {
+          select: {
+            firstName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            location: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+            company: { select: { id: true, name: true } },
+            assignments: {
+              select: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const solutions = reports.map(mapKnowledgeSolution);
+
+    res.json({
+      message: "Knowledge base solutions loaded successfully.",
+      data: solutions,
     });
   }),
 );

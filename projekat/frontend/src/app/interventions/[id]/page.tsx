@@ -15,6 +15,7 @@ import {
   type PageHeaderAction,
 } from '@/components/shared';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
+import { KnowledgeBaseSection } from '@/components/interventions/KnowledgeBaseSection';
 import { CommentsSection } from '@/components/shared/CommentsSection';
 import { FeedbackSection } from '@/components/feedback/FeedbackSection';
 import { ReportSection } from '@/components/reports/ReportSection';
@@ -459,6 +460,11 @@ export default function InterventionDetailPage() {
         />
       ) : null}
 
+      {/* PBI-055: Knowledge base and recommended solutions */}
+      {intervention && (canReadReport || canWriteReport) ? (
+        <KnowledgeBaseSection interventionId={interventionId} />
+      ) : null}
+
       {/* ── PBI-010: Intervention report ── */}
       {intervention && (canReadReport || canWriteReport) ? (
         <ReportSection
@@ -466,6 +472,7 @@ export default function InterventionDetailPage() {
           interventionStatus={intervention.status}
           canRead={canReadReport}
           canWrite={canWriteReport}
+          canRecommend={canManageIntervention}
         />
       ) : null}
 
