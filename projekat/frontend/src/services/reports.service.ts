@@ -1,5 +1,10 @@
 import { api } from '@/lib/api';
 import { API_ENDPOINTS } from '@/constants';
+export interface MaterialItem {
+  name: string;
+  quantity: number;
+  note: string | null;
+}
 
 export interface ReportAuthor {
   id: number;
@@ -12,11 +17,22 @@ export interface InterventionReport {
   id: number;
   interventionId: number;
   description: string;
-  material: string | null;
+  materialItems: MaterialItem[];
   notes: string | null;
   status: 'DRAFT' | 'FINALIZED';
   author: ReportAuthor;
   reportDate: string;
+}
+export interface CreateReportPayload {
+  description: string;
+  materialItems?: MaterialItem[];
+  notes?: string | null;
+}
+
+export interface UpdateReportPayload {
+  description?: string;
+  materialItems?: MaterialItem[];
+  notes?: string | null;
 }
 
 interface ReportApiResponse {
@@ -24,16 +40,18 @@ interface ReportApiResponse {
   data: InterventionReport;
 }
 
-export interface CreateReportPayload {
-  description: string;
-  material?: string | null;
-  notes?: string | null;
-}
-
-export interface UpdateReportPayload {
-  description?: string;
-  material?: string | null;
-  notes?: string | null;
+function toServiceError(error: unknown, fallback: string): Error {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const message = (error as { response?: { data?: { message?: string } } }).response?.data
+      ?.message;
+    if (typeof message === 'string' && message.length > 0) {
+      return new Error(message);
+    }
+  }
+  if (error instanceof Error && error.message.length > 0) {
+    return new Error(error.message);
+  }
+  return new Error(fallback);
 }
 
 export async function getInterventionReport(
@@ -88,16 +106,13 @@ export async function updateInterventionReport(
   }
 }
 
-function toServiceError(error: unknown, fallback: string): Error {
-  if (typeof error === 'object' && error !== null && 'response' in error) {
-    const message = (error as { response?: { data?: { message?: string } } }).response?.data
-      ?.message;
-    if (typeof message === 'string' && message.length > 0) {
-      return new Error(message);
-    }
+export async function getMaterialSuggestions(interventionId: number): Promise<string[]> {
+  try {
+    const response = await api.get<{ data: string[] }>(
+      API_ENDPOINTS.INTERVENTIONS.MATERIAL_SUGGESTIONS(interventionId),
+    );
+    return response.data.data ?? [];
+  } catch {
+    return [];
   }
-  if (error instanceof Error && error.message.length > 0) {
-    return new Error(error.message);
-  }
-  return new Error(fallback);
 }
