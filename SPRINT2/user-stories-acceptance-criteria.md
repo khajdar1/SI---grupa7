@@ -116,6 +116,18 @@ Login je kapija cijelog sistema. Bez sigurne autentifikacije, osjetljivi podaci 
 
 > **Story 3 –** Kao **koordinator**, želim **da svaka uspješno poslana prijava kvara automatski generiše intervenciju u sistemu**, kako bih **imao nultu manuelnu obradu dolaznih prijava i mogao odmah reagovati**.
 
+#### Poslovna vrijednost
+
+Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ovaj proces jednostavniji i dostupniji, to više prijava stiže na vrijeme, a tim može pravovremeno reagovati. Automatsko kreiranje intervencije eliminiše ručni posao koordinatora.
+
+#### Pretpostavke i otvorena pitanja
+
+- Dostupno i neprijavljenim korisnicima.
+- Otvoreno pitanje: Koji tipovi datoteka su dozvoljeni za upload?
+- Otvoreno pitanje: Da li neprijavljeni korisnik unosi kontakt podatke kao dio obrasca?
+- Otvoreno pitanje: Kako se prate intervencije prijavljene od neprijavljenih korisnika?
+
+
 #### Veze i zavisnosti
 
 - **Preduvjet za:** PBI-004, PBI-025
@@ -204,10 +216,21 @@ Login je kapija cijelog sistema. Bez sigurne autentifikacije, osjetljivi podaci 
 
 > **Story 3 –** Kao **koordinator**, želim **filtrirati listu intervencija i koristiti kategoriju kao kriterij napredne pretrage**, kako bih **brzo pronašao sve intervencije određenog tipa i analizirao učestalost pojedinih kvarova**.
 
+#### Poslovna vrijednost
+
+Predefinisane kategorije standardizuju unos i ubrzavaju trijažu koordinatora. Dinamično upravljanje kategorijama daje organizaciji autonomiju i fleksibilnost bez tehničke zavisnosti.
+
+#### Pretpostavke i otvorena pitanja
+
+- Kategorije koje se deaktivišu ostaju vidljive na prethodnim intervencijama, ali se ne nude pri novim prijavama.
+- Otvoreno pitanje: Da li postoje podkategorije?
+- Otvoreno pitanje: Da li se kategorije primjenjuju globalno ili per-firma?
+
 #### Veze i zavisnosti
 
-- **Preduvjet za:** PBI-003
-- **Veza s:** PBI-007, PBI-017
+- **Preduvjet za:** PBI-003 (Prijava kvara – odabir kategorije)
+- **Veza s:** PBI-007 (Lista intervencija – filtriranje), PBI-017 (Napredna pretraga)
+
 
 ---
 
@@ -511,10 +534,18 @@ Rate limiting povećava sigurnost i stabilnost sistema bez značajnog uticaja na
 
 > **Story 3 –** Kao **koordinator**, želim **naknadno izmijeniti detalje intervencije dok je u statusu „Otvoreno" ili „U procesu"**, kako bih **mogao reagovati na promjenu okolnosti bez gubljenja historijata originalnog plana**.
 
+#### Poslovna vrijednost
+
+Planiranje intervencija je srž operativnog rada koordinatora. Bez ove funkcionalnosti, terenski tim nema strukturiran zadatak, a menadžment nema uvid u planove.
+
+#### Pretpostavke i otvorena pitanja
+
+- Otvoreno pitanje: Koji vremenski okvir se unosi – samo rok završetka ili i planirano vrijeme početka?
+
 #### Veze i zavisnosti
 
-- **Preduvjet za:** PBI-005, PBI-006, PBI-008
-- **Zavisi od:** PBI-003, PBI-002
+- **Preduvjet za:** PBI-005 (Prioritet i SLA), PBI-006 (Dodjela servisera), PBI-008 (Praćenje statusa)
+- **Zavisi od:** PBI-003 (Prijava kvara), PBI-002 (Login)
 
 ---
 
@@ -539,21 +570,49 @@ Rate limiting povećava sigurnost i stabilnost sistema bez značajnog uticaja na
 
 > **Story 2 –** Kao **koordinator**, želim **biti automatski upozoren ako intervencija nije riješena do definisanog SLA roka**, kako bih **mogao pravovremeno intervenirati i prerasporediti resurse**.
 
+#### Poslovna vrijednost
+
+Prioritet je osnova za organizaciju rada. Bez eksplicitnog rangiranja, koordinator i serviseri moraju sami procjenjivati važnost svakog zadatka, što vodi do grešaka. SLA konfiguracija daje organizaciji mjerljive standarde usluge, a automatska upozorenja o kašnjenju oslobađaju koordinatora od ručnog praćenja rokova.
+
+#### Pretpostavke i otvorena pitanja
+
+- Dostupne razine prioriteta: Hitan, Visok, Normalan, Nizak.
+- SLA rokovi se definišu per-prioritet.
+- Otvoreno pitanje: Da li promjena prioriteta zahtijeva navođenje razloga?
+- Otvoreno pitanje: Da li SLA sat teče od kreiranja intervencije ili od dodjele serviseru?
+- Otvoreno pitanje: Gdje se prikazuje upozorenje – u listi ili kao notifikacija?
+
 #### Veze i zavisnosti
 
-- **Preduvjet za:** PBI-007
-- **Zavisi od:** PBI-004, PBI-035
+- **Preduvjet za:** PBI-007 (Pregled liste – rangiranje po prioritetu)
+- **Zavisi od:** PBI-004 (Planiranje intervencija)
 
 ---
 
-#### Acceptance Kriteriji
+#### Acceptance Kriteriji – Prioritet
 
 - Koordinator mora imati mogućnost odabira prioriteta iz **padajućeg menija: Hitan, Visok, Normalan, Nizak**.
 - **Prioritet je obavezno polje** – sistem ne smije dozvoliti čuvanje intervencije bez njega.
-- Lista aktivnih intervencija mora biti **automatski sortirana po prioritetu**, unutar istog prioriteta po datumu kreiranja.
-- Korisnik treba **vizualno razlikovati prioritete** u listi bez otvaranja detalja.
-- Sistem mora **automatski generisati upozorenje** za svaku intervenciju koja nije završena a SLA rok je prošao.
-- Upozorenje mora biti **vidljivo koordinatoru** u pregledu (crvena oznaka ili status „Zakašnjenje").
+- Kada koordinator naknadno promijeni prioritet, **sistem mora zabilježiti promjenu** s vremenskom oznakom i imenom korisnika.
+- Lista aktivnih intervencija mora biti **automatski sortirana po prioritetu** (Hitan > Visok > Normalan > Nizak), a unutar istog prioriteta po datumu kreiranja (starije prve).
+- Korisnik treba **vizualno razlikovati prioritete** u listi (boja ili ikona) bez otvaranja detalja.
+- Sistem ne smije dozvoliti postavljanje prioriteta koji nije u listi predviđenih opcija.
+
+#### Acceptance Kriteriji – SLA konfiguracija
+
+- Admin mora imati pristup **stranici za konfiguraciju SLA rokova** s poljem za svaki nivo prioriteta.
+- Admin mora moći **unijeti vremenski rok u satima** za svaki nivo (npr. Hitan = 2h, Visok = 8h).
+- Sistem ne smije dozvoliti **čuvanje SLA konfiguracije s praznim poljem, nulom ili negativnom vrijednošću**.
+- Nakon čuvanja, nova SLA konfiguracija mora **odmah biti aktivna** za sve buduće provjere kašnjenja.
+- Promjena SLA konfiguracije mora biti **zabilježena u audit logu**.
+
+#### Acceptance Kriteriji – Upozorenje kašnjenja
+
+- Sistem mora **automatski generisati upozorenje** za svaku intervenciju koja nije u statusu "Završeno" a SLA rok je prošao.
+- Upozorenje mora biti **vidljivo koordinatoru** u pregledu (npr. crvena oznaka ili status "Zakašnjenje").
+- Sistem mora upozoravati **samo za intervencije s definisanim rokom** – intervencije bez roka ne smiju generisati upozorenja.
+- Upozorenje ne smije **automatski promijeniti status intervencije** – samo signalizira problem.
+- Sistem mora **ukloniti oznaku upozorenja** čim intervencija prijeđe u status "Završeno".
 
 ---
 
@@ -569,20 +628,41 @@ Rate limiting povećava sigurnost i stabilnost sistema bez značajnog uticaja na
 
 > **Story 3 –** Kao **koordinator**, želim **moći izmijeniti ili ukloniti dodijeljenog servisera i nakon što je dodjela izvršena**, kako bih **mogao reagovati na iznenadnu nedostupnost servisera**.
 
+#### Poslovna vrijednost
+
+Bez jasne dodjele, intervencija ostaje "ničija" i postoji rizik da ne bude obavljena. Sortiran prikaz po opterećenosti čini distribuciju posla transparentnom i pravednom bez ručnog prebrojavanja.
+
+#### Pretpostavke i otvorena pitanja
+
+- Koordinator može dodijeliti jednog ili više servisera istoj intervenciji.
+- Koordinator uvijek može dodijeliti intervenciju bilo kom serviseru, bez obzira na opterećenost.
+- Otvoreno pitanje: Da li dodjela automatski šalje notifikaciju serviseru? (Veza s PBI-012)
+- Otvoreno pitanje: Da li se u broj aktivnih intervencija računaju i intervencije s timskom dodjelom?
+
 #### Veze i zavisnosti
 
-- **Preduvjet za:** PBI-009, PBI-012
-- **Zavisi od:** PBI-004, PBI-001
+- **Preduvjet za:** PBI-009 (Pregled zadataka servisera), PBI-012 (Notifikacije)
+- **Zavisi od:** PBI-004 (Planiranje intervencija), PBI-001 (Registracija)
 
 ---
 
-#### Acceptance Kriteriji
+#### Acceptance Kriteriji – Dodjela
 
 - Koordinator mora imati **dugme ili sekciju za dodjelu servisera** unutar detalja intervencije.
-- Sistem mora prikazati **listu dostupnih servisera** sortiranu po broju aktivnih intervencija.
+- Sistem mora prikazati **listu dostupnih servisera** iz koje koordinator može odabrati jednog ili više.
+- Kada koordinator sačuva dodjelu, **ime servisera mora biti vidljivo u detalju i u listi** aktivnih intervencija.
 - Koordinator mora moći **izmijeniti ili ukloniti dodjelu** servisera i nakon što je postavljena.
 - Sistem ne smije dozvoliti dodjelu servisera koji ima **deaktiviran korisnički račun**.
 - Sistem mora zabilježiti **ko je izvršio dodjelu i kada** (audit log).
+
+#### Acceptance Kriteriji – Dostupnost
+
+- Lista servisera mora biti **sortirana po broju aktivnih intervencija** – od najmanje prema najviše opterećenim.
+- Uz svako ime servisera, mora biti **vidljiv broj njegovih trenutno aktivnih intervencija**.
+- Koordinator mora moći **odabrati bilo kojeg servisera** s liste, bez obzira na broj aktivnih zadataka.
+- Lista mora biti **ažurirana u realnom vremenu** ili pri svakom otvaranju prozora za dodjelu.
+- Serviseri s **deaktiviranim računom ne smiju biti prikazani** na listi.
+- Ako svi serviseri imaju 0 aktivnih intervencija, **lista mora i dalje biti prikazana**.
 
 ---
 
@@ -598,19 +678,30 @@ Rate limiting povećava sigurnost i stabilnost sistema bez značajnog uticaja na
 
 > **Story 3 –** Kao **koordinator**, želim **kombinovati više filtera istovremeno**, kako bih **brzo suzio pregled na samo one intervencije koje zahtijevaju moju pažnju**.
 
+#### Poslovna vrijednost
+
+Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje i završava s ovim pregledom. Pravilno rangiranje po prioritetu direktno utječe na brzinu reakcije tima.
+
+#### Pretpostavke i otvorena pitanja
+
+- Otvoreno pitanje: Koji je maksimalni broj intervencija po stranici (paginacija)?
+- Otvoreno pitanje: Da li lista automatski osvježava podatke ili zahtijeva ručno osvježavanje?
+
 #### Veze i zavisnosti
 
 - **Zavisi od:** PBI-004, PBI-005, PBI-006, PBI-008
-- **Veza s:** PBI-017, PBI-014
+- **Veza s:** PBI-017 (Napredna pretraga), PBI-014 (Dashboard)
 
 ---
 
 #### Acceptance Kriteriji
 
 - Sistem mora prikazati **sve aktivne intervencije** (status: Otvoreno, U procesu).
-- Lista mora biti **automatski sortirana po prioritetu**, unutar istog prioriteta po datumu kreiranja.
-- Korisnik mora moći **filtrirati intervencije po statusu, tipu i dodjeljnosti**.
-- Kombinovanje više filtera **mora raditi ispravno**.
+- Lista mora biti **automatski sortirana po prioritetu** (Hitan > Visok > Normalan > Nizak), unutar istog prioriteta po datumu kreiranja.
+- Korisnik mora moći **filtrirati intervencije po statusu, tipu i dodjeljnosti** (dodijeljeno / nije dodijeljeno / dodijeljeno određenom serviseru).
+- Svaki red u listi mora prikazivati **minimalno**: naziv, prioritet, status, lokaciju, dodjeljenog servisera i datum kreiranja.
+- Sistem mora **vizualno razlikovati prioritete** (boja, ikona ili oznaka).
+- Kombinovanje više filtera **mora raditi ispravno** – prikazuju se samo intervencije koje zadovoljavaju sve odabrane kriterije.
 - Sistem ne smije prikazivati **arhivirane intervencije** u aktivnoj listi.
 
 ---
