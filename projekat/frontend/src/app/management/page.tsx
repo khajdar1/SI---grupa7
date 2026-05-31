@@ -2,9 +2,11 @@
 export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
-import { BarChart2, CheckCircle2, Clock, RefreshCw, TrendingUp, Wrench } from 'lucide-react';
+import Link from 'next/link';
+import { BarChart2, CheckCircle2, Clock, Package, RefreshCw, TrendingUp, Wrench } from 'lucide-react';
 
 import { AccessDenied, PageHeader, PageLayout, StatCard } from '@/components/shared';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ROUTES } from '@/constants';
@@ -133,6 +135,15 @@ export default function ManagementDashboardPage() {
           {error}
         </div>
       ) : null}
+
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end">
+        <Button asChild className="gap-2 shadow-sm">
+          <Link href={ROUTES.MANAGEMENT_MATERIALS ?? '/management/materials'}>
+            <Package className="size-4" aria-hidden="true" />
+            {language === 'bs' ? 'Potrošnja materijala' : 'Material Consumption'}
+          </Link>
+        </Button>
+      </div>
 
       {/* Stat cards */}
       <section className="grid gap-4 sm:grid-cols-3" aria-label="Statistics">

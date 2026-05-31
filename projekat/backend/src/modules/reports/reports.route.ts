@@ -7,6 +7,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { asyncHandler } from '../../shared/async-handler';
 import { AuditService } from '../../shared/audit.service';
 import { BadRequestError, ForbiddenError } from '../../shared/errors';
+import { parseMaterialItems, serializeMaterialItems } from '../../shared/material-item';
 import { createReportSchema, updateReportSchema } from './reports.schema';
 import {
   ReportService,
@@ -43,7 +44,7 @@ const REPORT_SELECT = {
   interventionId: true,
   authorId: true,
   description: true,
-  material: true,
+  material: true, 
   notes: true,
   reportDate: true,
   status: true,
@@ -86,7 +87,7 @@ const prismaReportRepository: IReportRepository = {
         interventionId,
         authorId,
         description: input.description,
-        material: input.material ?? null,
+        material: serializeMaterialItems(input.materialItems),
         notes: input.notes ?? null,
       },
       select: REPORT_SELECT,
@@ -97,7 +98,9 @@ const prismaReportRepository: IReportRepository = {
       where: { id },
       data: {
         ...(input.description !== undefined && { description: input.description }),
-        ...(input.material !== undefined && { material: input.material }),
+        ...(input.materialItems !== undefined && {
+          material: serializeMaterialItems(input.materialItems),
+        }),
         ...(input.notes !== undefined && { notes: input.notes }),
       },
       select: REPORT_SELECT,
@@ -137,7 +140,7 @@ function mapReport(record: ReportRecord) {
     id: record.id,
     interventionId: record.interventionId,
     description: record.description,
-    material: record.material,
+    materialItems: parseMaterialItems(record.material),
     notes: record.notes,
     status: record.status,
     isRecommended: record.isRecommended,
@@ -172,7 +175,6 @@ async function resolveLocalUserId(req: import('express').Request): Promise<numbe
   if (!user) {
     throw new ForbiddenError('Authenticated user is not linked to a local user record.');
   }
-
   return user.id;
 }
 
@@ -199,6 +201,45 @@ reportsRouter.get(
   }),
 );
 
+reportsRouter.get(
+  '/material-suggestions',
+  authorizeRoles(VIEW_ROLES),
+  asyncHandler(async (req, res) => {
+    const interventionId = parseInterventionId(String(req.params.interventionId));
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id: interventionId },
+      select: { companyId: true },
+    });
+
+    if (!intervention) {
+      throw new BadRequestError('Intervention not found.');
+    }
+
+    const reports = await prisma.report.findMany({
+      where: {
+        material: { not: null },
+        intervention: { companyId: intervention.companyId },
+      },
+      select: { material: true },
+    });
+
+    const nameCounts = new Map<string, number>();
+    for (const report of reports) {
+      const items = parseMaterialItems(report.material);
+      for (const item of items) {
+        nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
+      }
+    }
+
+    const suggestions = [...nameCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name]) => name);
+
+    res.status(HTTP_STATUS.OK).json({ data: suggestions });
+  }),
+);
+
 reportsRouter.post(
   '/',
   authorizeRoles(WRITE_ROLES),
@@ -215,7 +256,7 @@ reportsRouter.post(
       entity: 'Report',
       entityId: report.id,
       userId: authorId,
-      details: `Report created for intervention #${interventionId} by user #${authorId}.`,
+      details: `Report created for intervention #${interventionId} by user #${authorId}. Materials recorded: ${parseMaterialItems(report.material).length}.`,
     });
 
     res.status(HTTP_STATUS.CREATED).json({

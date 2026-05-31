@@ -26,6 +26,9 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   AUTO_ASSIGNMENT: 'Auto assignment',
   NEW_TICKET: 'New support ticket',
   TICKET_REPLY: 'Ticket reply',
+  INTERVENTION_PAUSED: 'Intervention paused',
+  EXECUTION_CONFIRMATION_REQUEST: 'Digital confirmation PIN',
+  EXECUTION_CONFIRMATION_RESPONSE: 'Digital confirmation response',
 };
 
 const MANDATORY_NOTIFICATIONS: readonly string[] = [
@@ -33,6 +36,9 @@ const MANDATORY_NOTIFICATIONS: readonly string[] = [
   'INTERVENTION_ASSIGNED',
   'AUTO_ASSIGNMENT',
   'STATUS_CHANGED',
+  'INTERVENTION_PAUSED',
+  'EXECUTION_CONFIRMATION_REQUEST',
+  'EXECUTION_CONFIRMATION_RESPONSE',
 ];
 
 const OPTIONAL_NOTIFICATION_LABELS: Record<string, string> = Object.fromEntries(

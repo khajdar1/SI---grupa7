@@ -1,6 +1,7 @@
 import { InterventionStatus, ReportStatus } from '@prisma/client';
 
 import { ForbiddenError, NotFoundError } from '../shared/errors';
+import { type MaterialItem } from '../shared/material-item';
 
 export const REPORT_ALLOWED_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.IN_PROGRESS,
@@ -9,19 +10,19 @@ export const REPORT_ALLOWED_STATUSES = new Set<InterventionStatus>([
 
 export const REPORT_FIELD_MAX_LENGTH = {
   DESCRIPTION: 5000,
-  MATERIAL: 2000,
   NOTES: 2000,
+  MATERIAL_JSON: 65_535,
 } as const;
 
 export interface CreateReportInput {
   description: string;
-  material: string | null;
+  materialItems: MaterialItem[];
   notes: string | null;
 }
 
 export interface UpdateReportInput {
   description?: string;
-  material?: string | null;
+  materialItems?: MaterialItem[];
   notes?: string | null;
 }
 
@@ -36,7 +37,6 @@ export interface ReportAuthorRecord {
   lastName: string;
   username: string;
 }
-
 export interface ReportRecord {
   id: number;
   interventionId: number;
@@ -51,7 +51,6 @@ export interface ReportRecord {
   recommendedById: number | null;
   author: ReportAuthorRecord;
 }
-
 export interface IReportRepository {
   findInterventionById(id: number): Promise<InterventionStatusRecord | null>;
   findByInterventionId(interventionId: number): Promise<ReportRecord | null>;
@@ -66,15 +65,12 @@ export interface IReportRepository {
   finalizeReport(id: number): Promise<ReportRecord>;
   setRecommendation(id: number, recommended: boolean, coordinatorId: number): Promise<ReportRecord>;
 }
-
 export class ReportService {
   constructor(private readonly repository: IReportRepository) {}
 
   async getByInterventionId(interventionId: number): Promise<ReportRecord | null> {
     const intervention = await this.repository.findInterventionById(interventionId);
-    if (!intervention) {
-      throw new NotFoundError('Intervention not found.');
-    }
+    if (!intervention) throw new NotFoundError('Intervention not found.');
     return this.repository.findByInterventionId(interventionId);
   }
 
@@ -84,9 +80,7 @@ export class ReportService {
     input: CreateReportInput,
   ): Promise<ReportRecord> {
     const intervention = await this.repository.findInterventionById(interventionId);
-    if (!intervention) {
-      throw new NotFoundError('Intervention not found.');
-    }
+    if (!intervention) throw new NotFoundError('Intervention not found.');
 
     if (!REPORT_ALLOWED_STATUSES.has(intervention.status)) {
       throw new ForbiddenError(
@@ -120,9 +114,7 @@ export class ReportService {
     input: UpdateReportInput,
   ): Promise<ReportRecord> {
     const intervention = await this.repository.findInterventionById(interventionId);
-    if (!intervention) {
-      throw new NotFoundError('Intervention not found.');
-    }
+    if (!intervention) throw new NotFoundError('Intervention not found.');
 
     if (!REPORT_ALLOWED_STATUSES.has(intervention.status)) {
       throw new ForbiddenError(
@@ -131,9 +123,7 @@ export class ReportService {
     }
 
     const existing = await this.repository.findByInterventionId(interventionId);
-    if (!existing) {
-      throw new NotFoundError('Report not found for this intervention.');
-    }
+    if (!existing) throw new NotFoundError('Report not found for this intervention.');
 
     if (existing.status === ReportStatus.FINALIZED) {
       throw new ForbiddenError('A finalized report cannot be modified.');
@@ -154,18 +144,12 @@ export class ReportService {
 
   async finalize(interventionId: number): Promise<ReportRecord> {
     const intervention = await this.repository.findInterventionById(interventionId);
-    if (!intervention) {
-      throw new NotFoundError('Intervention not found.');
-    }
+    if (!intervention) throw new NotFoundError('Intervention not found.');
 
     const existing = await this.repository.findByInterventionId(interventionId);
-    if (!existing) {
-      throw new NotFoundError('Report not found for this intervention.');
-    }
+    if (!existing) throw new NotFoundError('Report not found for this intervention.');
 
-    if (existing.status === ReportStatus.FINALIZED) {
-      return existing;
-    }
+    if (existing.status === ReportStatus.FINALIZED) return existing;
 
     return this.repository.finalizeReport(existing.id);
   }

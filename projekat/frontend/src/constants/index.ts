@@ -26,6 +26,7 @@ export const ROUTES = {
   ADMIN_ATTACHMENT_CONFIG: '/admin/attachment-config',
   ADMIN_DETAIL: (id: string) => `/admin/${id}`,
   MANAGEMENT_DASHBOARD: '/management',
+  MANAGEMENT_MATERIALS: '/management/materials', 
   COMPANY: '/company',
   BLOCKED_USERS: '/blocked-users',
 } as const;
@@ -78,6 +79,8 @@ export const API_ENDPOINTS = {
     EXPORT_PDF: '/api/v1/interventions/export/pdf',
     ATTACHMENTS: (id: number | string) => `/api/v1/interventions/${id}/attachments`,
     REPORT: (id: number | string) => `/api/v1/interventions/${id}/reports`,
+    MATERIAL_SUGGESTIONS: (id: number | string) =>
+      `/api/v1/interventions/${id}/reports/material-suggestions`,
     REPORT_FINALIZE: (id: number | string) => `/api/v1/interventions/${id}/reports/finalize`,
     REPORT_RECOMMENDATION: (id: number | string) => `/api/v1/interventions/${id}/reports/recommendation`,
     KNOWLEDGE_BASE: (id: number | string) => `/api/v1/interventions/${id}/knowledge-base`,
@@ -94,11 +97,16 @@ export const API_ENDPOINTS = {
   ASSIGNMENTS: {
     BASE: '/api/v1/assignments',
   },
+  AVAILABILITY: {
+    ME: '/api/v1/availability/me',
+    BY_ID: (id: number | string) => `/api/v1/availability/me/${id}`,
+  },
   REPORTS: {
     BASE: '/api/v1/reports',
   },
   MANAGEMENT: {
     DASHBOARD: '/api/v1/management/dashboard',
+    MATERIALS: '/api/v1/management/materials',
   },
   MAPS: {
     INTERVENTIONS: '/api/v1/maps/interventions',
@@ -129,6 +137,7 @@ export const API_ENDPOINTS = {
   },
   FEEDBACK: {
     BY_INTERVENTION: (id: number | string) => `/api/v1/feedback/${id}`,
+    ANALYTICS: '/api/v1/feedback/analytics',
   },
 } as const;
 
@@ -162,6 +171,10 @@ export const UI = {
     COMPANY_ADMIN: '190px',
     COMPANY_ACTIONS: '280px',
     SLA_HOURS: '90px',
+    MATERIAL_NAME: '200px',
+    MATERIAL_QUANTITY: '100px',
+    MATERIAL_NOTE: '240px',
+    MATERIAL_ACTIONS: '60px',
   },
 } as const;
 
@@ -170,4 +183,11 @@ export const VALIDATION = {
   TITLE_MAX: 150,
   DESCRIPTION_MIN: 10,
   DESCRIPTION_MAX: 2000,
+} as const;
+
+export const MATERIAL_LIMITS = {
+  NAME_MAX: 200,
+  NOTE_MAX: 500,
+  ITEMS_MAX: 50,
+  QUANTITY_MIN: 0.01,
 } as const;

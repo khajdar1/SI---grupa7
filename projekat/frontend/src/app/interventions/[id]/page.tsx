@@ -38,10 +38,13 @@ import {
   getInterventionById,
   rejectExecutionConfirmation,
   requestExecutionConfirmation,
+  pauseIntervention,
+  resumeIntervention,
   updateInterventionStatus,
   type ExecutionConfirmationDetail,
   type InterventionDetail,
   type KnowledgeBaseSolution,
+  type PauseReason,
 } from '@/services/interventions.service';
 import { blockUser, getBlockedUsers, type BlockRecord } from '@/services/blocking.service';
 import {
@@ -54,6 +57,13 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { getSessionUserId, hasSessionRole } from '../../../lib/auth';
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
@@ -67,6 +77,10 @@ const STARTABLE_STATUSES = new Set<InterventionStatus>([
 ]);
 
 const CLOSEABLE_STATUSES = new Set<InterventionStatus>([INTERVENTION_STATUS.IN_PROGRESS]);
+const PAUSABLE_STATUSES = new Set<InterventionStatus>([
+  INTERVENTION_STATUS.ASSIGNED,
+  INTERVENTION_STATUS.IN_PROGRESS,
+]);
 
 const INTERVENTION_MANAGEMENT_ROLES = new Set([
   'koordinator',
@@ -149,6 +163,14 @@ const INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE: CloseWithoutConfirmationState = 
   isLoading: false,
 };
 
+const PAUSE_REASON_OPTIONS: Array<{ value: PauseReason; en: string; bs: string }> = [
+  { value: 'WAITING_FOR_CUSTOMER', en: 'Waiting for customer', bs: 'Ceka korisnika' },
+  { value: 'WAITING_FOR_MATERIAL', en: 'Waiting for material', bs: 'Ceka materijal' },
+  { value: 'WAITING_FOR_EXTERNAL_CONTRACTOR', en: 'Waiting for external contractor', bs: 'Ceka vanjskog izvodjaca' },
+  { value: 'WAITING_FOR_APPROVAL', en: 'Waiting for approval', bs: 'Ceka odobrenje' },
+  { value: 'OTHER', en: 'Other', bs: 'Ostalo' },
+];
+
 export default function InterventionDetailPage() {
   const { language, t } = useI18n();
   const params = useParams();
@@ -170,7 +192,9 @@ export default function InterventionDetailPage() {
   const [isUpdatingConfirmation, setIsUpdatingConfirmation] = useState(false);
   const [confirmationPin, setConfirmationPin] = useState('');
   const [confirmationPinInput, setConfirmationPinInput] = useState('');
+  const [confirmationPinError, setConfirmationPinError] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [hasSignature, setHasSignature] = useState(false);
   const [closeWithoutConfirmationState, setCloseWithoutConfirmationState] = useState(
     INITIAL_CLOSE_WITHOUT_CONFIRMATION_STATE,
   );
@@ -179,6 +203,10 @@ export default function InterventionDetailPage() {
   const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const isDrawingSignatureRef = useRef(false);
   const lastSignaturePointRef = useRef<{ x: number; y: number } | null>(null);
+  const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
+  const [pauseReason, setPauseReason] = useState<PauseReason>('WAITING_FOR_CUSTOMER');
+  const [pauseOtherReason, setPauseOtherReason] = useState('');
+  const [resumeNote, setResumeNote] = useState('');
 
   const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
@@ -259,18 +287,70 @@ export default function InterventionDetailPage() {
     void handleStatusChange(INTERVENTION_STATUS.RESOLVED);
   };
 
+  const handlePause = async () => {
+    if (!intervention) return;
+
+    if (pauseReason === 'OTHER' && !pauseOtherReason.trim()) {
+      setError(language === 'bs' ? 'Unesite obrazlozenje za razlog Ostalo.' : 'Enter an explanation for Other.');
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const updated = await pauseIntervention(intervention.id, {
+        reason: pauseReason,
+        otherReason: pauseReason === 'OTHER' ? pauseOtherReason.trim() : null,
+      });
+      setIntervention(updated);
+      setPauseDialogOpen(false);
+      setPauseOtherReason('');
+      setSuccessMessage(language === 'bs' ? 'Intervencija je pauzirana.' : 'Intervention paused.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : 'Failed to pause intervention.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleResume = async () => {
+    if (!intervention) return;
+
+    setIsUpdatingStatus(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const updated = await resumeIntervention(intervention.id, { note: resumeNote.trim() || null });
+      setIntervention(updated);
+      setResumeNote('');
+      setSuccessMessage(language === 'bs' ? 'Rad je nastavljen.' : 'Work resumed.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : 'Failed to resume intervention.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const handleRequestExecutionConfirmation = async () => {
     if (!intervention) return;
 
     setIsUpdatingConfirmation(true);
     setError(null);
+    setConfirmationPinError('');
     setSuccessMessage('');
 
     try {
       const response = await requestExecutionConfirmation(intervention.id);
       setExecutionConfirmation(response.confirmation);
-      setConfirmationPin(response.pin);
-      setSuccessMessage(t('interventionDetail.confirmationRequested'));
+      setConfirmationPin(response.pin ?? '');
+      setSuccessMessage(
+        response.pinDelivery === 'NOTIFICATION'
+          ? t('interventionDetail.confirmationRequestedUserNotified')
+          : t('interventionDetail.confirmationRequested'),
+      );
     } catch (err: unknown) {
       setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationRequestFailed'));
     } finally {
@@ -293,9 +373,14 @@ export default function InterventionDetailPage() {
       setExecutionConfirmation(confirmation);
       setConfirmationPin('');
       setConfirmationPinInput('');
+      setConfirmationPinError('');
       setSuccessMessage(t('interventionDetail.confirmationConfirmed'));
     } catch (err: unknown) {
-      setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.confirmationConfirmFailed'));
+      const message = err instanceof Error
+        ? translateText(language, err.message)
+        : t('interventionDetail.confirmationConfirmFailed');
+      setConfirmationPinError(message);
+      setError(message);
     } finally {
       setIsUpdatingConfirmation(false);
     }
@@ -377,6 +462,7 @@ export default function InterventionDetailPage() {
     context.lineTo(nextPoint.x, nextPoint.y);
     context.stroke();
     lastSignaturePointRef.current = nextPoint;
+    setHasSignature(true);
   };
 
   const endSignature = () => {
@@ -389,6 +475,7 @@ export default function InterventionDetailPage() {
     const context = canvas?.getContext('2d');
     if (!canvas || !context) return;
     context.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignature(false);
   };
 
   const openDeleteDialog = (attachment: AttachmentListItem) => {
@@ -508,6 +595,28 @@ export default function InterventionDetailPage() {
                 label: t('interventionDetail.close'),
                 onClick: () => {
                   handleCloseClick();
+                },
+                variant: 'outline' as const,
+                isLoading: isUpdatingStatus,
+              },
+            ]
+          : []),
+        ...(canChangeStatus && PAUSABLE_STATUSES.has(intervention.status)
+          ? [
+              {
+                label: language === 'bs' ? 'Pauziraj' : 'Pause',
+                onClick: () => setPauseDialogOpen(true),
+                variant: 'outline' as const,
+                isLoading: isUpdatingStatus,
+              },
+            ]
+          : []),
+        ...(canChangeStatus && intervention.status === INTERVENTION_STATUS.ON_HOLD
+          ? [
+              {
+                label: language === 'bs' ? 'Nastavi rad' : 'Resume',
+                onClick: () => {
+                  void handleResume();
                 },
                 variant: 'outline' as const,
                 isLoading: isUpdatingStatus,
@@ -713,7 +822,12 @@ export default function InterventionDetailPage() {
                       inputMode="numeric"
                       maxLength={6}
                       value={confirmationPinInput}
-                      onChange={(event) => setConfirmationPinInput(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      aria-invalid={Boolean(confirmationPinError)}
+                      aria-describedby={confirmationPinError ? 'execution-confirmation-pin-error' : undefined}
+                      onChange={(event) => {
+                        setConfirmationPinInput(event.target.value.replace(/\D/g, '').slice(0, 6));
+                        setConfirmationPinError('');
+                      }}
                     />
                     <Button
                       type="button"
@@ -725,6 +839,11 @@ export default function InterventionDetailPage() {
                       {t('interventionDetail.confirmationConfirmPin')}
                     </Button>
                   </div>
+                  {confirmationPinError ? (
+                    <p id="execution-confirmation-pin-error" className="text-sm text-destructive">
+                      {confirmationPinError}
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-3">
@@ -754,7 +873,7 @@ export default function InterventionDetailPage() {
                       onClick={() => {
                         void handleConfirmSignature();
                       }}
-                      disabled={isUpdatingConfirmation}
+                      disabled={isUpdatingConfirmation || !hasSignature}
                     >
                       {t('interventionDetail.confirmationConfirmSignature')}
                     </Button>
@@ -825,6 +944,52 @@ export default function InterventionDetailPage() {
           }}
           canManage={canManageIntervention}
         />
+      ) : null}
+
+      {intervention?.pauses && intervention.pauses.length > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'bs' ? 'Pauze intervencije' : 'Intervention pauses'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {intervention.pauses.map((pause) => {
+              const option = PAUSE_REASON_OPTIONS.find((item) => item.value === pause.reason);
+              return (
+                <div key={pause.id} className="rounded-lg border px-4 py-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium">
+                      {option ? (language === 'bs' ? option.bs : option.en) : pause.reason}
+                    </p>
+                    <InterventionStatusBadge status={pause.resumedAt ? pause.previousStatus : INTERVENTION_STATUS.ON_HOLD} />
+                  </div>
+                  {pause.otherReason ? <p className="mt-1 text-muted-foreground">{pause.otherReason}</p> : null}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {language === 'bs' ? 'Pauzirao' : 'Paused by'} {pause.pausedBy.firstName} {pause.pausedBy.lastName} - {new Date(pause.pausedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {language === 'bs' ? 'Odgovoran za nastavak' : 'Responsible for resume'}: {pause.responsibleUser ? `${pause.responsibleUser.firstName} ${pause.responsibleUser.lastName}` : '-'}
+                  </p>
+                  {pause.resumedAt ? (
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'bs' ? 'Nastavljeno' : 'Resumed'} {new Date(pause.resumedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+            {intervention.status === INTERVENTION_STATUS.ON_HOLD ? (
+              <div className="space-y-2">
+                <Label htmlFor="resume-note">{language === 'bs' ? 'Napomena za nastavak' : 'Resume note'}</Label>
+                <Textarea
+                  id="resume-note"
+                  rows={2}
+                  value={resumeNote}
+                  onChange={(event) => setResumeNote(event.target.value)}
+                />
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
       ) : null}
 
       {/* PBI-055: Knowledge base and recommended solutions */}
@@ -1052,6 +1217,53 @@ export default function InterventionDetailPage() {
               {isUpdatingStatus || closeWithoutConfirmationState.isLoading
                 ? t('interventionDetail.closing')
                 : t('interventionDetail.close')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={pauseDialogOpen} onOpenChange={setPauseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{language === 'bs' ? 'Pauziraj intervenciju' : 'Pause intervention'}</DialogTitle>
+            <DialogDescription>
+              {language === 'bs' ? 'Odaberite razlog blokera prije stavljanja intervencije na cekanje.' : 'Select the blocker reason before putting the intervention on hold.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="pause-reason">{language === 'bs' ? 'Razlog' : 'Reason'}</Label>
+              <Select value={pauseReason} onValueChange={(value) => setPauseReason(value as PauseReason)}>
+                <SelectTrigger id="pause-reason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAUSE_REASON_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {language === 'bs' ? option.bs : option.en}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {pauseReason === 'OTHER' ? (
+              <div className="space-y-2">
+                <Label htmlFor="pause-other">{language === 'bs' ? 'Obrazlozenje' : 'Explanation'}</Label>
+                <Textarea
+                  id="pause-other"
+                  rows={3}
+                  value={pauseOtherReason}
+                  onChange={(event) => setPauseOtherReason(event.target.value)}
+                />
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPauseDialogOpen(false)} disabled={isUpdatingStatus}>
+              {language === 'bs' ? 'Odustani' : 'Cancel'}
+            </Button>
+            <Button onClick={() => void handlePause()} disabled={isUpdatingStatus}>
+              {isUpdatingStatus ? (language === 'bs' ? 'Pauziranje...' : 'Pausing...') : (language === 'bs' ? 'Pauziraj' : 'Pause')}
             </Button>
           </DialogFooter>
         </DialogContent>

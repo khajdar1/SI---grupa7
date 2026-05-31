@@ -46,7 +46,27 @@ export interface InterventionListItem {
     };
     assignedAt: string;
   }>;
+  pauses?: InterventionPause[];
 }
+
+export interface InterventionPause {
+  id: number;
+  reason: PauseReason;
+  otherReason: string | null;
+  previousStatus: InterventionStatus;
+  pausedAt: string;
+  resumedAt: string | null;
+  resumeNote: string | null;
+  pausedBy: { id: number; firstName: string; lastName: string; username: string };
+  responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
+}
+
+export type PauseReason =
+  | 'WAITING_FOR_CUSTOMER'
+  | 'WAITING_FOR_MATERIAL'
+  | 'WAITING_FOR_EXTERNAL_CONTRACTOR'
+  | 'WAITING_FOR_APPROVAL'
+  | 'OTHER';
 
 export interface InterventionFormPayload {
   name: string;
@@ -232,6 +252,7 @@ export interface InterventionDetail {
     assignedAt: string;
   }>;
   executionConfirmation: ExecutionConfirmationDetail;
+  pauses?: InterventionPause[];
 }
 
 export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
@@ -422,9 +443,17 @@ export async function updateInterventionStatus(
 
 export async function requestExecutionConfirmation(
   id: string | number,
-): Promise<{ confirmation: ExecutionConfirmationDetail; pin: string }> {
+): Promise<{
+  confirmation: ExecutionConfirmationDetail;
+  pin: string | null;
+  pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+}> {
   return getResponseData(
-    () => api.post<{ confirmation: ExecutionConfirmationDetail; pin: string }>(
+    () => api.post<{
+      confirmation: ExecutionConfirmationDetail;
+      pin: string | null;
+      pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+    }>(
       API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_REQUEST(id),
       {},
     ),
@@ -457,6 +486,26 @@ export async function rejectExecutionConfirmation(
       payload,
     ),
     'Failed to reject execution confirmation.',
+  );
+}
+
+export async function pauseIntervention(
+  id: string | number,
+  payload: { reason: PauseReason; otherReason?: string | null; responsibleUserId?: number | null },
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/pause`, payload),
+    'Failed to pause intervention.',
+  );
+}
+
+export async function resumeIntervention(
+  id: string | number,
+  payload: { note?: string | null } = {},
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/resume`, payload),
+    'Failed to resume intervention.',
   );
 }
 

@@ -15,6 +15,7 @@ import companiesRouter from './modules/companies/companies.route';
 import categoriesRouter from './modules/categories/categories.route';
 import interventionsRouter from './modules/interventions/interventions.route';
 import assignmentsRouter from './modules/assignments/assignments.route';
+import availabilityRouter from './modules/availability/availability.route';
 import reportsRouter from './modules/reports/reports.route';
 import attachmentsRouter from './modules/attachments/attachments.route';
 import notificationsRouter from './modules/notifications/notifications.route';
@@ -50,6 +51,7 @@ export function createApp() {
   app.use(BACKEND_ROUTES.COMPANIES, optionalAuthenticate, companiesRouter);
   app.use(BACKEND_ROUTES.CATEGORIES, categoriesRouter);
   app.use(BACKEND_ROUTES.ASSIGNMENTS, authenticate, assignmentsRouter);
+  app.use(BACKEND_ROUTES.AVAILABILITY, authenticate, availabilityRouter);
   app.get(BACKEND_ROUTES.REPORTS, authenticate, (_req, res) => {
     res.json({
       module: 'reports',

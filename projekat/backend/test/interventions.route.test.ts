@@ -26,6 +26,7 @@ const {
   interventionFindFirstMock,
   interventionFindUniqueMock,
   interventionUpdateMock,
+  assignmentFindManyMock,
   reportFindManyMock,
   executionConfirmationFindUniqueMock,
   executionConfirmationUpsertMock,
@@ -51,6 +52,7 @@ const {
   interventionFindFirstMock: vi.fn(),
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
+  assignmentFindManyMock: vi.fn(),
   reportFindManyMock: vi.fn(),
   executionConfirmationFindUniqueMock: vi.fn(),
   executionConfirmationUpsertMock: vi.fn(),
@@ -102,6 +104,9 @@ vi.mock("../src/config/database", () => ({
       findMany: interventionFindManyMock,
       findUnique: interventionFindUniqueMock,
       update: interventionUpdateMock,
+    },
+    assignment: {
+      findMany: assignmentFindManyMock,
     },
     report: {
       findMany: reportFindManyMock,
@@ -407,6 +412,7 @@ describe("PBI-004 interventions route", () => {
     interventionFindFirstMock.mockResolvedValue(null);
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
+  assignmentFindManyMock.mockResolvedValue([]);
   userPreferenceFindUniqueMock.mockResolvedValue(null);
   executionConfirmationFindUniqueMock.mockResolvedValue(null);
   executionConfirmationUpsertMock.mockImplementation((args) =>
@@ -467,7 +473,7 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
-  it("does not set startedAt when creating a planned intervention", async () => {
+  it("stores the planned start date when creating a planned intervention", async () => {
     const response = await request("POST", "/interventions", {
       body: basePayload,
     });
@@ -475,7 +481,8 @@ describe("PBI-004 interventions route", () => {
     expect(response.status).toBe(201);
     expect(interventionCreateMock).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        startedAt: null,
+        startedAt: new Date(basePayload.startedAt),
+        dueAt: new Date(basePayload.dueAt),
       }),
       include: expect.any(Object),
     });
@@ -750,6 +757,8 @@ describe("PBI-004 interventions route", () => {
         name: faultReportPayload.name,
         faultReportId: 7,
         priority: Priority.HIGH,
+        startedAt: new Date(faultReportPayload.startedAt),
+        dueAt: new Date(faultReportPayload.dueAt),
       }),
       include: expect.any(Object),
     });
@@ -1013,6 +1022,7 @@ describe("PBI-004 interventions route", () => {
       id: 91,
       status: ExecutionConfirmationStatus.PENDING,
       pinHash: createHash("sha256").update(pin).digest("hex"),
+      intervention: { name: "Popravka grijanja" },
     });
 
     const response = await request("POST", "/interventions/21/confirmation/confirm", {
@@ -1038,6 +1048,7 @@ describe("PBI-004 interventions route", () => {
     executionConfirmationFindUniqueMock.mockResolvedValue({
       id: 91,
       status: ExecutionConfirmationStatus.PENDING,
+      intervention: { name: "Popravka grijanja" },
     });
 
     const response = await request("POST", "/interventions/21/confirmation/reject", {
@@ -1282,6 +1293,7 @@ describe("PBI-004 interventions route", () => {
             InterventionStatus.NEW,
             InterventionStatus.ASSIGNED,
             InterventionStatus.IN_PROGRESS,
+            InterventionStatus.ON_HOLD,
           ],
         },
       },

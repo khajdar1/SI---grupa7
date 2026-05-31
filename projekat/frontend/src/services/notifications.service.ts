@@ -10,7 +10,10 @@ export type NotificationType =
   | 'FEEDBACK_REQUEST'
   | 'AUTO_ASSIGNMENT'
   | 'NEW_TICKET'
-  | 'TICKET_REPLY';
+  | 'TICKET_REPLY'
+  | 'INTERVENTION_PAUSED'
+  | 'EXECUTION_CONFIRMATION_REQUEST'
+  | 'EXECUTION_CONFIRMATION_RESPONSE';
 
 export interface NotificationItem {
   id: number;

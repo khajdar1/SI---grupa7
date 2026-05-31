@@ -340,23 +340,23 @@ describe('POST /interventions/:interventionId/reports', () => {
   });
 
   it('calls prisma.report.create with correct author, intervention and fields', async () => {
-    await request('POST', '/interventions/42/reports', {
-      roles: ['Serviser'],
-      body: { description: 'Work done.', material: 'Pipe', notes: 'Follow up.' },
-    });
+      await request('POST', '/interventions/42/reports', {
+        roles: ['Serviser'],
+        body: { description: 'Work done.', notes: 'Follow up.' }, 
+      });
 
-    expect(reportCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          interventionId: 42,
-          authorId: 10,
-          description: 'Work done.',
-          material: 'Pipe',
-          notes: 'Follow up.',
+      expect(reportCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            interventionId: 42,
+            authorId: 10,
+            description: 'Work done.',
+            material: null, 
+            notes: 'Follow up.',
+          }),
         }),
-      }),
-    );
-  });
+      );
+    });
 
   it('transforms undefined optional fields to null', async () => {
     await request('POST', '/interventions/42/reports', {
@@ -651,7 +651,7 @@ describe('PATCH /interventions/:interventionId/reports', () => {
   it('accepts null for material to clear the field', async () => {
     const res = await request('PATCH', '/interventions/42/reports', {
       roles: ['Serviser'],
-      body: { material: null },
+      body: { materialItems: [] },
     });
 
     expect(res.status).toBe(200);
