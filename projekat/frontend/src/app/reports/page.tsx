@@ -1182,8 +1182,11 @@ function ReportPreview({
             </div>
 
             <ReportTextBlock label={language === 'bs' ? 'Opis rada' : 'Work Description'} value={row.report.description} />
-            {row.report.material ? (
-              <ReportTextBlock label={language === 'bs' ? 'Korišteni materijali' : 'Materials Used'} value={row.report.material} />
+            {row.report.materialItems && row.report.materialItems.length > 0 ? (
+              <ReportTextBlock 
+                label={language === 'bs' ? 'Korišteni materijali' : 'Materials Used'} 
+                value={row.report.materialItems.map(item => `${item.name} (x${item.quantity})`).join(', ')} 
+              />
             ) : null}
             {row.report.notes ? (
               <ReportTextBlock label={language === 'bs' ? 'Bilješke' : 'Notes'} value={row.report.notes} />
