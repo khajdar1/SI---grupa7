@@ -32,6 +32,7 @@ import systemConfigRouter from './modules/system-config/system-config.route';
 import userPreferencesRouter from './modules/user-preferences/user-preferences.route';
 import mapsRouter from './modules/maps/maps.route';
 import managementRouter from './modules/management/management.route';
+import escalationsRouter from './modules/escalations/escalations.route';
 
 export function createApp() {
   const app = express();
@@ -79,6 +80,7 @@ export function createApp() {
   app.use(BACKEND_ROUTES.USER_PREFERENCES, authenticate, userPreferencesRouter);
   app.use(BACKEND_ROUTES.MAPS, authenticate, mapsRouter);
   app.use(BACKEND_ROUTES.MANAGEMENT, authenticate, managementRouter);
+  app.use(BACKEND_ROUTES.ESCALATIONS, authenticate, escalationsRouter);
   app.use(notFoundMiddleware);
   app.use(errorMiddleware);
   

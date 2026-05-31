@@ -16,6 +16,7 @@ import {
 } from '@/components/shared';
 import { AssignedServicersSection } from '@/components/assignments/AssignedServicersSection';
 import { KnowledgeBaseSection } from '@/components/interventions/KnowledgeBaseSection';
+import { EscalationSection } from '@/components/interventions/EscalationSection';
 import { CommentsSection } from '@/components/shared/CommentsSection';
 import { FeedbackSection } from '@/components/feedback/FeedbackSection';
 import { ReportSection } from '@/components/reports/ReportSection';
@@ -716,6 +717,7 @@ export default function InterventionDetailPage() {
       </Card>
 
       {/* ── PBI-016: Intervention comments ── */}
+      {isValidId ? <EscalationSection interventionId={interventionId} /> : null}
       {isValidId ? <CommentsSection interventionId={interventionId} /> : null}
 
       {/* ── Block reporter dialog ── */}
