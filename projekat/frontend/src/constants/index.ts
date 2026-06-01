@@ -84,6 +84,9 @@ export const API_ENDPOINTS = {
     REPORT_FINALIZE: (id: number | string) => `/api/v1/interventions/${id}/reports/finalize`,
     REPORT_RECOMMENDATION: (id: number | string) => `/api/v1/interventions/${id}/reports/recommendation`,
     KNOWLEDGE_BASE: (id: number | string) => `/api/v1/interventions/${id}/knowledge-base`,
+    CONFIRMATION_REQUEST: (id: number | string) => `/api/v1/interventions/${id}/confirmation/request`,
+    CONFIRMATION_CONFIRM: (id: number | string) => `/api/v1/interventions/${id}/confirmation/confirm`,
+    CONFIRMATION_REJECT: (id: number | string) => `/api/v1/interventions/${id}/confirmation/reject`,
     BULK_ACTIONS: '/api/v1/interventions/bulk-actions',
   },
   ATTACHMENTS: {
@@ -104,6 +107,11 @@ export const API_ENDPOINTS = {
   MANAGEMENT: {
     DASHBOARD: '/api/v1/management/dashboard',
     MATERIALS: '/api/v1/management/materials',
+  },
+  ESCALATIONS: {
+    BY_INTERVENTION: (id: number | string) => `/api/v1/escalations/${id}`,
+    LIST: '/api/v1/escalations',
+    REVIEW: (id: number | string) => `/api/v1/escalations/${id}/review`,
   },
   MAPS: {
     INTERVENTIONS: '/api/v1/maps/interventions',
