@@ -600,3 +600,42 @@ export function formatBulkResultSummary(result: BulkActionResponse): string {
   }
   return `${result.totalSucceeded} of ${result.totalRequested} interventions updated. ${result.totalSkipped} skipped.`;
 }
+
+export interface CreateReopenRequestPayload {
+  reason: string;
+  comment?: string | null;
+}
+
+export async function createReopenRequest(
+  interventionId: string | number,
+  payload: CreateReopenRequestPayload,
+): Promise<void> {
+  return getResponseData(
+    () =>
+      api.post(
+        `${API_ENDPOINTS.INTERVENTIONS.BY_ID(interventionId)}/reopen-request`,
+        payload,
+      ),
+    'Failed to create reopen request.',
+  );
+}
+  export async function getReopenRequests(): Promise<any[]> {
+  return getResponseData(
+    () => api.get<unknown[]>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests`),
+    'Failed to load reopen requests.',
+  );
+}
+
+export async function approveReopenRequest(requestId: number): Promise<void> {
+  return getResponseData(
+    () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/approve`),
+    'Failed to approve reopen request.',
+  );
+}
+
+export async function rejectReopenRequest(requestId: number, coordinatorComment: string): Promise<void> {
+  return getResponseData(
+    () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/reject`, { coordinatorComment }),
+    'Failed to reject reopen request.',
+  );
+}

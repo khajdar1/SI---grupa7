@@ -80,6 +80,9 @@ enum NotificationType {
   SERVICER_ARRIVED
   EXECUTION_CONFIRMATION_REQUEST
   EXECUTION_CONFIRMATION_RESPONSE
+  REOPEN_REQUEST
+  REOPEN_APPROVED
+  REOPEN_REJECTED
 }
 
 enum PauseReason {
@@ -95,6 +98,12 @@ enum CompanyStatus {
   ACTIVE
   REJECTED
   INACTIVE
+}
+
+enum ReopenRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Company {
@@ -154,6 +163,7 @@ model User {
   pauseResponsibilities InterventionPause[]     @relation("PauseResponsibleUser")
   escalationsCreated   InterventionEscalation[] @relation("EscalationCreator")
   escalationsReviewed  InterventionEscalation[] @relation("EscalationReviewer")
+  reopenRequests       InterventionReopenRequest[] @relation("UserReopenRequests")
 }
 
 model UserPreference {
@@ -274,6 +284,7 @@ model Intervention {
   notifications     Notification[]
   pauses            InterventionPause[]
   escalations       InterventionEscalation[]
+  reopenRequests    InterventionReopenRequest[]
 }
 
 model ServicerUnavailability {
@@ -515,4 +526,29 @@ model Notification {
   user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   intervention  Intervention?     @relation(fields: [interventionId], references: [id], onDelete: SetNull)
   ticket        Ticket?           @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+}
+
+model InterventionReopenRequest {
+  id Int @id @default(autoincrement())
+
+  interventionId Int
+  requesterId Int
+
+  reason String @db.LongText
+  comment String? @db.LongText
+
+  status ReopenRequestStatus @default(PENDING)
+
+  coordinatorComment String? @db.LongText
+
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  requester User @relation(fields: [requesterId], references: [id], name: "UserReopenRequests")
+
+  @@index([interventionId])
+  @@index([requesterId])
+  @@index([status])
 }
