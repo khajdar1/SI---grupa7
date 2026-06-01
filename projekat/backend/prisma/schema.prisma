@@ -150,6 +150,8 @@ model User {
   unavailablePeriods   ServicerUnavailability[] @relation("ServicerUnavailablePeriods")
   pauseActions         InterventionPause[]      @relation("PauseActor")
   pauseResponsibilities InterventionPause[]     @relation("PauseResponsibleUser")
+  escalationsCreated   InterventionEscalation[] @relation("EscalationCreator")
+  escalationsReviewed  InterventionEscalation[] @relation("EscalationReviewer")
 }
 
 model UserPreference {
@@ -266,6 +268,7 @@ model Intervention {
   executionConfirmation ExecutionConfirmation?
   notifications     Notification[]
   pauses            InterventionPause[]
+  escalations       InterventionEscalation[]
 }
 
 model ServicerUnavailability {
@@ -436,6 +439,23 @@ model InterventionComment {
   createdAt     DateTime     @default(now())
   intervention  Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   author        User         @relation("CommentAuthor", fields: [authorId], references: [id])
+}
+
+model InterventionEscalation {
+  id             Int          @id @default(autoincrement())
+  interventionId Int
+  escalatedById  Int
+  reason         String       @db.VarChar(1000)
+  comment        String       @db.LongText
+  reviewedAt     DateTime?
+  reviewedById   Int?
+  createdAt      DateTime     @default(now())
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  escalatedBy    User         @relation("EscalationCreator", fields: [escalatedById], references: [id])
+  reviewedBy     User?        @relation("EscalationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([interventionId])
+  @@index([createdAt])
 }
 
 model StatusHistory {

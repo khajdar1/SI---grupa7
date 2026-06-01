@@ -108,6 +108,11 @@ export const API_ENDPOINTS = {
     DASHBOARD: '/api/v1/management/dashboard',
     MATERIALS: '/api/v1/management/materials',
   },
+  ESCALATIONS: {
+    BY_INTERVENTION: (id: number | string) => `/api/v1/escalations/${id}`,
+    LIST: '/api/v1/escalations',
+    REVIEW: (id: number | string) => `/api/v1/escalations/${id}/review`,
+  },
   MAPS: {
     INTERVENTIONS: '/api/v1/maps/interventions',
   },

@@ -1,0 +1,21 @@
+- **Datum:** 31.05.2026.
+- **Sprint broj:** Sprint 10
+- **Alat koji je korišten:** Claude Sonnet 4.6 (Anthropic)
+- **Svrha korištenja:** Implementacija PBI-058 (Eskalacije i komentari ka menadžmentu za rizične intervencije).
+- **Kratak opis zadatka ili upita:** Implementacija funkcionalnosti koja koordinatoru omogućava označavanje intervencije kao rizične uz obavezan razlog i komentar, te prikaz eskaliranih intervencija menadžmentu na dashboardu s mogućnošću označavanja kao pregledano.
+- **Šta je AI predložio ili generisao:**
+  - Prisma migraciju (`20260531100000_add_escalations`) s novom tabelom `InterventionEscalation`.
+  - Ažuriranje `schema.prisma` — novi model i relacije na `User` i `Intervention`.
+  - Backend modul `escalations.route.ts` s četiri endpointa: kreiranje eskalacije, dohvatanje po intervenciji, označavanje kao pregledano i lista za menadžment dashboard.
+  - Registraciju rute u `app.ts` i konstantu u `constants/index.ts`.
+  - Frontend servis `escalations.service.ts` za sve API pozive.
+  - React komponentu `EscalationSection.tsx` s dijalogom za kreiranje i prikazom statusa eskalacija.
+  - Ugradnju `EscalationSection` u stranicu detalja intervencije.
+  - Sekciju eskalacija na menadžment dashboardu s toggle-om za prikaz pregledanih.
+  - Seed skriptu `seed-escalations.ts` s tri demo eskalacije za testiranje.
+  - 50 unit testova u `escalations.route.test.ts` pokrivajući sve acceptance criteria.
+- **Šta je tim prihvatio:** Sve generisane fajlove — migraciju, backend modul, frontend komponentu, servis, seed i testove.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** U generisanim testovima nedostajao je `errorMiddleware` u test Express aplikaciji, zbog čega je server vraćao HTML stranicu umjesto JSON odgovora pri greškama, što je uzrokovalo `SyntaxError: Unexpected token '<'` u 19 testova. Dodatno je bio potreban mock za `env` koji `errorMiddleware` interno koristi. Nakon ovih ispravki svi testovi su prošli.
+- **Ko je koristio alat:** Lejla Gičević
