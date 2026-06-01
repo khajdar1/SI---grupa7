@@ -298,6 +298,7 @@ export default function InterventionDetailPage() {
     } finally {
       setIsUpdatingFieldTracking(false);
     }
+  }
   const handleCloseClick = () => {
     if (!intervention) return;
 
