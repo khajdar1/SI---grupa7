@@ -20,7 +20,21 @@ type InterventionHistoryItem = {
   summary: string;
   servicer: string;
   archived?: boolean;
+  executionConfirmation?: {
+    status: ExecutionConfirmationHistoryStatus;
+    method: string | null;
+    respondedAt: string | null;
+    rejectionReason: string | null;
+    bypassReason: string | null;
+  };
 };
+
+type ExecutionConfirmationHistoryStatus =
+  | 'NOT_REQUESTED'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CLOSED_WITHOUT_CONFIRMATION';
 
 type HistoryPagination = {
   page: number;
@@ -58,6 +72,34 @@ const INITIAL_PAGINATION: HistoryPagination = {
   total: 0,
   totalPages: 1,
 };
+
+function getConfirmationStatusLabel(language: string, status?: ExecutionConfirmationHistoryStatus): string {
+  const labels: Record<ExecutionConfirmationHistoryStatus, { en: string; bs: string }> = {
+    NOT_REQUESTED: { en: 'No confirmation', bs: 'Bez potvrde' },
+    PENDING: { en: 'Pending', bs: 'Čeka potvrdu' },
+    CONFIRMED: { en: 'Confirmed', bs: 'Potvrđeno' },
+    REJECTED: { en: 'Rejected', bs: 'Odbijeno' },
+    CLOSED_WITHOUT_CONFIRMATION: { en: 'Closed without confirmation', bs: 'Zatvoreno bez potvrde' },
+  };
+
+  const normalized = status ?? 'NOT_REQUESTED';
+  return labels[normalized][language === 'bs' ? 'bs' : 'en'];
+}
+
+function getConfirmationBadgeClass(status?: ExecutionConfirmationHistoryStatus): string {
+  switch (status) {
+    case 'CONFIRMED':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    case 'REJECTED':
+      return 'border-red-200 bg-red-50 text-red-700';
+    case 'PENDING':
+      return 'border-amber-200 bg-amber-50 text-amber-700';
+    case 'CLOSED_WITHOUT_CONFIRMATION':
+      return 'border-slate-300 bg-slate-100 text-slate-700';
+    default:
+      return 'border-slate-200 bg-white text-slate-500';
+  }
+}
 
 export default function HistoryPage() {
   const { language, t } = useI18n();
@@ -284,7 +326,7 @@ export default function HistoryPage() {
 
       {/* ── Table ── */}
       <section className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-[980px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="w-10 px-4 py-3">
@@ -305,6 +347,7 @@ export default function HistoryPage() {
               <th className="px-4 py-3">{t('interventionDetail.location')}</th>
               <th className="px-4 py-3">{language === 'bs' ? 'Tip kvara' : 'Fault Type'}</th>
               <th className="px-4 py-3">{language === 'bs' ? 'Serviser' : 'Technician'}</th>
+              <th className="px-4 py-3">{language === 'bs' ? 'Digitalna potvrda' : 'Digital confirmation'}</th>
               <th className="px-4 py-3">{t('interventionDetail.description')}</th>
               <th className="px-4 py-3">{t('nav.reports')}</th>
             </tr>
@@ -312,7 +355,7 @@ export default function HistoryPage() {
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={10} className="px-4 py-6 text-center text-slate-500">
                   {language === 'bs' ? 'Nema podataka za prikaz.' : 'No data to display.'}
                 </td>
               </tr>
@@ -347,6 +390,23 @@ export default function HistoryPage() {
                     </td>
                     <td className="px-4 py-3">{translateCategoryName(language, item.categoryName)}</td>
                     <td className="px-4 py-3">{item.servicer}</td>
+                    <td className="px-4 py-3">
+                      <div className="space-y-1">
+                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-medium ${getConfirmationBadgeClass(item.executionConfirmation?.status)}`}>
+                          {getConfirmationStatusLabel(language, item.executionConfirmation?.status)}
+                        </span>
+                        {item.executionConfirmation?.bypassReason ? (
+                          <p className="max-w-56 text-xs text-slate-500">
+                            {item.executionConfirmation.bypassReason}
+                          </p>
+                        ) : null}
+                        {item.executionConfirmation?.rejectionReason ? (
+                          <p className="max-w-56 text-xs text-red-600">
+                            {item.executionConfirmation.rejectionReason}
+                          </p>
+                        ) : null}
+                      </div>
+                    </td>
                     <td className="px-4 py-3">{item.summary}</td>
                     <td className="px-4 py-3">
                       <Link

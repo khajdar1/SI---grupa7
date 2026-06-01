@@ -14,6 +14,8 @@ export type NotificationType =
   | 'INTERVENTION_PAUSED'
   | 'SERVICER_DISPATCHED'
   | 'SERVICER_ARRIVED';
+  | 'EXECUTION_CONFIRMATION_REQUEST'
+  | 'EXECUTION_CONFIRMATION_RESPONSE';
 
 export interface NotificationItem {
   id: number;

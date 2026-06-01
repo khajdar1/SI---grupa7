@@ -163,6 +163,27 @@ export interface KnowledgeBaseQuery {
   categoryId?: number | string;
 }
 
+export type ExecutionConfirmationStatus =
+  | 'NOT_REQUESTED'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CLOSED_WITHOUT_CONFIRMATION';
+
+export type ExecutionConfirmationMethod = 'PIN' | 'SIGNATURE' | 'NONE';
+
+export interface ExecutionConfirmationDetail {
+  id?: number;
+  status: ExecutionConfirmationStatus;
+  method: ExecutionConfirmationMethod | null;
+  requestedAt: string | null;
+  respondedAt: string | null;
+  rejectionReason: string | null;
+  bypassReason: string | null;
+  requestedBy: string | null;
+  confirmedBy: string | null;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
 }
@@ -233,6 +254,7 @@ export interface InterventionDetail {
     };
     assignedAt: string;
   }>;
+  executionConfirmation: ExecutionConfirmationDetail;
   pauses?: InterventionPause[];
 }
 
@@ -411,13 +433,62 @@ export async function updateIntervention(
 export async function updateInterventionStatus(
   id: string | number,
   status: InterventionStatus,
+  confirmationBypassReason?: string,
 ): Promise<InterventionDetail> {
   return getResponseData(
     () => api.patch<InterventionDetail>(
       `${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/status`,
-      { status },
+      { status, ...(confirmationBypassReason ? { confirmationBypassReason } : {}) },
     ),
     'Failed to update intervention status.',
+  );
+}
+
+export async function requestExecutionConfirmation(
+  id: string | number,
+): Promise<{
+  confirmation: ExecutionConfirmationDetail;
+  pin: string | null;
+  pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+}> {
+  return getResponseData(
+    () => api.post<{
+      confirmation: ExecutionConfirmationDetail;
+      pin: string | null;
+      pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+    }>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_REQUEST(id),
+      {},
+    ),
+    'Failed to request execution confirmation.',
+  );
+}
+
+export async function confirmExecutionConfirmation(
+  id: string | number,
+  payload:
+    | { method: 'PIN'; pin: string }
+    | { method: 'SIGNATURE'; signatureData: string },
+): Promise<ExecutionConfirmationDetail> {
+  return getResponseData(
+    () => api.post<ExecutionConfirmationDetail>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_CONFIRM(id),
+      payload,
+    ),
+    'Failed to confirm execution.',
+  );
+}
+
+export async function rejectExecutionConfirmation(
+  id: string | number,
+  payload: { reason: string },
+): Promise<ExecutionConfirmationDetail> {
+  return getResponseData(
+    () => api.post<ExecutionConfirmationDetail>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_REJECT(id),
+      payload,
+    ),
+    'Failed to reject execution confirmation.',
   );
 }
 

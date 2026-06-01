@@ -3,12 +3,13 @@ export const runtime = 'edge';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { BarChart2, CheckCircle2, Clock, Package, RefreshCw, TrendingUp, Wrench } from 'lucide-react';
+import { AlertTriangle, BarChart2, CheckCircle2, Clock, Package, RefreshCw, ShieldAlert, TrendingUp, Wrench } from 'lucide-react';
 
 import { AccessDenied, PageHeader, PageLayout, StatCard } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { ROUTES } from '@/constants';
 import { translatePriority, translateText, useI18n } from '@/lib/i18n';
 import {
@@ -16,6 +17,11 @@ import {
   type ManagementDashboardStats,
   type Priority,
 } from '@/services/management.service';
+import {
+  getAllEscalations,
+  reviewEscalation,
+  type Escalation,
+} from '@/services/escalations.service';
 
 const MANAGEMENT_ROLES = new Set(['menadzment', 'management', 'admin', 'administrator']);
 
@@ -79,6 +85,10 @@ export default function ManagementDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [stats, setStats] = useState<ManagementDashboardStats | null>(null);
+  const [escalations, setEscalations] = useState<Escalation[]>([]);
+  const [escalationsLoading, setEscalationsLoading] = useState(false);
+  const [includeReviewed, setIncludeReviewed] = useState(false);
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const loadStats = async () => {
     setLoading(true);
@@ -93,6 +103,30 @@ export default function ManagementDashboardPage() {
     }
   };
 
+  const loadEscalations = async (withReviewed: boolean) => {
+    setEscalationsLoading(true);
+    try {
+      const data = await getAllEscalations(withReviewed);
+      setEscalations(data);
+    } catch {
+      // non-critical
+    } finally {
+      setEscalationsLoading(false);
+    }
+  };
+
+  const handleReview = async (escalationId: number) => {
+    setReviewingId(escalationId);
+    try {
+      const updated = await reviewEscalation(escalationId);
+      setEscalations((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
+    } catch {
+      // silently fail
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
   useEffect(() => {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem('token') : null;
     const canView = hasManagementAccess();
@@ -101,6 +135,7 @@ export default function ManagementDashboardPage() {
 
     if (canView) {
       void loadStats();
+      void loadEscalations(false);
     } else {
       setLoading(false);
     }
@@ -211,6 +246,145 @@ export default function ManagementDashboardPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Escalations section */}
+      <Card className="rounded-2xl border border-rose-200/60 bg-white/90 shadow-[0_2px_14px_rgba(15,23,42,0.05)]">
+        <CardHeader className="flex flex-row items-center justify-between gap-3 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-rose-100">
+              <ShieldAlert className="size-5 text-rose-600" aria-hidden="true" />
+            </div>
+            <div>
+              <CardTitle className="text-base font-bold">
+                {language === 'bs' ? 'Eskalacije' : 'Escalations'}
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {language === 'bs'
+                  ? 'Intervencije eskalirane od strane koordinatora'
+                  : 'Interventions escalated by coordinators'}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant={includeReviewed ? 'secondary' : 'outline'}
+              onClick={() => {
+                const next = !includeReviewed;
+                setIncludeReviewed(next);
+                void loadEscalations(next);
+              }}
+              className="text-xs"
+            >
+              {language === 'bs'
+                ? includeReviewed
+                  ? 'Sakrij pregledane'
+                  : 'Prikaži sve'
+                : includeReviewed
+                  ? 'Hide reviewed'
+                  : 'Show all'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {escalationsLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full rounded-xl" />
+              <Skeleton className="h-24 w-full rounded-xl" />
+            </div>
+          ) : escalations.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-2">
+              {language === 'bs'
+                ? includeReviewed
+                  ? 'Nema eskalacija.'
+                  : 'Nema nepregledanih eskalacija.'
+                : includeReviewed
+                  ? 'No escalations found.'
+                  : 'No unreviewed escalations.'}
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {escalations.map((esc) => {
+                const isReviewed = esc.reviewedAt !== null;
+                const authorName = `${esc.escalatedBy.firstName} ${esc.escalatedBy.lastName}`;
+                return (
+                  <div
+                    key={esc.id}
+                    className="rounded-xl border border-rose-200/60 bg-rose-50/40 p-4 space-y-2"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="space-y-1">
+                        <Link
+                          href={`/interventions/${esc.intervention?.id ?? esc.interventionId}`}
+                          className="text-sm font-semibold text-primary hover:underline"
+                        >
+                          {esc.intervention?.name ?? `Intervention #${esc.interventionId}`}
+                        </Link>
+                        {esc.intervention && (
+                          <p className="text-xs text-muted-foreground">
+                            {esc.intervention.company.name}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isReviewed ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
+                            <CheckCircle2 className="size-3" aria-hidden="true" />
+                            {language === 'bs' ? 'Pregledano' : 'Reviewed'}
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1">
+                            <Clock className="size-3" aria-hidden="true" />
+                            {language === 'bs' ? 'Na čekanju' : 'Pending'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="size-4 text-rose-500 shrink-0 mt-0.5" aria-hidden="true" />
+                      <p className="text-sm font-medium text-rose-700">{esc.reason}</p>
+                    </div>
+
+                    <p className="text-sm text-slate-700 line-clamp-3 whitespace-pre-wrap">
+                      {esc.comment}
+                    </p>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {language === 'bs' ? 'Eskalirao' : 'By'}: <strong>{authorName}</strong>
+                        {' — '}
+                        {new Date(esc.createdAt).toLocaleString(
+                          language === 'bs' ? 'bs-BA' : 'en-US',
+                        )}
+                      </span>
+
+                      {!isReviewed && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleReview(esc.id)}
+                          disabled={reviewingId === esc.id}
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 h-7 text-xs"
+                        >
+                          <CheckCircle2 className="mr-1 size-3" aria-hidden="true" />
+                          {reviewingId === esc.id
+                            ? language === 'bs'
+                              ? 'Označavanje...'
+                              : 'Marking...'
+                            : language === 'bs'
+                              ? 'Označi kao pregledano'
+                              : 'Mark Reviewed'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
