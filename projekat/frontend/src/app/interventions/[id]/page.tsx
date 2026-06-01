@@ -37,6 +37,7 @@ import {
   pauseIntervention,
   resumeIntervention,
   updateInterventionStatus,
+  createReopenRequest,
   type InterventionDetail,
   type KnowledgeBaseSolution,
   type PauseReason,
@@ -171,6 +172,9 @@ export default function InterventionDetailPage() {
   const [pauseReason, setPauseReason] = useState<PauseReason>('WAITING_FOR_CUSTOMER');
   const [pauseOtherReason, setPauseOtherReason] = useState('');
   const [resumeNote, setResumeNote] = useState('');
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+const [reopenReason, setReopenReason] = useState('');
+const [reopenComment, setReopenComment] = useState('');
 
   const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
@@ -279,6 +283,47 @@ export default function InterventionDetailPage() {
       setIsUpdatingStatus(false);
     }
   };
+
+  const handleReopenRequest = async () => {
+  if (!intervention) return;
+
+  if (!reopenReason.trim()) {
+    setError(
+      language === 'bs'
+        ? 'Obrazloženje je obavezno.'
+        : 'Reason is required.',
+    );
+    return;
+  }
+
+  setError(null);
+  setSuccessMessage('');
+
+  try {
+    await createReopenRequest(intervention.id, {
+      reason: reopenReason.trim(),
+      comment: reopenComment.trim() || null,
+    });
+
+    setSuccessMessage(
+      language === 'bs'
+        ? 'Zahtjev za ponovno otvaranje je poslan.'
+        : 'Reopen request submitted.',
+    );
+
+    setReopenDialogOpen(false);
+    setReopenReason('');
+    setReopenComment('');
+  } catch (err: unknown) {
+    setError(
+      err instanceof Error
+        ? translateText(language, err.message)
+        : language === 'bs'
+          ? 'Slanje zahtjeva nije uspjelo.'
+          : 'Failed to submit reopen request.',
+    );
+  }
+};
 
   const openDeleteDialog = (attachment: AttachmentListItem) => {
     setDeleteState({
@@ -411,6 +456,18 @@ export default function InterventionDetailPage() {
               },
             ]
           : []),
+         ...(intervention.status === INTERVENTION_STATUS.RESOLVED && canSubmitFeedback
+  ? [
+      {
+        label:
+          language === 'bs'
+            ? 'Zatraži ponovno otvaranje'
+            : 'Request Reopening',
+        onClick: () => setReopenDialogOpen(true),
+        variant: 'outline' as const,
+      },
+    ]
+  : []),
       ]
     : [];
 
@@ -843,6 +900,70 @@ export default function InterventionDetailPage() {
         variant="danger"
         isLoading={deleteState.isLoading}
       />
+
+      <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>
+        {language === 'bs'
+          ? 'Zahtjev za ponovno otvaranje'
+          : 'Reopen Request'}
+      </DialogTitle>
+      <DialogDescription>
+        {language === 'bs'
+          ? 'Objasnite zašto intervencija nije uspješno završena.'
+          : 'Explain why the intervention was not successfully resolved.'}
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="reopen-reason">
+          {language === 'bs' ? 'Obrazloženje' : 'Reason'}
+        </Label>
+
+        <Textarea
+          id="reopen-reason"
+          rows={4}
+          value={reopenReason}
+          onChange={(e) => setReopenReason(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reopen-comment">
+          {language === 'bs' ? 'Komentar' : 'Comment'}
+        </Label>
+
+        <Textarea
+          id="reopen-comment"
+          rows={3}
+          value={reopenComment}
+          onChange={(e) => setReopenComment(e.target.value)}
+        />
+      </div>
+    </div>
+
+    <DialogFooter>
+      <Button
+        variant="outline"
+        onClick={() => setReopenDialogOpen(false)}
+      >
+        {language === 'bs' ? 'Odustani' : 'Cancel'}
+      </Button>
+
+      <Button
+        onClick={() => {
+          void handleReopenRequest();
+        }}
+      >
+        {language === 'bs'
+          ? 'Pošalji zahtjev'
+          : 'Submit Request'}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </PageLayout>
   );
 }

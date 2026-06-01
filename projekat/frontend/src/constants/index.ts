@@ -29,6 +29,7 @@ export const ROUTES = {
   MANAGEMENT_MATERIALS: '/management/materials', 
   COMPANY: '/company',
   BLOCKED_USERS: '/blocked-users',
+  REOPEN_REQUESTS: '/interventions/reopen-requests',
 } as const;
 
 export const API_ENDPOINTS = {
