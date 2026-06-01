@@ -36,6 +36,7 @@ import {
   getInterventionById,
   pauseIntervention,
   resumeIntervention,
+  updateFieldTracking,
   updateInterventionStatus,
   type InterventionDetail,
   type KnowledgeBaseSolution,
@@ -167,6 +168,7 @@ export default function InterventionDetailPage() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [deleteState, setDeleteState] = useState<DeleteState>(INITIAL_DELETE_STATE);
   const [blockReporterState, setBlockReporterState] = useState<BlockReporterState>(INITIAL_BLOCK_REPORTER_STATE);
+  const [isUpdatingFieldTracking, setIsUpdatingFieldTracking] = useState(false);
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [pauseReason, setPauseReason] = useState<PauseReason>('WAITING_FOR_CUSTOMER');
   const [pauseOtherReason, setPauseOtherReason] = useState('');
@@ -230,6 +232,27 @@ export default function InterventionDetailPage() {
       setError(err instanceof Error ? translateText(language, err.message) : t('interventionDetail.statusUpdateFailed'));
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleFieldTracking = async (action: 'DISPATCH' | 'ARRIVE' | 'END') => {
+    if (!intervention) return;
+    setIsUpdatingFieldTracking(true);
+    setError(null);
+    setSuccessMessage('');
+    try {
+      const updated = await updateFieldTracking(intervention.id, action);
+      setIntervention((current) => ({ ...updated, assignments: current?.assignments ?? updated.assignments }));
+      const messages = {
+        DISPATCH: language === 'bs' ? 'Evidentirano: krenuli ste prema lokaciji.' : 'Recorded: dispatched to location.',
+        ARRIVE: language === 'bs' ? 'Evidentirano: stigli ste na lokaciju.' : 'Recorded: arrived at location.',
+        END: language === 'bs' ? 'Evidentirano: završili ste rad na terenu.' : 'Recorded: field work completed.',
+      };
+      setSuccessMessage(messages[action]);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update field tracking.');
+    } finally {
+      setIsUpdatingFieldTracking(false);
     }
   };
 
@@ -550,6 +573,89 @@ export default function InterventionDetailPage() {
         </Card>
       ) : null}
 
+      {/* ── PBI-060: Field time tracking ── */}
+      {intervention && (canWriteReport || canChangeStatus) ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {language === 'bs' ? 'Evidencija dolaska i rada na terenu' : 'Field Time Tracking'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'bs' ? 'Krenuo prema lokaciji' : 'Dispatched'}
+                </p>
+                <p className="font-medium text-sm">
+                  {intervention.dispatchedAt
+                    ? new Date(intervention.dispatchedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' })
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'bs' ? 'Stigao na lokaciju' : 'Arrived'}
+                </p>
+                <p className="font-medium text-sm">
+                  {intervention.arrivedAt
+                    ? new Date(intervention.arrivedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' })
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'bs' ? 'Završio rad na terenu' : 'Field work ended'}
+                </p>
+                <p className="font-medium text-sm">
+                  {intervention.fieldWorkEndedAt
+                    ? new Date(intervention.fieldWorkEndedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', { dateStyle: 'short', timeStyle: 'short' })
+                    : '—'}
+                </p>
+              </div>
+            </div>
+
+            {canWriteReport && (
+              <div className="flex flex-wrap gap-2">
+                {!intervention.dispatchedAt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isUpdatingFieldTracking}
+                    onClick={() => void handleFieldTracking('DISPATCH')}
+                  >
+                    {language === 'bs' ? 'Krećem prema lokaciji' : 'Dispatched to location'}
+                  </Button>
+                )}
+                {intervention.dispatchedAt && !intervention.arrivedAt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isUpdatingFieldTracking}
+                    onClick={() => void handleFieldTracking('ARRIVE')}
+                  >
+                    {language === 'bs' ? 'Stigao sam na lokaciju' : 'Arrived at location'}
+                  </Button>
+                )}
+                {intervention.arrivedAt && !intervention.fieldWorkEndedAt && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isUpdatingFieldTracking}
+                    onClick={() => void handleFieldTracking('END')}
+                  >
+                    {language === 'bs' ? 'Završio sam rad na terenu' : 'Field work completed'}
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+      
       {/* ── Assigned servicers ── */}
       {intervention ? (
         <AssignedServicersSection

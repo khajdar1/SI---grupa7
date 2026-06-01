@@ -62,6 +62,8 @@ enum NotificationType {
   NEW_TICKET
   TICKET_REPLY
   INTERVENTION_PAUSED
+  SERVICER_DISPATCHED
+  SERVICER_ARRIVED
 }
 
 enum PauseReason {
@@ -231,6 +233,9 @@ model Intervention {
   dueAt             DateTime?
   recurringPeriod   RecurringPeriod?
   nextGenerationAt  DateTime?
+  dispatchedAt      DateTime?
+  arrivedAt         DateTime?
+  fieldWorkEndedAt  DateTime?
   categoryId        Int
   category          Category           @relation(fields: [categoryId], references: [id])
   creatorId         Int

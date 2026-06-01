@@ -211,6 +211,9 @@ export interface InterventionDetail {
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
+  dispatchedAt?: string | null;
+  arrivedAt?: string | null;
+  fieldWorkEndedAt?: string | null;
   faultReport: {
     id: number;
     description?: string;
@@ -506,7 +509,20 @@ export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload 
 export function buildBulkDearchive(interventionIds: number[]): BulkDearchivePayload {
   return { action: 'DEARCHIVE', interventionIds, payload: {} as Record<string, never> };
 }
- 
+
+export async function updateFieldTracking(
+  id: string | number,
+  action: 'DISPATCH' | 'ARRIVE' | 'END',
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.patch<InterventionDetail>(
+      `${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/field-tracking`,
+      { action },
+    ),
+    'Failed to update field tracking.',
+  );
+}
+
 export function formatBulkResultSummary(result: BulkActionResponse): string {
   if (result.totalSkipped === 0) {
     return `${result.totalSucceeded} of ${result.totalRequested} interventions successfully updated.`;

@@ -1559,4 +1559,210 @@ describe("PBI-022 recurring interventions", () => {
       expect(interventionUpdateMock).not.toHaveBeenCalled();
     });
   });
+  describe("PBI-060 field time tracking", () => {
+    const assignmentFindFirstMock = vi.fn();
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      userFindFirstMock.mockResolvedValue({ id: 14, username: "serviser29" });
+      assignmentFindFirstMock.mockResolvedValue(null);
+    });
+
+    it("records dispatch time for an assigned servicer", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+        faultReport: { userId: 16 },
+      });
+      interventionUpdateMock.mockResolvedValue({
+        ...interventionRecord,
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [],
+        pauses: [],
+      });
+      userPreferenceFindUniqueMock.mockResolvedValue(null);
+      notificationCreateMock.mockResolvedValue({});
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(200);
+      expect(interventionUpdateMock).toHaveBeenCalledWith({
+        where: { id: 24 },
+        data: { dispatchedAt: expect.any(Date) },
+        include: expect.any(Object),
+      });
+    });
+
+    it("rejects dispatch if already dispatched", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects arrival before dispatch", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "ARRIVE" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects end before arrival", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "END" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects field tracking for non-assigned servicer", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 99 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(403);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects field tracking for non-servicer roles", async () => {
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Koordinator"],
+        localUserId: 3,
+      });
+
+      expect(response.status).toBe(403);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects invalid action value", async () => {
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "INVALID" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 for missing intervention", async () => {
+      interventionFindUniqueMock.mockResolvedValue(null);
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(404);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("sends SERVICER_DISPATCHED notification to fault reporter", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+        faultReport: { userId: 16 },
+      });
+      interventionUpdateMock.mockResolvedValue({
+        ...interventionRecord,
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [],
+        pauses: [],
+      });
+      userPreferenceFindUniqueMock.mockResolvedValue(null);
+      notificationCreateMock.mockResolvedValue({});
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(200);
+      expect(notificationCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 16,
+          type: "SERVICER_DISPATCHED",
+          interventionId: 24,
+        }),
+      });
+    });
+  });
 });

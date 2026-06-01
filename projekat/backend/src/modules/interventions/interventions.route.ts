@@ -536,6 +536,9 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
+  dispatchedAt?: Date | null;
+  arrivedAt?: Date | null;
+  fieldWorkEndedAt?: Date | null;
   pauses?: Array<{
     id: number;
     reason: PauseReason;
@@ -587,6 +590,9 @@ function mapIntervention(intervention: {
         }
       : null,
     recurringPeriod: intervention.recurringPeriod ?? null,
+    dispatchedAt: intervention.dispatchedAt?.toISOString() ?? null,
+    arrivedAt: intervention.arrivedAt?.toISOString() ?? null,
+    fieldWorkEndedAt: intervention.fieldWorkEndedAt?.toISOString() ?? null,
     assignments:
       intervention.assignments?.map((assignment) => ({
         id: assignment.id,
@@ -1610,6 +1616,117 @@ interventionsRouter.get(
 const recurrenceUpdateSchema = z.object({
   recurringPeriod: z.nativeEnum(RecurringPeriod).nullable(),
 });
+
+const fieldTrackingSchema = z.object({
+  action: z.enum(["DISPATCH", "ARRIVE", "END"]),
+});
+
+interventionsRouter.patch(
+  "/:id/field-tracking",
+  authorizeRoles(SERVICER_ROLES),
+  validate(fieldTrackingSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof fieldTrackingSchema>;
+    const actor = await resolveCreator(req);
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        archived: true,
+        dispatchedAt: true,
+        arrivedAt: true,
+        fieldWorkEndedAt: true,
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be updated.");
+    }
+
+    const isAssigned = existing.assignments.some((a) => a.userId === actor.id);
+    if (!isAssigned) {
+      throw new ForbiddenError("Only assigned servicers can update field tracking.");
+    }
+
+    if (
+      existing.status !== "ASSIGNED" &&
+      existing.status !== "IN_PROGRESS"
+    ) {
+      throw new ForbiddenError("Field tracking is only available for assigned or in-progress interventions.");
+    }
+
+    const now = new Date();
+    let updateData: Record<string, Date> = {};
+    let notificationType: "SERVICER_DISPATCHED" | "SERVICER_ARRIVED" | null = null;
+    let notificationTitle = "";
+    let notificationText = "";
+
+    if (input.action === "DISPATCH") {
+      if (existing.dispatchedAt) {
+        throw new BadRequestError("Dispatch time already recorded.");
+      }
+      updateData = { dispatchedAt: now };
+      notificationType = "SERVICER_DISPATCHED";
+      notificationTitle = "Serviser je na putu";
+      notificationText = "Serviser je krenuo prema lokaciji intervencije.";
+    } else if (input.action === "ARRIVE") {
+      if (!existing.dispatchedAt) {
+        throw new BadRequestError("Cannot mark arrival before dispatch.");
+      }
+      if (existing.arrivedAt) {
+        throw new BadRequestError("Arrival time already recorded.");
+      }
+      updateData = { arrivedAt: now };
+      notificationType = "SERVICER_ARRIVED";
+      notificationTitle = "Serviser je stigao";
+      notificationText = "Serviser je stigao na lokaciju intervencije.";
+    } else if (input.action === "END") {
+      if (!existing.arrivedAt) {
+        throw new BadRequestError("Cannot mark end before arrival.");
+      }
+      if (existing.fieldWorkEndedAt) {
+        throw new BadRequestError("Field work end time already recorded.");
+      }
+      updateData = { fieldWorkEndedAt: now };
+    }
+
+    const intervention = await prisma.intervention.update({
+      where: { id },
+      data: updateData,
+      include: interventionInclude,
+    });
+
+    if (notificationType) {
+      const faultReportUserId = await prisma.intervention.findUnique({
+        where: { id },
+        select: { faultReport: { select: { userId: true } } },
+      });
+      const reporterUserId = faultReportUserId?.faultReport?.userId;
+
+      if (reporterUserId && await shouldNotifyUser(reporterUserId, notificationType)) {
+        await prisma.notification.create({
+          data: {
+            userId: reporterUserId,
+            title: notificationTitle,
+            text: notificationText,
+            type: notificationType,
+            interventionId: id,
+          },
+        });
+      }
+    }
+
+    res.json(mapIntervention(intervention));
+  }),
+);
 
 interventionsRouter.patch(
   "/:id/recurrence",
