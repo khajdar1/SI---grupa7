@@ -318,6 +318,28 @@ const interventionResumeSchema = z.object({
   note: z.string().trim().max(1000).optional().nullable(),
 });
 
+const reopenRequestSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(10, "Reason is required.")
+    .max(2000),
+  comment: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .nullable(),
+});
+
+const rejectReopenRequestSchema = z.object({
+  coordinatorComment: z
+    .string()
+    .trim()
+    .min(5, "Comment is required.")
+    .max(2000),
+});
+
 function parseInterventionId(rawId: string | string[] | undefined): number {
   if (typeof rawId !== "string") {
     throw new BadRequestError("Invalid intervention identifier.", [
@@ -536,7 +558,6 @@ async function calculateDueAt(
   });
 
   if (!sla) {
-    // Default fallback if SLA is not configured
     const defaultHours = priority === Priority.CRITICAL ? 4 : 24;
     return new Date(baseDate.getTime() + defaultHours * 60 * 60 * 1000);
   }
@@ -737,7 +758,6 @@ function mapIntervention(intervention: {
     pausedBy: { id: number; firstName: string; lastName: string; username: string };
     responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
   }>;
-  
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -825,7 +845,6 @@ function buildLocationSearchTerm(location: string): string | null {
   if (compact.length < 3) {
     return null;
   }
-
   return compact.length > 80 ? compact.slice(0, 80) : compact;
 }
 
@@ -960,6 +979,8 @@ const interventionInclude = {
   },
 } as const;
 
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
+
 interventionsRouter.get(
   "/options",
   authorizeRoles(COORDINATOR_ACTION_ROLES),
@@ -1053,12 +1074,9 @@ interventionsRouter.get(
     const sortedInterventions = [...interventions].sort((a, b) => {
       const rankA = priorityRank[a.priority] || 0;
       const rankB = priorityRank[b.priority] || 0;
-      
       if (rankA !== rankB) {
-        return rankB - rankA; // Priority descending
+        return rankB - rankA;
       }
-      
-      // Secondary sort: createdAt ascending
       return a.createdAt.getTime() - b.createdAt.getTime();
     });
 
@@ -1312,7 +1330,7 @@ interventionsRouter.post(
       ? computeNextGenerationAt(plannedStart ?? new Date(), recurringPeriod)
       : null;
 
-const intervention = await prisma.intervention.create({
+    const intervention = await prisma.intervention.create({
       data: {
         name: input.name,
         description: input.description,
@@ -1338,6 +1356,186 @@ const intervention = await prisma.intervention.create({
   }),
 );
 
+// ─── REOPEN REQUESTS (mora biti PRIJE /:id ruta) ──────────────────────────────
+
+interventionsRouter.get(
+  "/reopen-requests",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  asyncHandler(async (_req, res) => {
+    const requests = await prisma.interventionReopenRequest.findMany({
+      include: {
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
+        requester: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json(requests);
+  }),
+);
+
+interventionsRouter.patch(
+  "/reopen-requests/:requestId/approve",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const requestId = Number(req.params.requestId);
+
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      throw new BadRequestError("Invalid request identifier.");
+    }
+
+    const actor = await resolveCreator(req);
+
+    const request = await prisma.interventionReopenRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundError("Reopen request not found.");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new BadRequestError("Request has already been processed.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.interventionReopenRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          resolvedAt: new Date(),
+        },
+      });
+
+      await tx.intervention.update({
+        where: { id: request.interventionId },
+        data: { status: InterventionStatus.ASSIGNED },
+      });
+
+      await tx.statusHistory.create({
+        data: {
+          interventionId: request.interventionId,
+          authorId: actor.id,
+          oldStatus: InterventionStatus.RESOLVED,
+          newStatus: InterventionStatus.ASSIGNED,
+        },
+      });
+    });
+
+    const assignments = await prisma.assignment.findMany({
+      where: { interventionId: request.interventionId },
+      select: { userId: true },
+    });
+
+    for (const assignment of assignments) {
+      await prisma.notification.create({
+        data: {
+          userId: assignment.userId,
+          interventionId: request.interventionId,
+          type: NotificationType.REOPEN_APPROVED,
+          title: "Intervention reopened",
+          text: "The intervention has been reopened and requires further work.",
+        },
+      });
+    }
+
+    await prisma.notification.create({
+      data: {
+        userId: request.requesterId,
+        interventionId: request.interventionId,
+        type: NotificationType.REOPEN_APPROVED,
+        title: "Reopen request approved",
+        text: "Your request for reopening has been approved.",
+      },
+    });
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_APPROVED",
+      entity: "Intervention",
+      entityId: String(request.interventionId),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Reopen request approved for intervention ${request.interventionId}`,
+    });
+
+    res.json({ message: "Reopen request approved." });
+  }),
+);
+
+interventionsRouter.patch(
+  "/reopen-requests/:requestId/reject",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(rejectReopenRequestSchema),
+  asyncHandler(async (req, res) => {
+    const requestId = Number(req.params.requestId);
+
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      throw new BadRequestError("Invalid request identifier.");
+    }
+
+    const request = await prisma.interventionReopenRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundError("Reopen request not found.");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new BadRequestError("Request has already been processed.");
+    }
+
+    await prisma.interventionReopenRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "REJECTED",
+        coordinatorComment: req.body.coordinatorComment,
+        resolvedAt: new Date(),
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: request.requesterId,
+        interventionId: request.interventionId,
+        type: NotificationType.REOPEN_REJECTED,
+        title: "Reopen request rejected",
+        text: req.body.coordinatorComment,
+      },
+    });
+
+    const actor = await resolveCreator(req);
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_REJECTED",
+      entity: "Intervention",
+      entityId: String(request.interventionId),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: req.body.coordinatorComment,
+    });
+
+    res.json({ message: "Reopen request rejected." });
+  }),
+);
+
+// ─── /:id ROUTES ──────────────────────────────────────────────────────────────
+
 interventionsRouter.post(
   "/:id/pause",
   authorizeRoles(INTERVENTION_STATUS_ROLES),
@@ -1357,9 +1555,7 @@ interventionsRouter.post(
         startedAt: true,
         archived: true,
         faultReport: {
-          select: {
-            userId: true,
-          },
+          select: { userId: true },
         },
       },
     });
@@ -1553,9 +1749,7 @@ interventionsRouter.patch(
           },
         },
         faultReport: {
-          select: {
-            userId: true,
-          },
+          select: { userId: true },
         },
       },
     });
@@ -1864,6 +2058,73 @@ interventionsRouter.post(
   }),
 );
 
+interventionsRouter.post(
+  "/:id/reopen-request",
+  validate(reopenRequestSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const userId = req.user?.localUserId;
+
+    if (!userId) {
+      throw new ForbiddenError("User not found.");
+    }
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      include: {
+        faultReport: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (intervention.faultReport?.userId !== userId) {
+      throw new ForbiddenError("Only the reporting user can request reopening.");
+    }
+
+    if (intervention.status !== InterventionStatus.RESOLVED) {
+      throw new ForbiddenError("Only resolved interventions can be reopened.");
+    }
+
+    const existingRequest = await prisma.interventionReopenRequest.findFirst({
+      where: {
+        interventionId: id,
+        status: "PENDING",
+      },
+    });
+
+    if (existingRequest) {
+      throw new BadRequestError("An active reopen request already exists.");
+    }
+
+    const request = await prisma.interventionReopenRequest.create({
+      data: {
+        interventionId: id,
+        requesterId: userId,
+        reason: req.body.reason,
+        comment: req.body.comment ?? null,
+      },
+    });
+
+    const actor = await resolveCreator(req);
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_CREATED",
+      entity: "Intervention",
+      entityId: String(id),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: req.body.reason,
+    });
+
+    res.status(HTTP_STATUS.CREATED).json(request);
+  }),
+);
+
 interventionsRouter.patch(
   "/:id",
   authorizeRoles(COORDINATOR_ACTION_ROLES),
@@ -1894,6 +2155,7 @@ interventionsRouter.patch(
       longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
       required: true,
     });
+
     const intervention = await prisma.intervention.update({
       where: { id },
       data: {
@@ -1947,9 +2209,7 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
-    res.json({
-      ...mapIntervention(intervention),
-    });
+    res.json({ ...mapIntervention(intervention) });
   }),
 );
 
@@ -2004,19 +2264,9 @@ interventionsRouter.get(
         isRecommended: true,
         interventionId: { not: intervention.id },
         AND: [
-          {
-            intervention: {
-              categoryId,
-            },
-          },
+          { intervention: { categoryId } },
           ...(locationTerm
-            ? [
-                {
-                  intervention: {
-                    location: { contains: locationTerm },
-                  },
-                },
-              ]
+            ? [{ intervention: { location: { contains: locationTerm } } }]
             : []),
           ...(textFilters.length > 0 ? [{ OR: textFilters }] : []),
         ],
@@ -2048,11 +2298,9 @@ interventionsRouter.get(
       },
     });
 
-    const solutions = reports.map(mapKnowledgeSolution);
-
     res.json({
       message: "Knowledge base solutions loaded successfully.",
-      data: solutions,
+      data: reports.map(mapKnowledgeSolution),
     });
   }),
 );
@@ -2444,9 +2692,7 @@ interventionsRouter.post(
         status: true,
         archived: true,
         faultReport: {
-          select: {
-            userId: true,
-          },
+          select: { userId: true },
         },
         executionConfirmation: {
           select: {
@@ -2486,11 +2732,7 @@ interventionsRouter.post(
             }
             const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(record.status);
             if (input.payload.status === InterventionStatus.ON_HOLD) {
-              return {
-                id,
-                success: false,
-                reason: "Use the pause action to put an intervention on hold.",
-              };
+              return { id, success: false, reason: "Use the pause action to put an intervention on hold." };
             }
             if (!allowedTargets?.has(input.payload.status)) {
               return {
