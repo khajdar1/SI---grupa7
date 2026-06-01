@@ -76,6 +76,8 @@ enum NotificationType {
   NEW_TICKET
   TICKET_REPLY
   INTERVENTION_PAUSED
+  SERVICER_DISPATCHED
+  SERVICER_ARRIVED
   EXECUTION_CONFIRMATION_REQUEST
   EXECUTION_CONFIRMATION_RESPONSE
 }
@@ -251,6 +253,9 @@ model Intervention {
   dueAt             DateTime?
   recurringPeriod   RecurringPeriod?
   nextGenerationAt  DateTime?
+  dispatchedAt      DateTime?
+  arrivedAt         DateTime?
+  fieldWorkEndedAt  DateTime?
   categoryId        Int
   category          Category           @relation(fields: [categoryId], references: [id])
   creatorId         Int
