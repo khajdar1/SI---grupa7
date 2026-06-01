@@ -1929,6 +1929,31 @@ interventionsRouter.patch(
     const existing = await prisma.intervention.findUnique({
       where: { id },
       select: { id: true, startedAt: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const nextGenerationAt =
+      input.recurringPeriod && existing.startedAt
+        ? computeNextGenerationAt(existing.startedAt, input.recurringPeriod)
+        : null;
+
+    const intervention = await prisma.intervention.update({
+      where: { id },
+      data: {
+        recurringPeriod: input.recurringPeriod,
+        nextGenerationAt,
+      },
+      include: interventionInclude,
+    });
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
   "/:id/confirmation/request",
   authorizeRoles(INTERVENTION_STATUS_ROLES),
   validate(confirmationRequestSchema),
@@ -1959,21 +1984,6 @@ interventionsRouter.patch(
       throw new NotFoundError("Intervention not found.");
     }
 
-    const nextGenerationAt =
-      input.recurringPeriod && existing.startedAt
-        ? computeNextGenerationAt(existing.startedAt, input.recurringPeriod)
-        : null;
-
-    const intervention = await prisma.intervention.update({
-      where: { id },
-      data: {
-        recurringPeriod: input.recurringPeriod,
-        nextGenerationAt,
-      },
-      include: interventionInclude,
-    });
-
-    res.json(mapIntervention(intervention));
     if (existing.archived) {
       throw new ForbiddenError("Archived interventions cannot request execution confirmation.");
     }
