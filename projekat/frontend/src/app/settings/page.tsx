@@ -90,6 +90,9 @@ const notificationLabelsBs: Record<string, string> = {
   'Auto assignment': 'Automatska dodjela',
   'New support ticket': 'Novi tiket podrške',
   'Ticket reply': 'Odgovor na tiket',
+  'Intervention paused': 'Intervencija pauzirana',
+  'Digital confirmation PIN': 'PIN za digitalnu potvrdu',
+  'Digital confirmation response': 'Odgovor na digitalnu potvrdu',
 };
 
 const quickLinkLabelsBs: Record<string, string> = {
