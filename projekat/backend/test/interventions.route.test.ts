@@ -1,8 +1,17 @@
 import express from "express";
+import { createHash } from "crypto";
 import type { AddressInfo } from "node:net";
 import type { Request, RequestHandler } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { InterventionStatus, InterventionType, NotificationType, Priority, ReportStatus } from "@prisma/client";
+import {
+  ExecutionConfirmationMethod,
+  ExecutionConfirmationStatus,
+  InterventionStatus,
+  InterventionType,
+  NotificationType,
+  Priority,
+  ReportStatus,
+} from "@prisma/client";
 
 const {
   categoryFindManyMock,
@@ -17,7 +26,11 @@ const {
   interventionFindFirstMock,
   interventionFindUniqueMock,
   interventionUpdateMock,
+  assignmentFindManyMock,
   reportFindManyMock,
+  executionConfirmationFindUniqueMock,
+  executionConfirmationUpsertMock,
+  executionConfirmationUpdateMock,
   statusHistoryCreateMock,
   notificationFindFirstMock,
   notificationCreateMock,
@@ -39,7 +52,11 @@ const {
   interventionFindFirstMock: vi.fn(),
   interventionFindUniqueMock: vi.fn(),
   interventionUpdateMock: vi.fn(),
+  assignmentFindManyMock: vi.fn(),
   reportFindManyMock: vi.fn(),
+  executionConfirmationFindUniqueMock: vi.fn(),
+  executionConfirmationUpsertMock: vi.fn(),
+  executionConfirmationUpdateMock: vi.fn(),
   statusHistoryCreateMock: vi.fn(),
   notificationFindFirstMock: vi.fn(),
   notificationCreateMock: vi.fn(),
@@ -47,9 +64,23 @@ const {
   userFindFirstMock: vi.fn(),
   slaConfigurationFindUniqueMock: vi.fn(),
   auditLogCreateMock: vi.fn(),
-  transactionMock: vi.fn((operations: Array<Promise<unknown> | unknown>) =>
-    Promise.all(operations),
-  ),
+  transactionMock: vi.fn((operations: Array<Promise<unknown> | unknown> | ((tx: unknown) => unknown)) => {
+    if (typeof operations === "function") {
+      return operations({
+        intervention: {
+          update: interventionUpdateMock,
+        },
+        statusHistory: {
+          create: statusHistoryCreateMock,
+        },
+        executionConfirmation: {
+          upsert: executionConfirmationUpsertMock,
+        },
+      });
+    }
+
+    return Promise.all(operations);
+  }),
 }));
 
 vi.mock("../src/config/database", () => ({
@@ -74,8 +105,16 @@ vi.mock("../src/config/database", () => ({
       findUnique: interventionFindUniqueMock,
       update: interventionUpdateMock,
     },
+    assignment: {
+      findMany: assignmentFindManyMock,
+    },
     report: {
       findMany: reportFindManyMock,
+    },
+    executionConfirmation: {
+      findUnique: executionConfirmationFindUniqueMock,
+      upsert: executionConfirmationUpsertMock,
+      update: executionConfirmationUpdateMock,
     },
     statusHistory: {
       create: statusHistoryCreateMock,
@@ -371,10 +410,38 @@ describe("PBI-004 interventions route", () => {
     interventionRecord = buildInterventionRecord(basePayload);
     interventionCountMock.mockResolvedValue(1);
     interventionFindFirstMock.mockResolvedValue(null);
-    notificationFindFirstMock.mockResolvedValue(null);
-    notificationCreateMock.mockResolvedValue({});
-    userPreferenceFindUniqueMock.mockResolvedValue(null);
-    seedHappyPathMocks();
+  notificationFindFirstMock.mockResolvedValue(null);
+  notificationCreateMock.mockResolvedValue({});
+  assignmentFindManyMock.mockResolvedValue([]);
+  userPreferenceFindUniqueMock.mockResolvedValue(null);
+  executionConfirmationFindUniqueMock.mockResolvedValue(null);
+  executionConfirmationUpsertMock.mockImplementation((args) =>
+    Promise.resolve({
+      id: 91,
+      status: args.create?.status ?? args.update?.status ?? ExecutionConfirmationStatus.PENDING,
+      method: args.create?.method ?? args.update?.method ?? null,
+      requestedAt: args.create?.requestedAt ?? args.update?.requestedAt ?? new Date("2026-05-07T10:00:00.000Z"),
+      respondedAt: args.create?.respondedAt ?? args.update?.respondedAt ?? null,
+      rejectionReason: args.create?.rejectionReason ?? args.update?.rejectionReason ?? null,
+      bypassReason: args.create?.bypassReason ?? args.update?.bypassReason ?? null,
+      requestedBy: null,
+      confirmedBy: null,
+    }),
+  );
+  executionConfirmationUpdateMock.mockImplementation((args) =>
+    Promise.resolve({
+      id: 91,
+      status: args.data.status,
+      method: args.data.method ?? null,
+      requestedAt: new Date("2026-05-07T10:00:00.000Z"),
+      respondedAt: args.data.respondedAt ?? null,
+      rejectionReason: args.data.rejectionReason ?? null,
+      bypassReason: args.data.bypassReason ?? null,
+      requestedBy: null,
+      confirmedBy: null,
+    }),
+  );
+  seedHappyPathMocks();
   });
 
   it("creates planned maintenance without a fault report", async () => {
@@ -827,6 +894,8 @@ describe("PBI-004 interventions route", () => {
       id: 21,
       name: "Planirana intervencija",
       status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.CONFIRMED },
     });
 
     const response = await request("PATCH", "/interventions/21/status", {
@@ -853,12 +922,160 @@ describe("PBI-004 interventions route", () => {
     });
   });
 
+  it("requires a comment when closing without user confirmation", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Planirana intervencija",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.PENDING },
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: { status: InterventionStatus.RESOLVED },
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({
+      error: {
+        code: "BAD_REQUEST",
+        fields: expect.arrayContaining([
+          expect.objectContaining({ field: "confirmationBypassReason" }),
+        ]),
+      },
+    });
+    expect(interventionUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("records a closed-without-confirmation reason when closing without user confirmation", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      name: "Planirana intervencija",
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.REJECTED },
+    });
+
+    const response = await request("PATCH", "/interventions/21/status", {
+      body: {
+        status: InterventionStatus.RESOLVED,
+        confirmationBypassReason: "Korisnik nije dostupan na lokaciji.",
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(executionConfirmationUpsertMock).toHaveBeenCalledWith({
+      where: { interventionId: 21 },
+      create: expect.objectContaining({
+        interventionId: 21,
+        requestedById: 3,
+        status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+        method: ExecutionConfirmationMethod.NONE,
+        bypassReason: "Korisnik nije dostupan na lokaciji.",
+      }),
+      update: expect.objectContaining({
+        status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+        method: ExecutionConfirmationMethod.NONE,
+        bypassReason: "Korisnik nije dostupan na lokaciji.",
+      }),
+    });
+  });
+
+  it("creates a pending digital confirmation request with a one-time PIN", async () => {
+    interventionFindUniqueMock.mockResolvedValue({
+      id: 21,
+      status: InterventionStatus.IN_PROGRESS,
+      archived: false,
+    });
+
+    const response = await request("POST", "/interventions/21/confirmation/request", {
+      roles: ["Serviser"],
+    });
+
+    expect(response.status).toBe(201);
+    expect(executionConfirmationUpsertMock).toHaveBeenCalledWith({
+      where: { interventionId: 21 },
+      create: expect.objectContaining({
+        interventionId: 21,
+        requestedById: 3,
+        status: ExecutionConfirmationStatus.PENDING,
+        pinHash: expect.any(String),
+      }),
+      update: expect.objectContaining({
+        requestedById: 3,
+        status: ExecutionConfirmationStatus.PENDING,
+        method: null,
+        pinHash: expect.any(String),
+        respondedAt: null,
+      }),
+      select: expect.any(Object),
+    });
+    expect(response.body).toMatchObject({
+      confirmation: { status: ExecutionConfirmationStatus.PENDING },
+      pin: expect.stringMatching(/^\d{6}$/),
+    });
+  });
+
+  it("confirms execution with the correct PIN without creating feedback", async () => {
+    const pin = "123456";
+    executionConfirmationFindUniqueMock.mockResolvedValue({
+      id: 91,
+      status: ExecutionConfirmationStatus.PENDING,
+      pinHash: createHash("sha256").update(pin).digest("hex"),
+      intervention: { name: "Popravka grijanja" },
+    });
+
+    const response = await request("POST", "/interventions/21/confirmation/confirm", {
+      body: { method: ExecutionConfirmationMethod.PIN, pin },
+      localUserId: 14,
+    });
+
+    expect(response.status).toBe(200);
+    expect(executionConfirmationUpdateMock).toHaveBeenCalledWith({
+      where: { interventionId: 21 },
+      data: expect.objectContaining({
+        confirmedById: 14,
+        status: ExecutionConfirmationStatus.CONFIRMED,
+        method: ExecutionConfirmationMethod.PIN,
+        signatureData: null,
+      }),
+      select: expect.any(Object),
+    });
+    expect(notificationCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("stores a rejection reason for a pending digital confirmation", async () => {
+    executionConfirmationFindUniqueMock.mockResolvedValue({
+      id: 91,
+      status: ExecutionConfirmationStatus.PENDING,
+      intervention: { name: "Popravka grijanja" },
+    });
+
+    const response = await request("POST", "/interventions/21/confirmation/reject", {
+      body: { reason: "Radovi nisu predani korisniku." },
+      localUserId: 14,
+    });
+
+    expect(response.status).toBe(200);
+    expect(executionConfirmationUpdateMock).toHaveBeenCalledWith({
+      where: { interventionId: 21 },
+      data: expect.objectContaining({
+        confirmedById: 14,
+        status: ExecutionConfirmationStatus.REJECTED,
+        method: ExecutionConfirmationMethod.NONE,
+        rejectionReason: "Radovi nisu predani korisniku.",
+      }),
+      select: expect.any(Object),
+    });
+  });
+
   it("notifies the reporting user once when an intervention is resolved", async () => {
     interventionFindUniqueMock.mockResolvedValue({
       id: 21,
       name: "Popravka grijanja",
       status: InterventionStatus.IN_PROGRESS,
       archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.CONFIRMED },
       faultReport: { userId: 14 },
     });
 
@@ -896,6 +1113,7 @@ describe("PBI-004 interventions route", () => {
       name: "Popravka grijanja",
       status: InterventionStatus.IN_PROGRESS,
       archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.CONFIRMED },
       faultReport: { userId: 14 },
     });
     notificationFindFirstMock.mockResolvedValue({ id: 99 });
@@ -914,6 +1132,7 @@ describe("PBI-004 interventions route", () => {
       name: "Popravka grijanja",
       status: InterventionStatus.IN_PROGRESS,
       archived: false,
+      executionConfirmation: { status: ExecutionConfirmationStatus.CONFIRMED },
       faultReport: { userId: 14 },
     });
     userPreferenceFindUniqueMock.mockResolvedValue({ language: "bs" });
@@ -1557,6 +1776,212 @@ describe("PBI-022 recurring interventions", () => {
 
       expect(response.status).toBe(403);
       expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+  });
+  describe("PBI-060 field time tracking", () => {
+    const assignmentFindFirstMock = vi.fn();
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+      userFindFirstMock.mockResolvedValue({ id: 14, username: "serviser29" });
+      assignmentFindFirstMock.mockResolvedValue(null);
+    });
+
+    it("records dispatch time for an assigned servicer", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+        faultReport: { userId: 16 },
+      });
+      interventionUpdateMock.mockResolvedValue({
+        ...interventionRecord,
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [],
+        pauses: [],
+      });
+      userPreferenceFindUniqueMock.mockResolvedValue(null);
+      notificationCreateMock.mockResolvedValue({});
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(200);
+      expect(interventionUpdateMock).toHaveBeenCalledWith({
+        where: { id: 24 },
+        data: { dispatchedAt: expect.any(Date) },
+        include: expect.any(Object),
+      });
+    });
+
+    it("rejects dispatch if already dispatched", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects arrival before dispatch", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "ARRIVE" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects end before arrival", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "END" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects field tracking for non-assigned servicer", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 99 }],
+      });
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(403);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects field tracking for non-servicer roles", async () => {
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Koordinator"],
+        localUserId: 3,
+      });
+
+      expect(response.status).toBe(403);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects invalid action value", async () => {
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "INVALID" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(400);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("returns 404 for missing intervention", async () => {
+      interventionFindUniqueMock.mockResolvedValue(null);
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(404);
+      expect(interventionUpdateMock).not.toHaveBeenCalled();
+    });
+
+    it("sends SERVICER_DISPATCHED notification to fault reporter", async () => {
+      interventionFindUniqueMock.mockResolvedValue({
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        archived: false,
+        dispatchedAt: null,
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [{ userId: 14 }],
+        faultReport: { userId: 16 },
+      });
+      interventionUpdateMock.mockResolvedValue({
+        ...interventionRecord,
+        id: 24,
+        status: InterventionStatus.ASSIGNED,
+        dispatchedAt: new Date(),
+        arrivedAt: null,
+        fieldWorkEndedAt: null,
+        assignments: [],
+        pauses: [],
+      });
+      userPreferenceFindUniqueMock.mockResolvedValue(null);
+      notificationCreateMock.mockResolvedValue({});
+
+      const response = await request("PATCH", "/interventions/24/field-tracking", {
+        body: { action: "DISPATCH" },
+        roles: ["Serviser"],
+        localUserId: 14,
+      });
+
+      expect(response.status).toBe(200);
+      expect(notificationCreateMock).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          userId: 16,
+          type: "SERVICER_DISPATCHED",
+          interventionId: 24,
+        }),
+      });
     });
   });
 });

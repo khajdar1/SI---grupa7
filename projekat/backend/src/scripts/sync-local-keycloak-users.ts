@@ -602,6 +602,22 @@ function inferRole(user: LocalUser, overrides: Record<ManagedRole, Set<string>>)
     return "MENADZMENT";
   }
 
+  if (usernameOrEmail.includes("support") || usernameOrEmail.includes("podrska")) {
+    return "SUPPORT_AGENT";
+  }
+
+  if (usernameOrEmail.includes("kompanija") || usernameOrEmail.includes("company")) {
+    return "KOMPANIJA_ADMIN";
+  }
+
+  if (usernameOrEmail.includes("koordinator") || usernameOrEmail.includes("coordinator")) {
+    return "KOORDINATOR";
+  }
+
+  if (usernameOrEmail.includes("serviser") || usernameOrEmail.includes("technician")) {
+    return "SERVISER";
+  }
+
   if (user.assignments.length > 0 || user.reports.length > 0) {
     return "SERVISER";
   }
