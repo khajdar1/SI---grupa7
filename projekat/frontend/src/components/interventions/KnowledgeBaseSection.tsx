@@ -189,6 +189,7 @@ function SolutionCard({
   const reportDate = new Date(item.reportDate).toLocaleDateString(
     language === 'bs' ? 'bs-BA' : 'en-GB',
   );
+  const material = formatMaterialValue(item.material);
 
   return (
     <div className="rounded-lg border bg-card p-4">
@@ -224,10 +225,10 @@ function SolutionCard({
         <p className="whitespace-pre-wrap text-sm">{item.problemDescription}</p>
       </div>
       <p className="whitespace-pre-wrap text-sm">{item.solution}</p>
-      {item.material ? (
+      {material ? (
         <p className="mt-2 text-xs text-muted-foreground">
           <span className="font-medium">{t('knowledgeBase.material')}:</span>{' '}
-          {item.material}
+          {material}
         </p>
       ) : null}
       {item.notes ? (
@@ -238,4 +239,30 @@ function SolutionCard({
       ) : null}
     </div>
   );
+}
+
+function formatMaterialValue(material: string | null): string | null {
+  if (!material?.trim()) return null;
+
+  try {
+    const parsed = JSON.parse(material) as unknown;
+    if (Array.isArray(parsed)) {
+      const formatted = parsed
+        .filter((item): item is { name: string; quantity: number; note?: string | null } => (
+          typeof item === 'object' &&
+          item !== null &&
+          typeof (item as { name?: unknown }).name === 'string' &&
+          typeof (item as { quantity?: unknown }).quantity === 'number'
+        ))
+        .map((item) => {
+          const base = `${item.name} (x${item.quantity})`;
+          return item.note ? `${base} - ${item.note}` : base;
+        });
+
+      if (formatted.length > 0) return formatted.join(', ');
+    }
+  } catch {
+  }
+
+  return material;
 }

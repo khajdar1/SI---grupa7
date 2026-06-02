@@ -20,13 +20,14 @@ import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
 import { emitToUser } from "../../realtime/socket";
-import { shouldNotifyUser } from "../../shared/notification-preferences";
+import { getActiveUserIdsByKeycloakRole, shouldNotifyUser } from "../../shared/notification-preferences";
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import { formatMaterialItems } from "../../shared/material-item";
 import { computeNextGenerationAt } from "../../services/recurring.service";
 import { compactStoredLocation, resolvePersistableLocation } from "../../services/geocoding.service";
 import {
@@ -687,6 +688,42 @@ async function notifyServicersAboutExecutionConfirmationResponse(input: {
   }));
 }
 
+async function notifyCoordinatorsAboutReopenRequest(input: {
+  interventionId: number;
+  interventionName: string;
+  requesterId: number;
+  reason: string;
+}) {
+  try {
+    const [coordinatorIds, adminIds] = await Promise.all([
+      getActiveUserIdsByKeycloakRole("koordinator"),
+      getActiveUserIdsByKeycloakRole("admin"),
+    ]);
+    const userIds = [...new Set([...coordinatorIds, ...adminIds])].filter(
+      (userId) => userId !== input.requesterId,
+    );
+
+    await Promise.all(userIds.map(async (userId) => {
+      if (!await shouldNotifyUser(userId, "REOPEN_REQUEST")) {
+        return;
+      }
+
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          interventionId: input.interventionId,
+          type: NotificationType.REOPEN_REQUEST,
+          title: "Reopen request submitted",
+          text: `A user requested reopening for intervention "${input.interventionName}". Reason: ${input.reason}`,
+        },
+      });
+      emitToUser(userId, "notification:new", notification);
+    }));
+  } catch (error) {
+    console.warn("Failed to notify coordinators about reopen request.", error);
+  }
+}
+
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
@@ -870,7 +907,7 @@ function mapKnowledgeSolution(report: {
     title: report.intervention.name,
     problemDescription: report.intervention.description,
     solution: report.description,
-    material: report.material,
+    material: formatMaterialItems(report.material),
     notes: report.notes,
     locationHint: compactStoredLocation(report.intervention.location),
     categoryId: report.intervention.category.id,
@@ -1033,12 +1070,20 @@ interventionsRouter.get(
       where: {
         archived: false,
         status: {
-          in: [
-            InterventionStatus.NEW,
-            InterventionStatus.ASSIGNED,
-            InterventionStatus.IN_PROGRESS,
-            InterventionStatus.ON_HOLD,
-          ],
+          in: hasOperationalView
+            ? [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+              ]
+            : [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+                InterventionStatus.RESOLVED,
+              ],
         },
         ...(hasOperationalView
           ? {}
@@ -1742,6 +1787,7 @@ interventionsRouter.patch(
         name: true,
         status: true,
         startedAt: true,
+        fieldWorkEndedAt: true,
         archived: true,
         executionConfirmation: {
           select: {
@@ -1821,6 +1867,9 @@ interventionsRouter.patch(
           status: input.status,
           ...(input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt
             ? { startedAt: new Date() }
+            : {}),
+          ...(input.status === InterventionStatus.RESOLVED && !existing.fieldWorkEndedAt
+            ? { fieldWorkEndedAt: new Date() }
             : {}),
         },
         include: interventionInclude,
@@ -2060,6 +2109,7 @@ interventionsRouter.post(
 
 interventionsRouter.post(
   "/:id/reopen-request",
+  authorizeInterventionAccess,
   validate(reopenRequestSchema),
   asyncHandler(async (req, res) => {
     const id = parseInterventionId(req.params.id);
@@ -2119,6 +2169,13 @@ interventionsRouter.post(
       actorId: actor.id,
       actorUsername: actor.username,
       details: req.body.reason,
+    });
+
+    await notifyCoordinatorsAboutReopenRequest({
+      interventionId: id,
+      interventionName: intervention.name,
+      requesterId: userId,
+      reason: req.body.reason,
     });
 
     res.status(HTTP_STATUS.CREATED).json(request);
@@ -2441,13 +2498,7 @@ interventionsRouter.patch(
       notificationTitle = "Serviser je stigao";
       notificationText = "Serviser je stigao na lokaciju intervencije.";
     } else if (input.action === "END") {
-      if (!existing.arrivedAt) {
-        throw new BadRequestError("Cannot mark end before arrival.");
-      }
-      if (existing.fieldWorkEndedAt) {
-        throw new BadRequestError("Field work end time already recorded.");
-      }
-      updateData = { fieldWorkEndedAt: now };
+      throw new BadRequestError("Use the close action to finish field work and close the intervention.");
     }
 
     const intervention = await prisma.intervention.update({
