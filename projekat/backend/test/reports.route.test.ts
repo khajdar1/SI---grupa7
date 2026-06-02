@@ -175,6 +175,9 @@ const MOCK_REPORT = {
   notes: null,
   reportDate: new Date('2026-01-15T10:00:00.000Z'),
   status: ReportStatus.DRAFT,
+  isRecommended: false,
+  recommendedAt: null,
+  recommendedById: null,
   author: { id: 10, firstName: 'Amir', lastName: 'Servis', username: 'amir.servis' },
 };
 
@@ -337,23 +340,23 @@ describe('POST /interventions/:interventionId/reports', () => {
   });
 
   it('calls prisma.report.create with correct author, intervention and fields', async () => {
-    await request('POST', '/interventions/42/reports', {
-      roles: ['Serviser'],
-      body: { description: 'Work done.', material: 'Pipe', notes: 'Follow up.' },
-    });
+      await request('POST', '/interventions/42/reports', {
+        roles: ['Serviser'],
+        body: { description: 'Work done.', notes: 'Follow up.' }, 
+      });
 
-    expect(reportCreateMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          interventionId: 42,
-          authorId: 10,
-          description: 'Work done.',
-          material: 'Pipe',
-          notes: 'Follow up.',
+      expect(reportCreateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            interventionId: 42,
+            authorId: 10,
+            description: 'Work done.',
+            material: null, 
+            notes: 'Follow up.',
+          }),
         }),
-      }),
-    );
-  });
+      );
+    });
 
   it('transforms undefined optional fields to null', async () => {
     await request('POST', '/interventions/42/reports', {
@@ -648,7 +651,7 @@ describe('PATCH /interventions/:interventionId/reports', () => {
   it('accepts null for material to clear the field', async () => {
     const res = await request('PATCH', '/interventions/42/reports', {
       roles: ['Serviser'],
-      body: { material: null },
+      body: { materialItems: [] },
     });
 
     expect(res.status).toBe(200);
@@ -819,6 +822,98 @@ describe('PATCH /interventions/:interventionId/reports', () => {
       roles: ['Korisnik'],
       body: { description: 'x' },
     });
+    expect(res.status).toBe(403);
+    expect(reportUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /interventions/:interventionId/reports/finalize', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    userFindFirstMock.mockResolvedValue(MOCK_LOCAL_USER);
+    interventionFindUniqueMock.mockResolvedValue(MOCK_INTERVENTION_RESOLVED);
+    reportFindFirstMock.mockResolvedValue(MOCK_REPORT);
+    reportUpdateMock.mockResolvedValue({
+      ...MOCK_REPORT,
+      status: ReportStatus.FINALIZED,
+    });
+  });
+
+  it('finalizes an existing report', async () => {
+    const res = await request('PATCH', '/interventions/42/reports/finalize', {
+      roles: ['Serviser'],
+    });
+
+    expect(res.status).toBe(200);
+    expect(reportUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_REPORT.id },
+        data: { status: 'FINALIZED' },
+      }),
+    );
+    expect(res.body).toMatchObject({
+      message: 'Report finalized successfully.',
+      data: { status: ReportStatus.FINALIZED },
+    });
+  });
+
+  it('does not allow coordinators to finalize technician reports', async () => {
+    const res = await request('PATCH', '/interventions/42/reports/finalize', {
+      roles: ['Koordinator'],
+    });
+
+    expect(res.status).toBe(403);
+    expect(reportUpdateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /interventions/:interventionId/reports/recommendation', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    userFindFirstMock.mockResolvedValue(MOCK_LOCAL_USER);
+    interventionFindUniqueMock.mockResolvedValue(MOCK_INTERVENTION_RESOLVED);
+    reportFindFirstMock.mockResolvedValue({
+      ...MOCK_REPORT,
+      status: ReportStatus.FINALIZED,
+    });
+    reportUpdateMock.mockResolvedValue({
+      ...MOCK_REPORT,
+      status: ReportStatus.FINALIZED,
+      isRecommended: true,
+      recommendedAt: new Date('2026-01-16T10:00:00.000Z'),
+      recommendedById: 10,
+    });
+  });
+
+  it('allows a coordinator to mark a finalized report as recommended', async () => {
+    const res = await request('PATCH', '/interventions/42/reports/recommendation', {
+      roles: ['Koordinator'],
+      body: { recommended: true },
+    });
+
+    expect(res.status).toBe(200);
+    expect(reportUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: MOCK_REPORT.id },
+        data: expect.objectContaining({
+          isRecommended: true,
+          recommendedById: 10,
+        }),
+      }),
+    );
+    expect(res.body).toMatchObject({
+      data: { isRecommended: true, recommendedById: 10 },
+    });
+  });
+
+  it('rejects recommendation for draft reports', async () => {
+    reportFindFirstMock.mockResolvedValue(MOCK_REPORT);
+
+    const res = await request('PATCH', '/interventions/42/reports/recommendation', {
+      roles: ['Koordinator'],
+      body: { recommended: true },
+    });
+
     expect(res.status).toBe(403);
     expect(reportUpdateMock).not.toHaveBeenCalled();
   });

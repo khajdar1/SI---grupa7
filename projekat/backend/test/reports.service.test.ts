@@ -28,6 +28,9 @@ function makeReport(overrides: Partial<ReportRecord> = {}): ReportRecord {
     notes: null,
     reportDate: new Date('2026-01-15T10:00:00Z'),
     status: ReportStatus.DRAFT,
+    isRecommended: false,
+    recommendedAt: null,
+    recommendedById: null,
     author: MOCK_AUTHOR,
     ...overrides,
   };
@@ -57,6 +60,14 @@ function makeRepository(overrides: Partial<IReportRepository> = {}): IReportRepo
     create: vi.fn().mockResolvedValue(makeReport()),
     update: vi.fn().mockResolvedValue(makeReport()),
     finalizeReport: vi.fn().mockResolvedValue(makeReport({ status: ReportStatus.FINALIZED })),
+    setRecommendation: vi.fn().mockResolvedValue(
+      makeReport({
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        recommendedAt: new Date('2026-01-16T10:00:00Z'),
+        recommendedById: 11,
+      }),
+    ),
     ...overrides,
   };
 }
@@ -411,5 +422,74 @@ describe('ReportService.finalize', () => {
     });
 
     await expect(new ReportService(repo).finalize(42)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('ReportService.setRecommendation', () => {
+  test('marks a finalized report as recommended', async () => {
+    const finalized = makeReport({ status: ReportStatus.FINALIZED });
+    const repo = makeRepository({
+      findByInterventionId: vi.fn().mockResolvedValue(finalized),
+    });
+
+    const result = await new ReportService(repo).setRecommendation(42, 11, true);
+
+    expect(result.isRecommended).toBe(true);
+    expect(repo.setRecommendation).toHaveBeenCalledWith(finalized.id, true, 11);
+  });
+
+  test('removes recommendation from a finalized report', async () => {
+    const finalized = makeReport({
+      status: ReportStatus.FINALIZED,
+      isRecommended: true,
+      recommendedAt: new Date('2026-01-16T10:00:00Z'),
+      recommendedById: 11,
+    });
+    const updated = makeReport({
+      status: ReportStatus.FINALIZED,
+      isRecommended: false,
+      recommendedAt: null,
+      recommendedById: null,
+    });
+    const repo = makeRepository({
+      findByInterventionId: vi.fn().mockResolvedValue(finalized),
+      setRecommendation: vi.fn().mockResolvedValue(updated),
+    });
+
+    const result = await new ReportService(repo).setRecommendation(42, 11, false);
+
+    expect(result.isRecommended).toBe(false);
+    expect(repo.setRecommendation).toHaveBeenCalledWith(finalized.id, false, 11);
+  });
+
+  test('throws NotFoundError when intervention does not exist', async () => {
+    const repo = makeRepository({
+      findInterventionById: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      new ReportService(repo).setRecommendation(999, 11, true),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test('throws NotFoundError when report does not exist', async () => {
+    const repo = makeRepository({
+      findByInterventionId: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(
+      new ReportService(repo).setRecommendation(42, 11, true),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  test('throws ForbiddenError for draft reports', async () => {
+    const repo = makeRepository({
+      findByInterventionId: vi.fn().mockResolvedValue(makeReport({ status: ReportStatus.DRAFT })),
+    });
+
+    await expect(
+      new ReportService(repo).setRecommendation(42, 11, true),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    expect(repo.setRecommendation).not.toHaveBeenCalled();
   });
 });

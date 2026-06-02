@@ -11,6 +11,7 @@ import { validate } from '../../middleware/validate.middleware';
 import { emitToRole, emitToUser, isUserViewingTicket } from '../../realtime/socket';
 import { asyncHandler } from '../../shared/async-handler';
 import { BadRequestError, ForbiddenError, NotFoundError, UnauthorizedError } from '../../shared/errors';
+import { filterByPreferences, getActiveUserIdsByKeycloakRole, shouldNotifyUser } from '../../shared/notification-preferences';
 import { TicketService, type TicketDetail, type TicketListItem, type TicketMessage, type TicketRepository } from './tickets.service';
 import { addMessageSchema, blockTicketUserSchema, createTicketSchema, requestAdminReviewSchema } from './tickets.schema';
 
@@ -305,13 +306,17 @@ async function notifyTicketRecipients(
     ticketId: number;
   },
 ): Promise<void> {
+  const recipientIds = recipients
+    .filter((recipient) => !isUserViewingTicket(input.ticketId, recipient.id))
+    .map((r) => r.id);
+
+  const filteredIds = await filterByPreferences(recipientIds, input.type);
+
   const notifications = await Promise.all(
-    recipients
-      .filter((recipient) => !isUserViewingTicket(input.ticketId, recipient.id))
-      .map((recipient) =>
+    filteredIds.map((userId) =>
       prisma.notification.create({
         data: {
-          userId: recipient.id,
+          userId,
           title: input.title,
           text: input.text,
           type: input.type,
@@ -510,7 +515,11 @@ ticketsRouter.patch(
     });
     const updatedTicket = mapTicketListItem(updated);
 
-    if (status === 'CLOSED' && !isUserViewingTicket(ticketId, ticket.userId)) {
+    if (
+      status === 'CLOSED'
+      && !isUserViewingTicket(ticketId, ticket.userId)
+      && await shouldNotifyUser(ticket.userId, 'TICKET_REPLY')
+    ) {
       const notification = await prisma.notification.create({
         data: {
           userId: ticket.userId,
@@ -583,7 +592,11 @@ ticketsRouter.post(
 
     emitTicketMessage(ticketId, ticket.userId, message);
 
-    if (authorIsAgent && ticket.userId !== userId && !isUserViewingTicket(ticketId, ticket.userId)) {
+    if (
+      authorIsAgent && ticket.userId !== userId
+      && !isUserViewingTicket(ticketId, ticket.userId)
+      && await shouldNotifyUser(ticket.userId, 'TICKET_REPLY')
+    ) {
       // Agent replied → notify ticket owner via DB + socket
       const notification = await prisma.notification.create({
         data: {
@@ -667,7 +680,10 @@ ticketsRouter.post(
     }
 
     const reason = rawReason.trim();
-    if (!isUserViewingTicket(ticketId, admin.id)) {
+    if (
+      !isUserViewingTicket(ticketId, admin.id)
+      && await shouldNotifyUser(admin.id, 'TICKET_REPLY')
+    ) {
       const notification = await prisma.notification.create({
         data: {
           userId: admin.id,
@@ -743,29 +759,41 @@ ticketsRouter.post(
 
     const updatedUser = ticket.user;
 
-    emitToRole('admin', 'notification:new', {
-      id: -1,
-      userId: null,
-      title: 'User blocked',
-      text: `User ${updatedUser.username} (${updatedUser.email}) was blocked from ticket #${ticket.id}: ${ticket.title}. Reason: ${reason}`,
-      type: 'TICKET_REPLY',
-      read: false,
-      interventionId: null,
-      ticketId,
-      createdAt: new Date().toISOString(),
-    });
+    const blockedAdminIds = await filterByPreferences(
+      await getActiveUserIdsByKeycloakRole('admin'),
+      'TICKET_REPLY',
+    );
+    for (const uid of blockedAdminIds) {
+      emitToUser(uid, 'notification:new', {
+        id: -1,
+        userId: null,
+        title: 'User blocked',
+        text: `User ${updatedUser.username} (${updatedUser.email}) was blocked from ticket #${ticket.id}: ${ticket.title}. Reason: ${reason}`,
+        type: 'TICKET_REPLY',
+        read: false,
+        interventionId: null,
+        ticketId,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
-    emitToRole('supportagent', 'notification:new', {
-      id: -1,
-      userId: null,
-      title: 'User blocked',
-      text: `User ${updatedUser.username} was blocked from ticket #${ticket.id}.`,
-      type: 'TICKET_REPLY',
-      read: false,
-      interventionId: null,
-      ticketId,
-      createdAt: new Date().toISOString(),
-    });
+    const blockedAgentIds = await filterByPreferences(
+      await getActiveUserIdsByKeycloakRole('supportagent'),
+      'TICKET_REPLY',
+    );
+    for (const uid of blockedAgentIds) {
+      emitToUser(uid, 'notification:new', {
+        id: -1,
+        userId: null,
+        title: 'User blocked',
+        text: `User ${updatedUser.username} was blocked from ticket #${ticket.id}.`,
+        type: 'TICKET_REPLY',
+        read: false,
+        interventionId: null,
+        ticketId,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     res.status(201).json({ ...updatedUser, ticketUserBlocked: true });
   }),
@@ -826,29 +854,41 @@ ticketsRouter.post(
 
     const updatedUser = ticket.user;
 
-    emitToRole('admin', 'notification:new', {
-      id: -1,
-      userId: null,
-      title: 'User unblocked',
-      text: `User ${updatedUser.username} (${updatedUser.email}) was unblocked from ticket #${ticket.id}: ${ticket.title}.`,
-      type: 'TICKET_REPLY',
-      read: false,
-      interventionId: null,
-      ticketId,
-      createdAt: new Date().toISOString(),
-    });
+    const unblockedAdminIds = await filterByPreferences(
+      await getActiveUserIdsByKeycloakRole('admin'),
+      'TICKET_REPLY',
+    );
+    for (const uid of unblockedAdminIds) {
+      emitToUser(uid, 'notification:new', {
+        id: -1,
+        userId: null,
+        title: 'User unblocked',
+        text: `User ${updatedUser.username} (${updatedUser.email}) was unblocked from ticket #${ticket.id}: ${ticket.title}.`,
+        type: 'TICKET_REPLY',
+        read: false,
+        interventionId: null,
+        ticketId,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
-    emitToRole('supportagent', 'notification:new', {
-      id: -1,
-      userId: null,
-      title: 'User unblocked',
-      text: `User ${updatedUser.username} was unblocked from ticket #${ticket.id}.`,
-      type: 'TICKET_REPLY',
-      read: false,
-      interventionId: null,
-      ticketId,
-      createdAt: new Date().toISOString(),
-    });
+    const unblockedAgentIds = await filterByPreferences(
+      await getActiveUserIdsByKeycloakRole('supportagent'),
+      'TICKET_REPLY',
+    );
+    for (const uid of unblockedAgentIds) {
+      emitToUser(uid, 'notification:new', {
+        id: -1,
+        userId: null,
+        title: 'User unblocked',
+        text: `User ${updatedUser.username} was unblocked from ticket #${ticket.id}.`,
+        type: 'TICKET_REPLY',
+        read: false,
+        interventionId: null,
+        ticketId,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     res.json({ ...updatedUser, ticketUserBlocked: false });
   }),

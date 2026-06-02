@@ -18,6 +18,7 @@ enum InterventionStatus {
   NEW
   ASSIGNED
   IN_PROGRESS
+  ON_HOLD
   RESOLVED
   CANCELLED
   REJECTED
@@ -52,6 +53,20 @@ enum AssignmentMethod {
   AUTOMATIC
 }
 
+enum ExecutionConfirmationStatus {
+  NOT_REQUESTED
+  PENDING
+  CONFIRMED
+  REJECTED
+  CLOSED_WITHOUT_CONFIRMATION
+}
+
+enum ExecutionConfirmationMethod {
+  PIN
+  SIGNATURE
+  NONE
+}
+
 enum NotificationType {
   NEW_REPORT
   INTERVENTION_ASSIGNED
@@ -60,6 +75,32 @@ enum NotificationType {
   AUTO_ASSIGNMENT
   NEW_TICKET
   TICKET_REPLY
+  INTERVENTION_PAUSED
+  SERVICER_DISPATCHED
+  SERVICER_ARRIVED
+  EXECUTION_CONFIRMATION_REQUEST
+  EXECUTION_CONFIRMATION_RESPONSE
+  REOPEN_REQUEST
+  REOPEN_APPROVED
+  REOPEN_REJECTED
+  INTERVENTION_SCHEDULED
+  APPOINTMENT_RESCHEDULE_REQUEST
+  APPOINTMENT_RESCHEDULE_RESPONSE
+  APPOINTMENT_RESCHEDULE_PROPOSED
+}
+
+enum RescheduleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PauseReason {
+  WAITING_FOR_CUSTOMER
+  WAITING_FOR_MATERIAL
+  WAITING_FOR_EXTERNAL_CONTRACTOR
+  WAITING_FOR_APPROVAL
+  OTHER
 }
 
 enum CompanyStatus {
@@ -67,6 +108,12 @@ enum CompanyStatus {
   ACTIVE
   REJECTED
   INACTIVE
+}
+
+enum ReopenRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 model Company {
@@ -107,9 +154,12 @@ model User {
   createdFaultReports   FaultReport[]           @relation("FaultReportAuthor")
   createdInterventions  Intervention[]          @relation("InterventionCreator")
   reports              Report[]                @relation("ReportAuthor")
+  recommendedReports   Report[]                @relation("ReportRecommendedBy")
   assignments          Assignment[]
   comments             InterventionComment[]   @relation("CommentAuthor")
   statusChanges        StatusHistory[]         @relation("StatusHistoryAuthor")
+  requestedExecutionConfirmations ExecutionConfirmation[] @relation("ExecutionConfirmationRequester")
+  confirmedExecutionConfirmations ExecutionConfirmation[] @relation("ExecutionConfirmationConfirmer")
   updatedConfigs       SystemConfig[]          @relation("SystemConfigEditor")
   tickets              Ticket[]
   messages             Message[]               @relation("MessageAuthor")
@@ -118,6 +168,14 @@ model User {
   blocksReceived       UserBlock[]             @relation("BlockedUser")
   blocksMade           UserBlock[]             @relation("BlockCreatedBy")
   preferences          UserPreference?
+  unavailablePeriods   ServicerUnavailability[] @relation("ServicerUnavailablePeriods")
+  pauseActions         InterventionPause[]      @relation("PauseActor")
+  pauseResponsibilities InterventionPause[]     @relation("PauseResponsibleUser")
+  escalationsCreated   InterventionEscalation[] @relation("EscalationCreator")
+  escalationsReviewed  InterventionEscalation[] @relation("EscalationReviewer")
+  reopenRequests       InterventionReopenRequest[] @relation("UserReopenRequests")
+  rescheduleRequests   AppointmentRescheduleRequest[] @relation("RescheduleRequester")
+  rescheduleResponses  AppointmentRescheduleRequest[] @relation("RescheduleResponder")
 }
 
 model UserPreference {
@@ -217,6 +275,10 @@ model Intervention {
   dueAt             DateTime?
   recurringPeriod   RecurringPeriod?
   nextGenerationAt  DateTime?
+  dispatchedAt      DateTime?
+  arrivedAt         DateTime?
+  fieldWorkEndedAt  DateTime?
+  appointmentConfirmedAt DateTime?
   categoryId        Int
   category          Category           @relation(fields: [categoryId], references: [id])
   creatorId         Int
@@ -231,7 +293,92 @@ model Intervention {
   comments          InterventionComment[]
   statusHistory     StatusHistory[]
   feedback          Feedback?
+  executionConfirmation ExecutionConfirmation?
   notifications     Notification[]
+  pauses            InterventionPause[]
+  escalations       InterventionEscalation[]
+  reopenRequests    InterventionReopenRequest[]
+  rescheduleRequests AppointmentRescheduleRequest[]
+}
+
+model AppointmentRescheduleRequest {
+  id                Int                     @id @default(autoincrement())
+  interventionId     Int
+  requestedById      Int
+  proposedStartedAt  DateTime
+  comment            String                  @db.VarChar(1000)
+  status             RescheduleRequestStatus @default(PENDING)
+  respondedById      Int?
+  responseComment    String?                 @db.VarChar(1000)
+  respondedAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  intervention       Intervention            @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  requestedBy        User                    @relation("RescheduleRequester", fields: [requestedById], references: [id])
+  respondedBy        User?                   @relation("RescheduleResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+
+  @@index([interventionId])
+  @@index([status])
+}
+
+model ServicerUnavailability {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  startAt     DateTime
+  endAt       DateTime
+  reason      String    @db.VarChar(500)
+  canceledAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation("ServicerUnavailablePeriods", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startAt, endAt])
+  @@index([canceledAt])
+}
+
+model InterventionPause {
+  id                    Int                @id @default(autoincrement())
+  interventionId         Int
+  pausedById             Int
+  responsibleUserId      Int?
+  reason                 PauseReason
+  otherReason            String?            @db.VarChar(1000)
+  previousStatus         InterventionStatus
+  pausedAt               DateTime           @default(now())
+  resumedAt              DateTime?
+  resumedById            Int?
+  resumeNote             String?            @db.VarChar(1000)
+  intervention           Intervention       @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  pausedBy               User               @relation("PauseActor", fields: [pausedById], references: [id])
+  responsibleUser        User?              @relation("PauseResponsibleUser", fields: [responsibleUserId], references: [id], onDelete: SetNull)
+
+  @@index([interventionId, resumedAt])
+  @@index([reason])
+  @@index([pausedAt])
+}
+
+model ExecutionConfirmation {
+  id              Int                         @id @default(autoincrement())
+  interventionId  Int                         @unique
+  requestedById   Int?
+  confirmedById   Int?
+  status          ExecutionConfirmationStatus @default(PENDING)
+  method          ExecutionConfirmationMethod?
+  pinHash         String?
+  signatureData   String?                     @db.LongText
+  rejectionReason String?                     @db.LongText
+  bypassReason    String?                     @db.LongText
+  requestedAt     DateTime                    @default(now())
+  respondedAt     DateTime?
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  intervention    Intervention                @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  requestedBy     User?                       @relation("ExecutionConfirmationRequester", fields: [requestedById], references: [id], onDelete: SetNull)
+  confirmedBy     User?                       @relation("ExecutionConfirmationConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([requestedById])
+  @@index([confirmedById])
 }
 
 model Report {
@@ -243,9 +390,15 @@ model Report {
   notes         String?        @db.LongText
   reportDate    DateTime       @default(now())
   status        ReportStatus   @default(DRAFT)
+  isRecommended Boolean        @default(false)
+  recommendedAt DateTime?
+  recommendedById Int?
   intervention  Intervention   @relation(fields: [interventionId], references: [id], onDelete: Cascade)
   author        User           @relation("ReportAuthor", fields: [authorId], references: [id])
+  recommendedBy User?          @relation("ReportRecommendedBy", fields: [recommendedById], references: [id], onDelete: SetNull)
   attachments   Attachment[]
+
+  @@index([isRecommended])
 }
 
 model Attachment {
@@ -338,6 +491,23 @@ model InterventionComment {
   author        User         @relation("CommentAuthor", fields: [authorId], references: [id])
 }
 
+model InterventionEscalation {
+  id             Int          @id @default(autoincrement())
+  interventionId Int
+  escalatedById  Int
+  reason         String       @db.VarChar(1000)
+  comment        String       @db.LongText
+  reviewedAt     DateTime?
+  reviewedById   Int?
+  createdAt      DateTime     @default(now())
+  intervention   Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  escalatedBy    User         @relation("EscalationCreator", fields: [escalatedById], references: [id])
+  reviewedBy     User?        @relation("EscalationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([interventionId])
+  @@index([createdAt])
+}
+
 model StatusHistory {
   id            Int                @id @default(autoincrement())
   interventionId Int
@@ -390,4 +560,29 @@ model Notification {
   user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   intervention  Intervention?     @relation(fields: [interventionId], references: [id], onDelete: SetNull)
   ticket        Ticket?           @relation(fields: [ticketId], references: [id], onDelete: SetNull)
+}
+
+model InterventionReopenRequest {
+  id Int @id @default(autoincrement())
+
+  interventionId Int
+  requesterId Int
+
+  reason String @db.LongText
+  comment String? @db.LongText
+
+  status ReopenRequestStatus @default(PENDING)
+
+  coordinatorComment String? @db.LongText
+
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+
+  intervention Intervention @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  requester User @relation(fields: [requesterId], references: [id], name: "UserReopenRequests")
+
+  @@index([interventionId])
+  @@index([requesterId])
+  @@index([status])
 }

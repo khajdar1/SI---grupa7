@@ -1,10 +1,15 @@
 import {
+  ExecutionConfirmationMethod,
+  ExecutionConfirmationStatus,
   InterventionStatus,
   InterventionType,
   NotificationType,
+  PauseReason,
   Priority,
   RecurringPeriod,
+  ReportStatus,
 } from "@prisma/client";
+import { createHash, randomInt } from "crypto";
 import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
 import { z } from "zod";
@@ -14,12 +19,15 @@ import { BULK_ACTIONS, HTTP_STATUS } from "../../constants";
 import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
+import { emitToUser } from "../../realtime/socket";
+import { getActiveUserIdsByKeycloakRole, shouldNotifyUser } from "../../shared/notification-preferences";
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import { formatMaterialItems } from "../../shared/material-item";
 import { computeNextGenerationAt } from "../../services/recurring.service";
 import { compactStoredLocation, resolvePersistableLocation } from "../../services/geocoding.service";
 import {
@@ -57,6 +65,10 @@ const EDITABLE_STATUSES = new Set<InterventionStatus>([
   InterventionStatus.NEW,
   InterventionStatus.IN_PROGRESS,
 ]);
+const PAUSABLE_STATUSES = new Set<InterventionStatus>([
+  InterventionStatus.ASSIGNED,
+  InterventionStatus.IN_PROGRESS,
+]);
 const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
   InterventionStatus,
   ReadonlySet<InterventionStatus>
@@ -73,12 +85,22 @@ const ALLOWED_STATUS_TRANSITIONS: ReadonlyMap<
     new Set<InterventionStatus>([
       InterventionStatus.IN_PROGRESS,
       InterventionStatus.CANCELLED,
+      InterventionStatus.ON_HOLD,
     ]),
   ],
   [
     InterventionStatus.IN_PROGRESS,
     new Set<InterventionStatus>([
       InterventionStatus.RESOLVED,
+      InterventionStatus.CANCELLED,
+      InterventionStatus.ON_HOLD,
+    ]),
+  ],
+  [
+    InterventionStatus.ON_HOLD,
+    new Set<InterventionStatus>([
+      InterventionStatus.ASSIGNED,
+      InterventionStatus.IN_PROGRESS,
       InterventionStatus.CANCELLED,
     ]),
   ],
@@ -103,6 +125,57 @@ const FEEDBACK_NOTIFICATION_COPY = {
 } as const;
 
 type FeedbackNotificationLanguage = keyof typeof FEEDBACK_NOTIFICATION_COPY;
+
+const INTERVENTION_SCHEDULED_NOTIFICATION_COPY = {
+  en: {
+    title: "Appointment scheduled",
+    text: (name: string, startedAt: string) =>
+      `An appointment has been scheduled for intervention "${name}" on ${startedAt}. Please confirm or request a change.`,
+  },
+  bs: {
+    title: "Termin zakazan",
+    text: (name: string, startedAt: string) =>
+      `Termin je zakazan za intervenciju "${name}" na ${startedAt}. Molimo potvrdite ili zatražite promjenu.`,
+  },
+} as const;
+
+const EXECUTION_CONFIRMATION_NOTIFICATION_COPY = {
+  en: {
+    title: "Digital confirmation requested",
+    text: (name: string, pin: string) =>
+      `Digital confirmation was requested for intervention "${name}". One-time PIN: ${pin}`,
+  },
+  bs: {
+    title: "Zatražena digitalna potvrda",
+    text: (name: string, pin: string) =>
+      `Zatražena je digitalna potvrda za intervenciju "${name}". Jednokratni PIN: ${pin}`,
+  },
+} as const;
+
+const EXECUTION_CONFIRMATION_RESPONSE_COPY = {
+  CONFIRMED: {
+    en: {
+      title: "Digital confirmation completed",
+      text: (name: string) => `The user confirmed execution for intervention "${name}".`,
+    },
+    bs: {
+      title: "Digitalna potvrda završena",
+      text: (name: string) => `Korisnik je potvrdio izvršenje intervencije "${name}".`,
+    },
+  },
+  REJECTED: {
+    en: {
+      title: "Digital confirmation rejected",
+      text: (name: string, reason: string | null) =>
+        `The user rejected execution confirmation for intervention "${name}".${reason ? ` Reason: ${reason}` : ""}`,
+    },
+    bs: {
+      title: "Digitalna potvrda odbijena",
+      text: (name: string, reason: string | null) =>
+        `Korisnik je odbio digitalnu potvrdu za intervenciju "${name}".${reason ? ` Razlog: ${reason}` : ""}`,
+    },
+  },
+} as const;
 
 function normalizeFeedbackNotificationLanguage(
   language: string | null | undefined,
@@ -180,8 +253,105 @@ const interventionHistoryQuerySchema = z.object({
   ).default(false),
 });
 
+const knowledgeBaseQuerySchema = z.object({
+  text: z.string().trim().min(1).max(200).optional(),
+  location: z.string().trim().min(1).max(200).optional(),
+  categoryId: z.coerce.number().int().positive().optional(),
+});
+
 const interventionStatusUpdateSchema = z.object({
   status: z.nativeEnum(InterventionStatus),
+  confirmationBypassReason: z.string().trim().min(3).max(1000).optional(),
+});
+
+const confirmationRequestSchema = z.object({});
+
+const confirmationConfirmSchema = z.discriminatedUnion("method", [
+  z.object({
+    method: z.literal(ExecutionConfirmationMethod.PIN),
+    pin: z.string().trim().regex(/^\d{6}$/, "PIN must contain 6 digits."),
+  }),
+  z.object({
+    method: z.literal(ExecutionConfirmationMethod.SIGNATURE),
+    signatureData: z.string().trim().min(10).max(500000),
+  }),
+]);
+
+const confirmationRejectSchema = z.object({
+  reason: z.string().trim().min(3).max(1000),
+});
+
+function hashPin(pin: string): string {
+  return createHash("sha256").update(pin).digest("hex");
+}
+
+function generatePin(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
+
+function mapExecutionConfirmation(confirmation: {
+  id?: number;
+  status: ExecutionConfirmationStatus;
+  method: ExecutionConfirmationMethod | null;
+  requestedAt: Date | null;
+  respondedAt: Date | null;
+  rejectionReason: string | null;
+  bypassReason: string | null;
+  requestedBy?: { firstName: string; lastName: string; username: string } | null;
+  confirmedBy?: { firstName: string; lastName: string; username: string } | null;
+}) {
+  return {
+    id: confirmation.id,
+    status: confirmation.status,
+    method: confirmation.method,
+    requestedAt: confirmation.requestedAt?.toISOString() ?? null,
+    respondedAt: confirmation.respondedAt?.toISOString() ?? null,
+    rejectionReason: confirmation.rejectionReason,
+    bypassReason: confirmation.bypassReason,
+    requestedBy: confirmation.requestedBy
+      ? (`${confirmation.requestedBy.firstName} ${confirmation.requestedBy.lastName}`).trim() ||
+        confirmation.requestedBy.username
+      : null,
+    confirmedBy: confirmation.confirmedBy
+      ? (`${confirmation.confirmedBy.firstName} ${confirmation.confirmedBy.lastName}`).trim() ||
+        confirmation.confirmedBy.username
+      : null,
+  };
+}
+
+const interventionPauseSchema = z.object({
+  reason: z.nativeEnum(PauseReason),
+  otherReason: z.string().trim().max(1000).optional().nullable(),
+  responsibleUserId: z.coerce.number().int().positive().optional().nullable(),
+}).refine((value) => value.reason !== PauseReason.OTHER || Boolean(value.otherReason?.trim()), {
+  path: ["otherReason"],
+  message: "Additional explanation is required when reason is Other.",
+});
+
+const interventionResumeSchema = z.object({
+  note: z.string().trim().max(1000).optional().nullable(),
+});
+
+const reopenRequestSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(10, "Reason is required.")
+    .max(2000),
+  comment: z
+    .string()
+    .trim()
+    .max(2000)
+    .optional()
+    .nullable(),
+});
+
+const rejectReopenRequestSchema = z.object({
+  coordinatorComment: z
+    .string()
+    .trim()
+    .min(5, "Comment is required.")
+    .max(2000),
 });
 
 function parseInterventionId(rawId: string | string[] | undefined): number {
@@ -287,6 +457,38 @@ async function resolveCreator(req: Request) {
   return user;
 }
 
+async function ensurePausePermission(req: Request, interventionId: number) {
+  if (hasAnyRole(req, COORDINATOR_ACTION_ROLES)) {
+    return;
+  }
+
+  const localUserId = req.user?.localUserId;
+  if (!localUserId) {
+    throw new ForbiddenError("You do not have permission to pause this intervention.");
+  }
+
+  const assignment = await prisma.assignment.findFirst({
+    where: { interventionId, userId: localUserId },
+    select: { id: true },
+  });
+
+  if (!assignment) {
+    throw new ForbiddenError("Only assigned servicers can pause this intervention.");
+  }
+}
+
+function mapPauseReason(reason: PauseReason): string {
+  const labels: Record<PauseReason, string> = {
+    [PauseReason.WAITING_FOR_CUSTOMER]: "Waiting for customer",
+    [PauseReason.WAITING_FOR_MATERIAL]: "Waiting for material",
+    [PauseReason.WAITING_FOR_EXTERNAL_CONTRACTOR]: "Waiting for external contractor",
+    [PauseReason.WAITING_FOR_APPROVAL]: "Waiting for approval",
+    [PauseReason.OTHER]: "Other",
+  };
+
+  return labels[reason];
+}
+
 async function resolvePlanningContext(
   input: z.infer<typeof interventionPayloadSchema>,
 ) {
@@ -370,7 +572,6 @@ async function calculateDueAt(
   });
 
   if (!sla) {
-    // Default fallback if SLA is not configured
     const defaultHours = priority === Priority.CRITICAL ? 4 : 24;
     return new Date(baseDate.getTime() + defaultHours * 60 * 60 * 1000);
   }
@@ -384,6 +585,10 @@ async function createFeedbackRequestNotificationOnce(input: {
   reporterUserId: number | null | undefined;
 }) {
   if (!input.reporterUserId) {
+    return;
+  }
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'FEEDBACK_REQUEST')) {
     return;
   }
 
@@ -418,6 +623,163 @@ async function createFeedbackRequestNotificationOnce(input: {
   });
 }
 
+async function createExecutionConfirmationNotification(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+  pin: string;
+}): Promise<boolean> {
+  if (!input.reporterUserId) {
+    return false;
+  }
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'EXECUTION_CONFIRMATION_REQUEST')) {
+    return false;
+  }
+
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = EXECUTION_CONFIRMATION_NOTIFICATION_COPY[language];
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.EXECUTION_CONFIRMATION_REQUEST,
+      title: copy.title,
+      text: copy.text(input.interventionName, input.pin),
+    },
+  });
+  emitToUser(input.reporterUserId, "notification:new", notification);
+
+  return true;
+}
+
+async function notifyServicersAboutExecutionConfirmationResponse(input: {
+  interventionId: number;
+  interventionName: string;
+  status: "CONFIRMED" | "REJECTED";
+  rejectionReason?: string | null;
+}) {
+  const assignments = await prisma.assignment.findMany({
+    where: { interventionId: input.interventionId },
+    select: { userId: true },
+  });
+  const userIds = [...new Set(assignments.map((assignment) => assignment.userId))];
+
+  await Promise.all(userIds.map(async (userId) => {
+    if (!await shouldNotifyUser(userId, 'EXECUTION_CONFIRMATION_RESPONSE')) {
+      return;
+    }
+
+    const preferences = await prisma.userPreference.findUnique({
+      where: { userId },
+      select: { language: true },
+    });
+    const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+    const copy = EXECUTION_CONFIRMATION_RESPONSE_COPY[input.status][language];
+    const text = input.status === "REJECTED"
+      ? EXECUTION_CONFIRMATION_RESPONSE_COPY.REJECTED[language].text(
+          input.interventionName,
+          input.rejectionReason ?? null,
+        )
+      : EXECUTION_CONFIRMATION_RESPONSE_COPY.CONFIRMED[language].text(input.interventionName);
+
+    const notification = await prisma.notification.create({
+      data: {
+        userId,
+        interventionId: input.interventionId,
+        type: NotificationType.EXECUTION_CONFIRMATION_RESPONSE,
+        title: copy.title,
+        text,
+      },
+    });
+    emitToUser(userId, "notification:new", notification);
+  }));
+}
+
+async function notifyCoordinatorsAboutReopenRequest(input: {
+  interventionId: number;
+  interventionName: string;
+  requesterId: number;
+  reason: string;
+}) {
+  try {
+    const [coordinatorIds, adminIds] = await Promise.all([
+      getActiveUserIdsByKeycloakRole("koordinator"),
+      getActiveUserIdsByKeycloakRole("admin"),
+    ]);
+    const userIds = [...new Set([...coordinatorIds, ...adminIds])].filter(
+      (userId) => userId !== input.requesterId,
+    );
+
+    await Promise.all(userIds.map(async (userId) => {
+      if (!await shouldNotifyUser(userId, "REOPEN_REQUEST")) {
+        return;
+      }
+
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          interventionId: input.interventionId,
+          type: NotificationType.REOPEN_REQUEST,
+          title: "Reopen request submitted",
+          text: `A user requested reopening for intervention "${input.interventionName}". Reason: ${input.reason}`,
+        },
+      });
+      emitToUser(userId, "notification:new", notification);
+    }));
+  } catch (error) {
+    console.warn("Failed to notify coordinators about reopen request.", error);
+  }
+}
+async function createScheduledNotification(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+  startedAt: Date;
+}) {
+  if (!input.reporterUserId) return;
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'INTERVENTION_SCHEDULED')) return;
+
+  const existingNotification = await prisma.notification.findFirst({
+    where: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+    },
+    select: { id: true },
+  });
+
+  if (existingNotification) return;
+
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = INTERVENTION_SCHEDULED_NOTIFICATION_COPY[language];
+  const formattedDate = input.startedAt.toLocaleString("en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+      title: copy.title,
+      text: copy.text(input.interventionName, formattedDate),
+    },
+  });
+  emitToUser(input.reporterUserId, "notification:new", notification);
+}
+
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
@@ -442,6 +804,7 @@ function mapIntervention(intervention: {
   createdAt: Date;
   startedAt: Date | null;
   dueAt: Date | null;
+  appointmentConfirmedAt: Date | null;
   recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
@@ -464,7 +827,31 @@ function mapIntervention(intervention: {
       email: string;
     };
   }>;
-  
+  dispatchedAt?: Date | null;
+  arrivedAt?: Date | null;
+  fieldWorkEndedAt?: Date | null;
+  executionConfirmation?: {
+    id: number;
+    status: ExecutionConfirmationStatus;
+    method: ExecutionConfirmationMethod | null;
+    requestedAt: Date;
+    respondedAt: Date | null;
+    rejectionReason: string | null;
+    bypassReason: string | null;
+    requestedBy: { firstName: string; lastName: string; username: string } | null;
+    confirmedBy: { firstName: string; lastName: string; username: string } | null;
+  } | null;
+  pauses?: Array<{
+    id: number;
+    reason: PauseReason;
+    otherReason: string | null;
+    previousStatus: InterventionStatus;
+    pausedAt: Date;
+    resumedAt: Date | null;
+    resumeNote: string | null;
+    pausedBy: { id: number; firstName: string; lastName: string; username: string };
+    responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
+  }>;
 }) {
   const overdue = isOverdue({ status: intervention.status, dueAt: intervention.dueAt });
   return {
@@ -487,6 +874,7 @@ function mapIntervention(intervention: {
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
     dueAt: intervention.dueAt?.toISOString() ?? null,
+    appointmentConfirmedAt: intervention.appointmentConfirmedAt?.toISOString() ?? null,
     isOverdue: overdue,
     faultReport: intervention.faultReport
       ? {
@@ -504,6 +892,9 @@ function mapIntervention(intervention: {
         }
       : null,
     recurringPeriod: intervention.recurringPeriod ?? null,
+    dispatchedAt: intervention.dispatchedAt?.toISOString() ?? null,
+    arrivedAt: intervention.arrivedAt?.toISOString() ?? null,
+    fieldWorkEndedAt: intervention.fieldWorkEndedAt?.toISOString() ?? null,
     assignments:
       intervention.assignments?.map((assignment) => ({
         id: assignment.id,
@@ -517,6 +908,72 @@ function mapIntervention(intervention: {
         },
         assignedAt: assignment.assignedAt.toISOString(),
       })) ?? [],
+    executionConfirmation: intervention.executionConfirmation
+      ? mapExecutionConfirmation(intervention.executionConfirmation)
+      : mapExecutionConfirmation({
+          status: ExecutionConfirmationStatus.NOT_REQUESTED,
+          method: null,
+          requestedAt: null,
+          respondedAt: null,
+          rejectionReason: null,
+          bypassReason: null,
+          requestedBy: null,
+          confirmedBy: null,
+        }),
+    pauses:
+      intervention.pauses?.map((pause) => ({
+        id: pause.id,
+        reason: pause.reason,
+        otherReason: pause.otherReason,
+        previousStatus: pause.previousStatus,
+        pausedAt: pause.pausedAt.toISOString(),
+        resumedAt: pause.resumedAt?.toISOString() ?? null,
+        resumeNote: pause.resumeNote,
+        pausedBy: pause.pausedBy,
+        responsibleUser: pause.responsibleUser,
+      })) ?? [],
+  };
+}
+
+function buildLocationSearchTerm(location: string): string | null {
+  const compact = compactStoredLocation(location).trim();
+  if (compact.length < 3) {
+    return null;
+  }
+  return compact.length > 80 ? compact.slice(0, 80) : compact;
+}
+
+function mapKnowledgeSolution(report: {
+  id: number;
+  description: string;
+  material: string | null;
+  notes: string | null;
+  reportDate: Date;
+  isRecommended: boolean;
+  recommendedAt: Date | null;
+  intervention: {
+    id: number;
+    name: string;
+    description: string;
+    location: string;
+    createdAt: Date;
+    category: { id: number; name: string };
+  };
+}) {
+  return {
+    reportId: report.id,
+    title: report.intervention.name,
+    problemDescription: report.intervention.description,
+    solution: report.description,
+    material: formatMaterialItems(report.material),
+    notes: report.notes,
+    locationHint: compactStoredLocation(report.intervention.location),
+    categoryId: report.intervention.category.id,
+    categoryName: report.intervention.category.name,
+    reportDate: report.reportDate.toISOString(),
+    interventionDate: report.intervention.createdAt.toISOString(),
+    isRecommended: report.isRecommended,
+    recommendedAt: report.recommendedAt?.toISOString() ?? null,
   };
 }
 
@@ -569,7 +1026,55 @@ const interventionInclude = {
       },
     },
   },
+  executionConfirmation: {
+    select: {
+      id: true,
+      status: true,
+      method: true,
+      requestedAt: true,
+      respondedAt: true,
+      rejectionReason: true,
+      bypassReason: true,
+      requestedBy: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+      confirmedBy: {
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+    },
+  },
+  pauses: {
+    orderBy: { pausedAt: "desc" },
+    include: {
+      pausedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+      responsibleUser: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+        },
+      },
+    },
+  },
 } as const;
+
+// ─── ROUTES ──────────────────────────────────────────────────────────────────
 
 interventionsRouter.get(
   "/options",
@@ -623,11 +1128,20 @@ interventionsRouter.get(
       where: {
         archived: false,
         status: {
-          in: [
-            InterventionStatus.NEW,
-            InterventionStatus.ASSIGNED,
-            InterventionStatus.IN_PROGRESS,
-          ],
+          in: hasOperationalView
+            ? [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+              ]
+            : [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+                InterventionStatus.RESOLVED,
+              ],
         },
         ...(hasOperationalView
           ? {}
@@ -663,12 +1177,9 @@ interventionsRouter.get(
     const sortedInterventions = [...interventions].sort((a, b) => {
       const rankA = priorityRank[a.priority] || 0;
       const rankB = priorityRank[b.priority] || 0;
-      
       if (rankA !== rankB) {
-        return rankB - rankA; // Priority descending
+        return rankB - rankA;
       }
-      
-      // Secondary sort: createdAt ascending
       return a.createdAt.getTime() - b.createdAt.getTime();
     });
 
@@ -805,6 +1316,15 @@ interventionsRouter.get(
           priority: true,
           createdAt: true,
           archived: true,
+          executionConfirmation: {
+            select: {
+              status: true,
+              method: true,
+              respondedAt: true,
+              rejectionReason: true,
+              bypassReason: true,
+            },
+          },
           category: {
             select: {
               id: true,
@@ -853,6 +1373,21 @@ interventionsRouter.get(
                 )
                 .join(", ")
             : "Unassigned",
+        executionConfirmation: intervention.executionConfirmation
+          ? {
+              status: intervention.executionConfirmation.status,
+              method: intervention.executionConfirmation.method,
+              respondedAt: intervention.executionConfirmation.respondedAt?.toISOString() ?? null,
+              rejectionReason: intervention.executionConfirmation.rejectionReason,
+              bypassReason: intervention.executionConfirmation.bypassReason,
+            }
+          : {
+              status: ExecutionConfirmationStatus.NOT_REQUESTED,
+              method: null,
+              respondedAt: null,
+              rejectionReason: null,
+              bypassReason: null,
+            },
       })),
       pagination: {
         page,
@@ -898,7 +1433,7 @@ interventionsRouter.post(
       ? computeNextGenerationAt(plannedStart ?? new Date(), recurringPeriod)
       : null;
 
-const intervention = await prisma.intervention.create({
+    const intervention = await prisma.intervention.create({
       data: {
         name: input.name,
         description: input.description,
@@ -908,7 +1443,7 @@ const intervention = await prisma.intervention.create({
         priority: input.priority,
         status: InterventionStatus.NEW,
         type: InterventionType.PREVENTIVE,
-        startedAt: null,
+        startedAt: plannedStart,
         dueAt: input.dueAt ?? await calculateDueAt(input.priority, plannedStart),
         recurringPeriod,
         nextGenerationAt,
@@ -920,7 +1455,389 @@ const intervention = await prisma.intervention.create({
       include: interventionInclude,
     });
 
+    if (plannedStart) {
+      await AuditService.record({
+        action: "INTERVENTION_SCHEDULED",
+        entity: "Intervention",
+        entityId: intervention.id,
+        actorId: creator.id,
+        actorUsername: creator.username,
+        details: `Appointment scheduled for intervention "${intervention.name}" at ${plannedStart.toISOString()}`,
+      });
+    }
+
     res.status(HTTP_STATUS.CREATED).json(mapIntervention(intervention));
+  }),
+);
+
+// ─── REOPEN REQUESTS (mora biti PRIJE /:id ruta) ──────────────────────────────
+
+interventionsRouter.get(
+  "/reopen-requests",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  asyncHandler(async (_req, res) => {
+    const requests = await prisma.interventionReopenRequest.findMany({
+      include: {
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
+        requester: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.json(requests);
+  }),
+);
+
+interventionsRouter.patch(
+  "/reopen-requests/:requestId/approve",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  asyncHandler(async (req, res) => {
+    const requestId = Number(req.params.requestId);
+
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      throw new BadRequestError("Invalid request identifier.");
+    }
+
+    const actor = await resolveCreator(req);
+
+    const request = await prisma.interventionReopenRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundError("Reopen request not found.");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new BadRequestError("Request has already been processed.");
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.interventionReopenRequest.update({
+        where: { id: requestId },
+        data: {
+          status: "APPROVED",
+          resolvedAt: new Date(),
+        },
+      });
+
+      await tx.intervention.update({
+        where: { id: request.interventionId },
+        data: { status: InterventionStatus.ASSIGNED },
+      });
+
+      await tx.statusHistory.create({
+        data: {
+          interventionId: request.interventionId,
+          authorId: actor.id,
+          oldStatus: InterventionStatus.RESOLVED,
+          newStatus: InterventionStatus.ASSIGNED,
+        },
+      });
+    });
+
+    const assignments = await prisma.assignment.findMany({
+      where: { interventionId: request.interventionId },
+      select: { userId: true },
+    });
+
+    for (const assignment of assignments) {
+      await prisma.notification.create({
+        data: {
+          userId: assignment.userId,
+          interventionId: request.interventionId,
+          type: NotificationType.REOPEN_APPROVED,
+          title: "Intervention reopened",
+          text: "The intervention has been reopened and requires further work.",
+        },
+      });
+    }
+
+    await prisma.notification.create({
+      data: {
+        userId: request.requesterId,
+        interventionId: request.interventionId,
+        type: NotificationType.REOPEN_APPROVED,
+        title: "Reopen request approved",
+        text: "Your request for reopening has been approved.",
+      },
+    });
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_APPROVED",
+      entity: "Intervention",
+      entityId: String(request.interventionId),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Reopen request approved for intervention ${request.interventionId}`,
+    });
+
+    res.json({ message: "Reopen request approved." });
+  }),
+);
+
+interventionsRouter.patch(
+  "/reopen-requests/:requestId/reject",
+  authorizeRoles(COORDINATOR_ACTION_ROLES),
+  validate(rejectReopenRequestSchema),
+  asyncHandler(async (req, res) => {
+    const requestId = Number(req.params.requestId);
+
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      throw new BadRequestError("Invalid request identifier.");
+    }
+
+    const request = await prisma.interventionReopenRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundError("Reopen request not found.");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new BadRequestError("Request has already been processed.");
+    }
+
+    await prisma.interventionReopenRequest.update({
+      where: { id: requestId },
+      data: {
+        status: "REJECTED",
+        coordinatorComment: req.body.coordinatorComment,
+        resolvedAt: new Date(),
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: request.requesterId,
+        interventionId: request.interventionId,
+        type: NotificationType.REOPEN_REJECTED,
+        title: "Reopen request rejected",
+        text: req.body.coordinatorComment,
+      },
+    });
+
+    const actor = await resolveCreator(req);
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_REJECTED",
+      entity: "Intervention",
+      entityId: String(request.interventionId),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: req.body.coordinatorComment,
+    });
+
+    res.json({ message: "Reopen request rejected." });
+  }),
+);
+
+// ─── /:id ROUTES ──────────────────────────────────────────────────────────────
+
+interventionsRouter.post(
+  "/:id/pause",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(interventionPauseSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    await ensurePausePermission(req, id);
+    const actor = await resolveCreator(req);
+    const input = req.body as z.infer<typeof interventionPauseSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        startedAt: true,
+        archived: true,
+        faultReport: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be paused.");
+    }
+
+    if (!PAUSABLE_STATUSES.has(existing.status)) {
+      throw new ForbiddenError("Only assigned or in-progress interventions can be paused.");
+    }
+
+    const activePause = await prisma.interventionPause.findFirst({
+      where: { interventionId: id, resumedAt: null },
+      select: { id: true },
+    });
+
+    if (activePause) {
+      throw new BadRequestError("Intervention is already paused.");
+    }
+
+    const { intervention, pause } = await prisma.$transaction(async (tx) => {
+      const pauseRecord = await tx.interventionPause.create({
+        data: {
+          interventionId: id,
+          pausedById: actor.id,
+          responsibleUserId: input.responsibleUserId ?? actor.id,
+          reason: input.reason,
+          otherReason: input.reason === PauseReason.OTHER ? input.otherReason?.trim() ?? null : null,
+          previousStatus: existing.status,
+        },
+      });
+      await tx.statusHistory.create({
+        data: {
+          interventionId: id,
+          authorId: actor.id,
+          oldStatus: existing.status,
+          newStatus: InterventionStatus.ON_HOLD,
+        },
+      });
+      const updatedIntervention = await tx.intervention.update({
+        where: { id },
+        data: { status: InterventionStatus.ON_HOLD },
+        include: interventionInclude,
+      });
+
+      return { intervention: updatedIntervention, pause: pauseRecord };
+    });
+
+    await AuditService.record({
+      action: "INTERVENTION_PAUSED",
+      entity: "Intervention",
+      entityId: id,
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Intervention #${id} paused. Reason: ${mapPauseReason(input.reason)}.`,
+      newValues: {
+        pauseId: pause.id,
+        reason: input.reason,
+        otherReason: input.otherReason ?? null,
+        previousStatus: existing.status,
+      },
+    });
+
+    if (input.reason === PauseReason.WAITING_FOR_CUSTOMER && existing.faultReport?.userId) {
+      if (await shouldNotifyUser(existing.faultReport.userId, 'INTERVENTION_PAUSED')) {
+        await prisma.notification.create({
+          data: {
+            userId: existing.faultReport.userId,
+            title: "Intervention paused",
+            text: `Intervention "${existing.name}" is waiting for your input before work can continue.`,
+            type: NotificationType.INTERVENTION_PAUSED,
+            interventionId: id,
+          },
+        });
+      }
+    }
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/resume",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(interventionResumeSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    await ensurePausePermission(req, id);
+    const actor = await resolveCreator(req);
+    const input = req.body as z.infer<typeof interventionResumeSchema>;
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: { id: true, status: true, archived: true },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be resumed.");
+    }
+
+    if (existing.status !== InterventionStatus.ON_HOLD) {
+      throw new ForbiddenError("Only paused interventions can be resumed.");
+    }
+
+    const activePause = await prisma.interventionPause.findFirst({
+      where: { interventionId: id, resumedAt: null },
+      select: { id: true, previousStatus: true },
+      orderBy: { pausedAt: "desc" },
+    });
+
+    if (!activePause) {
+      throw new BadRequestError("Active pause record was not found.");
+    }
+
+    const nextStatus =
+      activePause.previousStatus === InterventionStatus.ASSIGNED ||
+      activePause.previousStatus === InterventionStatus.IN_PROGRESS
+        ? activePause.previousStatus
+        : InterventionStatus.IN_PROGRESS;
+
+    const intervention = await prisma.$transaction(async (tx) => {
+      await tx.interventionPause.update({
+        where: { id: activePause.id },
+        data: {
+          resumedAt: new Date(),
+          resumedById: actor.id,
+          resumeNote: input.note?.trim() || null,
+        },
+      });
+      await tx.statusHistory.create({
+        data: {
+          interventionId: id,
+          authorId: actor.id,
+          oldStatus: InterventionStatus.ON_HOLD,
+          newStatus: nextStatus,
+        },
+      });
+      return tx.intervention.update({
+        where: { id },
+        data: { status: nextStatus },
+        include: interventionInclude,
+      });
+    });
+
+    await AuditService.record({
+      action: "INTERVENTION_RESUMED",
+      entity: "Intervention",
+      entityId: id,
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: `Intervention #${id} resumed.`,
+      newValues: {
+        pauseId: activePause.id,
+        status: nextStatus,
+        note: input.note ?? null,
+      },
+    });
+
+    res.json(mapIntervention(intervention));
   }),
 );
 
@@ -938,11 +1855,16 @@ interventionsRouter.patch(
         id: true,
         name: true,
         status: true,
+        startedAt: true,
+        fieldWorkEndedAt: true,
         archived: true,
-        faultReport: {
+        executionConfirmation: {
           select: {
-            userId: true,
+            status: true,
           },
+        },
+        faultReport: {
+          select: { userId: true },
         },
       },
     });
@@ -955,6 +1877,10 @@ interventionsRouter.patch(
       throw new ForbiddenError("Archived interventions cannot have their status changed.");
     }
 
+    if (input.status === InterventionStatus.ON_HOLD) {
+      throw new BadRequestError("Use the pause action to put an intervention on hold.");
+    }
+
     const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
 
     if (!allowedTargets?.has(input.status)) {
@@ -964,27 +1890,71 @@ interventionsRouter.patch(
     }
 
     const actor = await resolveCreator(req);
+    const closesIntervention = input.status === InterventionStatus.RESOLVED;
+    const hasUserConfirmation =
+      existing.executionConfirmation?.status === ExecutionConfirmationStatus.CONFIRMED;
 
-    const [intervention] = await prisma.$transaction([
-      prisma.intervention.update({
+    if (closesIntervention && !hasUserConfirmation && !input.confirmationBypassReason?.trim()) {
+      throw new BadRequestError(
+        "Closing an intervention without user confirmation requires a comment.",
+        [
+          {
+            field: "confirmationBypassReason",
+            message: "Comment is required when closing without digital confirmation.",
+          },
+        ],
+      );
+    }
+
+    const intervention = await prisma.$transaction(async (tx) => {
+      if (closesIntervention && !hasUserConfirmation) {
+        await tx.executionConfirmation.upsert({
+          where: { interventionId: id },
+          create: {
+            interventionId: id,
+            requestedById: actor.id,
+            status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+            method: ExecutionConfirmationMethod.NONE,
+            bypassReason: input.confirmationBypassReason!.trim(),
+            respondedAt: new Date(),
+          },
+          update: {
+            status: ExecutionConfirmationStatus.CLOSED_WITHOUT_CONFIRMATION,
+            method: ExecutionConfirmationMethod.NONE,
+            pinHash: null,
+            signatureData: null,
+            rejectionReason: null,
+            bypassReason: input.confirmationBypassReason!.trim(),
+            respondedAt: new Date(),
+          },
+        });
+      }
+
+      const updatedIntervention = await tx.intervention.update({
         where: { id },
         data: {
           status: input.status,
-          ...(input.status === InterventionStatus.IN_PROGRESS
+          ...(input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt
             ? { startedAt: new Date() }
+            : {}),
+          ...(input.status === InterventionStatus.RESOLVED && !existing.fieldWorkEndedAt
+            ? { fieldWorkEndedAt: new Date() }
             : {}),
         },
         include: interventionInclude,
-      }),
-      prisma.statusHistory.create({
+      });
+
+      await tx.statusHistory.create({
         data: {
           interventionId: id,
           authorId: actor.id,
           oldStatus: existing.status,
           newStatus: input.status,
         },
-      }),
-    ]);
+      });
+
+      return updatedIntervention;
+    });
 
     if (input.status === InterventionStatus.RESOLVED) {
       await createFeedbackRequestNotificationOnce({
@@ -994,7 +1964,309 @@ interventionsRouter.patch(
       });
     }
 
+    if (input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: new Date(),
+      });
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment auto-set for intervention "${existing.name}" on status change to IN_PROGRESS`,
+        oldValues: { startedAt: null },
+        newValues: { startedAt: new Date().toISOString() },
+      });
+    }
+
     res.json(mapIntervention(intervention));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/request",
+  authorizeRoles(INTERVENTION_STATUS_ROLES),
+  validate(confirmationRequestSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        archived: true,
+        faultReport: {
+          select: {
+            userId: true,
+          },
+        },
+        executionConfirmation: {
+          select: {
+            status: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot request execution confirmation.");
+    }
+
+    if (existing.status !== InterventionStatus.IN_PROGRESS) {
+      throw new ForbiddenError(
+        "Execution confirmation can be requested only while the intervention is in progress.",
+      );
+    }
+
+    if (existing.executionConfirmation?.status === ExecutionConfirmationStatus.CONFIRMED) {
+      throw new ForbiddenError("Execution confirmation has already been confirmed.");
+    }
+
+    const actor = await resolveCreator(req);
+    const pin = generatePin();
+    const confirmation = await prisma.executionConfirmation.upsert({
+      where: { interventionId: id },
+      create: {
+        interventionId: id,
+        requestedById: actor.id,
+        status: ExecutionConfirmationStatus.PENDING,
+        pinHash: hashPin(pin),
+        requestedAt: new Date(),
+      },
+      update: {
+        requestedById: actor.id,
+        confirmedById: null,
+        status: ExecutionConfirmationStatus.PENDING,
+        method: null,
+        pinHash: hashPin(pin),
+        signatureData: null,
+        rejectionReason: null,
+        bypassReason: null,
+        requestedAt: new Date(),
+        respondedAt: null,
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    const deliveredToUser = await createExecutionConfirmationNotification({
+      interventionId: id,
+      interventionName: existing.name,
+      reporterUserId: existing.faultReport?.userId,
+      pin,
+    });
+
+    res.status(HTTP_STATUS.CREATED).json({
+      confirmation: mapExecutionConfirmation(confirmation),
+      pin: deliveredToUser ? null : pin,
+      pinDelivery: deliveredToUser ? "NOTIFICATION" : "REQUESTER",
+    });
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/confirm",
+  authorizeInterventionAccess,
+  validate(confirmationConfirmSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof confirmationConfirmSchema>;
+
+    const existing = await prisma.executionConfirmation.findUnique({
+      where: { interventionId: id },
+      select: {
+        id: true,
+        status: true,
+        pinHash: true,
+        intervention: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Execution confirmation request not found.");
+    }
+
+    if (existing.status !== ExecutionConfirmationStatus.PENDING) {
+      throw new ForbiddenError("Execution confirmation is not pending.");
+    }
+
+    if (
+      input.method === ExecutionConfirmationMethod.PIN &&
+      existing.pinHash !== hashPin(input.pin)
+    ) {
+      throw new BadRequestError("Invalid confirmation PIN.", [
+        { field: "pin", message: "PIN is not valid for this confirmation request." },
+      ]);
+    }
+
+    const confirmation = await prisma.executionConfirmation.update({
+      where: { interventionId: id },
+      data: {
+        confirmedById: req.user?.localUserId ?? null,
+        status: ExecutionConfirmationStatus.CONFIRMED,
+        method: input.method,
+        pinHash: null,
+        signatureData:
+          input.method === ExecutionConfirmationMethod.SIGNATURE
+            ? input.signatureData
+            : null,
+        rejectionReason: null,
+        bypassReason: null,
+        respondedAt: new Date(),
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    await notifyServicersAboutExecutionConfirmationResponse({
+      interventionId: id,
+      interventionName: existing.intervention.name,
+      status: "CONFIRMED",
+    });
+
+    res.json(mapExecutionConfirmation(confirmation));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/confirmation/reject",
+  authorizeInterventionAccess,
+  validate(confirmationRejectSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof confirmationRejectSchema>;
+
+    const existing = await prisma.executionConfirmation.findUnique({
+      where: { interventionId: id },
+      select: {
+        id: true,
+        status: true,
+        intervention: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Execution confirmation request not found.");
+    }
+
+    if (existing.status !== ExecutionConfirmationStatus.PENDING) {
+      throw new ForbiddenError("Execution confirmation is not pending.");
+    }
+
+    const confirmation = await prisma.executionConfirmation.update({
+      where: { interventionId: id },
+      data: {
+        confirmedById: req.user?.localUserId ?? null,
+        status: ExecutionConfirmationStatus.REJECTED,
+        method: ExecutionConfirmationMethod.NONE,
+        pinHash: null,
+        signatureData: null,
+        rejectionReason: input.reason,
+        bypassReason: null,
+        respondedAt: new Date(),
+      },
+      select: interventionInclude.executionConfirmation.select,
+    });
+
+    await notifyServicersAboutExecutionConfirmationResponse({
+      interventionId: id,
+      interventionName: existing.intervention.name,
+      status: "REJECTED",
+      rejectionReason: input.reason,
+    });
+
+    res.json(mapExecutionConfirmation(confirmation));
+  }),
+);
+
+interventionsRouter.post(
+  "/:id/reopen-request",
+  authorizeInterventionAccess,
+  validate(reopenRequestSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const userId = req.user?.localUserId;
+
+    if (!userId) {
+      throw new ForbiddenError("User not found.");
+    }
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      include: {
+        faultReport: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (intervention.faultReport?.userId !== userId) {
+      throw new ForbiddenError("Only the reporting user can request reopening.");
+    }
+
+    if (intervention.status !== InterventionStatus.RESOLVED) {
+      throw new ForbiddenError("Only resolved interventions can be reopened.");
+    }
+
+    const existingRequest = await prisma.interventionReopenRequest.findFirst({
+      where: {
+        interventionId: id,
+        status: "PENDING",
+      },
+    });
+
+    if (existingRequest) {
+      throw new BadRequestError("An active reopen request already exists.");
+    }
+
+    const request = await prisma.interventionReopenRequest.create({
+      data: {
+        interventionId: id,
+        requesterId: userId,
+        reason: req.body.reason,
+        comment: req.body.comment ?? null,
+      },
+    });
+
+    const actor = await resolveCreator(req);
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_CREATED",
+      entity: "Intervention",
+      entityId: String(id),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: req.body.reason,
+    });
+
+    await notifyCoordinatorsAboutReopenRequest({
+      interventionId: id,
+      interventionName: intervention.name,
+      requesterId: userId,
+      reason: req.body.reason,
+    });
+
+    res.status(HTTP_STATUS.CREATED).json(request);
   }),
 );
 
@@ -1008,7 +2280,15 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, priority: true, startedAt: true, dueAt: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        priority: true,
+        startedAt: true,
+        dueAt: true,
+        faultReport: { select: { userId: true } },
+      },
     });
 
     if (!existing) {
@@ -1028,6 +2308,7 @@ interventionsRouter.patch(
       longitude: input.longitude ?? (context.longitude === null ? null : Number(context.longitude)),
       required: true,
     });
+
     const intervention = await prisma.intervention.update({
       where: { id },
       data: {
@@ -1037,6 +2318,7 @@ interventionsRouter.patch(
         latitude: resolvedLocation.latitude,
         longitude: resolvedLocation.longitude,
         priority: input.priority,
+        startedAt: input.startedAt ?? existing.startedAt,
         type: input.faultReportId
           ? InterventionType.ISSUE
           : InterventionType.PREVENTIVE,
@@ -1061,6 +2343,30 @@ interventionsRouter.patch(
       );
     }
 
+    const newStartedAt = input.startedAt ?? existing.startedAt;
+    if (newStartedAt && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: newStartedAt,
+      });
+    }
+
+    if (input.startedAt && (!existing.startedAt || input.startedAt.getTime() !== existing.startedAt.getTime())) {
+      const actor = await resolveCreator(req);
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment time changed for intervention "${existing.name}" from ${existing.startedAt?.toISOString() ?? "none"} to ${input.startedAt.toISOString()}`,
+        oldValues: { startedAt: existing.startedAt?.toISOString() ?? null },
+        newValues: { startedAt: input.startedAt.toISOString() },
+      });
+    }
+
     res.json(mapIntervention(intervention));
   }),
 );
@@ -1080,8 +2386,130 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
+    res.json({ ...mapIntervention(intervention) });
+    
+    const rescheduleRequests = await prisma.appointmentRescheduleRequest.findMany({
+      where: { interventionId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        requestedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        respondedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+      },
+    });
+
     res.json({
       ...mapIntervention(intervention),
+      rescheduleRequests: rescheduleRequests.map((r) => ({
+        id: r.id,
+        proposedStartedAt: r.proposedStartedAt.toISOString(),
+        comment: r.comment,
+        status: r.status,
+        responseComment: r.responseComment,
+        respondedAt: r.respondedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+        requestedBy: r.requestedBy
+          ? `${r.requestedBy.firstName} ${r.requestedBy.lastName}`.trim() || r.requestedBy.username
+          : null,
+        respondedBy: r.respondedBy
+          ? `${r.respondedBy.firstName} ${r.respondedBy.lastName}`.trim() || r.respondedBy.username
+          : null,
+      })),
+    });
+  }),
+);
+
+interventionsRouter.get(
+  "/:id/knowledge-base",
+  authorizeRoles(INTERVENTION_HISTORY_ROLES),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const parsedQuery = knowledgeBaseQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      throw new BadRequestError(
+        "Invalid knowledge base filters.",
+        parsedQuery.error.issues.map((issue) => ({
+          field: issue.path.join(".") || "query",
+          message: issue.message,
+        })),
+      );
+    }
+    const query = parsedQuery.data;
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        categoryId: true,
+        location: true,
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    const locationTerm = query.location
+      ? buildLocationSearchTerm(query.location)
+      : null;
+    const textTerm = query.text?.trim();
+    const categoryId = query.categoryId ?? intervention.categoryId;
+    const textFilters = textTerm
+      ? [
+          { description: { contains: textTerm } },
+          { material: { contains: textTerm } },
+          { notes: { contains: textTerm } },
+          { intervention: { description: { contains: textTerm } } },
+          { intervention: { name: { contains: textTerm } } },
+        ]
+      : [];
+
+    const reports = await prisma.report.findMany({
+      where: {
+        status: ReportStatus.FINALIZED,
+        isRecommended: true,
+        interventionId: { not: intervention.id },
+        AND: [
+          { intervention: { categoryId } },
+          ...(locationTerm
+            ? [{ intervention: { location: { contains: locationTerm } } }]
+            : []),
+          ...(textFilters.length > 0 ? [{ OR: textFilters }] : []),
+        ],
+      },
+      orderBy: [
+        { isRecommended: "desc" },
+        { recommendedAt: "desc" },
+        { reportDate: "desc" },
+      ],
+      take: 8,
+      select: {
+        id: true,
+        description: true,
+        material: true,
+        notes: true,
+        reportDate: true,
+        isRecommended: true,
+        recommendedAt: true,
+        intervention: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            location: true,
+            createdAt: true,
+            category: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    res.json({
+      message: "Knowledge base solutions loaded successfully.",
+      data: reports.map(mapKnowledgeSolution),
     });
   }),
 );
@@ -1150,6 +2578,111 @@ const recurrenceUpdateSchema = z.object({
   recurringPeriod: z.nativeEnum(RecurringPeriod).nullable(),
 });
 
+const fieldTrackingSchema = z.object({
+  action: z.enum(["DISPATCH", "ARRIVE", "END"]),
+});
+
+interventionsRouter.patch(
+  "/:id/field-tracking",
+  authorizeRoles(SERVICER_ROLES),
+  validate(fieldTrackingSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const input = req.body as z.infer<typeof fieldTrackingSchema>;
+    const actor = await resolveCreator(req);
+
+    const existing = await prisma.intervention.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        status: true,
+        archived: true,
+        dispatchedAt: true,
+        arrivedAt: true,
+        fieldWorkEndedAt: true,
+        assignments: { select: { userId: true } },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (existing.archived) {
+      throw new ForbiddenError("Archived interventions cannot be updated.");
+    }
+
+    const isAssigned = existing.assignments.some((a) => a.userId === actor.id);
+    if (!isAssigned) {
+      throw new ForbiddenError("Only assigned servicers can update field tracking.");
+    }
+
+    if (
+      existing.status !== "ASSIGNED" &&
+      existing.status !== "IN_PROGRESS"
+    ) {
+      throw new ForbiddenError("Field tracking is only available for assigned or in-progress interventions.");
+    }
+
+    const now = new Date();
+    let updateData: Record<string, Date> = {};
+    let notificationType: "SERVICER_DISPATCHED" | "SERVICER_ARRIVED" | null = null;
+    let notificationTitle = "";
+    let notificationText = "";
+
+    if (input.action === "DISPATCH") {
+      if (existing.dispatchedAt) {
+        throw new BadRequestError("Dispatch time already recorded.");
+      }
+      updateData = { dispatchedAt: now };
+      notificationType = "SERVICER_DISPATCHED";
+      notificationTitle = "Serviser je na putu";
+      notificationText = "Serviser je krenuo prema lokaciji intervencije.";
+    } else if (input.action === "ARRIVE") {
+      if (!existing.dispatchedAt) {
+        throw new BadRequestError("Cannot mark arrival before dispatch.");
+      }
+      if (existing.arrivedAt) {
+        throw new BadRequestError("Arrival time already recorded.");
+      }
+      updateData = { arrivedAt: now };
+      notificationType = "SERVICER_ARRIVED";
+      notificationTitle = "Serviser je stigao";
+      notificationText = "Serviser je stigao na lokaciju intervencije.";
+    } else if (input.action === "END") {
+      throw new BadRequestError("Use the close action to finish field work and close the intervention.");
+    }
+
+    const intervention = await prisma.intervention.update({
+      where: { id },
+      data: updateData,
+      include: interventionInclude,
+    });
+
+    if (notificationType) {
+      const faultReportUserId = await prisma.intervention.findUnique({
+        where: { id },
+        select: { faultReport: { select: { userId: true } } },
+      });
+      const reporterUserId = faultReportUserId?.faultReport?.userId;
+
+      if (reporterUserId && await shouldNotifyUser(reporterUserId, notificationType)) {
+        await prisma.notification.create({
+          data: {
+            userId: reporterUserId,
+            title: notificationTitle,
+            text: notificationText,
+            type: notificationType,
+            interventionId: id,
+          },
+        });
+      }
+    }
+
+    res.json(mapIntervention(intervention));
+  }),
+);
+
 interventionsRouter.patch(
   "/:id/recurrence",
   authorizeRoles(COORDINATOR_ACTION_ROLES),
@@ -1192,12 +2725,18 @@ async function applyBulkStatusChange(
   existing: {
     status: InterventionStatus;
     archived: boolean;
+    startedAt?: Date | null;
     name?: string;
     faultReport?: { userId: number | null } | null;
+    executionConfirmation?: { status: ExecutionConfirmationStatus } | null;
   },
 ): Promise<BulkActionItemResult> {
   if (existing.archived) {
     return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
+  }
+
+  if (targetStatus === InterventionStatus.ON_HOLD) {
+    return { id, success: false, reason: "Use the pause action to put an intervention on hold." };
   }
 
   const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(existing.status);
@@ -1210,12 +2749,23 @@ async function applyBulkStatusChange(
     };
   }
 
+  if (
+    targetStatus === InterventionStatus.RESOLVED &&
+    existing.executionConfirmation?.status !== ExecutionConfirmationStatus.CONFIRMED
+  ) {
+    return {
+      id,
+      success: false,
+      reason: "Cannot close intervention without digital confirmation or a closing comment.",
+    };
+  }
+
   await prisma.$transaction([
     prisma.intervention.update({
       where: { id },
       data: {
         status: targetStatus,
-        ...(targetStatus === InterventionStatus.IN_PROGRESS
+        ...(targetStatus === InterventionStatus.IN_PROGRESS && !existing.startedAt
           ? { startedAt: new Date() }
           : {}),
       },
@@ -1345,8 +2895,11 @@ interventionsRouter.post(
         status: true,
         archived: true,
         faultReport: {
+          select: { userId: true },
+        },
+        executionConfirmation: {
           select: {
-            userId: true,
+            status: true,
           },
         },
       },
@@ -1381,11 +2934,24 @@ interventionsRouter.post(
               return { id, success: false, reason: "Intervention is archived and cannot have its status changed." };
             }
             const allowedTargets = ALLOWED_STATUS_TRANSITIONS.get(record.status);
+            if (input.payload.status === InterventionStatus.ON_HOLD) {
+              return { id, success: false, reason: "Use the pause action to put an intervention on hold." };
+            }
             if (!allowedTargets?.has(input.payload.status)) {
               return {
                 id,
                 success: false,
                 reason: `Status transition from ${record.status} to ${input.payload.status} is not allowed.`,
+              };
+            }
+            if (
+              input.payload.status === InterventionStatus.RESOLVED &&
+              record.executionConfirmation?.status !== ExecutionConfirmationStatus.CONFIRMED
+            ) {
+              return {
+                id,
+                success: false,
+                reason: "Cannot close intervention without digital confirmation or a closing comment.",
               };
             }
             return { id, success: true };

@@ -36,6 +36,8 @@ const {
     name: string;
     priority: string;
     location: string;
+    startedAt: Date | null;
+    dueAt: Date | null;
   };
 
   type TestAssignment = {
@@ -100,7 +102,7 @@ const {
       if (key in user) {
         const value = user[key as keyof TestUser];
         selected[key] = Array.isArray(value)
-          ? value.map((item) => ({ ...item }))
+          ? value.map((item: unknown) => (typeof item === 'object' && item !== null ? { ...item as Record<string, unknown> } : item))
           : value;
       }
     }
@@ -137,6 +139,8 @@ const {
       name: overrides.name ?? `Intervention ${id}`,
       priority: overrides.priority ?? "MEDIUM",
       location: overrides.location ?? `Location ${id}`,
+      startedAt: overrides.startedAt ?? new Date("2026-06-01T08:00:00.000Z"),
+      dueAt: overrides.dueAt ?? new Date("2026-06-01T10:00:00.000Z"),
     };
 
     state.interventions.push(intervention);
@@ -209,6 +213,8 @@ const {
               name: intervention.name,
               priority: intervention.priority,
               location: intervention.location,
+              startedAt: intervention.startedAt,
+              dueAt: intervention.dueAt,
             }
           : null;
       }),
@@ -252,8 +258,9 @@ const {
         }) => {
           let users = [...state.users];
 
-          if (where?.id && typeof where.id === "object" && "in" in where.id) {
-            users = users.filter((user) => where.id.in.includes(user.id));
+          const idFilter = where?.id;
+          if (idFilter && typeof idFilter === "object" && "in" in idFilter) {
+            users = users.filter((user) => idFilter.in.includes(user.id));
           } else if (typeof where?.id === "number") {
             users = users.filter((user) => user.id === where.id);
           }
@@ -353,6 +360,8 @@ const {
                   email: assignment.user.email,
                   active: true,
                   companyId: null,
+                  externalIdentities: [],
+                  keycloakRoles: [],
                 },
                 include.user.select,
               );
@@ -395,6 +404,8 @@ const {
                 email: assignment.user.email,
                 active: true,
                 companyId: null,
+                externalIdentities: [],
+                keycloakRoles: [],
               },
               include.user.select,
             ),
@@ -481,6 +492,12 @@ const {
     },
     notification: {
       create: vi.fn().mockResolvedValue({ id: 1 }),
+    },
+    userPreference: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    servicerUnavailability: {
+      findMany: vi.fn().mockResolvedValue([]),
     },
   };
 
@@ -626,6 +643,56 @@ describe("AssignmentService", () => {
           coordinator.username,
         ),
       ).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    it("should require an override reason when assigning an unavailable servicer", async () => {
+      seedIntervention(1, { companyId: 1 });
+      const servicer = seedUser(1, { active: true });
+      prismaMock.servicerUnavailability.findMany.mockResolvedValueOnce([
+        {
+          userId: servicer.id,
+          reason: "Vacation",
+          startAt: new Date("2026-06-01T07:00:00.000Z"),
+          endAt: new Date("2026-06-01T11:00:00.000Z"),
+        },
+      ]);
+
+      await expect(
+        AssignmentService.assignServicesToIntervention(
+          1,
+          [servicer.id],
+          servicer.id,
+          servicer.username,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestError);
+    });
+
+    it("should audit manual assignment override for an unavailable servicer", async () => {
+      seedIntervention(1, { companyId: 1 });
+      const servicer = seedUser(1, { active: true });
+      prismaMock.servicerUnavailability.findMany.mockResolvedValueOnce([
+        {
+          userId: servicer.id,
+          reason: "Training",
+          startAt: new Date("2026-06-01T07:00:00.000Z"),
+          endAt: new Date("2026-06-01T11:00:00.000Z"),
+        },
+      ]);
+
+      await AssignmentService.assignServicesToIntervention(
+        1,
+        [servicer.id],
+        servicer.id,
+        servicer.username,
+        "Customer accepted the delay risk.",
+      );
+
+      expect(auditRecordMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: "UNAVAILABLE_SERVICER_ASSIGNMENT_OVERRIDDEN",
+          entityId: 1,
+        }),
+      );
     });
 
     it("should not create duplicate assignments", async () => {
@@ -841,6 +908,29 @@ describe("AssignmentService", () => {
       expect(servicers).toHaveLength(1);
       expect(servicers[0].username).toBe(servicer.username);
       expect(servicers[0].activeInterventionCount).toBe(0);
+    });
+
+    it("should include active servicers from other companies after same-company servicers", async () => {
+      seedCompany(1, "Client A");
+      seedCompany(2, "Service Pool");
+      const sameCompanyServicer = seedUser(1, {
+        active: true,
+        companyId: 1,
+        username: "same.company",
+      });
+      const otherCompanyServicer = seedUser(2, {
+        active: true,
+        companyId: 2,
+        username: "other.company",
+      });
+
+      const servicers = await AssignmentService.getAvailableServicersWithLoad(1);
+
+      expect(servicers.map((servicer) => servicer.username)).toEqual([
+        sameCompanyServicer.username,
+        otherCompanyServicer.username,
+      ]);
+      expect(servicers.map((servicer) => servicer.sameCompany)).toEqual([true, false]);
     });
   });
 });

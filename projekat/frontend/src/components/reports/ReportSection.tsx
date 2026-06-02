@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { ClipboardList, Pencil, Plus } from 'lucide-react';
+import { CheckCircle2, ClipboardList, Pencil, Plus, Star } from 'lucide-react';
 
 import { INTERVENTION_STATUS, type InterventionStatus } from '@shared/enums';
 
@@ -12,13 +12,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
   createInterventionReport,
+  getMaterialSuggestions,
+  finalizeInterventionReport,
   getInterventionReport,
+  setInterventionReportRecommendation,
   updateInterventionReport,
   type CreateReportPayload,
   type InterventionReport,
+  type MaterialItem,
   type UpdateReportPayload,
 } from '@/services/reports.service';
 import { translateText, useI18n } from '@/lib/i18n';
+import { MATERIAL_LIMITS } from '@/constants';
+import { MaterialItemList, MaterialItemListRead } from './MaterialItemList';
 
 const REPORT_ALLOWED_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.IN_PROGRESS,
@@ -27,7 +33,6 @@ const REPORT_ALLOWED_STATUSES = new Set<InterventionStatus>([
 
 const FIELD_MAX_LENGTH = {
   DESCRIPTION: 5000,
-  MATERIAL: 2000,
   NOTES: 2000,
 } as const;
 
@@ -36,20 +41,31 @@ export interface ReportSectionProps {
   interventionStatus: InterventionStatus;
   canRead: boolean;
   canWrite: boolean;
+  canRecommend?: boolean;
+  reportTemplate?: {
+    id: number;
+    description: string;
+    material: string | null;
+    notes: string | null;
+  } | null;
 }
 
 interface FormState {
   description: string;
-  material: string;
+  materialItems: MaterialItem[];
   notes: string;
 }
 
-const EMPTY_FORM: FormState = { description: '', material: '', notes: '' };
+const EMPTY_FORM: FormState = {
+  description: '',
+  materialItems: [],
+  notes: '',
+};
 
 function reportToForm(report: InterventionReport): FormState {
   return {
     description: report.description,
-    material: report.material ?? '',
+    materialItems: report.materialItems ?? [],
     notes: report.notes ?? '',
   };
 }
@@ -59,37 +75,50 @@ export function ReportSection({
   interventionStatus,
   canRead,
   canWrite,
+  canRecommend = false,
+  reportTemplate = null,
 }: ReportSectionProps) {
   const { language, t } = useI18n();
+
   const [report, setReport] = useState<InterventionReport | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isUpdatingRecommendation, setIsUpdatingRecommendation] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
 
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   const isAllowedStatus = REPORT_ALLOWED_STATUSES.has(interventionStatus);
   const canSeeSection = canRead || canWrite;
 
   useEffect(() => {
     if (!canSeeSection) return;
-
     let cancelled = false;
 
     const load = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await getInterventionReport(interventionId);
+        const [data, sugg] = await Promise.all([
+          getInterventionReport(interventionId),
+          getMaterialSuggestions(interventionId),
+        ]);
         if (!cancelled) {
           setReport(data);
+          setSuggestions(sugg);
           if (data) setForm(reportToForm(data));
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? translateText(language, err.message) : t('report.loadFailed'));
+          setError(
+            err instanceof Error
+              ? translateText(language, err.message)
+              : t('report.loadFailed'),
+          );
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -105,6 +134,21 @@ export function ReportSection({
   useEffect(() => {
     if (isEditing) descriptionRef.current?.focus();
   }, [isEditing]);
+
+  useEffect(() => {
+    if (!reportTemplate || !canWrite || report?.status === 'FINALIZED') {
+      return;
+    }
+
+    setForm({
+      description: reportTemplate.description,
+      materialItems: [],
+      notes: reportTemplate.notes ?? '',
+    });
+    setError(null);
+    setSuccessMessage(t('report.templateApplied'));
+    setIsEditing(true);
+  }, [reportTemplate?.id]);
 
   const handleChange =
     (field: keyof FormState) => (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -129,6 +173,17 @@ export function ReportSection({
       return;
     }
 
+    for (const item of form.materialItems) {
+      if (!item.name.trim()) {
+        setError(t('report.materialNameRequired'));
+        return;
+      }
+      if (!item.quantity || item.quantity <= 0) {
+        setError(t('report.materialQuantityInvalid'));
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
     setSuccessMessage('');
@@ -137,7 +192,7 @@ export function ReportSection({
       if (report) {
         const payload: UpdateReportPayload = {
           description: form.description.trim(),
-          material: form.material.trim() || null,
+          materialItems: form.materialItems,
           notes: form.notes.trim() || null,
         };
         const updated = await updateInterventionReport(interventionId, payload);
@@ -146,7 +201,7 @@ export function ReportSection({
       } else {
         const payload: CreateReportPayload = {
           description: form.description.trim(),
-          material: form.material.trim() || null,
+          materialItems: form.materialItems,
           notes: form.notes.trim() || null,
         };
         const created = await createInterventionReport(interventionId, payload);
@@ -156,10 +211,55 @@ export function ReportSection({
 
       setIsEditing(false);
       setSuccessMessage(t('report.saved'));
+
+      void getMaterialSuggestions(interventionId).then(setSuggestions);
     } catch (err: unknown) {
-      setError(err instanceof Error ? translateText(language, err.message) : t('report.saveFailed'));
+      setError(
+        err instanceof Error
+          ? translateText(language, err.message)
+          : t('report.saveFailed'),
+      );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    setIsFinalizing(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const finalized = await finalizeInterventionReport(interventionId);
+      setReport(finalized);
+      setSuccessMessage(t('report.finalized'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('report.finalizeFailed'));
+    } finally {
+      setIsFinalizing(false);
+    }
+  };
+
+  const handleRecommendation = async () => {
+    if (!report) return;
+
+    setIsUpdatingRecommendation(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const updated = await setInterventionReportRecommendation(
+        interventionId,
+        !report.isRecommended,
+      );
+      setReport(updated);
+      setSuccessMessage(
+        updated.isRecommended ? t('report.recommended') : t('report.unrecommended'),
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : t('report.recommendationFailed'));
+    } finally {
+      setIsUpdatingRecommendation(false);
     }
   };
 
@@ -174,26 +274,54 @@ export function ReportSection({
           </div>
           <CardTitle className="text-base">{t('report.sectionTitle')}</CardTitle>
         </div>
-        {canWrite && isAllowedStatus && !isEditing && (
-          <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-1.5">
-            {report
-              ? <><Pencil className="size-3.5" /> {t('report.edit')}</>
-              : <><Plus className="size-3.5" /> {t('report.add')}</>}
-          </Button>
-        )}
+        <div className="flex flex-wrap justify-end gap-2">
+          {report && canWrite && report.status === 'DRAFT' && !isEditing ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => { void handleFinalize(); }}
+              disabled={isFinalizing}
+              className="gap-1.5"
+            >
+              <CheckCircle2 className="size-3.5" />
+              {isFinalizing ? t('report.finalizing') : t('report.finalize')}
+            </Button>
+          ) : null}
+          {report && canRecommend && report.status === 'FINALIZED' && !isEditing ? (
+            <Button
+              type="button"
+              variant={report.isRecommended ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { void handleRecommendation(); }}
+              disabled={isUpdatingRecommendation}
+              className="gap-1.5"
+            >
+              <Star className="size-3.5" />
+              {report.isRecommended ? t('report.unrecommend') : t('report.recommend')}
+            </Button>
+          ) : null}
+          {canWrite && isAllowedStatus && !isEditing && report?.status !== 'FINALIZED' ? (
+            <Button type="button" variant="outline" size="sm" onClick={handleEdit} className="gap-1.5">
+              {report
+                ? <><Pencil className="size-3.5" /> {t('report.edit')}</>
+                : <><Plus className="size-3.5" /> {t('report.add')}</>}
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {error ? (
+        {error && (
           <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
             {error}
           </p>
-        ) : null}
-        {successMessage ? (
+        )}
+        {successMessage && (
           <p className="rounded-lg border border-emerald-300/40 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
             {successMessage}
           </p>
-        ) : null}
+        )}
 
         {isLoading ? (
           <div className="space-y-2">
@@ -204,10 +332,13 @@ export function ReportSection({
         ) : isEditing ? (
           <ReportForm
             form={form}
+            suggestions={suggestions}
             isSaving={isSaving}
             descriptionRef={descriptionRef}
-            onChange={handleChange}
-            onSave={() => { void handleSave(); }}
+            onFormChange={setForm}
+            onSave={() => {
+              void handleSave();
+            }}
             onCancel={handleCancel}
           />
         ) : report ? (
@@ -222,18 +353,28 @@ export function ReportSection({
 
 interface ReportFormProps {
   form: FormState;
+  suggestions: string[];
   isSaving: boolean;
   descriptionRef: React.RefObject<HTMLTextAreaElement | null>;
-  onChange: (field: keyof FormState) => (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  onFormChange: (form: FormState) => void;
   onSave: () => void;
   onCancel: () => void;
 }
 
-function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel }: ReportFormProps) {
+function ReportForm({
+  form,
+  suggestions,
+  isSaving,
+  descriptionRef,
+  onFormChange,
+  onSave,
+  onCancel,
+}: ReportFormProps) {
   const { t } = useI18n();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Work description */}
       <div className="space-y-1">
         <Label htmlFor="report-description">
           {t('report.workDescription')} <span className="text-destructive">*</span>
@@ -242,7 +383,7 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
           id="report-description"
           ref={descriptionRef as React.Ref<HTMLTextAreaElement>}
           value={form.description}
-          onChange={onChange('description')}
+          onChange={(e) => onFormChange({ ...form, description: e.target.value })}
           placeholder={t('report.describePlaceholder')}
           maxLength={FIELD_MAX_LENGTH.DESCRIPTION}
           rows={5}
@@ -253,28 +394,31 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
         </p>
       </div>
 
-      <div className="space-y-1">
-        <Label htmlFor="report-material">{t('report.materials')}</Label>
-        <Textarea
-          id="report-material"
-          value={form.material}
-          onChange={onChange('material')}
-          placeholder={t('report.materialsPlaceholder')}
-          maxLength={FIELD_MAX_LENGTH.MATERIAL}
-          rows={3}
+      {/* Material items */}
+      <div className="space-y-2">
+        <Label>{t('report.materialsList')}</Label>
+        <MaterialItemList
+          items={form.materialItems}
+          suggestions={suggestions}
           disabled={isSaving}
+          onChange={(materialItems) => onFormChange({ ...form, materialItems })}
         />
-        <p className="text-right text-xs text-muted-foreground">
-          {form.material.length} / {FIELD_MAX_LENGTH.MATERIAL}
-        </p>
+        {form.materialItems.length > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {t('report.materialsCount').replace('{count}', String(form.materialItems.length))}
+            {' / '}
+            {MATERIAL_LIMITS.ITEMS_MAX}
+          </p>
+        )}
       </div>
 
+      {/* Notes */}
       <div className="space-y-1">
         <Label htmlFor="report-notes">{t('report.notes')}</Label>
         <Textarea
           id="report-notes"
           value={form.notes}
-          onChange={onChange('notes')}
+          onChange={(e) => onFormChange({ ...form, notes: e.target.value })}
           placeholder={t('report.notesPlaceholder')}
           maxLength={FIELD_MAX_LENGTH.NOTES}
           rows={3}
@@ -285,8 +429,15 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
         </p>
       </div>
 
+      {/* Action buttons */}
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onCancel}
+          disabled={isSaving}
+        >
           {t('tickets.cancel')}
         </Button>
         <Button
@@ -301,7 +452,9 @@ function ReportForm({ form, isSaving, descriptionRef, onChange, onSave, onCancel
               <span className="spinner" />
               {t('common.saving')}
             </span>
-          ) : t('report.save')}
+          ) : (
+            t('report.save')
+          )}
         </Button>
       </div>
     </div>
@@ -315,36 +468,52 @@ interface ReportReadViewProps {
 
 function ReportReadView({ report, language }: ReportReadViewProps) {
   const { t } = useI18n();
-  const formattedDate = new Date(report.reportDate).toLocaleDateString(language === 'bs' ? 'bs-BA' : 'en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const formattedDate = new Date(report.reportDate).toLocaleDateString(
+    language === 'bs' ? 'bs-BA' : 'en-US',
+    { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+  );
 
   return (
     <div className="space-y-4">
+      {/* Author + date line */}
       <p className="text-xs text-muted-foreground">
         {t('report.author')}{' '}
         <span className="font-medium text-foreground">
           {report.author.firstName} {report.author.lastName}
         </span>{' '}
-        · {t('report.savedLabel')} <span className="font-medium text-foreground">{formattedDate}</span>
+        · {t('report.savedLabel')}{' '}
+        <span className="font-medium text-foreground">{formattedDate}</span>
       </p>
 
+      {report.isRecommended ? (
+        <p className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+          <Star className="size-3" />
+          {t('report.recommendedBadge')}
+        </p>
+      ) : null}
+
       <div className="rounded-lg bg-muted/40 p-3">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.workDescription')}</p>
+        <p className="mb-1 text-xs font-medium text-muted-foreground">
+          {t('report.workDescription')}
+        </p>
         <p className="whitespace-pre-wrap text-sm">{report.description}</p>
       </div>
 
-      {report.material ? (
+      {/* Materials */}
+      {report.materialItems && report.materialItems.length > 0 ? (
         <div className="rounded-lg bg-muted/40 p-3">
-          <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.materials')}</p>
-          <p className="whitespace-pre-wrap text-sm">{report.material}</p>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">
+            {t('report.materialsList')}
+            {' '}
+            <span className="text-muted-foreground/70">
+              ({t('report.materialsCount').replace('{count}', String(report.materialItems.length))})
+            </span>
+          </p>
+          <MaterialItemListRead items={report.materialItems} />
         </div>
       ) : null}
 
+      {/* Notes */}
       {report.notes ? (
         <div className="rounded-lg bg-muted/40 p-3">
           <p className="mb-1 text-xs font-medium text-muted-foreground">{t('report.notes')}</p>
@@ -354,7 +523,6 @@ function ReportReadView({ report, language }: ReportReadViewProps) {
     </div>
   );
 }
-
 interface ReportEmptyStateProps {
   canWrite: boolean;
   isAllowedStatus: boolean;
@@ -364,18 +532,12 @@ function ReportEmptyState({ canWrite, isAllowedStatus }: ReportEmptyStateProps) 
   const { t } = useI18n();
 
   if (canWrite && !isAllowedStatus) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {t('report.notAllowedYet')}
-      </p>
-    );
+    return <p className="text-sm text-muted-foreground">{t('report.notAllowedYet')}</p>;
   }
 
   return (
     <p className="text-sm text-muted-foreground">
-      {canWrite
-        ? t('report.emptyWriter')
-        : t('report.emptyReader')}
+      {canWrite ? t('report.emptyWriter') : t('report.emptyReader')}
     </p>
   );
 }

@@ -442,6 +442,7 @@ export default function InterventionsPage() {
     { value: "NEW", label: translateInterventionStatus(language, "NEW") },
     { value: "ASSIGNED", label: translateInterventionStatus(language, "ASSIGNED") },
     { value: "IN_PROGRESS", label: translateInterventionStatus(language, "IN_PROGRESS") },
+    { value: "ON_HOLD", label: translateInterventionStatus(language, "ON_HOLD") },
     { value: "RESOLVED", label: translateInterventionStatus(language, "RESOLVED") },
     { value: "CANCELLED", label: translateInterventionStatus(language, "CANCELLED") },
     { value: "REJECTED", label: translateInterventionStatus(language, "REJECTED") },

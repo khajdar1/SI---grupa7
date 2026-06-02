@@ -10,6 +10,7 @@ import {
   ExternalLink,
   FileText,
   Hourglass,
+  Star,
 } from 'lucide-react';
 
 import type { InterventionStatus, Priority } from '@shared/enums';
@@ -48,11 +49,26 @@ import {
   getInterventionReport,
   type InterventionReport,
 } from '@/services/reports.service';
+import {
+  getFeedbackAnalytics,
+  getInterventionFeedback,
+  type FeedbackAnalytics,
+  type InterventionFeedback,
+} from '@/services/feedback.service';
+import { hasSessionRole } from '@/lib/auth';
 
 const ALL = 'ALL';
 const WITH_REPORT = 'WITH_REPORT';
 const WITHOUT_REPORT = 'WITHOUT_REPORT';
 const UNKNOWN_REPORT = 'UNKNOWN_REPORT';
+const FEEDBACK_ANALYTICS_ROLES = new Set([
+  'koordinator',
+  'coordinator',
+  'management',
+  'menadzment',
+  'admin',
+  'administrator',
+]);
 
 function buildStatusFilters(language: LanguageCode) {
   return [
@@ -60,6 +76,7 @@ function buildStatusFilters(language: LanguageCode) {
   { value: INTERVENTION_STATUS.NEW, label: translateInterventionStatus(language, INTERVENTION_STATUS.NEW) },
   { value: INTERVENTION_STATUS.ASSIGNED, label: translateInterventionStatus(language, INTERVENTION_STATUS.ASSIGNED) },
   { value: INTERVENTION_STATUS.IN_PROGRESS, label: translateInterventionStatus(language, INTERVENTION_STATUS.IN_PROGRESS) },
+  { value: INTERVENTION_STATUS.ON_HOLD, label: translateInterventionStatus(language, INTERVENTION_STATUS.ON_HOLD) },
   { value: INTERVENTION_STATUS.RESOLVED, label: translateInterventionStatus(language, INTERVENTION_STATUS.RESOLVED) },
   { value: INTERVENTION_STATUS.CANCELLED, label: translateInterventionStatus(language, INTERVENTION_STATUS.CANCELLED) },
   { value: INTERVENTION_STATUS.REJECTED, label: translateInterventionStatus(language, INTERVENTION_STATUS.REJECTED) },
@@ -171,6 +188,281 @@ async function loadAllHistoryInterventions(): Promise<ReportIntervention[]> {
   return items.map(historyItemToReportIntervention);
 }
 
+type FeedbackBreakdownRow = {
+  label: string;
+  feedbackCount: number;
+  averageRating: number | null;
+  negativeCount: number;
+};
+
+function formatRatingValue(value: number | null | undefined) {
+  if (value == null) return '-';
+  return value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function formatFeedbackPeriod(period: string, language: LanguageCode) {
+  const [year, month] = period.split('-').map(Number);
+
+  if (!year || !month) return period;
+
+  return new Intl.DateTimeFormat(language === 'bs' ? 'bs-BA' : 'en-US', {
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function FeedbackPanelSkeleton() {
+  return (
+    <div className="rounded-lg border bg-background p-4">
+      <Skeleton className="h-5 w-36" />
+      <Skeleton className="mt-4 h-44 w-full" />
+    </div>
+  );
+}
+
+function FeedbackTrendPanel({
+  trends,
+  isLoading,
+  language,
+}: {
+  trends: FeedbackAnalytics['trends'];
+  isLoading: boolean;
+  language: LanguageCode;
+}) {
+  if (isLoading && trends.length === 0) return <FeedbackPanelSkeleton />;
+
+  const sortedTrends = [...trends].sort((a, b) => a.period.localeCompare(b.period));
+  const maxFeedbackCount = Math.max(1, ...sortedTrends.map((item) => item.feedbackCount));
+  const latestTrend = sortedTrends[sortedTrends.length - 1];
+
+  return (
+    <div className="overflow-hidden rounded-lg border bg-background">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b bg-background p-4">
+        <div>
+          <h3 className="text-sm font-semibold">
+            {language === 'bs' ? 'Mjesečni trend feedbacka' : 'Monthly feedback trend'}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {language === 'bs'
+              ? 'Plavi stub pokazuje prosječnu ocjenu, svijetla pozadina broj feedbacka.'
+              : 'Blue bar shows average rating, pale background shows feedback volume.'}
+          </p>
+        </div>
+        {latestTrend ? (
+          <div className="rounded-md border bg-muted/30 px-3 py-2 text-right">
+            <p className="text-xs text-muted-foreground">
+              {language === 'bs' ? 'Zadnji period' : 'Latest period'}
+            </p>
+            <p className="text-sm font-semibold">
+              {formatFeedbackPeriod(latestTrend.period, language)} · {formatRatingValue(latestTrend.averageRating)}/5
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      {sortedTrends.length === 0 ? (
+        <div className="m-4 flex h-56 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+          {language === 'bs' ? 'Nema feedbacka za odabrane filtere.' : 'No feedback for the selected filters.'}
+        </div>
+      ) : (
+        <div className="p-4">
+          <div className="overflow-x-auto rounded-md border bg-muted/10">
+            <div className="grid min-w-[34rem] grid-cols-[2.25rem_1fr] gap-3 p-4">
+              <div className="relative h-64 text-xs text-muted-foreground">
+                <span className="absolute top-0 right-0">5</span>
+                <span className="absolute top-1/2 right-0 -translate-y-1/2">3</span>
+                <span className="absolute bottom-0 right-0">1</span>
+              </div>
+              <div className="relative h-64">
+                <div className="absolute inset-x-0 top-0 border-t border-dashed" />
+                <div className="absolute inset-x-0 top-1/2 border-t border-dashed" />
+                <div className="absolute inset-x-0 bottom-0 border-t" />
+                <div className="relative z-10 flex h-full min-w-full items-end gap-5 px-3">
+                  {sortedTrends.map((item) => {
+                    const averageRating = Math.min(Math.max(item.averageRating ?? 1, 1), 5);
+                    const ratingHeight = Math.max((averageRating / 5) * 100, 8);
+                    const volumeHeight = Math.max((item.feedbackCount / maxFeedbackCount) * 100, 10);
+
+                    return (
+                      <div key={item.period} className="flex h-full min-w-[5.75rem] flex-1 flex-col justify-end gap-2">
+                        <div className="text-center">
+                          <p className="text-sm font-semibold text-foreground">
+                            {formatRatingValue(item.averageRating)}/5
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.feedbackCount} {language === 'bs' ? 'zapisa' : 'records'}
+                          </p>
+                        </div>
+                        <div className="relative mx-auto h-44 w-14 rounded-t-md bg-blue-100">
+                          <div
+                            className="absolute bottom-0 left-0 right-0 rounded-t-md bg-blue-600"
+                            style={{ height: `${ratingHeight}%` }}
+                            title={`${formatRatingValue(item.averageRating)}/5`}
+                          />
+                          <div
+                            className="absolute bottom-0 left-1 right-1 rounded-t-md border-2 border-blue-300/80"
+                            style={{ height: `${volumeHeight}%` }}
+                            title={`${item.feedbackCount} feedback`}
+                          />
+                          {item.negativeCount > 0 ? (
+                            <div
+                              className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-red-600 px-1 text-[11px] font-bold text-white shadow-sm"
+                              title={`${item.negativeCount} negative`}
+                            >
+                              {item.negativeCount}
+                            </div>
+                          ) : null}
+                        </div>
+                        <p className="text-center text-xs text-muted-foreground">
+                          {formatFeedbackPeriod(item.period, language)}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 border-t pt-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
+              {language === 'bs' ? 'Prosjecna ocjena' : 'Average rating'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm border-2 border-blue-300 bg-blue-100" />
+              {language === 'bs' ? 'Broj feedbacka' : 'Feedback volume'}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-600" />
+              {language === 'bs' ? 'Broj negativnih ocjena' : 'Negative rating count'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RatingDistributionPanel({
+  distribution,
+  total,
+  isLoading,
+  language,
+}: {
+  distribution: FeedbackAnalytics['ratingDistribution'];
+  total: number;
+  isLoading: boolean;
+  language: LanguageCode;
+}) {
+  if (isLoading && distribution.length === 0) return <FeedbackPanelSkeleton />;
+
+  const rows = [5, 4, 3, 2, 1].map(
+    (rating) =>
+      distribution.find((item) => item.rating === rating) ?? {
+        rating,
+        count: 0,
+        percentage: 0,
+      },
+  );
+
+  return (
+    <div className="rounded-lg border bg-background p-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">
+            {language === 'bs' ? 'Raspodjela ocjena' : 'Rating distribution'}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {language === 'bs' ? `${total} ukupno` : `${total} total`}
+          </p>
+        </div>
+        <Star className="h-4 w-4 text-primary" />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {rows.map((item) => (
+          <div key={item.rating} className="grid grid-cols-[3rem_1fr_4.5rem] items-center gap-3 text-sm">
+            <span className="inline-flex items-center gap-1 font-medium">
+              {item.rating}
+              <Star className="h-3.5 w-3.5 text-primary" />
+            </span>
+            <div className="h-2.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${item.count > 0 ? Math.max(item.percentage, 4) : 0}%` }}
+              />
+            </div>
+            <span className="text-right text-muted-foreground">
+              {item.count} ({formatRatingValue(item.percentage)}%)
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FeedbackBreakdownPanel({
+  title,
+  rows,
+  emptyText,
+  description,
+  language,
+  isLoading,
+}: {
+  title: string;
+  rows: FeedbackBreakdownRow[];
+  emptyText: string;
+  description?: string;
+  language: LanguageCode;
+  isLoading: boolean;
+}) {
+  if (isLoading && rows.length === 0) return <FeedbackPanelSkeleton />;
+
+  const sortedRows = [...rows]
+    .sort((a, b) => b.feedbackCount - a.feedbackCount || (b.averageRating ?? 0) - (a.averageRating ?? 0));
+  const maxCount = Math.max(1, ...sortedRows.map((row) => row.feedbackCount));
+
+  return (
+    <div className="rounded-lg border bg-background p-4">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      {description ? (
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+      ) : null}
+      <div className="mt-4 max-h-80 space-y-4 overflow-y-auto pr-1">
+        {sortedRows.length === 0 ? (
+          <p className="flex h-28 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+            {emptyText}
+          </p>
+        ) : (
+          sortedRows.map((row) => (
+            <div key={row.label} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate font-medium">{row.label}</span>
+                <span className="text-muted-foreground">{row.feedbackCount}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${(row.feedbackCount / maxCount) * 100}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  {language === 'bs' ? 'Prosjek' : 'Average'} {formatRatingValue(row.averageRating)}
+                </span>
+                <span>
+                  {language === 'bs' ? 'Negativno' : 'Negative'} {row.negativeCount}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ReportsPage() {
   const { language, t } = useI18n();
   const [interventions, setInterventions] = useState<ReportIntervention[]>([]);
@@ -187,6 +479,33 @@ export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canViewFeedbackAnalytics, setCanViewFeedbackAnalytics] = useState(false);
+  const [feedbackAnalytics, setFeedbackAnalytics] = useState<FeedbackAnalytics | null>(null);
+  const [feedbackFilters, setFeedbackFilters] = useState({ from: '', to: '', companyId: ALL, categoryId: ALL, servicerId: ALL });
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+
+  const loadFeedbackAnalytics = async (filters = feedbackFilters) => {
+    if (!hasSessionRole(FEEDBACK_ANALYTICS_ROLES)) return;
+
+    setCanViewFeedbackAnalytics(true);
+    setIsLoadingFeedback(true);
+    setFeedbackError(null);
+    try {
+      const analytics = await getFeedbackAnalytics({
+        from: filters.from ? new Date(filters.from).toISOString() : undefined,
+        to: filters.to ? new Date(filters.to).toISOString() : undefined,
+        companyId: filters.companyId === ALL ? undefined : filters.companyId,
+        categoryId: filters.categoryId === ALL ? undefined : filters.categoryId,
+        servicerId: filters.servicerId === ALL ? undefined : filters.servicerId,
+      });
+      setFeedbackAnalytics(analytics);
+    } catch (requestError) {
+      setFeedbackError(requestError instanceof Error ? requestError.message : 'Failed to load feedback analytics.');
+    } finally {
+      setIsLoadingFeedback(false);
+    }
+  };
 
   const loadReportsForInterventions = async (items: ReportIntervention[]) => {
     setIsLoadingReports(true);
@@ -237,7 +556,8 @@ export default function ReportsPage() {
     const initialSelectedId = getSelectedIdFromUrl();
     setSelectedInterventionId(initialSelectedId);
     setIsLoading(true);
-    setError(null);
+      setError(null);
+      setCanViewFeedbackAnalytics(hasSessionRole(FEEDBACK_ANALYTICS_ROLES));
 
     try {
       const [interventionResult, historyInterventions] = await Promise.all([
@@ -276,6 +596,7 @@ export default function ReportsPage() {
         ? [...loadedInterventions, highlightedIntervention]
         : loadedInterventions;
       void loadReportsForInterventions(reportTargets);
+      void loadFeedbackAnalytics();
     } catch (requestError) {
       setError(
         requestError instanceof Error
@@ -381,6 +702,64 @@ export default function ReportsPage() {
     setSelectedReportState(ALL);
   };
 
+  const companyFilterItems = (feedbackAnalytics?.byCompany ?? []).map((item) => ({
+    companyId: item.companyId,
+    companyName: item.companyName,
+  }));
+  const categoryFilterItems = (feedbackAnalytics?.byCategory ?? []).map((item) => ({
+    categoryId: item.categoryId,
+    categoryName: item.categoryName,
+  }));
+  const servicerFilterItems = (feedbackAnalytics?.byServicer ?? [])
+    .filter((item) => item.servicerId !== null)
+    .map((item) => ({
+      servicerId: item.servicerId as number,
+      servicerName: item.servicerName,
+    }));
+
+  const companyFeedbackOptions = [
+    { value: ALL, label: language === 'bs' ? 'Sve firme' : 'All companies' },
+    ...companyFilterItems.map((item) => ({
+      value: String(item.companyId),
+      label: item.companyName,
+    })),
+  ];
+  const categoryFeedbackOptions = [
+    { value: ALL, label: language === 'bs' ? 'Sve kategorije' : 'All categories' },
+    ...categoryFilterItems.map((item) => ({
+      value: String(item.categoryId),
+      label: translateCategoryName(language, item.categoryName),
+    })),
+  ];
+  const servicerFeedbackOptions = [
+    { value: ALL, label: language === 'bs' ? 'Svi serviseri' : 'All servicers' },
+    ...servicerFilterItems.map((item) => ({
+      value: String(item.servicerId),
+      label: item.servicerName || `#${item.servicerId}`,
+    })),
+  ];
+  const companyFeedbackRows = (feedbackAnalytics?.byCompany ?? []).map((item) => ({
+    label: item.companyName,
+    feedbackCount: item.feedbackCount,
+    averageRating: item.averageRating,
+    negativeCount: item.negativeCount,
+  }));
+  const categoryFeedbackRows = (feedbackAnalytics?.byCategory ?? []).map((item) => ({
+    label: translateCategoryName(language, item.categoryName),
+    feedbackCount: item.feedbackCount,
+    averageRating: item.averageRating,
+    negativeCount: item.negativeCount,
+  }));
+  const servicerFeedbackRows = (feedbackAnalytics?.byServicer ?? []).map((item) => ({
+    label:
+      item.servicerId === null
+        ? language === 'bs' ? 'Nedodijeljeno' : 'Unassigned'
+        : item.servicerName || `#${item.servicerId}`,
+    feedbackCount: item.feedbackCount,
+    averageRating: item.averageRating,
+    negativeCount: item.negativeCount,
+  }));
+
   const selectRow = (row: ReportRow) => {
     setSelectedInterventionId(row.id);
     setSelectedIntervention(null);
@@ -439,6 +818,141 @@ export default function ReportsPage() {
           icon={<ExternalLink className="size-5" />}
         />
       </section>
+
+      {canViewFeedbackAnalytics ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{language === 'bs' ? 'Analitika feedbacka' : 'Feedback Analytics'}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {feedbackError ? <p className="text-sm text-destructive">{feedbackError}</p> : null}
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto]">
+              <input
+                type="date"
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={feedbackFilters.from}
+                onChange={(event) => setFeedbackFilters((current) => ({ ...current, from: event.target.value }))}
+                aria-label={language === 'bs' ? 'Od datuma' : 'From date'}
+              />
+              <input
+                type="date"
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={feedbackFilters.to}
+                onChange={(event) => setFeedbackFilters((current) => ({ ...current, to: event.target.value }))}
+                aria-label={language === 'bs' ? 'Do datuma' : 'To date'}
+              />
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={feedbackFilters.companyId}
+                onChange={(event) => setFeedbackFilters((current) => ({ ...current, companyId: event.target.value }))}
+              >
+                {companyFeedbackOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={feedbackFilters.categoryId}
+                onChange={(event) => setFeedbackFilters((current) => ({ ...current, categoryId: event.target.value }))}
+              >
+                {categoryFeedbackOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <select
+                className="h-10 rounded-md border bg-background px-3 text-sm"
+                value={feedbackFilters.servicerId}
+                onChange={(event) => setFeedbackFilters((current) => ({ ...current, servicerId: event.target.value }))}
+              >
+                {servicerFeedbackOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <Button type="button" onClick={() => void loadFeedbackAnalytics(feedbackFilters)} disabled={isLoadingFeedback}>
+                {isLoadingFeedback ? (language === 'bs' ? 'Ucitavanje...' : 'Loading...') : (language === 'bs' ? 'Primijeni' : 'Apply')}
+              </Button>
+            </div>
+            <section className="grid gap-4 sm:grid-cols-3">
+              <StatCard title={language === 'bs' ? 'Prosjecna ocjena' : 'Average rating'} value={feedbackAnalytics?.summary.averageRating == null ? '-' : `${formatRatingValue(feedbackAnalytics.summary.averageRating)}/5`} isLoading={isLoadingFeedback} icon={<Star className="size-5" />} />
+              <StatCard title={language === 'bs' ? 'Feedback zapisi' : 'Feedback records'} value={feedbackAnalytics?.summary.feedbackCount ?? 0} isLoading={isLoadingFeedback} icon={<ClipboardList className="size-5" />} />
+              <StatCard title={language === 'bs' ? 'Negativni feedback' : 'Negative feedback'} value={feedbackAnalytics?.summary.negativeCount ?? 0} isLoading={isLoadingFeedback} icon={<FileText className="size-5" />} />
+            </section>
+            <section className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(18rem,0.65fr)]">
+              <FeedbackTrendPanel
+                trends={feedbackAnalytics?.trends ?? []}
+                isLoading={isLoadingFeedback}
+                language={language}
+              />
+              <RatingDistributionPanel
+                distribution={feedbackAnalytics?.ratingDistribution ?? []}
+                total={feedbackAnalytics?.summary.feedbackCount ?? 0}
+                isLoading={isLoadingFeedback}
+                language={language}
+              />
+            </section>
+            <section className="grid gap-4 xl:grid-cols-3">
+              <FeedbackBreakdownPanel
+                title={language === 'bs' ? 'Po firmama' : 'By company'}
+                emptyText={language === 'bs' ? 'Nema podataka za firme.' : 'No company data yet.'}
+                rows={companyFeedbackRows}
+                language={language}
+                isLoading={isLoadingFeedback}
+              />
+              <FeedbackBreakdownPanel
+                title={language === 'bs' ? 'Po kategorijama' : 'By category'}
+                emptyText={language === 'bs' ? 'Nema podataka za kategorije.' : 'No category data yet.'}
+                rows={categoryFeedbackRows}
+                language={language}
+                isLoading={isLoadingFeedback}
+              />
+              <FeedbackBreakdownPanel
+                title={language === 'bs' ? 'Po serviserima' : 'By servicer'}
+                emptyText={language === 'bs' ? 'Nema podataka za servisere.' : 'No servicer data yet.'}
+                description={
+                  language === 'bs'
+                    ? 'Nedodijeljeno znaci da intervencija trenutno nema dodijeljenog servisera; negativan feedback ne uklanja servisera.'
+                    : 'Unassigned means the intervention currently has no assigned servicer; negative feedback does not remove a servicer.'
+                }
+                rows={servicerFeedbackRows}
+                language={language}
+                isLoading={isLoadingFeedback}
+              />
+            </section>
+            <section className="space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold">
+                  {language === 'bs' ? 'Negativni feedback za pregled' : 'Negative feedback to review'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'bs'
+                    ? `Ocjene ${feedbackAnalytics?.summary.negativeThreshold ?? 2} i nize se izdvajaju za brzu provjeru.`
+                    : `Ratings ${feedbackAnalytics?.summary.negativeThreshold ?? 2} and below are highlighted for quick review.`}
+                </p>
+              </div>
+              <DataTable
+                columns={[
+                  { key: 'interventionName', header: language === 'bs' ? 'Intervencija' : 'Intervention' },
+                  { key: 'rating', header: language === 'bs' ? 'Ocjena' : 'Rating', width: '90px' },
+                  { key: 'companyName', header: language === 'bs' ? 'Firma' : 'Company' },
+                  { key: 'categoryName', header: language === 'bs' ? 'Kategorija' : 'Category', render: (value) => translateCategoryName(language, String(value)) },
+                  { key: 'comment', header: 'Feedback', render: (value) => String(value ?? '-') },
+                  {
+                    key: 'actions',
+                    header: '',
+                    align: 'right',
+                    render: (_value, row) => (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link href={ROUTES.INTERVENTION(String((row as { interventionId: number }).interventionId))}>
+                          {language === 'bs' ? 'Otvori' : 'Open'}
+                        </Link>
+                      </Button>
+                    ),
+                  },
+                ]}
+                data={feedbackAnalytics?.negativeFeedback ?? []}
+                keyExtractor={(row) => String(row.id)}
+                isLoading={isLoadingFeedback}
+                emptyTitle={language === 'bs' ? 'Nema negativnog feedbacka' : 'No negative feedback'}
+                emptyDescription={language === 'bs' ? 'Odabrani filteri nemaju negativne ocjene.' : 'The selected filters have no negative ratings.'}
+              />
+            </section>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <FilterBar
         search={{
@@ -668,8 +1182,11 @@ function ReportPreview({
             </div>
 
             <ReportTextBlock label={language === 'bs' ? 'Opis rada' : 'Work Description'} value={row.report.description} />
-            {row.report.material ? (
-              <ReportTextBlock label={language === 'bs' ? 'Korišteni materijali' : 'Materials Used'} value={row.report.material} />
+            {row.report.materialItems && row.report.materialItems.length > 0 ? (
+              <ReportTextBlock 
+                label={language === 'bs' ? 'Korišteni materijali' : 'Materials Used'} 
+                value={row.report.materialItems.map(item => `${item.name} (x${item.quantity})`).join(', ')} 
+              />
             ) : null}
             {row.report.notes ? (
               <ReportTextBlock label={language === 'bs' ? 'Bilješke' : 'Notes'} value={row.report.notes} />
@@ -680,8 +1197,109 @@ function ReportPreview({
             {language === 'bs' ? 'Ova intervencija još nema poslan izvještaj.' : 'This intervention does not have a submitted report yet.'}
           </p>
         )}
+        <ReportFeedbackPreview interventionId={row.id} language={language} />
       </CardContent>
     </Card>
+  );
+}
+
+function ReportFeedbackPreview({
+  interventionId,
+  language,
+}: {
+  interventionId: string;
+  language: LanguageCode;
+}) {
+  const [feedback, setFeedback] = useState<InterventionFeedback | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadFeedback = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const data = await getInterventionFeedback(interventionId);
+        if (!cancelled) setFeedback(data);
+      } catch (requestError) {
+        if (!cancelled) {
+          setFeedback(null);
+          setError(requestError instanceof Error ? requestError.message : 'Failed to load feedback.');
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    void loadFeedback();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [interventionId]);
+
+  return (
+    <section className="rounded-lg border bg-background p-3">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-semibold">
+            {language === 'bs' ? 'Feedback korisnika' : 'User feedback'}
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            {language === 'bs' ? 'Ocjena vezana za ovu intervenciju' : 'Rating attached to this intervention'}
+          </p>
+        </div>
+        {feedback ? (
+          <Badge variant={feedback.rating <= 2 ? 'destructive' : 'default'}>
+            {feedback.rating}/5
+          </Badge>
+        ) : null}
+      </div>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      ) : error ? (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          {language === 'bs' ? 'Feedback nije dostupan za ovu intervenciju.' : 'Feedback is not available for this intervention.'}
+        </p>
+      ) : feedback ? (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <div className="flex gap-0.5" aria-label={`${feedback.rating}/5`}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <Star
+                  key={value}
+                  className={
+                    value <= feedback.rating
+                      ? 'size-4 fill-primary text-primary'
+                      : 'size-4 text-muted-foreground/50'
+                  }
+                />
+              ))}
+            </div>
+            <span className="font-medium">
+              {feedback.user.firstName} {feedback.user.lastName}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {formatDateTime(feedback.createdAt, language)}
+            </span>
+          </div>
+          <p className="whitespace-pre-wrap rounded-md bg-muted/40 p-3 text-sm">
+            {feedback.comment || (language === 'bs' ? 'Bez komentara.' : 'No comment.')}
+          </p>
+        </div>
+      ) : (
+        <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+          {language === 'bs' ? 'Ova intervencija jos nema feedback.' : 'This intervention has no feedback yet.'}
+        </p>
+      )}
+    </section>
   );
 }
 

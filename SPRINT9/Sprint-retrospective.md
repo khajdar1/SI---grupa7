@@ -12,9 +12,7 @@
 
 ## Šta je išlo dobro
 
-* Sprint 9 uspješno je proširio funkcionalnosti sistema kroz implementaciju notifikacija za tikete, ostavljanja feedbacka, višejezične podrške, Settings stranice i blokiranja korisnika.
-
-* Notifikacije za tikete su integrisane u postojeću notifikacijsku infrastrukturu bez potrebe za zasebnim modulom, čime je postignuta konzistentnost prikaza svih obavijesti u navigaciji.
+* Sprint 9 uspješno je proširio funkcionalnosti sistema kroz implementaciju ostavljanja feedbacka, višejezične podrške, Settings stranice i blokiranja korisnika.
 
 * Višejezična podrška implementirana je s fallback mehanizmom koji osigurava da korisnici ne vide prazna polja niti greške pri nepotpunim prijevodima.
 
@@ -38,6 +36,10 @@
 
 ## Konkretne akcije u Sprint 10
 
-* Implementirati automatsku raspodjelu intervencija od strane sistema 
-* Implementirati automatizovani backup i restore MySQL baze 
-* Implementirati scheduler za SLA i periodične pozadinske zadatke
+* Implementirati sistem eskalacija i komentara menadžmenta za praćenje i upravljanje rizičnim intervencijama.
+
+* Uvesti upravljanje dostupnošću servisera i praćenje vremena provedenog na terenu radi bolje organizacije radnih resursa.
+
+* Implementirati mehanizme potvrde izvođenja intervencija i mogućnost zahtjeva za ponovno otvaranje završenih intervencija.
+
+* Proširiti sistem o praćenje utrošenih materijala, izvještavanje i bazu znanja za rješavanje intervencija.
