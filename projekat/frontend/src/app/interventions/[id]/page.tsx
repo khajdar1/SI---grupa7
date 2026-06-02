@@ -452,25 +452,6 @@ export default function InterventionDetailPage() {
     setSuccessMessage('');
 
     try {
-      await createReopenRequest(intervention.id, {
-        reason: reopenReason.trim(),
-        comment: reopenComment.trim() || null,
-      });
-
-      setSuccessMessage(t('reopen.requestCreated'));
-
-      setReopenDialogOpen(false);
-      setReopenReason('');
-      setReopenComment('');
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? translateText(language, err.message)
-          : t('reopen.requestFailed'),
-      );
-    }
-
-    try {
       await requestAppointmentReschedule(intervention.id, {
         proposedStartedAt: new Date(`${rescheduleProposedDate.trim()}T${rescheduleProposedTime.trim()}:00`).toISOString(),
         comment: rescheduleComment.trim(),

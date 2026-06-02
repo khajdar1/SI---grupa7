@@ -2386,8 +2386,6 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
-    res.json({ ...mapIntervention(intervention) });
-    
     const rescheduleRequests = await prisma.appointmentRescheduleRequest.findMany({
       where: { interventionId: id },
       orderBy: { createdAt: "desc" },
