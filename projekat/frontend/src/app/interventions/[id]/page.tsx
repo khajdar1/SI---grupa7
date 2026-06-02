@@ -365,11 +365,7 @@ export default function InterventionDetailPage() {
     if (!intervention) return;
 
     if (!reopenReason.trim()) {
-      setError(
-        language === 'bs'
-          ? 'ObrazloÅ¾enje je obavezno.'
-          : 'Reason is required.',
-      );
+      setError(t('reopen.reasonRequired'));
       return;
     }
 
@@ -382,11 +378,7 @@ export default function InterventionDetailPage() {
         comment: reopenComment.trim() || null,
       });
 
-      setSuccessMessage(
-        language === 'bs'
-          ? 'Zahtjev za ponovno otvaranje je poslan.'
-          : 'Reopen request submitted.',
-      );
+      setSuccessMessage(t('reopen.requestCreated'));
 
       setReopenDialogOpen(false);
       setReopenReason('');
@@ -395,9 +387,7 @@ export default function InterventionDetailPage() {
       setError(
         err instanceof Error
           ? translateText(language, err.message)
-          : language === 'bs'
-            ? 'Slanje zahtjeva nije uspjelo.'
-            : 'Failed to submit reopen request.',
+          : t('reopen.requestFailed'),
       );
     }
   };
@@ -616,6 +606,10 @@ export default function InterventionDetailPage() {
   const canReadReport = hasSessionRole(REPORT_READ_ROLES);
   const canWriteReport = hasSessionRole(REPORT_WRITE_ROLES);
   const sessionUserId = getSessionUserId();
+  const isAssignedServicer = Boolean(
+    sessionUserId &&
+      intervention?.assignments?.some((assignment) => assignment.userId === sessionUserId),
+  );
   const canSubmitFeedback = Boolean(
     intervention?.faultReport?.reporterUser?.id &&
       intervention.faultReport.reporterUser.id === sessionUserId,
@@ -637,7 +631,10 @@ export default function InterventionDetailPage() {
       intervention.status === INTERVENTION_STATUS.IN_PROGRESS &&
       confirmationStatus !== 'CONFIRMED',
   );
-  const canRespondToConfirmation = Boolean(canSubmitFeedback && confirmationIsPending);
+  const canRespondToConfirmation = Boolean(
+    confirmationIsPending &&
+      (canSubmitFeedback || isAssignedServicer || canChangeStatus || canManageIntervention),
+  );
   const confirmationStatusLabel = t(`interventionDetail.confirmationStatus.${confirmationStatus}`);
   const confirmationMethodLabel = executionConfirmation?.method
     ? t(`interventionDetail.confirmationMethod.${executionConfirmation.method}`)
@@ -694,10 +691,7 @@ export default function InterventionDetailPage() {
          ...(intervention.status === INTERVENTION_STATUS.RESOLVED && canSubmitFeedback
   ? [
       {
-        label:
-          language === 'bs'
-            ? 'Zatraži ponovno otvaranje'
-            : 'Request Reopening',
+        label: t('reopen.request'),
         onClick: () => setReopenDialogOpen(true),
         variant: 'outline' as const,
       },
@@ -1080,15 +1074,15 @@ export default function InterventionDetailPage() {
                     {language === 'bs' ? 'Stigao sam na lokaciju' : 'Arrived at location'}
                   </Button>
                 )}
-                {intervention.arrivedAt && !intervention.fieldWorkEndedAt && (
+                {intervention.arrivedAt && !intervention.fieldWorkEndedAt && CLOSEABLE_STATUSES.has(intervention.status) && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={isUpdatingFieldTracking}
-                    onClick={() => void handleFieldTracking('END')}
+                    disabled={isUpdatingStatus}
+                    onClick={handleCloseClick}
                   >
-                    {language === 'bs' ? 'Završio sam rad na terenu' : 'Field work completed'}
+                    {language === 'bs' ? 'Zavrsi i zatvori intervenciju' : 'Finish and close intervention'}
                   </Button>
                 )}
               </div>
@@ -1120,12 +1114,21 @@ export default function InterventionDetailPage() {
               return (
                 <div key={pause.id} className="rounded-lg border px-4 py-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium">
-                      {option ? (language === 'bs' ? option.bs : option.en) : pause.reason}
-                    </p>
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        {language === 'bs' ? 'Razlog pauze' : 'Pause reason'}
+                      </p>
+                      <p className="font-medium">
+                        {option ? (language === 'bs' ? option.bs : option.en) : pause.reason}
+                      </p>
+                    </div>
                     <InterventionStatusBadge status={pause.resumedAt ? pause.previousStatus : INTERVENTION_STATUS.ON_HOLD} />
                   </div>
-                  {pause.otherReason ? <p className="mt-1 text-muted-foreground">{pause.otherReason}</p> : null}
+                  {pause.otherReason ? (
+                    <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-muted-foreground">
+                      {pause.otherReason}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">
                     {language === 'bs' ? 'Pauzirao' : 'Paused by'} {pause.pausedBy.firstName} {pause.pausedBy.lastName} - {new Date(pause.pausedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
                   </p>
@@ -1135,6 +1138,7 @@ export default function InterventionDetailPage() {
                   {pause.resumedAt ? (
                     <p className="text-xs text-muted-foreground">
                       {language === 'bs' ? 'Nastavljeno' : 'Resumed'} {new Date(pause.resumedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
+                      {pause.resumeNote ? ` - ${pause.resumeNote}` : ''}
                     </p>
                   ) : null}
                 </div>
@@ -1147,8 +1151,16 @@ export default function InterventionDetailPage() {
                   id="resume-note"
                   rows={2}
                   value={resumeNote}
+                  placeholder={language === 'bs' ? 'Opcionalna napomena za nastavak rada...' : 'Optional note for resuming work...'}
                   onChange={(event) => setResumeNote(event.target.value)}
                 />
+                {canChangeStatus ? (
+                  <Button type="button" onClick={() => void handleResume()} disabled={isUpdatingStatus}>
+                    {isUpdatingStatus
+                      ? (language === 'bs' ? 'Nastavljanje...' : 'Resuming...')
+                      : (language === 'bs' ? 'Nastavi rad' : 'Resume work')}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </CardContent>
@@ -1450,22 +1462,16 @@ export default function InterventionDetailPage() {
       <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
   <DialogContent>
     <DialogHeader>
-      <DialogTitle>
-        {language === 'bs'
-          ? 'Zahtjev za ponovno otvaranje'
-          : 'Reopen Request'}
-      </DialogTitle>
+      <DialogTitle>{t('reopen.request')}</DialogTitle>
       <DialogDescription>
-        {language === 'bs'
-          ? 'Objasnite zašto intervencija nije uspješno završena.'
-          : 'Explain why the intervention was not successfully resolved.'}
+        {t('reopen.description')}
       </DialogDescription>
     </DialogHeader>
 
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="reopen-reason">
-          {language === 'bs' ? 'Obrazloženje' : 'Reason'}
+          {t('reopen.reason')}
         </Label>
 
         <Textarea
@@ -1478,7 +1484,7 @@ export default function InterventionDetailPage() {
 
       <div className="space-y-2">
         <Label htmlFor="reopen-comment">
-          {language === 'bs' ? 'Komentar' : 'Comment'}
+          {t('reopen.comment')}
         </Label>
 
         <Textarea
@@ -1495,7 +1501,7 @@ export default function InterventionDetailPage() {
         variant="outline"
         onClick={() => setReopenDialogOpen(false)}
       >
-        {language === 'bs' ? 'Odustani' : 'Cancel'}
+        {t('tickets.cancel')}
       </Button>
 
       <Button
@@ -1503,9 +1509,7 @@ export default function InterventionDetailPage() {
           void handleReopenRequest();
         }}
       >
-        {language === 'bs'
-          ? 'Pošalji zahtjev'
-          : 'Submit Request'}
+        {t('reopen.submit')}
       </Button>
     </DialogFooter>
   </DialogContent>
