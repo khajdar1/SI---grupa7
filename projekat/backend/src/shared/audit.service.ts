@@ -98,21 +98,27 @@ export class AuditService {
 
   static async record(entry: AuditLogEntry): Promise<void> {
     this.log(entry);
-    const { prisma } = await import("../config/database.js");
 
-    await prisma.auditLog.create({
-      data: {
-        action: entry.action,
-        entity: entry.entity,
-        entityId: entry.entityId === undefined ? null : String(entry.entityId),
-        actorId: entry.actorId ?? entry.userId ?? null,
-        actorUsername: entry.actorUsername ?? null,
-        details: entry.details ?? null,
-        oldValues: entry.oldValues ?? undefined,
-        newValues: entry.newValues ?? undefined,
-        createdAt: entry.timestamp ?? new Date(),
-      },
-    });
+    try {
+      const { prisma } = await import("../config/database.js");
+
+      await prisma.auditLog.create({
+        data: {
+          action: entry.action,
+          entity: entry.entity,
+          entityId: entry.entityId === undefined ? null : String(entry.entityId),
+          actorId: entry.actorId ?? entry.userId ?? null,
+          actorUsername: entry.actorUsername ?? null,
+          details: entry.details ?? null,
+          oldValues: entry.oldValues ?? undefined,
+          newValues: entry.newValues ?? undefined,
+          createdAt: entry.timestamp ?? new Date(),
+        },
+      });
+    } catch {
+      // Audit persistence failure must not crash the primary operation.
+      // The entry has already been logged to console via this.log().
+    }
   }
 
   /**
