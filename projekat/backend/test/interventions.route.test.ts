@@ -38,6 +38,7 @@ const {
   userFindFirstMock,
   slaConfigurationFindUniqueMock,
   auditLogCreateMock,
+  appointmentRescheduleFindManyMock,
   transactionMock,
 } = vi.hoisted(() => ({
   categoryFindManyMock: vi.fn(),
@@ -64,6 +65,7 @@ const {
   userFindFirstMock: vi.fn(),
   slaConfigurationFindUniqueMock: vi.fn(),
   auditLogCreateMock: vi.fn(),
+  appointmentRescheduleFindManyMock: vi.fn(),
   transactionMock: vi.fn((operations: Array<Promise<unknown> | unknown> | ((tx: unknown) => unknown)) => {
     if (typeof operations === "function") {
       return operations({
@@ -134,6 +136,9 @@ vi.mock("../src/config/database", () => ({
     },
     auditLog: {
       create: auditLogCreateMock,
+    },
+    appointmentRescheduleRequest: {
+      findMany: appointmentRescheduleFindManyMock,
     },
     $transaction: transactionMock,
   },
@@ -413,6 +418,7 @@ describe("PBI-004 interventions route", () => {
   notificationFindFirstMock.mockResolvedValue(null);
   notificationCreateMock.mockResolvedValue({});
   assignmentFindManyMock.mockResolvedValue([]);
+  appointmentRescheduleFindManyMock.mockResolvedValue([]);
   userPreferenceFindUniqueMock.mockResolvedValue(null);
   executionConfirmationFindUniqueMock.mockResolvedValue(null);
   executionConfirmationUpsertMock.mockImplementation((args) =>

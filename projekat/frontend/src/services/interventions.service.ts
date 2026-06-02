@@ -256,6 +256,22 @@ export interface InterventionDetail {
   }>;
   executionConfirmation: ExecutionConfirmationDetail;
   pauses?: InterventionPause[];
+  appointmentConfirmedAt?: string | null;
+  rescheduleRequests?: AppointmentRescheduleRequestItem[];
+}
+
+export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface AppointmentRescheduleRequestItem {
+  id: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  responseComment: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  requestedBy: string | null;
+  respondedBy: string | null;
 }
 
 export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
@@ -637,5 +653,77 @@ export async function rejectReopenRequest(requestId: number, coordinatorComment:
   return getResponseData(
     () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/reject`, { coordinatorComment }),
     'Failed to reject reopen request.',
+  );
+}
+
+export async function confirmAppointment(id: number | string): Promise<{ appointmentConfirmedAt: string | null }> {
+  return getResponseData(
+    () => api.post<{ appointmentConfirmedAt: string | null }>(API_ENDPOINTS.INTERVENTIONS.APPOINTMENT_CONFIRM(id)),
+    'Failed to confirm appointment.',
+  );
+}
+
+export async function requestAppointmentReschedule(
+  id: number | string,
+  payload: { proposedStartedAt: string; comment: string },
+): Promise<{
+  id: number;
+  interventionId: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  createdAt: string;
+}> {
+  return getResponseData(
+    () => api.post(API_ENDPOINTS.INTERVENTIONS.APPOINTMENT_RESCHEDULE(id), payload),
+    'Failed to request appointment reschedule.',
+  );
+}
+
+export interface RescheduleRequestListItem {
+  id: number;
+  interventionId: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  createdAt: string;
+  requestedBy: { id: number; firstName: string; lastName: string; username: string } | null;
+  intervention: {
+    id: number;
+    name: string;
+    startedAt: string | null;
+    location: string;
+    status: InterventionStatus;
+    company: { id: number; name: string };
+    category: { id: number; name: string };
+  } | null;
+}
+
+export async function getRescheduleRequests(): Promise<{ data: RescheduleRequestListItem[] }> {
+  return getResponseData(
+    () => api.get<{ data: RescheduleRequestListItem[] }>(API_ENDPOINTS.INTERVENTIONS.RESCHEDULE_REQUESTS),
+    'Failed to load reschedule requests.',
+  );
+}
+
+export async function respondToRescheduleRequest(
+  id: number | string,
+  requestId: number | string,
+  payload: {
+    status: RescheduleRequestStatus;
+    responseComment?: string;
+    proposedStartedAt?: string;
+  },
+): Promise<{
+  id: number;
+  interventionId: number;
+  status: RescheduleRequestStatus;
+  respondedById: number | null;
+  responseComment: string | null;
+  respondedAt: string | null;
+}> {
+  return getResponseData(
+    () => api.patch(API_ENDPOINTS.INTERVENTIONS.RESCHEDULE_RESPOND(id, requestId), payload),
+    'Failed to respond to reschedule request.',
   );
 }
