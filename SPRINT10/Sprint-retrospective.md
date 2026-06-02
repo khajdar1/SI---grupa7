@@ -12,23 +12,25 @@
 
 ## Šta je išlo dobro
 
-* Sprint 10 uspješno je implementirao napredne operativne funkcionalnosti: analitiku feedbacka, upravljanje dostupnošću servisera, potvrdu termina, bazu znanja, evidenciju materijala, eskalacije, zahtjev za ponovnim otvaranjem, evidenciju dolaska servisera, digitalnu potvrdu i pauziranje intervencija.
-* Evidencija dolaska servisera implementirana je s tri fiksna operativna checkpointa, što je omogućilo konzistentnu evidenciju i automatsko računanje vremena na terenu.
-* Eskalacijski komentari su uspješno odvojeni od redovnih komentara, čime je menadžmentu omogućen pregledan uvid u rizične intervencije.
+* Sprint 10 uspješno je proširio sistem kroz implementaciju eskalacija rizičnih intervencija, upravljanja dostupnošću servisera, potvrde izvođenja i baze znanja.
+
+* Eskalacijski proces implementiran je s jasnom podjelom uloga između koordinatora i menadžmenta, što je omogućilo pregledan nadzor nad intervencijama koje zahtijevaju posebnu pažnju.
+
+* Zahtjev za ponovnim otvaranjem završenih intervencija uveden je kao strukturiran tok odobrenja, čime je izbjegnuto neformalno mijenjanje statusa izvan definisanog procesa.
 
 ---
 
 ## Šta nije išlo dobro
 
-* Evidencija dolaska servisera zahtijevala je neplaniranje izmjene šeme baze podataka, što je produljilo koordinaciju između backend slojeva.
-* Pauziranje intervencije uvelo je novi statusni čvor koji nije bio inicijalno predviđen, što je zahtijevalo retroaktivno proširenje logike statusa.
+* Upravljanje dostupnošću servisera uvelo je više međusobno zavisnih PBI-eva unutar sprinta, što je zahtijevalo pažljivu koordinaciju pri dodjeli intervencija.
+
+* Evidencija dolaska servisera na teren zahtijevala je više usklađivanja između članova tima nego što je inicijalno planirano.
 
 ---
 
 ## Šta treba promijeniti
 
-* Logiku statusa i dozvoljenih tranzicija intervencije potrebno je centralizovati u backend kodu kako bi buduća proširenja bila lakše upravljiva.
-
+* Unaprijediti pregled eskalacija i komentara menadžmenta dodavanjem filtiranja po statusu kako bi rukovodioci brže pronašli intervencije koje zahtijevaju njihovu akciju.
 ---
 
 ## Konkretne akcije u Sprint 11

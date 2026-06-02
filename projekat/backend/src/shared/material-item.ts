@@ -45,3 +45,29 @@ export function serializeMaterialItems(items: MaterialItem[]): string | null {
   if (!items.length) return null;
   return JSON.stringify(items);
 }
+
+export function formatMaterialItems(material: string | null): string | null {
+  if (!material?.trim()) return null;
+
+  let parsedItems: MaterialItem[] = [];
+
+  try {
+    const parsed: unknown = JSON.parse(material);
+    if (Array.isArray(parsed)) {
+      parsedItems = parsed.filter(isMaterialItem);
+    }
+  } catch {
+    return material.trim();
+  }
+
+  if (!parsedItems.length) {
+    return material.trim();
+  }
+
+  return parsedItems
+    .map((item) => {
+      const base = `${item.name} (x${item.quantity})`;
+      return item.note ? `${base} - ${item.note}` : base;
+    })
+    .join(', ');
+}

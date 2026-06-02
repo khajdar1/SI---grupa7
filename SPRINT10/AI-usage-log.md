@@ -870,6 +870,27 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 
 - **Datum:** 01.06.2026.
 - **Sprint broj:** Sprint 10
+- **Alat koji je korišten:** Claude Sonnet 4.6 (Anthropic)
+- **Svrha korištenja:** Implementacija PBI-060 (Evidencija dolaska servisera i vremena na terenu).
+- **Kratak opis zadatka ili upita:** Implementacija funkcionalnosti koja serviseru omogućava označavanje trenutka kada je krenuo prema lokaciji, kada je stigao i kada je završio rad na terenu, uz prikaz tih podataka koordinatoru i slanje notifikacija korisniku koji je prijavio kvar.
+- **Šta je AI predložio ili generisao:**
+  - Ažuriranje `schema.prisma` — tri nova nullable polja na modelu `Intervention`: `dispatchedAt`, `arrivedAt`, `fieldWorkEndedAt`, te dva nova `NotificationType` enuma: `SERVICER_DISPATCHED` i `SERVICER_ARRIVED`.
+  - Prisma migraciju (`20260531200000_add_field_time_tracking`) s ALTER TABLE naredbama.
+  - Novi backend endpoint `PATCH /:id/field-tracking` u `interventions.route.ts` s validacijom redosljeda akcija i slanjem notifikacija reporteru.
+  - Ažuriranje `mapIntervention` funkcije da vraća nova vremenska polja u response-u.
+  - Frontend funkciju `updateFieldTracking` u `interventions.service.ts`.
+  - Ažuriranje `InterventionDetail` interfacea s novim poljima.
+  - React UI karticu "Field Time Tracking" u stranici detalja intervencije s prikazom vremena i kontekstualnim dugmadima za servisera.
+  - Ažuriranje `NotificationType` u `notifications.service.ts` s novim tipovima.
+  - 8 unit testova u `interventions.route.test.ts` pokrivajući sve acceptance criteria.
+- **Šta je tim prihvatio:** Sve generisane izmjene — migraciju, backend endpoint, frontend komponentu i testove.
+- **Šta je tim izmijenio:** /
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Tokom Docker builda backend je padao zbog failed migracija uzrokovanih prethodnim `db push` koji je kreirao kolone bez migracijskog fajla. Riješeno ručnim označavanjem migracija kao uspješnih u `_prisma_migrations` tabeli. Tokom merge-a s `develop` granom došlo je do konflikta u `notifications.service.ts` gdje je ostao dupli `;` koji je uzrokovao sintaksnu grešku u CI/CD buildu, te u `page.tsx` gdje je nedostajala zatvarajuća `}` u `handleFieldTracking` funkciji nakon merge-a.
+- **Ko je koristio alat:** Dalila Tanković
+
+- **Datum:** 01.06.2026.
+- **Sprint broj:** Sprint 10
 - **Alat koji je korišten:** OpenCode – deepseek-v4-flash
 - **Svrha korištenja:** Implementacija PBI-054 (Potvrda i promjena termina intervencije od strane korisnika).
 - **Kratak opis zadatka ili upita:** Implementacija kompletnog toka za potvrdu termina i zahtjev za promjenu termina intervencije: korisnik dobija in-app notifikaciju kada koordinator zakaže termin, može potvrditi termin ili zatražiti promjenu sa predloženim vremenom i komentarom, koordinator vidi listu zahtjeva i može ih prihvatiti/odbijati uz audit zapis.

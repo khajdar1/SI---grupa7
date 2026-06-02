@@ -116,6 +116,7 @@ const INTERVENTION_CREATE_ROLE_NAMES = new Set([
   'administrator',
 ]);
 const BLOCKING_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
+const REOPEN_REQUEST_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
 
 const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.HOME]: <Home className="size-4" />,
@@ -349,6 +350,10 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
 
   if (route === ROUTES.BLOCKED_USERS) {
     return hasAnyRole(roles, BLOCKING_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.REOPEN_REQUESTS) {
+    return hasAnyRole(roles, REOPEN_REQUEST_ROLE_NAMES);
   }
 
   return true;

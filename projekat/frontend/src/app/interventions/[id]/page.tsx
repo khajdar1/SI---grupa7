@@ -46,6 +46,7 @@ import {
   resumeIntervention,
   updateFieldTracking,
   updateInterventionStatus,
+  createReopenRequest,
   type ExecutionConfirmationDetail,
   type InterventionDetail,
   type KnowledgeBaseSolution,
@@ -231,6 +232,9 @@ export default function InterventionDetailPage() {
   const [pauseReason, setPauseReason] = useState<PauseReason>('WAITING_FOR_CUSTOMER');
   const [pauseOtherReason, setPauseOtherReason] = useState('');
   const [resumeNote, setResumeNote] = useState('');
+  const [reopenDialogOpen, setReopenDialogOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
+  const [reopenComment, setReopenComment] = useState('');
   const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
   const [rescheduleProposedDate, setRescheduleProposedDate] = useState('');
   const [rescheduleProposedTime, setRescheduleProposedTime] = useState('');
@@ -389,6 +393,14 @@ export default function InterventionDetailPage() {
     }
   };
 
+  const handleReopenRequest = async () => {
+    if (!intervention) return;
+
+    if (!reopenReason.trim()) {
+      setError(t('reopen.reasonRequired'));
+      return;
+    }
+
   const handleConfirmAppointment = async () => {
     if (!intervention) return;
 
@@ -417,6 +429,22 @@ export default function InterventionDetailPage() {
     setSuccessMessage('');
 
     try {
+      await createReopenRequest(intervention.id, {
+        reason: reopenReason.trim(),
+        comment: reopenComment.trim() || null,
+      });
+
+      setSuccessMessage(t('reopen.requestCreated'));
+
+      setReopenDialogOpen(false);
+      setReopenReason('');
+      setReopenComment('');
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? translateText(language, err.message)
+          : t('reopen.requestFailed'),
+      );
       await requestAppointmentReschedule(intervention.id, {
         proposedStartedAt: new Date(`${rescheduleProposedDate.trim()}T${rescheduleProposedTime.trim()}:00`).toISOString(),
         comment: rescheduleComment.trim(),
@@ -687,6 +715,10 @@ export default function InterventionDetailPage() {
   const canReadReport = hasSessionRole(REPORT_READ_ROLES);
   const canWriteReport = hasSessionRole(REPORT_WRITE_ROLES);
   const sessionUserId = getSessionUserId();
+  const isAssignedServicer = Boolean(
+    sessionUserId &&
+      intervention?.assignments?.some((assignment) => assignment.userId === sessionUserId),
+  );
   const canSubmitFeedback = Boolean(
     intervention?.faultReport?.reporterUser?.id &&
       intervention.faultReport.reporterUser.id === sessionUserId,
@@ -708,7 +740,10 @@ export default function InterventionDetailPage() {
       intervention.status === INTERVENTION_STATUS.IN_PROGRESS &&
       confirmationStatus !== 'CONFIRMED',
   );
-  const canRespondToConfirmation = Boolean(canSubmitFeedback && confirmationIsPending);
+  const canRespondToConfirmation = Boolean(
+    confirmationIsPending &&
+      (canSubmitFeedback || isAssignedServicer || canChangeStatus || canManageIntervention),
+  );
   const confirmationStatusLabel = t(`interventionDetail.confirmationStatus.${confirmationStatus}`);
   const confirmationMethodLabel = executionConfirmation?.method
     ? t(`interventionDetail.confirmationMethod.${executionConfirmation.method}`)
@@ -762,6 +797,15 @@ export default function InterventionDetailPage() {
               },
             ]
           : []),
+         ...(intervention.status === INTERVENTION_STATUS.RESOLVED && canSubmitFeedback
+  ? [
+      {
+        label: t('reopen.request'),
+        onClick: () => setReopenDialogOpen(true),
+        variant: 'outline' as const,
+      },
+    ]
+  : []),
       ]
     : [];
 
@@ -1382,15 +1426,15 @@ export default function InterventionDetailPage() {
                     {language === 'bs' ? 'Stigao sam na lokaciju' : 'Arrived at location'}
                   </Button>
                 )}
-                {intervention.arrivedAt && !intervention.fieldWorkEndedAt && (
+                {intervention.arrivedAt && !intervention.fieldWorkEndedAt && CLOSEABLE_STATUSES.has(intervention.status) && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={isUpdatingFieldTracking}
-                    onClick={() => void handleFieldTracking('END')}
+                    disabled={isUpdatingStatus}
+                    onClick={handleCloseClick}
                   >
-                    {language === 'bs' ? 'Završio sam rad na terenu' : 'Field work completed'}
+                    {language === 'bs' ? 'Zavrsi i zatvori intervenciju' : 'Finish and close intervention'}
                   </Button>
                 )}
               </div>
@@ -1422,12 +1466,21 @@ export default function InterventionDetailPage() {
               return (
                 <div key={pause.id} className="rounded-lg border px-4 py-3 text-sm">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium">
-                      {option ? (language === 'bs' ? option.bs : option.en) : pause.reason}
-                    </p>
+                    <div>
+                      <p className="text-xs font-medium uppercase text-muted-foreground">
+                        {language === 'bs' ? 'Razlog pauze' : 'Pause reason'}
+                      </p>
+                      <p className="font-medium">
+                        {option ? (language === 'bs' ? option.bs : option.en) : pause.reason}
+                      </p>
+                    </div>
                     <InterventionStatusBadge status={pause.resumedAt ? pause.previousStatus : INTERVENTION_STATUS.ON_HOLD} />
                   </div>
-                  {pause.otherReason ? <p className="mt-1 text-muted-foreground">{pause.otherReason}</p> : null}
+                  {pause.otherReason ? (
+                    <p className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-muted-foreground">
+                      {pause.otherReason}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-xs text-muted-foreground">
                     {language === 'bs' ? 'Pauzirao' : 'Paused by'} {pause.pausedBy.firstName} {pause.pausedBy.lastName} - {new Date(pause.pausedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
                   </p>
@@ -1437,6 +1490,7 @@ export default function InterventionDetailPage() {
                   {pause.resumedAt ? (
                     <p className="text-xs text-muted-foreground">
                       {language === 'bs' ? 'Nastavljeno' : 'Resumed'} {new Date(pause.resumedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB')}
+                      {pause.resumeNote ? ` - ${pause.resumeNote}` : ''}
                     </p>
                   ) : null}
                 </div>
@@ -1449,8 +1503,16 @@ export default function InterventionDetailPage() {
                   id="resume-note"
                   rows={2}
                   value={resumeNote}
+                  placeholder={language === 'bs' ? 'Opcionalna napomena za nastavak rada...' : 'Optional note for resuming work...'}
                   onChange={(event) => setResumeNote(event.target.value)}
                 />
+                {canChangeStatus ? (
+                  <Button type="button" onClick={() => void handleResume()} disabled={isUpdatingStatus}>
+                    {isUpdatingStatus
+                      ? (language === 'bs' ? 'Nastavljanje...' : 'Resuming...')
+                      : (language === 'bs' ? 'Nastavi rad' : 'Resume work')}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </CardContent>
@@ -1748,6 +1810,62 @@ export default function InterventionDetailPage() {
         variant="danger"
         isLoading={deleteState.isLoading}
       />
+
+      <Dialog open={reopenDialogOpen} onOpenChange={setReopenDialogOpen}>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>{t('reopen.request')}</DialogTitle>
+      <DialogDescription>
+        {t('reopen.description')}
+      </DialogDescription>
+    </DialogHeader>
+
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="reopen-reason">
+          {t('reopen.reason')}
+        </Label>
+
+        <Textarea
+          id="reopen-reason"
+          rows={4}
+          value={reopenReason}
+          onChange={(e) => setReopenReason(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="reopen-comment">
+          {t('reopen.comment')}
+        </Label>
+
+        <Textarea
+          id="reopen-comment"
+          rows={3}
+          value={reopenComment}
+          onChange={(e) => setReopenComment(e.target.value)}
+        />
+      </div>
+    </div>
+
+    <DialogFooter>
+      <Button
+        variant="outline"
+        onClick={() => setReopenDialogOpen(false)}
+      >
+        {t('tickets.cancel')}
+      </Button>
+
+      <Button
+        onClick={() => {
+          void handleReopenRequest();
+        }}
+      >
+        {t('reopen.submit')}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
     </PageLayout>
   );
 }
