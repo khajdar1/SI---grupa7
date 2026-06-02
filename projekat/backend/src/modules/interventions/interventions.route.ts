@@ -125,6 +125,19 @@ const FEEDBACK_NOTIFICATION_COPY = {
 
 type FeedbackNotificationLanguage = keyof typeof FEEDBACK_NOTIFICATION_COPY;
 
+const INTERVENTION_SCHEDULED_NOTIFICATION_COPY = {
+  en: {
+    title: "Appointment scheduled",
+    text: (name: string, startedAt: string) =>
+      `An appointment has been scheduled for intervention "${name}" on ${startedAt}. Please confirm or request a change.`,
+  },
+  bs: {
+    title: "Termin zakazan",
+    text: (name: string, startedAt: string) =>
+      `Termin je zakazan za intervenciju "${name}" na ${startedAt}. Molimo potvrdite ili zatražite promjenu.`,
+  },
+} as const;
+
 const EXECUTION_CONFIRMATION_NOTIFICATION_COPY = {
   en: {
     title: "Digital confirmation requested",
@@ -666,6 +679,50 @@ async function notifyServicersAboutExecutionConfirmationResponse(input: {
   }));
 }
 
+async function createScheduledNotification(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+  startedAt: Date;
+}) {
+  if (!input.reporterUserId) return;
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'INTERVENTION_SCHEDULED')) return;
+
+  const existingNotification = await prisma.notification.findFirst({
+    where: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+    },
+    select: { id: true },
+  });
+
+  if (existingNotification) return;
+
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = INTERVENTION_SCHEDULED_NOTIFICATION_COPY[language];
+  const formattedDate = input.startedAt.toLocaleString("en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+      title: copy.title,
+      text: copy.text(input.interventionName, formattedDate),
+    },
+  });
+  emitToUser(input.reporterUserId, "notification:new", notification);
+}
+
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
@@ -690,6 +747,7 @@ function mapIntervention(intervention: {
   createdAt: Date;
   startedAt: Date | null;
   dueAt: Date | null;
+  appointmentConfirmedAt: Date | null;
   recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
@@ -760,6 +818,7 @@ function mapIntervention(intervention: {
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
     dueAt: intervention.dueAt?.toISOString() ?? null,
+    appointmentConfirmedAt: intervention.appointmentConfirmedAt?.toISOString() ?? null,
     isOverdue: overdue,
     faultReport: intervention.faultReport
       ? {
@@ -1334,6 +1393,17 @@ const intervention = await prisma.intervention.create({
       include: interventionInclude,
     });
 
+    if (plannedStart) {
+      await AuditService.record({
+        action: "INTERVENTION_SCHEDULED",
+        entity: "Intervention",
+        entityId: intervention.id,
+        actorId: creator.id,
+        actorUsername: creator.username,
+        details: `Appointment scheduled for intervention "${intervention.name}" at ${plannedStart.toISOString()}`,
+      });
+    }
+
     res.status(HTTP_STATUS.CREATED).json(mapIntervention(intervention));
   }),
 );
@@ -1652,6 +1722,25 @@ interventionsRouter.patch(
       });
     }
 
+    if (input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: new Date(),
+      });
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment auto-set for intervention "${existing.name}" on status change to IN_PROGRESS`,
+        oldValues: { startedAt: null },
+        newValues: { startedAt: new Date().toISOString() },
+      });
+    }
+
     res.json(mapIntervention(intervention));
   }),
 );
@@ -1874,7 +1963,15 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, priority: true, startedAt: true, dueAt: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        priority: true,
+        startedAt: true,
+        dueAt: true,
+        faultReport: { select: { userId: true } },
+      },
     });
 
     if (!existing) {
@@ -1928,6 +2025,30 @@ interventionsRouter.patch(
       );
     }
 
+    const newStartedAt = input.startedAt ?? existing.startedAt;
+    if (newStartedAt && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: newStartedAt,
+      });
+    }
+
+    if (input.startedAt && (!existing.startedAt || input.startedAt.getTime() !== existing.startedAt.getTime())) {
+      const actor = await resolveCreator(req);
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment time changed for intervention "${existing.name}" from ${existing.startedAt?.toISOString() ?? "none"} to ${input.startedAt.toISOString()}`,
+        oldValues: { startedAt: existing.startedAt?.toISOString() ?? null },
+        newValues: { startedAt: input.startedAt.toISOString() },
+      });
+    }
+
     res.json(mapIntervention(intervention));
   }),
 );
@@ -1947,8 +2068,36 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
+    const rescheduleRequests = await prisma.appointmentRescheduleRequest.findMany({
+      where: { interventionId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        requestedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        respondedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+      },
+    });
+
     res.json({
       ...mapIntervention(intervention),
+      rescheduleRequests: rescheduleRequests.map((r) => ({
+        id: r.id,
+        proposedStartedAt: r.proposedStartedAt.toISOString(),
+        comment: r.comment,
+        status: r.status,
+        responseComment: r.responseComment,
+        respondedAt: r.respondedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+        requestedBy: r.requestedBy
+          ? `${r.requestedBy.firstName} ${r.requestedBy.lastName}`.trim() || r.requestedBy.username
+          : null,
+        respondedBy: r.respondedBy
+          ? `${r.respondedBy.firstName} ${r.respondedBy.lastName}`.trim() || r.respondedBy.username
+          : null,
+      })),
     });
   }),
 );

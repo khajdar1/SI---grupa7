@@ -88,6 +88,11 @@ export const API_ENDPOINTS = {
     CONFIRMATION_CONFIRM: (id: number | string) => `/api/v1/interventions/${id}/confirmation/confirm`,
     CONFIRMATION_REJECT: (id: number | string) => `/api/v1/interventions/${id}/confirmation/reject`,
     BULK_ACTIONS: '/api/v1/interventions/bulk-actions',
+    APPOINTMENT_CONFIRM: (id: number | string) => `/api/v1/interventions/appointment/${id}/confirm`,
+    APPOINTMENT_RESCHEDULE: (id: number | string) => `/api/v1/interventions/appointment/${id}/reschedule-request`,
+    RESCHEDULE_REQUESTS: '/api/v1/interventions/appointment/requests',
+    RESCHEDULE_RESPOND: (id: number | string, requestId: number | string) =>
+      `/api/v1/interventions/appointment/${id}/reschedule-request/${requestId}/respond`,
   },
   ATTACHMENTS: {
     DOWNLOAD: (id: number | string) => `/api/v1/attachments/${id}/download`,

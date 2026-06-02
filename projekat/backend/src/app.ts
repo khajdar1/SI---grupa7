@@ -33,6 +33,7 @@ import userPreferencesRouter from './modules/user-preferences/user-preferences.r
 import mapsRouter from './modules/maps/maps.route';
 import managementRouter from './modules/management/management.route';
 import escalationsRouter from './modules/escalations/escalations.route';
+import appointmentRescheduleRouter from './modules/appointment-reschedule/appointment-reschedule.route';
 
 export function createApp() {
   const app = express();
@@ -65,6 +66,7 @@ export function createApp() {
   });
   app.use(`${BACKEND_ROUTES.INTERVENTIONS}/:interventionId/reports`, authenticate, reportsRouter);
   app.use(BACKEND_ROUTES.INTERVENTIONS, authenticate, interventionsRouter);
+  app.use(`${BACKEND_ROUTES.INTERVENTIONS}/appointment`, authenticate, appointmentRescheduleRouter);
   app.use(BACKEND_ROUTES.ATTACHMENTS, authenticate, attachmentsRouter);
   app.use(BACKEND_ROUTES.NOTIFICATIONS, authenticate, notificationsRouter);
   app.use(BACKEND_ROUTES.SLA, authenticate, slaRouter);

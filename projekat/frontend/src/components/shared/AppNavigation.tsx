@@ -183,6 +183,11 @@ function translateNotificationTitle(notification: NotificationItem, language: La
     'Support trazi admin pregled': 'Podrška traži admin pregled',
     'User blocked': 'Korisnik blokiran',
     'User unblocked': 'Korisnik odblokiran',
+    'Appointment scheduled': 'Termin zakazan',
+    'Appointment change requested': 'Zahtjev za promjenu termina',
+    'Appointment change approved': 'Promjena termina odobrena',
+    'Appointment change rejected': 'Promjena termina odbijena',
+    'Alternative appointment proposed': 'Predložen alternativni termin',
   };
 
   return titleTranslations[notification.title] ?? notification.title;

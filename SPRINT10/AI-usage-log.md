@@ -866,3 +866,27 @@ Razvoj middleware-a za autentifikaciju i role-based autorizaciju (RBAC) koriste�
 - **Rizici, problemi ili greške koje su uočene:** U generisanim testovima nedostajao je `errorMiddleware` u test Express aplikaciji, zbog čega je server vraćao HTML stranicu umjesto JSON odgovora pri greškama, što je uzrokovalo `SyntaxError: Unexpected token '<'` u 19 testova. Dodatno je bio potreban mock za `env` koji `errorMiddleware` interno koristi. Nakon ovih ispravki svi testovi su prošli.
 - **Ko je koristio alat:** Lejla Gičević
 
+---
+
+- **Datum:** 01.06.2026.
+- **Sprint broj:** Sprint 10
+- **Alat koji je korišten:** OpenCode – deepseek-v4-flash
+- **Svrha korištenja:** Implementacija PBI-054 (Potvrda i promjena termina intervencije od strane korisnika).
+- **Kratak opis zadatka ili upita:** Implementacija kompletnog toka za potvrdu termina i zahtjev za promjenu termina intervencije: korisnik dobija in-app notifikaciju kada koordinator zakaže termin, može potvrditi termin ili zatražiti promjenu sa predloženim vremenom i komentarom, koordinator vidi listu zahtjeva i može ih prihvatiti/odbijati uz audit zapis.
+- **Šta je AI predložio ili generisao:**
+  - Prisma schema izmjene: novi enum `RescheduleRequestStatus`, novi model `AppointmentRescheduleRequest`, nove vrijednosti u `NotificationType` enumu (`INTERVENTION_SCHEDULED`, `APPOINTMENT_RESCHEDULE_REQUEST`, `APPOINTMENT_RESCHEDULE_RESPONSE`), `appointmentConfirmedAt` polje na `Intervention` modelu.
+  - Backend modul `appointment-reschedule.route.ts` sa 4 endpointa: potvrda termina, kreiranje zahtjeva za promjenu, lista zahtjeva (koordinator), odgovor na zahtjev (koordinator).
+  - Modifikaciju `interventions.route.ts` za slanje `INTERVENTION_SCHEDULED` notifikacije pri zakazivanju termina i uključivanje `rescheduleRequests` u detalj intervencije.
+  - Registraciju novih ruta u `app.ts`.
+  - Frontend API servis funkcije i nove interfejse u `interventions.service.ts`.
+  - Nove API endpoint konstante u `constants/index.ts`.
+  - i18n prevode (en/bs) za ~20 novih ključeva u `lib/i18n.tsx`.
+  - Ažuriranje `AppNavigation.tsx` za prikaz novih notifikacionih tipova.
+  - UI karticu za termin (potvrda, zahtjev za promjenu, historija zahtjeva) na stranici detalja intervencije, uključujući dijalog za slanje zahtjeva i approve/reject dugmad za koordinatora.
+  - 18 unit testova u `appointment-reschedule.route.test.ts` pokrivajući sve acceptance criteria.
+- **Šta je tim prihvatio:** Sve generisane fajlove — Prisma schema, backend modul, modifikacije interventions route, frontend servis, UI komponente, i18n prevode, notifikacije i testove.
+- **Šta je tim izmijenio:** Putanje ruta su prilagođene da izbjegnu konflikt sa postojećim interventions `/:id` patternom korištenjem `/appointment/:id/` prefiksa.
+- **Šta je tim odbacio:** /
+- **Rizici, problemi ili greške koje su uočene:** Dodavanje `appointmentRescheduleRequest.findMany` u `interventions.route.test.ts` mockove je bilo potrebno jer GET /:id sada poziva ovaj query. Nakon dodavanja mocks, svi postojeći testovi (675) i novi testovi (18) prolaze.
+- **Ko je koristio alat:** Ismail Mujanović
+

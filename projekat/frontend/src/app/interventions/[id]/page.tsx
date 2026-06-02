@@ -39,6 +39,9 @@ import {
   getInterventionById,
   rejectExecutionConfirmation,
   requestExecutionConfirmation,
+  confirmAppointment,
+  requestAppointmentReschedule,
+  respondToRescheduleRequest,
   pauseIntervention,
   resumeIntervention,
   updateFieldTracking,
@@ -47,6 +50,8 @@ import {
   type InterventionDetail,
   type KnowledgeBaseSolution,
   type PauseReason,
+  type RescheduleRequestStatus,
+  type AppointmentRescheduleRequestItem,
 } from '@/services/interventions.service';
 import { blockUser, getBlockedUsers, type BlockRecord } from '@/services/blocking.service';
 import {
@@ -67,6 +72,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { getSessionUserId, hasSessionRole } from '../../../lib/auth';
+
+function isoToDateStr(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function isoToTimeStr(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
+}
 
 const EDITABLE_STATUSES = new Set<InterventionStatus>([
   INTERVENTION_STATUS.NEW,
@@ -210,6 +231,17 @@ export default function InterventionDetailPage() {
   const [pauseReason, setPauseReason] = useState<PauseReason>('WAITING_FOR_CUSTOMER');
   const [pauseOtherReason, setPauseOtherReason] = useState('');
   const [resumeNote, setResumeNote] = useState('');
+  const [appointmentDialogOpen, setAppointmentDialogOpen] = useState(false);
+  const [rescheduleProposedDate, setRescheduleProposedDate] = useState('');
+  const [rescheduleProposedTime, setRescheduleProposedTime] = useState('');
+  const [rescheduleComment, setRescheduleComment] = useState('');
+  const [isSubmittingReschedule, setIsSubmittingReschedule] = useState(false);
+  const [isConfirmingAppointment, setIsConfirmingAppointment] = useState(false);
+  const [respondingRequestId, setRespondingRequestId] = useState<number | null>(null);
+  const [respondComment, setRespondComment] = useState('');
+  const [respondProposedDate, setRespondProposedDate] = useState('');
+  const [respondProposedTime, setRespondProposedTime] = useState('');
+  const [isResponding, setIsResponding] = useState(false);
 
   const isCoordinator = hasSessionRole(COORDINATOR_ROLES);
 
@@ -354,6 +386,90 @@ export default function InterventionDetailPage() {
       setError(err instanceof Error ? translateText(language, err.message) : 'Failed to resume intervention.');
     } finally {
       setIsUpdatingStatus(false);
+    }
+  };
+
+  const handleConfirmAppointment = async () => {
+    if (!intervention) return;
+
+    setIsConfirmingAppointment(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const result = await confirmAppointment(intervention.id);
+      setIntervention((current) =>
+        current ? { ...current, appointmentConfirmedAt: result.appointmentConfirmedAt } : current,
+      );
+      setSuccessMessage(t('interventionDetail.appointment.appointmentConfirmed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : 'Failed to confirm appointment.');
+    } finally {
+      setIsConfirmingAppointment(false);
+    }
+  };
+
+  const handleSubmitReschedule = async () => {
+    if (!intervention) return;
+
+    setIsSubmittingReschedule(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      await requestAppointmentReschedule(intervention.id, {
+        proposedStartedAt: new Date(`${rescheduleProposedDate.trim()}T${rescheduleProposedTime.trim()}:00`).toISOString(),
+        comment: rescheduleComment.trim(),
+      });
+      setAppointmentDialogOpen(false);
+      setRescheduleProposedDate('');
+      setRescheduleProposedTime('');
+      setRescheduleComment('');
+      const updated = await getInterventionById(interventionId);
+      setIntervention(updated);
+      setSuccessMessage(t('interventionDetail.appointment.requestSent'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : 'Failed to submit reschedule request.');
+    } finally {
+      setIsSubmittingReschedule(false);
+    }
+  };
+
+  const handleRespondReschedule = async (requestId: number, status: RescheduleRequestStatus, proposedStartedAt?: string) => {
+    if (!intervention) return;
+
+    setIsResponding(true);
+    setError(null);
+    setSuccessMessage('');
+
+    try {
+      const payload: {
+        status: RescheduleRequestStatus;
+        responseComment?: string;
+        proposedStartedAt?: string;
+      } = {
+        status,
+        responseComment: respondComment.trim() || undefined,
+      };
+      if (proposedStartedAt) {
+        payload.proposedStartedAt = proposedStartedAt;
+      }
+      await respondToRescheduleRequest(intervention.id, requestId, payload);
+      setRespondingRequestId(null);
+      setRespondComment('');
+      setRespondProposedDate('');
+      setRespondProposedTime('');
+      const updated = await getInterventionById(interventionId);
+      setIntervention(updated);
+      setSuccessMessage(
+        status === 'APPROVED'
+          ? language === 'bs' ? 'Zahtjev za promjenu termina je odobren.' : 'Reschedule request approved.'
+          : language === 'bs' ? 'Zahtjev za promjenu termina je odbijen.' : 'Reschedule request rejected.',
+      );
+    } catch (err: unknown) {
+      setError(err instanceof Error ? translateText(language, err.message) : 'Failed to respond to request.');
+    } finally {
+      setIsResponding(false);
     }
   };
 
@@ -927,6 +1043,249 @@ export default function InterventionDetailPage() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* ── Appointment section ── */}
+      {intervention ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('interventionDetail.appointment.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.appointment.scheduled')}</p>
+                <p className="font-medium">
+                  {intervention.startedAt
+                    ? new Date(intervention.startedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      })
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">{t('interventionDetail.confirmationStatus')}</p>
+                <p className="font-medium">
+                  {intervention.appointmentConfirmedAt
+                    ? t('interventionDetail.appointment.confirmed')
+                    : t('interventionDetail.appointment.notConfirmed')}
+                </p>
+              </div>
+            </div>
+
+            {canSubmitFeedback && intervention.startedAt && !intervention.appointmentConfirmedAt ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => { void handleConfirmAppointment(); }}
+                  disabled={isConfirmingAppointment}
+                >
+                  {isConfirmingAppointment
+                    ? (language === 'bs' ? 'Potvrđivanje...' : 'Confirming...')
+                    : t('interventionDetail.appointment.confirm')}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setRescheduleProposedDate(isoToDateStr(intervention.startedAt));
+                    setRescheduleProposedTime(isoToTimeStr(intervention.startedAt));
+                    setRescheduleComment('');
+                    setAppointmentDialogOpen(true);
+                  }}
+                >
+                  {t('interventionDetail.appointment.reschedule')}
+                </Button>
+              </div>
+            ) : null}
+
+            {isCoordinator && intervention.rescheduleRequests && intervention.rescheduleRequests.length > 0 ? (
+              <div>
+                <p className="text-sm font-medium mb-2">{t('interventionDetail.appointment.rescheduleHistory')}</p>
+                <div className="space-y-2">
+                  {intervention.rescheduleRequests.map((req) => (
+                    <div key={req.id} className="rounded-md border p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium">
+                          {new Date(req.proposedStartedAt).toLocaleString(language === 'bs' ? 'bs-BA' : 'en-GB', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                          req.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                          req.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' :
+                          'bg-red-100 text-red-800'
+                        }`}>
+                          {t(`interventionDetail.appointment.requestStatus.${req.status}`)}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground mt-1">{req.comment}</p>
+                      {req.requestedBy ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {language === 'bs' ? 'Zahtjev od' : 'Requested by'}: {req.requestedBy}
+                        </p>
+                      ) : null}
+                      {req.responseComment ? (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {language === 'bs' ? 'Odgovor' : 'Response'}: {req.responseComment}
+                        </p>
+                      ) : null}
+                      {req.respondedBy ? (
+                        <p className="text-xs text-muted-foreground">
+                          {language === 'bs' ? 'Odgovorio' : 'Responded by'}: {req.respondedBy}
+                        </p>
+                      ) : null}
+
+                      {req.status === 'PENDING' && isCoordinator ? (
+                        <div className="mt-3 space-y-2">
+                          <div className="space-y-1">
+                            <Label htmlFor={`respond-proposed-${req.id}`}>
+                              {language === 'bs' ? 'Predloži alternativni termin (za dugme "Predloži novi")' : 'Propose alternative time (for "Propose alternative" button)'}
+                            </Label>
+                            <div className="flex gap-2">
+                              <input
+                                id={`respond-proposed-${req.id}`}
+                                type="date"
+                                className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                                value={respondingRequestId === req.id ? respondProposedDate : ''}
+                                onChange={(e) => {
+                                  setRespondingRequestId(req.id);
+                                  setRespondProposedDate(e.target.value);
+                                }}
+                              />
+                              <input
+                                id={`respond-proposed-time-${req.id}`}
+                                type="time"
+                                step="300"
+                                className="h-8 w-36 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                                value={respondingRequestId === req.id ? respondProposedTime : ''}
+                                onChange={(e) => {
+                                  setRespondingRequestId(req.id);
+                                  setRespondProposedTime(e.target.value);
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <Textarea
+                            rows={2}
+                            placeholder={language === 'bs' ? 'Komentar (opcionalno)' : 'Comment (optional)'}
+                            value={respondingRequestId === req.id ? respondComment : ''}
+                            onChange={(e) => {
+                              setRespondingRequestId(req.id);
+                              setRespondComment(e.target.value);
+                            }}
+                          />
+                          <div className="flex gap-2 flex-wrap">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="default"
+                              disabled={isResponding && respondingRequestId === req.id}
+                              onClick={() => { void handleRespondReschedule(req.id, 'APPROVED'); }}
+                            >
+                              {language === 'bs' ? 'Prihvati predloženi' : 'Accept proposed'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={(isResponding && respondingRequestId === req.id) || !respondProposedDate.trim() || !respondProposedTime.trim()}
+                              onClick={() => {
+                                void handleRespondReschedule(
+                                  req.id,
+                                  'APPROVED',
+                                  new Date(`${respondProposedDate.trim()}T${respondProposedTime.trim()}:00`).toISOString(),
+                                );
+                              }}
+                            >
+                              {language === 'bs' ? 'Predloži novi' : 'Propose alternative'}
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive"
+                              disabled={isResponding && respondingRequestId === req.id}
+                              onClick={() => { void handleRespondReschedule(req.id, 'REJECTED'); }}
+                            >
+                              {language === 'bs' ? 'Odbij' : 'Reject'}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* ── Reschedule dialog ── */}
+      <Dialog open={appointmentDialogOpen} onOpenChange={setAppointmentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('interventionDetail.appointment.rescheduleTitle')}</DialogTitle>
+            <DialogDescription>
+              {language === 'bs'
+                ? 'Predložite novi datum i vrijeme te navedite razlog promjene.'
+                : 'Propose a new date and time and provide a reason for the change.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('interventionDetail.appointment.proposedTime')}</Label>
+              <div className="flex gap-2">
+                <input
+                  id="reschedule-proposed-date"
+                  type="date"
+                  className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                  value={rescheduleProposedDate}
+                  onChange={(e) => setRescheduleProposedDate(e.target.value)}
+                />
+                <input
+                  id="reschedule-proposed-time"
+                  type="time"
+                  step="300"
+                  className="h-8 w-36 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                  value={rescheduleProposedTime}
+                  onChange={(e) => setRescheduleProposedTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reschedule-comment">{t('interventionDetail.appointment.comment')}</Label>
+              <Textarea
+                id="reschedule-comment"
+                rows={3}
+                value={rescheduleComment}
+                onChange={(e) => setRescheduleComment(e.target.value)}
+                placeholder={language === 'bs' ? 'Unesite razlog promjene termina...' : 'Enter reason for the change...'}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAppointmentDialogOpen(false)}
+            >
+              {language === 'bs' ? 'Odustani' : 'Cancel'}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => { void handleSubmitReschedule(); }}
+              disabled={isSubmittingReschedule || !rescheduleProposedDate || !rescheduleProposedTime || rescheduleComment.trim().length < 3}
+            >
+              {isSubmittingReschedule
+                ? t('interventionDetail.appointment.submitting')
+                : t('interventionDetail.appointment.submit')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {isCoordinator && intervention?.faultReport?.reporterUser ? (
         <Card>
