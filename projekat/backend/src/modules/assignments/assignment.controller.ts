@@ -63,6 +63,7 @@ export class AssignmentController {
       payload.userIds,
       actorId,
       actorUsername,
+      payload.unavailableOverrideReason,
     );
 
     // Convert to response DTOs
@@ -208,7 +209,7 @@ export class AssignmentController {
     const { prisma } = await import("../../config/database.js");
     const intervention = await prisma.intervention.findUnique({
       where: { id: interventionId },
-      select: { companyId: true },
+      select: { companyId: true, startedAt: true, dueAt: true },
     });
 
     if (!intervention) {
@@ -219,6 +220,10 @@ export class AssignmentController {
     const servicers: ServicerAvailabilityInfo[] =
       await AssignmentService.getAvailableServicersWithLoad(
         intervention.companyId,
+        {
+          startAt: intervention.startedAt ?? new Date(),
+          endAt: intervention.dueAt ?? intervention.startedAt ?? new Date(),
+        },
       );
 
     // Convert to response DTOs
@@ -230,6 +235,11 @@ export class AssignmentController {
       email: s.email,
       active: s.active,
       activeInterventionCount: s.activeInterventionCount,
+      sameCompany: s.sameCompany,
+      unavailable: s.unavailable,
+      unavailableReason: s.unavailableReason,
+      unavailableFrom: s.unavailableFrom,
+      unavailableTo: s.unavailableTo,
     }));
 
     res.status(200).json({

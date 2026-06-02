@@ -57,6 +57,7 @@ export const BACKEND_ROUTES = {
   CATEGORIES: `${API_PREFIX}/categories`,
   INTERVENTIONS: `${API_PREFIX}/interventions`,
   ASSIGNMENTS: `${API_PREFIX}/assignments`,
+  AVAILABILITY: `${API_PREFIX}/availability`,
   REPORTS: `${API_PREFIX}/reports`,
   ATTACHMENTS: `${API_PREFIX}/attachments`,
   NOTIFICATIONS: `${API_PREFIX}/notifications`,
@@ -73,6 +74,7 @@ export const BACKEND_ROUTES = {
   USER_PREFERENCES: `${API_PREFIX}/user-preferences`,
   MAPS: `${API_PREFIX}/maps`,
   MANAGEMENT: `${API_PREFIX}/management`,
+  ESCALATIONS: `${API_PREFIX}/escalations`,
 } as const;
 
 export const BULK_ACTIONS = {

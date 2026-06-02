@@ -26,6 +26,14 @@ const NOTIFICATION_LABELS: Record<string, string> = {
   AUTO_ASSIGNMENT: 'Auto assignment',
   NEW_TICKET: 'New support ticket',
   TICKET_REPLY: 'Ticket reply',
+  INTERVENTION_PAUSED: 'Intervention paused',
+  SERVICER_DISPATCHED: 'Servicer dispatched',
+  SERVICER_ARRIVED: 'Servicer arrived',
+  EXECUTION_CONFIRMATION_REQUEST: 'Digital confirmation PIN',
+  EXECUTION_CONFIRMATION_RESPONSE: 'Digital confirmation response',
+  REOPEN_REQUEST: 'Reopen request submitted',
+  REOPEN_APPROVED: 'Reopen request approved',
+  REOPEN_REJECTED: 'Reopen request rejected',
 };
 
 const MANDATORY_NOTIFICATIONS: readonly string[] = [
@@ -33,6 +41,14 @@ const MANDATORY_NOTIFICATIONS: readonly string[] = [
   'INTERVENTION_ASSIGNED',
   'AUTO_ASSIGNMENT',
   'STATUS_CHANGED',
+  'INTERVENTION_PAUSED',
+  'SERVICER_DISPATCHED',
+  'SERVICER_ARRIVED',
+  'EXECUTION_CONFIRMATION_REQUEST',
+  'EXECUTION_CONFIRMATION_RESPONSE',
+  'REOPEN_REQUEST',
+  'REOPEN_APPROVED',
+  'REOPEN_REJECTED',
 ];
 
 const OPTIONAL_NOTIFICATION_LABELS: Record<string, string> = Object.fromEntries(

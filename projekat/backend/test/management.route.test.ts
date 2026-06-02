@@ -7,10 +7,12 @@ const {
   interventionCountMock,
   statusHistoryFindManyMock,
   interventionGroupByMock,
+  reportFindManyMock,        
 } = vi.hoisted(() => ({
   interventionCountMock: vi.fn(),
   statusHistoryFindManyMock: vi.fn(),
   interventionGroupByMock: vi.fn(),
+  reportFindManyMock: vi.fn(),  
 }));
 
 vi.mock('../src/config/database', () => ({
@@ -21,6 +23,9 @@ vi.mock('../src/config/database', () => ({
     },
     statusHistory: {
       findMany: statusHistoryFindManyMock,
+    },
+    report: {                    
+      findMany: reportFindManyMock,
     },
   },
 }));
@@ -270,5 +275,108 @@ describe('PBI-014 management dashboard route', () => {
         }),
       );
     });
+  });
+});
+
+describe('PBI-056 GET /management/materials', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    interventionCountMock.mockResolvedValue(0);
+    statusHistoryFindManyMock.mockResolvedValue([]);
+    interventionGroupByMock.mockResolvedValue([]);
+    reportFindManyMock.mockResolvedValue([]);
+  });
+
+  it('returns 200 for Menadzment role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Menadzment'] });
+    expect(status).toBe(200);
+  });
+
+  it('returns 200 for Management role (English variant)', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Management'] });
+    expect(status).toBe(200);
+  });
+
+  it('returns 200 for Admin role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Admin'] });
+    expect(status).toBe(200);
+  });
+
+  it('returns 200 for Administrator role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Administrator'] });
+    expect(status).toBe(200);
+  });
+
+  it('returns 403 for Serviser role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Serviser'] });
+    expect(status).toBe(403);
+  });
+
+  it('returns 403 for Koordinator role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Koordinator'] });
+    expect(status).toBe(403);
+  });
+
+  it('returns 403 for Korisnik role', async () => {
+    const { status } = await request('GET', '/management/materials', { roles: ['Korisnik'] });
+    expect(status).toBe(403);
+  });
+
+  it('response includes topMaterials, byPeriod, byCompany fields', async () => {
+    const { body } = await request('GET', '/management/materials');
+    expect(body).toHaveProperty('topMaterials');
+    expect(body).toHaveProperty('byPeriod');
+    expect(body).toHaveProperty('byCompany');
+  });
+
+  it('response includes totalReportsWithMaterials, totalQuantity, totalDistinctMaterials', async () => {
+    const { body } = await request('GET', '/management/materials');
+    expect(body).toHaveProperty('totalReportsWithMaterials');
+    expect(body).toHaveProperty('totalQuantity');
+    expect(body).toHaveProperty('totalDistinctMaterials');
+  });
+
+  it('returns 400 for an invalid from date', async () => {
+    const { status } = await request('GET', '/management/materials?from=not-a-date');
+    expect(status).toBe(400);
+  });
+
+  it('returns 400 for an invalid to date', async () => {
+    const { status } = await request('GET', '/management/materials?to=not-a-date');
+    expect(status).toBe(400);
+  });
+
+  it('returns 400 for a non-integer companyId', async () => {
+    const { status } = await request('GET', '/management/materials?companyId=abc');
+    expect(status).toBe(400);
+  });
+
+  it('returns 400 for a non-integer categoryId', async () => {
+    const { status } = await request('GET', '/management/materials?categoryId=abc');
+    expect(status).toBe(400);
+  });
+
+  it('returns 200 with valid from and to date filters', async () => {
+    const { status } = await request('GET', '/management/materials?from=2026-01-01&to=2026-01-31');
+    expect(status).toBe(200);
+  });
+
+  it('returns 200 with companyId filter', async () => {
+    const { status } = await request('GET', '/management/materials?companyId=5');
+    expect(status).toBe(200);
+  });
+
+  it('returns 200 with categoryId filter', async () => {
+    const { status } = await request('GET', '/management/materials?categoryId=3');
+    expect(status).toBe(200);
+  });
+
+  it('response does not include price or cost fields', async () => {
+    const { body } = await request('GET', '/management/materials');
+    const bodyStr = JSON.stringify(body);
+    expect(bodyStr).not.toMatch(/price/i);
+    expect(bodyStr).not.toMatch(/cost/i);
+    expect(bodyStr).not.toMatch(/cijena/i);
+    expect(bodyStr).not.toMatch(/faktur/i);
   });
 });

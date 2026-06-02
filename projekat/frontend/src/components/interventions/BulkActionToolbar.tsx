@@ -76,9 +76,6 @@ export function BulkActionToolbar({
   const [selectedServicer, setSelectedServicer] = useState<string | null>(null);
   const [servicers, setServicers]               = useState<ServicerLoad[]>([]);
 
-  // Učitaj servisere čim se pojavi selekcija, koristeći prvi interventionId.
-  // Backend /available endpoint interno uzima companyId intervencije i vraća
-  // servisere te kompanije — ne trebamo ništa dodatno proslijediti.
   useEffect(() => {
     const interventionId = Number(selectedIds[0]);
     if (!interventionId) return;
