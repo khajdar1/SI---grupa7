@@ -905,7 +905,10 @@ describe("PBI-004 interventions route", () => {
     expect(response.status).toBe(200);
     expect(interventionUpdateMock).toHaveBeenCalledWith({
       where: { id: 21 },
-      data: { status: InterventionStatus.RESOLVED },
+      data: {
+        status: InterventionStatus.RESOLVED,
+        fieldWorkEndedAt: expect.any(Date),
+      },
       include: expect.any(Object),
     });
     expect(statusHistoryCreateMock).toHaveBeenCalledWith({
