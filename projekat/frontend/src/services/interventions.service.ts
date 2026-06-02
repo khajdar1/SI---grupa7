@@ -653,6 +653,9 @@ export async function rejectReopenRequest(requestId: number, coordinatorComment:
   return getResponseData(
     () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/reject`, { coordinatorComment }),
     'Failed to reject reopen request.',
+  );
+}
+
 export async function confirmAppointment(id: number | string): Promise<{ appointmentConfirmedAt: string | null }> {
   return getResponseData(
     () => api.post<{ appointmentConfirmedAt: string | null }>(API_ENDPOINTS.INTERVENTIONS.APPOINTMENT_CONFIRM(id)),
