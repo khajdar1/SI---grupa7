@@ -59,7 +59,14 @@ export function getSessionUserId(): number | null {
 
   try {
     const user = JSON.parse(rawUser) as { id?: unknown };
-    return typeof user.id === 'number' && Number.isInteger(user.id) ? user.id : null;
+    if (typeof user.id === 'number' && Number.isInteger(user.id)) {
+      return user.id;
+    }
+    if (typeof user.id === 'string') {
+      const parsed = Number(user.id);
+      return Number.isInteger(parsed) ? parsed : null;
+    }
+    return null;
   } catch {
     return null;
   }

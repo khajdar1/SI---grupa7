@@ -25,7 +25,6 @@ import type { Company } from '@/models/Company';
 import {
   clearFieldError,
   getApiFieldErrors,
-  validateCalendarDate,
   validateRequired,
   validateSafeText,
   type FieldErrors,
@@ -78,14 +77,38 @@ interface FormState {
   priority: string;
   type: string;
   startedAt: string;
+  startedAtTime: string;
   dueAt: string;
+  dueAtTime: string;
   faultReportId: string;
   recurringPeriod: string;
 }
 
-function isoDateToInput(iso: string | null): string {
+function isoToDateStr(iso: string | null): string {
   if (!iso) return '';
-  return iso.slice(0, 10);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 10);
+}
+
+function isoToTimeStr(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`;
+}
+
+function dateTimeStrToIso(dateStr: string, timeStr: string): string | undefined {
+  if (!dateStr.trim() || !timeStr.trim()) return undefined;
+  const date = new Date(`${dateStr.trim()}T${timeStr.trim()}:00`);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toISOString();
+}
+
+function isValidDateStr(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 function getTypeLabel(type: string, t: (key: TranslationKey) => string): string {
@@ -119,7 +142,9 @@ export default function EditInterventionPage() {
     priority: 'MEDIUM',
     type: 'ISSUE',
     startedAt: '',
+    startedAtTime: '',
     dueAt: '',
+    dueAtTime: '',
     faultReportId: '',
     recurringPeriod: '',
   });
@@ -157,8 +182,10 @@ export default function EditInterventionPage() {
         companyId: String(detail.companyId),
         priority: detail.priority,
         type: detail.type,
-        startedAt: isoDateToInput(detail.startedAt),
-        dueAt: isoDateToInput(detail.dueAt),
+        startedAt: isoToDateStr(detail.startedAt),
+        startedAtTime: isoToTimeStr(detail.startedAt),
+        dueAt: isoToDateStr(detail.dueAt),
+        dueAtTime: isoToTimeStr(detail.dueAt),
         faultReportId: detail.faultReport ? String(detail.faultReport.id) : '',
         recurringPeriod: detail.recurringPeriod ?? '',
       });
@@ -217,22 +244,27 @@ export default function EditInterventionPage() {
     const companyError = validateRequired(form.companyId, 'Company is required.');
     if (companyError) errors.companyId = companyError;
 
-    if (form.startedAt.trim()) {
-      const startError = validateCalendarDate(
-        form.startedAt,
-        'Start date is required.',
-        'Start date must be in YYYY-MM-DD format.',
-      );
-      if (startError) errors.startedAt = startError;
+    if (form.startedAt.trim() && !isValidDateStr(form.startedAt)) {
+      errors.startedAt = language === 'bs' ? 'Datum nije ispravan.' : 'Invalid date.';
     }
 
-    if (form.dueAt.trim()) {
-      const dueError = validateCalendarDate(
-        form.dueAt,
-        'Due date is required.',
-        'Due date must be in YYYY-MM-DD format.',
-      );
-      if (dueError) errors.dueAt = dueError;
+    if (form.dueAt.trim() && !isValidDateStr(form.dueAt)) {
+      errors.dueAt = language === 'bs' ? 'Datum nije ispravan.' : 'Invalid date.';
+    }
+
+    if (
+      form.startedAt.trim() &&
+      form.dueAt.trim() &&
+      form.startedAtTime.trim() &&
+      form.dueAtTime.trim() &&
+      isValidDateStr(form.startedAt) &&
+      isValidDateStr(form.dueAt)
+    ) {
+      const startedIso = dateTimeStrToIso(form.startedAt, form.startedAtTime);
+      const dueIso = dateTimeStrToIso(form.dueAt, form.dueAtTime);
+      if (startedIso && dueIso && new Date(dueIso) < new Date(startedIso)) {
+        errors.dueAt = language === 'bs' ? 'Rok mora biti nakon planiranog početka.' : 'Due date must be after or equal to planned start date.';
+      }
     }
 
     if (form.faultReportId.trim()) {
@@ -269,8 +301,8 @@ export default function EditInterventionPage() {
         categoryId: parseInt(form.categoryId, 10),
         companyId: parseInt(form.companyId, 10),
         priority: form.priority as Priority,
-        startedAt: form.startedAt.trim() || undefined,
-        dueAt: form.dueAt.trim() || undefined,
+        startedAt: dateTimeStrToIso(form.startedAt, form.startedAtTime),
+        dueAt: dateTimeStrToIso(form.dueAt, form.dueAtTime),
         faultReportId: faultReportIdRaw ? parseInt(faultReportIdRaw, 10) : null,
       });
 
@@ -527,14 +559,25 @@ export default function EditInterventionPage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="startedAt">{t('interventionForm.startDateOptional')}</Label>
-                  <Input
-                    id="startedAt"
-                    type="date"
-                    value={form.startedAt}
-                    onChange={(e) => handleChange('startedAt', e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.startedAt)}
-                    aria-describedby={fieldErrors.startedAt ? 'startedAt-error' : undefined}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="startedAt"
+                      type="date"
+                      className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
+                      value={form.startedAt}
+                      onChange={(e) => handleChange('startedAt', e.target.value)}
+                      aria-invalid={Boolean(fieldErrors.startedAt)}
+                      aria-describedby={fieldErrors.startedAt ? 'startedAt-error' : undefined}
+                    />
+                    <input
+                      id="startedAtTime"
+                      type="time"
+                      step="300"
+                      className="h-8 w-36 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                      value={form.startedAtTime}
+                      onChange={(e) => handleChange('startedAtTime', e.target.value)}
+                    />
+                  </div>
                   {fieldErrors.startedAt ? (
                     <p id="startedAt-error" className="text-xs text-destructive">{fieldErrors.startedAt}</p>
                   ) : null}
@@ -542,14 +585,25 @@ export default function EditInterventionPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="dueAt">{t('interventionForm.dueDateOptional')}</Label>
-                  <Input
-                    id="dueAt"
-                    type="date"
-                    value={form.dueAt}
-                    onChange={(e) => handleChange('dueAt', e.target.value)}
-                    aria-invalid={Boolean(fieldErrors.dueAt)}
-                    aria-describedby={fieldErrors.dueAt ? 'dueAt-error' : undefined}
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      id="dueAt"
+                      type="date"
+                      className="h-8 flex-1 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm dark:bg-input/30"
+                      value={form.dueAt}
+                      onChange={(e) => handleChange('dueAt', e.target.value)}
+                      aria-invalid={Boolean(fieldErrors.dueAt)}
+                      aria-describedby={fieldErrors.dueAt ? 'dueAt-error' : undefined}
+                    />
+                    <input
+                      id="dueAtTime"
+                      type="time"
+                      step="300"
+                      className="h-8 w-36 min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                      value={form.dueAtTime}
+                      onChange={(e) => handleChange('dueAtTime', e.target.value)}
+                    />
+                  </div>
                   {fieldErrors.dueAt ? (
                     <p id="dueAt-error" className="text-xs text-destructive">{fieldErrors.dueAt}</p>
                   ) : null}

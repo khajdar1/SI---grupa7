@@ -7,7 +7,7 @@ import {
   getInterventionAssignments,
   removeServicerAssignment,
 } from '@/services/assignment.service';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { X, Users } from 'lucide-react';
 import { translateText, useI18n } from '@/lib/i18n';
 
@@ -45,6 +45,10 @@ export function AssignedServicersSection({
   const [isAssignerModalOpen, setIsAssignerModalOpen] = useState(false);
   const [isRemoving, setIsRemoving] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const assignedUserIds = useMemo(
+    () => assignments.map((assignment) => assignment.userId),
+    [assignments],
+  );
 
   const handleRemoveServicer = async (userId: number) => {
     setIsRemoving(userId);
@@ -146,7 +150,7 @@ export function AssignedServicersSection({
         isOpen={isAssignerModalOpen}
         onClose={() => setIsAssignerModalOpen(false)}
         onSave={handleAssignmentsChange}
-        currentAssignedUserIds={assignments.map((a) => a.userId)}
+        currentAssignedUserIds={assignedUserIds}
       />
     </>
   );

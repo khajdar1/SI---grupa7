@@ -26,6 +26,66 @@ export interface CreateFeedbackPayload {
   comment: string | null;
 }
 
+export interface FeedbackAnalyticsQuery {
+  from?: string;
+  to?: string;
+  companyId?: string;
+  categoryId?: string;
+  servicerId?: string;
+}
+
+export interface FeedbackAnalytics {
+  summary: {
+    feedbackCount: number;
+    averageRating: number | null;
+    negativeCount: number;
+    negativeThreshold: number;
+  };
+  ratingDistribution: Array<{
+    rating: number;
+    count: number;
+    percentage: number;
+  }>;
+  trends: Array<{
+    period: string;
+    feedbackCount: number;
+    averageRating: number | null;
+    negativeCount: number;
+  }>;
+  byCompany: Array<{
+    companyId: number;
+    companyName: string;
+    feedbackCount: number;
+    averageRating: number | null;
+    negativeCount: number;
+  }>;
+  byCategory: Array<{
+    categoryId: number;
+    categoryName: string;
+    feedbackCount: number;
+    averageRating: number | null;
+    negativeCount: number;
+  }>;
+  byServicer: Array<{
+    servicerId: number | null;
+    servicerName: string;
+    feedbackCount: number;
+    averageRating: number | null;
+    negativeCount: number;
+  }>;
+  negativeFeedback: Array<{
+    id: number;
+    interventionId: number;
+    interventionName: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    companyName: string;
+    categoryName: string;
+    user: FeedbackUser;
+  }>;
+}
+
 export async function getInterventionFeedback(
   interventionId: number | string,
 ): Promise<InterventionFeedback | null> {
@@ -42,5 +102,22 @@ export async function createInterventionFeedback(
   return getResponseData(
     () => api.post<InterventionFeedback>(API_ENDPOINTS.FEEDBACK.BY_INTERVENTION(interventionId), payload),
     translateKey(getStoredLanguage(), 'feedback.submitError'),
+  );
+}
+
+export async function getFeedbackAnalytics(
+  query: FeedbackAnalyticsQuery = {},
+): Promise<FeedbackAnalytics> {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value) {
+      params.set(key, value);
+    }
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<FeedbackAnalytics>(`${API_ENDPOINTS.FEEDBACK.ANALYTICS}${suffix}`),
+    'Failed to load feedback analytics.',
   );
 }

@@ -46,7 +46,27 @@ export interface InterventionListItem {
     };
     assignedAt: string;
   }>;
+  pauses?: InterventionPause[];
 }
+
+export interface InterventionPause {
+  id: number;
+  reason: PauseReason;
+  otherReason: string | null;
+  previousStatus: InterventionStatus;
+  pausedAt: string;
+  resumedAt: string | null;
+  resumeNote: string | null;
+  pausedBy: { id: number; firstName: string; lastName: string; username: string };
+  responsibleUser: { id: number; firstName: string; lastName: string; username: string } | null;
+}
+
+export type PauseReason =
+  | 'WAITING_FOR_CUSTOMER'
+  | 'WAITING_FOR_MATERIAL'
+  | 'WAITING_FOR_EXTERNAL_CONTRACTOR'
+  | 'WAITING_FOR_APPROVAL'
+  | 'OTHER';
 
 export interface InterventionFormPayload {
   name: string;
@@ -116,6 +136,54 @@ export interface InterventionHistoryQuery {
   pageSize?: number;
 }
 
+export interface KnowledgeBaseSolution {
+  reportId: number;
+  title: string;
+  problemDescription: string;
+  solution: string;
+  material: string | null;
+  notes: string | null;
+  locationHint: string;
+  categoryId: number;
+  categoryName: string;
+  reportDate: string;
+  interventionDate: string;
+  isRecommended: boolean;
+  recommendedAt: string | null;
+}
+
+export interface KnowledgeBaseResponse {
+  message: string;
+  data: KnowledgeBaseSolution[];
+}
+
+export interface KnowledgeBaseQuery {
+  text?: string;
+  location?: string;
+  categoryId?: number | string;
+}
+
+export type ExecutionConfirmationStatus =
+  | 'NOT_REQUESTED'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'REJECTED'
+  | 'CLOSED_WITHOUT_CONFIRMATION';
+
+export type ExecutionConfirmationMethod = 'PIN' | 'SIGNATURE' | 'NONE';
+
+export interface ExecutionConfirmationDetail {
+  id?: number;
+  status: ExecutionConfirmationStatus;
+  method: ExecutionConfirmationMethod | null;
+  requestedAt: string | null;
+  respondedAt: string | null;
+  rejectionReason: string | null;
+  bypassReason: string | null;
+  requestedBy: string | null;
+  confirmedBy: string | null;
+}
+
 interface InterventionsResult {
   items: InterventionListItem[];
 }
@@ -164,6 +232,9 @@ export interface InterventionDetail {
   createdAt: string;
   startedAt: string | null;
   dueAt: string | null;
+  dispatchedAt?: string | null;
+  arrivedAt?: string | null;
+  fieldWorkEndedAt?: string | null;
   faultReport: {
     id: number;
     description?: string;
@@ -183,6 +254,24 @@ export interface InterventionDetail {
     };
     assignedAt: string;
   }>;
+  executionConfirmation: ExecutionConfirmationDetail;
+  pauses?: InterventionPause[];
+  appointmentConfirmedAt?: string | null;
+  rescheduleRequests?: AppointmentRescheduleRequestItem[];
+}
+
+export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface AppointmentRescheduleRequestItem {
+  id: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  responseComment: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  requestedBy: string | null;
+  respondedBy: string | null;
 }
 
 export type BulkActionType = 'STATUS_CHANGE' | 'ASSIGN_SERVICER' | 'ARCHIVE' | 'DEARCHIVE';
@@ -313,6 +402,30 @@ export async function getInterventionHistory(
   );
 }
 
+export async function getInterventionKnowledgeBase(
+  id: string | number,
+  query: KnowledgeBaseQuery = {},
+): Promise<KnowledgeBaseResponse> {
+  const params = new URLSearchParams();
+  if (query.text?.trim()) {
+    params.set('text', query.text.trim());
+  }
+  if (query.location?.trim()) {
+    params.set('location', query.location.trim());
+  }
+  if (query.categoryId !== undefined && query.categoryId !== '') {
+    params.set('categoryId', String(query.categoryId));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+
+  return getResponseData(
+    () => api.get<KnowledgeBaseResponse>(
+      `${API_ENDPOINTS.INTERVENTIONS.KNOWLEDGE_BASE(id)}${suffix}`,
+    ),
+    'Failed to load recommended solutions.',
+  );
+}
+
 export async function createIntervention(payload: InterventionFormPayload): Promise<InterventionListItem> {
   return getResponseData(
     () => api.post<InterventionListItem>(API_ENDPOINTS.INTERVENTIONS.BASE, payload),
@@ -336,13 +449,82 @@ export async function updateIntervention(
 export async function updateInterventionStatus(
   id: string | number,
   status: InterventionStatus,
+  confirmationBypassReason?: string,
 ): Promise<InterventionDetail> {
   return getResponseData(
     () => api.patch<InterventionDetail>(
       `${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/status`,
-      { status },
+      { status, ...(confirmationBypassReason ? { confirmationBypassReason } : {}) },
     ),
     'Failed to update intervention status.',
+  );
+}
+
+export async function requestExecutionConfirmation(
+  id: string | number,
+): Promise<{
+  confirmation: ExecutionConfirmationDetail;
+  pin: string | null;
+  pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+}> {
+  return getResponseData(
+    () => api.post<{
+      confirmation: ExecutionConfirmationDetail;
+      pin: string | null;
+      pinDelivery: 'NOTIFICATION' | 'REQUESTER';
+    }>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_REQUEST(id),
+      {},
+    ),
+    'Failed to request execution confirmation.',
+  );
+}
+
+export async function confirmExecutionConfirmation(
+  id: string | number,
+  payload:
+    | { method: 'PIN'; pin: string }
+    | { method: 'SIGNATURE'; signatureData: string },
+): Promise<ExecutionConfirmationDetail> {
+  return getResponseData(
+    () => api.post<ExecutionConfirmationDetail>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_CONFIRM(id),
+      payload,
+    ),
+    'Failed to confirm execution.',
+  );
+}
+
+export async function rejectExecutionConfirmation(
+  id: string | number,
+  payload: { reason: string },
+): Promise<ExecutionConfirmationDetail> {
+  return getResponseData(
+    () => api.post<ExecutionConfirmationDetail>(
+      API_ENDPOINTS.INTERVENTIONS.CONFIRMATION_REJECT(id),
+      payload,
+    ),
+    'Failed to reject execution confirmation.',
+  );
+}
+
+export async function pauseIntervention(
+  id: string | number,
+  payload: { reason: PauseReason; otherReason?: string | null; responsibleUserId?: number | null },
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/pause`, payload),
+    'Failed to pause intervention.',
+  );
+}
+
+export async function resumeIntervention(
+  id: string | number,
+  payload: { note?: string | null } = {},
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.post<InterventionDetail>(`${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/resume`, payload),
+    'Failed to resume intervention.',
   );
 }
 
@@ -414,10 +596,134 @@ export function buildBulkArchive(interventionIds: number[]): BulkArchivePayload 
 export function buildBulkDearchive(interventionIds: number[]): BulkDearchivePayload {
   return { action: 'DEARCHIVE', interventionIds, payload: {} as Record<string, never> };
 }
- 
+
+export async function updateFieldTracking(
+  id: string | number,
+  action: 'DISPATCH' | 'ARRIVE' | 'END',
+): Promise<InterventionDetail> {
+  return getResponseData(
+    () => api.patch<InterventionDetail>(
+      `${API_ENDPOINTS.INTERVENTIONS.BY_ID(id)}/field-tracking`,
+      { action },
+    ),
+    'Failed to update field tracking.',
+  );
+}
+
 export function formatBulkResultSummary(result: BulkActionResponse): string {
   if (result.totalSkipped === 0) {
     return `${result.totalSucceeded} of ${result.totalRequested} interventions successfully updated.`;
   }
   return `${result.totalSucceeded} of ${result.totalRequested} interventions updated. ${result.totalSkipped} skipped.`;
+}
+
+export interface CreateReopenRequestPayload {
+  reason: string;
+  comment?: string | null;
+}
+
+export async function createReopenRequest(
+  interventionId: string | number,
+  payload: CreateReopenRequestPayload,
+): Promise<void> {
+  return getResponseData(
+    () =>
+      api.post(
+        `${API_ENDPOINTS.INTERVENTIONS.BY_ID(interventionId)}/reopen-request`,
+        payload,
+      ),
+    'Failed to create reopen request.',
+  );
+}
+  export async function getReopenRequests(): Promise<any[]> {
+  return getResponseData(
+    () => api.get<unknown[]>(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests`),
+    'Failed to load reopen requests.',
+  );
+}
+
+export async function approveReopenRequest(requestId: number): Promise<void> {
+  return getResponseData(
+    () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/approve`),
+    'Failed to approve reopen request.',
+  );
+}
+
+export async function rejectReopenRequest(requestId: number, coordinatorComment: string): Promise<void> {
+  return getResponseData(
+    () => api.patch(`${API_ENDPOINTS.INTERVENTIONS.BASE}/reopen-requests/${requestId}/reject`, { coordinatorComment }),
+    'Failed to reject reopen request.',
+  );
+}
+
+export async function confirmAppointment(id: number | string): Promise<{ appointmentConfirmedAt: string | null }> {
+  return getResponseData(
+    () => api.post<{ appointmentConfirmedAt: string | null }>(API_ENDPOINTS.INTERVENTIONS.APPOINTMENT_CONFIRM(id)),
+    'Failed to confirm appointment.',
+  );
+}
+
+export async function requestAppointmentReschedule(
+  id: number | string,
+  payload: { proposedStartedAt: string; comment: string },
+): Promise<{
+  id: number;
+  interventionId: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  createdAt: string;
+}> {
+  return getResponseData(
+    () => api.post(API_ENDPOINTS.INTERVENTIONS.APPOINTMENT_RESCHEDULE(id), payload),
+    'Failed to request appointment reschedule.',
+  );
+}
+
+export interface RescheduleRequestListItem {
+  id: number;
+  interventionId: number;
+  proposedStartedAt: string;
+  comment: string;
+  status: RescheduleRequestStatus;
+  createdAt: string;
+  requestedBy: { id: number; firstName: string; lastName: string; username: string } | null;
+  intervention: {
+    id: number;
+    name: string;
+    startedAt: string | null;
+    location: string;
+    status: InterventionStatus;
+    company: { id: number; name: string };
+    category: { id: number; name: string };
+  } | null;
+}
+
+export async function getRescheduleRequests(): Promise<{ data: RescheduleRequestListItem[] }> {
+  return getResponseData(
+    () => api.get<{ data: RescheduleRequestListItem[] }>(API_ENDPOINTS.INTERVENTIONS.RESCHEDULE_REQUESTS),
+    'Failed to load reschedule requests.',
+  );
+}
+
+export async function respondToRescheduleRequest(
+  id: number | string,
+  requestId: number | string,
+  payload: {
+    status: RescheduleRequestStatus;
+    responseComment?: string;
+    proposedStartedAt?: string;
+  },
+): Promise<{
+  id: number;
+  interventionId: number;
+  status: RescheduleRequestStatus;
+  respondedById: number | null;
+  responseComment: string | null;
+  respondedAt: string | null;
+}> {
+  return getResponseData(
+    () => api.patch(API_ENDPOINTS.INTERVENTIONS.RESCHEDULE_RESPOND(id, requestId), payload),
+    'Failed to respond to reschedule request.',
+  );
 }

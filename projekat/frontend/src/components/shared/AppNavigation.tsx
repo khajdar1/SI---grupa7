@@ -116,6 +116,7 @@ const INTERVENTION_CREATE_ROLE_NAMES = new Set([
   'administrator',
 ]);
 const BLOCKING_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
+const REOPEN_REQUEST_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
 
 const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.HOME]: <Home className="size-4" />,
@@ -183,6 +184,11 @@ function translateNotificationTitle(notification: NotificationItem, language: La
     'Support trazi admin pregled': 'Podrška traži admin pregled',
     'User blocked': 'Korisnik blokiran',
     'User unblocked': 'Korisnik odblokiran',
+    'Appointment scheduled': 'Termin zakazan',
+    'Appointment change requested': 'Zahtjev za promjenu termina',
+    'Appointment change approved': 'Promjena termina odobrena',
+    'Appointment change rejected': 'Promjena termina odbijena',
+    'Alternative appointment proposed': 'Predložen alternativni termin',
   };
 
   return titleTranslations[notification.title] ?? notification.title;
@@ -255,6 +261,10 @@ function translateNotificationText(notification: NotificationItem, language: Lan
   text = text.replace(/\bPriority: ([^,]+)/g, (_, priority: string) => `Prioritet: ${translatePriority(priority)}`);
 
   return text;
+}
+
+function getNotificationPin(text: string): string | null {
+  return text.match(/\b(?:One-time PIN|Jednokratni PIN):\s*(\d{6})\b/i)?.[1] ?? null;
 }
 
 function decodeJwtPayload(token: string): {
@@ -340,6 +350,10 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
 
   if (route === ROUTES.BLOCKED_USERS) {
     return hasAnyRole(roles, BLOCKING_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.REOPEN_REQUESTS) {
+    return hasAnyRole(roles, REOPEN_REQUEST_ROLE_NAMES);
   }
 
   return true;
@@ -658,7 +672,7 @@ export function AppNavigation() {
                   ) : null}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuContent align="end" className="w-96 max-w-[calc(100vw-2rem)]">
                 <DropdownMenuLabel className="flex items-center justify-between">
                   <span>{t('nav.notifications')}</span>
                   {unreadCount > 0 ? (
@@ -671,25 +685,35 @@ export function AppNavigation() {
                     {t('nav.noNotifications')}
                   </div>
                 ) : (
-                  notifications.slice(0, 10).map((notif) => (
-                    <DropdownMenuItem
-                      key={notif.id}
-                      onClick={() => handleNotificationClick(notif)}
-                      className="flex cursor-pointer flex-col items-start gap-0.5 px-3 py-2.5"
-                    >
-                      <div className="flex w-full items-center justify-between gap-2">
-                        <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
-                          {translateNotificationTitle(notif, language)}
+                  notifications.slice(0, 10).map((notif) => {
+                    const text = translateNotificationText(notif, language);
+                    const pin = getNotificationPin(text);
+
+                    return (
+                      <DropdownMenuItem
+                        key={notif.id}
+                        onClick={() => handleNotificationClick(notif)}
+                        className="flex cursor-pointer flex-col items-start gap-1 px-3 py-2.5"
+                      >
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className={`text-sm font-medium ${notif.read ? 'text-muted-foreground' : 'text-foreground'}`}>
+                            {translateNotificationTitle(notif, language)}
+                          </span>
+                          {!notif.read ? (
+                            <span className="size-2 shrink-0 rounded-full bg-primary" />
+                          ) : null}
+                        </div>
+                        <span className="whitespace-normal break-words text-xs leading-relaxed text-muted-foreground">
+                          {text}
                         </span>
-                        {!notif.read ? (
-                          <span className="size-2 shrink-0 rounded-full bg-primary" />
+                        {pin ? (
+                          <span className="mt-1 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 font-mono text-sm font-semibold tracking-widest text-primary">
+                            PIN: {pin}
+                          </span>
                         ) : null}
-                      </div>
-                      <span className="text-xs text-muted-foreground line-clamp-2">
-                        {translateNotificationText(notif, language)}
-                      </span>
-                    </DropdownMenuItem>
-                  ))
+                      </DropdownMenuItem>
+                    );
+                  })
                 )}
               </DropdownMenuContent>
             </DropdownMenu>

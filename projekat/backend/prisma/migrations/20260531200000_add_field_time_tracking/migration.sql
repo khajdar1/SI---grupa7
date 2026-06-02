@@ -1,0 +1,4 @@
+ALTER TABLE `Intervention`
+  ADD COLUMN `dispatchedAt` DATETIME(3) NULL,
+  ADD COLUMN `arrivedAt` DATETIME(3) NULL,
+  ADD COLUMN `fieldWorkEndedAt` DATETIME(3) NULL;
