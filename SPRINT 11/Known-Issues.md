@@ -37,7 +37,7 @@
 - **Vezano za:** PBI-023
 - **Opis:** Kada koordinator postavi filtere na listi intervencija (npr. po statusu ili kategoriji) i zatim klikne „Izvoz PDF", sistem ignorira filtere i izvozi kompletnu listu. Korisnik očekuje da će u PDF-u biti samo filtrirani podaci.
 
-### BUG-009 - Prijavljeni korisnik prikazuje se kao „System Reporter" umjesto pod svojim imenom
+### BUG-008 - Prijavljeni korisnik prikazuje se kao „System Reporter" umjesto pod svojim imenom
 - **Vezano za:** PBI-001
 - **Opis:** Kada korisnik s postojećim računom podnese prijavu kvara, sistem ga spremi kao podnosioca prijave, ali intervencija koja se automatski kreira dobija sistemskog korisnika kao kreatora — bez obzira na to ko je stvarno prijavio kvar. Svugdje gdje sistem prikazuje kreatora intervencije, prikazuje se „System Reporter" umjesto imena i prezimena stvarne osobe. Ovo zbunjuje koordinatore i servisere pri pregledu prijava.
 
