@@ -107,10 +107,6 @@ npm run test:smoke
 
 Smoke test provjerava backend health endpoint i frontend stranicu. U release pipeline-u koristi retry postavke (`SMOKE_RETRIES=12`, `SMOKE_RETRY_DELAY_MS=10000`) da Cloudflare/Railway imaju vremena da zavrse propagaciju nakon deploya.
 
-## 7. Odgovor na pitanje o `release.yml`
-
-Ne treba dodavati novi `release.yml` pipeline, jer on vec postoji i sada je glavni release/CD workflow. Ako Cloudflare i Railway vec deployaju produkciju na svaki push u `release/*`, to je sustinski trazeni CD tok. Bitno je da je taj tok dokumentovan i da `release.yml` prije deploya pokrece automated testove.
-
 ## 8. Rizici
 
 | Rizik | Kontrola |
