@@ -75,7 +75,6 @@
 ## 4. Nedovršene i djelimično završene funkcionalnosti
 
 - **PBI-037 — Automatska raspodjela intervencija:** Nije implementirana. Postoje helperi za izračun opterećenja servisera u `assignment.service.ts` i UI labela „Auto assignment" u settings stranici, ali ne postoji stvarna logika automatske dodjele pri kreiranju intervencije.
-- **PBI-008 — Praćenje statusa od strane servisera:** Masovne akcije promjene statusa (U toku, Riješeno, Otkazano) rade, ali mogućnosti servisera pri individualnoj izmjeni statusa nisu u potpunosti konzistentne s originalnim zahtjevom.
 - **PBI-022 — Ponavljajuće intervencije (mjesečno):** Osnova postoji, ali mjesečni algoritam ima rubni bug i nije stabilan za produkcijsku upotrebu.
 - **PBI-025 — Detekcija duplikata:** Funkcionira uz GPS koordinate, ali tekstualna detekcija kao fallback nije dovoljno precizna.
 
@@ -98,7 +97,7 @@
 - Klijent ima stabilnu internet vezu i pristup lokacijskim uslugama za GPS koordinate pri prijavi kvara.
 - Firme, kategorije i SLA konfiguracija su unaprijed postavljeni kroz seed ili admin konfiguraciju - sistem ne vodi korisnika kroz inicijalno postavljanje.
 - Frontend lokalno čuva `userId` u `localStorage` za `checkDuplicates()`, iako backend ne provjerava da je taj ID stvarno korisnik iz aktivne sesije.
-- Geokodiranje je aktivno ili je isključeno kroz `GEOCODING_DISABLED` env varijablu — nema međustanja.
+- Geokodiranje je aktivno ili je isključeno kroz `GEOCODING_DISABLED` env varijablu - nema međustanja.
 
 ---
 
