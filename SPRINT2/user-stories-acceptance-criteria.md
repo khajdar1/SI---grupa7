@@ -1,7 +1,7 @@
 # Product Backlog – User Storiji i Acceptance Kriteriji
 
 > **Projekt:** Sistem za upravljanje intervencijama
-> **Verzija:** 3.0
+> **Verzija:** 3.1
 
 ---
 
@@ -21,36 +21,35 @@
 ---
 
 ### PBI-001 – Registracija korisnika
-
+ 
 **Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 5 SP | **Sprint:** 5
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **novi korisnik**, želim **samostalno kreirati korisnički račun unosom osnovnih podataka**, kako bih **dobio pristup sistemu bez potrebe za čekanjem da me administrator ručno registruje**.
-
+ 
 > **Story 2 –** Kao **administrator sistema**, želim **biti siguran da samoregistrirani korisnici automatski dobijaju samo osnovnu ulogu „Korisnik"**, kako bih **zadržao kontrolu nad privilegovanim pristupom i spriječio neovlašteno preuzimanje osjetljivih uloga**.
-
+ 
 > **Story 3 –** Kao **administrator**, želim **da svaki novoregistrirani korisnik bude vezan za konkretnu firmu/organizaciju**, kako bih **osigurao da podaci ostanu segregirani između različitih organizacija u sistemu**.
-
+ 
 #### Poslovna vrijednost
-
+ 
 Samoregistracija smanjuje administrativni teret i ubrzava onboarding novih korisnika. Korisnik koji može sam kreirati račun u par minuta ima bolje korisničko iskustvo, a admin nije usko grlo za svaki novi pristup. Uloge osjetljivije od „Korisnik" i dalje dodjeljuje administrator, čime se zadržava kontrola nad privilegovanim pristupom.
-
+ 
 #### Pretpostavke i otvorena pitanja
-
+ 
 - Samoregistracijom korisnik automatski dobija ulogu **Korisnik** – sve ostale uloge dodjeljuje admin naknadno.
 - Otvoreno pitanje: Da li je potrebna verifikacija email adrese nakon registracije?
 - Otvoreno pitanje: Da li admin dobija notifikaciju kada se registruje novi korisnik?
-
+- Otvoreno pitanje: Postoje li zahtjevi za kompleksnost lozinke?
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** PBI-002 (Login), PBI-013 (Upravljanje računima)
 - **Zavisi od:** –
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Na login stranici mora postojati **vidljiv link ili dugme „Registruj se"** koji otvara formu za registraciju.
 - Forma mora sadržavati **obavezna polja**: ime, prezime, korisničko ime, email adresa, lozinka i potvrda lozinke.
 - Ako korisnik ne popuni sva obavezna polja, **sistem ne smije kreirati račun** i mora jasno označiti svako nepopunjeno polje.
@@ -61,39 +60,37 @@ Samoregistracija smanjuje administrativni teret i ubrzava onboarding novih koris
 - Admin mora moći **promijeniti ulogu novoregistrovanog korisnika** putem admin panela (PBI-013).
 - Sistem ne smije dozvoliti registraciju s **neispravnim formatom email adrese**.
 - Korisnički račun mora biti **vezan za određenu firmu/organizaciju**.
-
 ---
-
+ 
 ### PBI-002 – Prijava u sistem (Login)
-
+ 
 **Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 4 SP | **Sprint:** 5
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **registrirani korisnik sistema**, želim **sigurno se prijaviti koristeći korisničko ime i lozinku**, kako bih **dobio pristup funkcionalnostima predviđenim za moju ulogu i zaštitio podatke od neovlaštenog pristupa**.
-
+ 
 > **Story 2 –** Kao **korisnik na dijeljenom uređaju**, želim **da se moja sesija automatski prekine nakon perioda neaktivnosti i da se ne mogu koristiti dugme „Nazad" nakon odjave**, kako bih **spriječio neovlašteni pristup svom računu**.
-
+ 
 > **Story 3 –** Kao **administrator**, želim **da deaktivirani korisnički računi ne mogu pristupiti sistemu**, kako bih **osigurao da bivši zaposlenici ili suspendirani korisnici izgube pristup odmah nakon deaktivacije**.
-
+ 
 #### Poslovna vrijednost
-
+ 
 Login je kapija cijelog sistema. Bez sigurne autentifikacije, osjetljivi podaci o intervencijama, korisnicima i lokacijama bili bi izloženi.
-
+ 
 #### Pretpostavke i otvorena pitanja
-
+ 
 - MVP koristi standardnu autentifikaciju (korisničko ime + lozinka); 2FA nije u MVP scopeu.
 - Otvoreno pitanje: Koliko dugo traje sesija prije automatske odjave?
-
+- Otvoreno pitanje: Postoji li limit broja neuspješnih pokušaja prijave (brute force zaštita)?
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** Sve ostale PBI stavke
 - **Zavisi od:** PBI-001 (Registracija korisnika)
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Kada korisnik unese ispravno korisničko ime i lozinku, **sistem mora autentificirati korisnika i preusmjeriti ga na početnu stranicu** odgovarajuću za njegovu ulogu.
 - Ako korisnik unese netačne podatke, **sistem mora prikazati generičku poruku greške** bez otkrivanja koja vrijednost je netačna.
 - Sistem mora onemogućiti pristup zaštićenim stranicama **bez aktivne sesije** – svaki direktni URL pristup mora preusmjeriti na login.
@@ -101,42 +98,38 @@ Login je kapija cijelog sistema. Bez sigurne autentifikacije, osjetljivi podaci 
 - Nakon odjave, **korisnik ne smije moći pristupiti prethodnim stranicama** putem dugmeta „Nazad" u pregledniku.
 - Korisnik treba dobiti **jasnu vizualnu indikaciju** da je uspješno prijavljen (npr. korisničko ime u navigaciji).
 - Sistem ne smije dozvoliti prijavu **deaktiviranog korisničkog računa**.
-
 ---
-
+ 
 ### PBI-003 – Prijava kvara
-
+ 
 **Tip:** Feature | **Prioritet:** Kritičan | **Složenost:** 5 SP | **Sprint:** 5
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **neregistrirani korisnik**, želim **brzo prijaviti kvar bez obaveze registracije**, kako bih **osigurao da nadležni tim bude obaviješten bez administrativnih prepreka**.
-
+ 
 > **Story 2 –** Kao **prijavljeni korisnik**, želim **uz prijavu kvara priložiti slike ili dokumente i odabrati kategoriju iz predefinisane liste**, kako bih **koordinatoru dao što potpuniju informaciju i ubrzao trijažu**.
-
+ 
 > **Story 3 –** Kao **koordinator**, želim **da svaka uspješno poslana prijava kvara automatski generiše intervenciju u sistemu**, kako bih **imao nultu manuelnu obradu dolaznih prijava i mogao odmah reagovati**.
-
+ 
 #### Poslovna vrijednost
-
+ 
 Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ovaj proces jednostavniji i dostupniji, to više prijava stiže na vrijeme, a tim može pravovremeno reagovati. Automatsko kreiranje intervencije eliminiše ručni posao koordinatora.
-
+ 
 #### Pretpostavke i otvorena pitanja
-
+ 
 - Dostupno i neprijavljenim korisnicima.
 - Otvoreno pitanje: Koji tipovi datoteka su dozvoljeni za upload?
 - Otvoreno pitanje: Da li neprijavljeni korisnik unosi kontakt podatke kao dio obrasca?
 - Otvoreno pitanje: Kako se prate intervencije prijavljene od neprijavljenih korisnika?
-
-
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** PBI-004, PBI-025
 - **Zavisi od:** –
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Kada korisnik otvori obrazac, **mora vidjeti polja**: lokacija, opis problema i kategorija usluge.
 - Sistem mora **omogućiti dodavanje slika ili dokumenata** (attachment) uz prijavu.
 - Korisnik bira firmu iz unaprijed definisane liste **(dropdown)**, bez ručnog unosa.
@@ -145,6 +138,8 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 - Kada korisnik uspješno pošalje obrazac, **sistem mora automatski kreirati novu intervenciju** i prikazati potvrdu o prijemu.
 - **Neprijavljeni korisnik mora moći prijaviti kvar** bez registracije.
 - Kreirana intervencija mora biti **odmah vidljiva koordinatoru** u listi aktivnih intervencija.
+- Sistem mora dozvoliti upload **najmanje jedne slike ili dokumenta** uz svaku prijavu.
+- Sistem mora ponuditi listu **predefinisanih hitnih intervencija**, a korisnik mora imati mogućnost dodatnog unosa opisa.
 
 ---
 
@@ -205,42 +200,45 @@ Prijava kvara je primarni ulazni kanal za sve intervencije u sistemu. Što je ov
 ---
 
 ### PBI-030 – Kategorije i tipovi kvarova
-
+ 
 **Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 3 SP | **Sprint:** 5
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **korisnik**, želim **pri prijavi kvara odabrati kategoriju iz predefinisane liste**, kako bih **preciznije opisao prirodu problema i koordinatoru omogućio brže razumijevanje bez dodatnih pojašnjenja**.
-
+ 
 > **Story 2 –** Kao **administrator sistema**, želim **dodavati, uređivati i deaktivirati kategorije kvarova putem admin panela**, kako bih **osigurao da lista kategorija uvijek odražava stvarne tipove kvarova organizacije bez zavisnosti od developer tima**.
-
+ 
 > **Story 3 –** Kao **koordinator**, želim **filtrirati listu intervencija i koristiti kategoriju kao kriterij napredne pretrage**, kako bih **brzo pronašao sve intervencije određenog tipa i analizirao učestalost pojedinih kvarova**.
-
+ 
 #### Poslovna vrijednost
-
+ 
 Predefinisane kategorije standardizuju unos i ubrzavaju trijažu koordinatora. Dinamično upravljanje kategorijama daje organizaciji autonomiju i fleksibilnost bez tehničke zavisnosti.
-
+ 
 #### Pretpostavke i otvorena pitanja
-
+ 
 - Kategorije koje se deaktivišu ostaju vidljive na prethodnim intervencijama, ali se ne nude pri novim prijavama.
 - Otvoreno pitanje: Da li postoje podkategorije?
 - Otvoreno pitanje: Da li se kategorije primjenjuju globalno ili per-firma?
-
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** PBI-003 (Prijava kvara – odabir kategorije)
 - **Veza s:** PBI-007 (Lista intervencija – filtriranje), PBI-017 (Napredna pretraga)
-
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Kada korisnik otvori formu za prijavu kvara, **mora vidjeti padajući meni za odabir kategorije**.
 - Odabir kategorije mora biti **obavezno polje**.
+- Sistem ne smije dozvoliti **unos slobodnog teksta umjesto odabira** iz predefinisane liste.
 - Admin mora imati pristup **listi svih kategorija** s informacijama: naziv, status, datum kreiranja.
-- Admin mora moći **kreirati novu kategoriju**, **urediti naziv i opis** i **deaktivirati/reaktivirati** kategoriju.
+- Admin mora moći **kreirati novu kategoriju** unosom naziva i opcionog opisa.
+- Sistem ne smije dozvoliti **kreiranje kategorije s već postojećim nazivom** – naziv mora biti jedinstven.
+- Admin mora moći **urediti naziv i opis** postojeće aktivne kategorije.
+- Admin mora moći **deaktivirati/reaktivirati** kategoriju.
 - Deaktiviranje **ne smije retroaktivno uticati** na intervencije koje su prethodno evidentirane s tom kategorijom.
+- Ako nema niti jedne aktivne kategorije, **sistem mora prikazati upozorenje adminu**.
+- Svaka izmjena mora biti **zabilježena s imenom admina i vremenskom oznakom**.
 - Koordinator i menadžment moraju moći **filtrirati listu intervencija po kategoriji**.
 
 ---
@@ -561,36 +559,36 @@ Planiranje intervencija je srž operativnog rada koordinatora. Bez ove funkciona
 ---
 
 ### PBI-005 – Prioritet intervencije, SLA i upozorenja o kašnjenju
-
+ 
 **Tip:** Feature | **Prioritet:** Visok | **Složenost:** 6 SP | **Sprint:** 6
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **koordinator**, želim **dodijeliti i po potrebi izmijeniti prioritet svake intervencije**, kako bih **osigurao da terenski tim uvijek radi na najhitnijim zadacima**.
-
-> **Story 2 –** Kao **koordinator**, želim **biti automatski upozoren ako intervencija nije riješena do definisanog SLA roka**, kako bih **mogao pravovremeno intervenirati i prerasporediti resurse**.
-
+ 
+> **Story 2 –** Kao **administrator sistema**, želim **definirati vremenski rok za rješavanje intervencija za svaki nivo prioriteta**, kako bih **uspostavio mjerljive standarde usluge koji služe kao osnova za automatska upozorenja o kašnjenju**.
+ 
+> **Story 3 –** Kao **koordinator**, želim **biti automatski upozoren ako intervencija nije riješena do definisanog SLA roka**, kako bih **mogao pravovremeno intervenirati i prerasporediti resurse**.
+ 
 #### Poslovna vrijednost
-
+ 
 Prioritet je osnova za organizaciju rada. Bez eksplicitnog rangiranja, koordinator i serviseri moraju sami procjenjivati važnost svakog zadatka, što vodi do grešaka. SLA konfiguracija daje organizaciji mjerljive standarde usluge, a automatska upozorenja o kašnjenju oslobađaju koordinatora od ručnog praćenja rokova.
-
+ 
 #### Pretpostavke i otvorena pitanja
-
+ 
 - Dostupne razine prioriteta: Hitan, Visok, Normalan, Nizak.
 - SLA rokovi se definišu per-prioritet.
 - Otvoreno pitanje: Da li promjena prioriteta zahtijeva navođenje razloga?
 - Otvoreno pitanje: Da li SLA sat teče od kreiranja intervencije ili od dodjele serviseru?
 - Otvoreno pitanje: Gdje se prikazuje upozorenje – u listi ili kao notifikacija?
-
 #### Veze i zavisnosti
-
+ 
 - **Preduvjet za:** PBI-007 (Pregled liste – rangiranje po prioritetu)
 - **Zavisi od:** PBI-004 (Planiranje intervencija)
-
 ---
-
+ 
 #### Acceptance Kriteriji – Prioritet
-
+ 
 - Koordinator mora imati mogućnost odabira prioriteta iz **padajućeg menija: Hitan, Visok, Normalan, Nizak**.
 - **Prioritet je obavezno polje** – sistem ne smije dozvoliti čuvanje intervencije bez njega.
 - Kada koordinator naknadno promijeni prioritet, **sistem mora zabilježiti promjenu** s vremenskom oznakom i imenom korisnika.
@@ -599,7 +597,7 @@ Prioritet je osnova za organizaciju rada. Bez eksplicitnog rangiranja, koordinat
 - Sistem ne smije dozvoliti postavljanje prioriteta koji nije u listi predviđenih opcija.
 
 #### Acceptance Kriteriji – SLA konfiguracija
-
+ 
 - Admin mora imati pristup **stranici za konfiguraciju SLA rokova** s poljem za svaki nivo prioriteta.
 - Admin mora moći **unijeti vremenski rok u satima** za svaki nivo (npr. Hitan = 2h, Visok = 8h).
 - Sistem ne smije dozvoliti **čuvanje SLA konfiguracije s praznim poljem, nulom ili negativnom vrijednošću**.
@@ -607,7 +605,7 @@ Prioritet je osnova za organizaciju rada. Bez eksplicitnog rangiranja, koordinat
 - Promjena SLA konfiguracije mora biti **zabilježena u audit logu**.
 
 #### Acceptance Kriteriji – Upozorenje kašnjenja
-
+ 
 - Sistem mora **automatski generisati upozorenje** za svaku intervenciju koja nije u statusu "Završeno" a SLA rok je prošao.
 - Upozorenje mora biti **vidljivo koordinatoru** u pregledu (npr. crvena oznaka ili status "Zakašnjenje").
 - Sistem mora upozoravati **samo za intervencije s definisanim rokom** – intervencije bez roka ne smiju generisati upozorenja.
@@ -706,88 +704,94 @@ Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje 
 
 ---
 
-### PBI-008 – Praćenje i izmjena statusa intervencije
-
+#### PBI-008 – Praćenje i izmjena statusa intervencije
+ 
 **Tip:** Feature | **Prioritet:** Visok | **Složenost:** 8 SP | **Sprint:** 6
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **koordinator**, želim **mijenjati status intervencije i imati pregled kompletne historije svih promjena statusa**, kako bih **osigurao da svi dionici u realnom vremenu znaju gdje se intervencija nalazi**.
-
+ 
 > **Story 2 –** Kao **serviser**, želim **promijeniti status intervencije koja mi je dodijeljena**, kako bih **obavijestio koordinatora da sam počeo raditi na zadatku**.
-
+ 
 > **Story 3 –** Kao **sistem**, moram **spriječiti promjenu statusa koja nije u predefinisanom smjeru**, kako bih **zaštitio integritet toka rada**.
-
+ 
 #### Veze i zavisnosti
-
+ 
 - **Zavisi od:** PBI-004, PBI-006
 - **Preduvjet za:** PBI-010
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Sistem mora **dozvoliti promjenu statusa samo u predefinisanom smjeru**: Otvoreno → U procesu → Završeno ili Otkazano.
 - Svaka promjena statusa mora biti **automatski zabilježena u historiji** s imenom korisnika, datumom i vremenom.
 - Koordinator mora imati **pregled kompletne historije promjena statusa** unutar detalja intervencije.
 - Sistem ne smije dozvoliti **promjenu statusa Završene intervencije** bez posebnih administratorskih ovlasti.
 - Status „Otkazano" **može dodijeliti samo koordinator**.
+- Kada se status promijeni, **lista aktivnih intervencija mora odražavati novu vrijednost** bez potrebe za ručnim osvježavanjem (ili uz jasno vidljivo dugme za osvježavanje).
+- Korisnik treba dobiti **vizualnu potvrdu** da je promjena statusa uspješno sačuvana.
 
 ---
 
 ### PBI-009 – Pregled zadataka servisera
-
+ 
 **Tip:** Feature | **Prioritet:** Visok | **Složenost:** 3 SP | **Sprint:** 6
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **serviser**, želim **na jednom mjestu vidjeti sve intervencije koje su mi dodijeljene, sortirane po prioritetu**, kako bih **znao koji zadaci me čekaju i po kom redu ih trebam obaviti**.
-
+ 
 > **Story 2 –** Kao **serviser**, želim **otvoriti detalj dodijeljene intervencije i vidjeti opis kvara, lokaciju, priložene dokumente i komentare**, kako bih **imao sve potrebne informacije na jednom ekranu**.
-
+ 
 > **Story 3 –** Kao **serviser**, želim **biti siguran da ne mogu ni slučajno vidjeti ili izmijeniti intervencije koje mi nisu dodijeljene**, kako bih **radio u jasno definisanom opsegu odgovornosti**.
-
+ 
 #### Veze i zavisnosti
-
+ 
 - **Zavisi od:** PBI-006
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Sistem mora prikazati **isključivo intervencije dodijeljene serviseru**.
+- Za svaku intervenciju, serviser mora vidjeti **minimalno**: naziv, lokaciju, opis kvara, prioritet i rok završetka.
 - Lista zadataka mora biti **sortirana po prioritetu**.
+- Serviser mora moći **otvoriti detalj svake intervencije** i vidjeti potpuni opis, dokumente i komentare.
+- Sistem ne smije prikazivati **intervencije sa statusom "Završeno"** u aktivnoj listi (ili ih jasno vizualno odvojiti).
 - Serviser ne smije imati mogućnost **pristupa niti izmjene intervencija koje mu nisu dodijeljene**.
 - Ako serviser nema dodijeljenih intervencija, **sistem mora prikazati jasnu poruku**.
 
 ---
 
 ### PBI-013 – Upravljanje korisničkim računima (Admin)
-
+ 
 **Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 8 SP | **Sprint:** 6
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **administrator sistema**, želim **kreirati nove korisničke račune i izmijeniti postojeće podatke**, kako bih **osigurao da sistem uvijek odražava stvarno stanje organizacije**.
-
+ 
 > **Story 2 –** Kao **administrator sistema**, želim **deaktivirati korisnički račun bez brisanja i naknadno ga reaktivirati**, kako bih **osigurao da bivši zaposlenici odmah izgube pristup, ali historijat njihovog rada ostane sačuvan**.
-
+ 
 > **Story 3 –** Kao **sistem**, moram **spriječiti brisanje korisnika koji ima vezane aktivne intervencije i spriječiti admina da deaktivira vlastiti račun**, kako bih **zaštitio integritet podataka**.
-
+ 
 #### Veze i zavisnosti
-
+ 
 - **Zavisi od:** PBI-001, PBI-002
 - **Veza s:** PBI-015
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Admin mora imati pristup **listi svih korisničkih računa** s informacijama: ime, korisničko ime, email, uloga, status.
+- Admin mora moći **izmijeniti podatke postojećeg korisnika**: ime, email, ulogu.
 - Admin mora moći **deaktivirati korisnički račun** bez brisanja – deaktiviran korisnik ne smije se moći prijaviti.
+- Admin mora moći **reaktivirati prethodno deaktiviran račun**.
+- Admin mora moći **promijeniti ulogu korisnika** i ta promjena mora biti odmah aktivna.
 - Admin ne smije moći **deaktivirati vlastiti račun**.
 - Sistem ne smije dozvoliti **brisanje korisnika koji ima vezane aktivne intervencije**.
 - Svaka izmjena u korisničkim računima mora biti **zabilježena u audit logu**.
+- Admin pri kreiranju ili uređivanju korisnika **dodjeljuje firmu** kojoj korisnik pripada.
 
 ---
 
@@ -814,6 +818,61 @@ Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje 
 - Korisnik mora moći **promijeniti lozinku** unosom trenutne lozinke.
 - Ako korisnik unese **netačnu trenutnu lozinku**, sistem mora prikazati grešku i odbiti promjenu.
 - Sistem ne smije dozvoliti korisniku da **promijeni vlastitu ulogu**.
+
+---
+
+### PBI-033 – Pregled i upravljanje attachmentima
+ 
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 3 SP | **Sprint:** 6
+ 
+#### User Storiji
+ 
+> **Story 1 –** Kao **koordinator ili administrator**, želim **pregledati i preuzeti sve fajlove priložene uz intervenciju**, kako bih **imao potpun uvid u dokumentaciju vezanu za konkretni kvar**.
+ 
+> **Story 2 –** Kao **administrator**, želim **definirati dozvoljene tipove fajlova i maksimalnu veličinu, te moći obrisati neodgovarajući attachment**, kako bih **osigurao da sistem ne sadrži neprihvatljive ili zlonamjerne datoteke**.
+ 
+#### Veze i zavisnosti
+ 
+- **Zavisi od:** PBI-003 (Prijava kvara – upload fajlova)
+- **Veza s:** PBI-013 (Admin upravljanje)
+---
+ 
+#### Acceptance Kriteriji
+ 
+- Koordinator i admin moraju moći **pregledati sve priložene fajlove** (naziv, tip, veličina, datum uploada) u detaljima intervencije.
+- Koordinator i admin moraju moći **otvoriti ili preuzeti svaki priloženi fajl** direktno iz sistema.
+- Admin mora moći **definisati dozvoljene tipove fajlova i maksimalnu veličinu** u konfiguraciji.
+- Sistem mora **odbiti upload fajlova** koji ne odgovaraju dozvoljenim tipovima ili prelaze maksimalnu veličinu – uz jasnu poruku.
+- Koordinator ili admin mora moći **obrisati attachment** uz obaveznu potvrdu akcije.
+- Sistem mora **zabilježiti ko je i kada obrisao attachment** u audit logu.
+- Ako intervencija nema priloženih fajlova, **sekcija attachmenta mora biti prikazana** s odgovarajućom porukom.
+
+---
+
+### PBI-017 – Napredna pretraga
+ 
+**Tip:** Feature | **Prioritet:** Visok | **Složenost:** 5 SP | **Sprint:** 6
+ 
+#### User Storiji
+ 
+> **Story 1 –** Kao **koordinator**, želim **pretraživati intervencije po kombinaciji više kriterija** (naziv, datum, lokacija, status, dodjeljeni serviser), kako bih **brzo pronašao konkretnu intervenciju bez ručnog listanja**.
+ 
+> **Story 2 –** Kao **koordinator**, želim **naprednu pretragu primijeniti i na arhivirane intervencije**, kako bih **mogao pronaći historijat određene lokacije ili servisera bez prebacivanja na drugi ekran**.
+ 
+#### Veze i zavisnosti
+ 
+- **Zavisi od:** PBI-007 (Lista intervencija)
+- **Veza s:** PBI-011 (Historija), PBI-023 (Export)
+---
+ 
+#### Acceptance Kriteriji
+ 
+- Koordinator mora moći pretraživati intervencije **po nazivu/opisu** (full-text pretraga).
+- Koordinator mora moći filtrirati **po datumu (od – do rasponu), lokaciji, statusu i dodjeljenom serviseru**.
+- Korisnik mora moći **kombinovati više kriterija** istovremeno i dobiti presjek rezultata.
+- Rezultati pretrage moraju biti prikazani u **istom formatu kao lista aktivnih intervencija**.
+- Ako pretraga ne vrati rezultate, **sistem mora prikazati jasnu poruku**.
+- Sistem ne smije **odbaciti sve kriterije** ako jedan ne vrati rezultate – mora primijeniti sve koji su uneseni.
 
 ---
 
@@ -912,27 +971,28 @@ Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje 
 ---
 
 ### PBI-016 – Komentari intervencije
-
+ 
 **Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 3 SP | **Sprint:** 7
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **koordinator**, želim **dodati tekstualni komentar na intervenciju**, kako bih **ostavio važne napomene ili pojašnjenja**.
-
+ 
 > **Story 2 –** Kao **serviser**, želim **komentarom prijaviti kašnjenje ili neočekivanu komplikaciju na terenu**, kako bih **koordinatoru dao ažurnu informaciju bez telefonskog poziva**.
-
+ 
 #### Veze i zavisnosti
-
+ 
 - **Veza s:** PBI-012, PBI-010
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Koordinator i serviser moraju imati **formu za unos komentara** unutar detalja intervencije.
 - Svaki komentar mora biti **prikazan s imenom autora, datumom i tačnim vremenom** objave.
+- Komentari moraju biti **sortirani kronološki** – konzistentno kroz cijeli sistem.
 - Sistem ne smije dozvoliti **prazne komentare**.
 - Korisnik koji nije koordinator ni serviser **ne smije moći dodavati komentare**.
+- Svi komentari moraju ostati **trajno vidljivi** i ne smiju biti automatski brisani.
 
 ---
 
@@ -1040,26 +1100,27 @@ Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje 
 ---
 
 ### PBI-025 – Detekcija duplikata prijave kvara
-
+ 
 **Tip:** Feature | **Prioritet:** Visok | **Složenost:** 5 SP | **Sprint:** 8
-
+ 
 #### User Storiji
-
+ 
 > **Story 1 –** Kao **korisnik**, želim **biti upozoren ako sistem detektuje da sam nedavno prijavio sličan kvar na istoj lokaciji**, kako bih **svjesno odlučio da li zaista trebam kreirati novu prijavu**.
-
+ 
 > **Story 2 –** Kao **koordinator**, želim **da sistem automatski upozorava korisnike pri potencijalnim duplikatima**, kako bih **smanjio broj lažnih duplikata u listi intervencija**.
-
+ 
 #### Veze i zavisnosti
-
+ 
 - **Zavisi od:** PBI-003
-
 ---
-
+ 
 #### Acceptance Kriteriji
-
+ 
 - Kada korisnik pokuša prijaviti kvar, sistem mora **provjeriti postoji li slična prijava od istog korisnika** u definisanom vremenskom periodu.
 - Ako sistem detektuje potencijalni duplikat, **mora prikazati upozorenje** s informacijom o sličnoj postojećoj prijavi.
 - Korisnik mora moći **nastaviti s prijavom i pored upozorenja** – detekcija duplikata je upozorenje, ne blokada.
+- Korisnik mora moći **odustati od prijave** i biti preusmjeren na detalje postojeće intervencije.
+- Sistem ne smije prikazivati **lažna upozorenja za prijave na različitim lokacijama** ili s bitno različitim opisima.
 - Ako je prethodna slična prijava u statusu „Završeno", **sistem ne smije je tretirati kao duplikat**.
 
 ---
@@ -1138,6 +1199,32 @@ Ovo je centralni operativni ekran sistema. Koordinator svaki radni dan počinje 
 - Koordinator mora moći **odabrati više intervencija** iz liste putem checkboxa.
 - Sistem mora tražiti **potvrdu** prije izvršavanja masovne akcije.
 - Sistem mora prikazati **sažetak rezultata** (npr. „15 od 15 intervencija uspješno ažurirano").
+
+---
+
+### PBI-026 – Arhiviranje intervencija
+ 
+**Tip:** Feature | **Prioritet:** Nizak | **Složenost:** 3 SP | **Sprint:** Backlog
+ 
+#### User Storiji
+ 
+> **Story 1 –** Kao **sistem**, trebam **automatski arhivirati završene ili otkazane intervencije nakon definisanog vremenskog perioda**, kako bih **održao preglednost aktivnog prikaza i spriječio da stare intervencije usporavaju rad**.
+ 
+> **Story 2 –** Kao **administrator**, želim **konfigurirati vremenski period arhiviranja i imati mogućnost ručnog arhiviranja van automatskog ciklusa**, kako bih **prilagodio politiku zadržavanja podataka potrebama organizacije**.
+ 
+#### Veze i zavisnosti
+ 
+- **Veza s:** PBI-011 (Historija), PBI-017 (Napredna pretraga)
+---
+ 
+#### Acceptance Kriteriji
+ 
+- Sistem mora **automatski arhivirati intervencije** sa statusom "Završeno" ili "Otkazano" nakon isteka definisanog perioda.
+- Arhivirane intervencije **ne smiju biti prikazane u aktivnoj listi** ali moraju ostati dostupne u historiji i pretragama.
+- Sistem mora **sačuvati sve vezane podatke** uz arhiviranu intervenciju (komentari, izvještaji, dokumenti).
+- Admin mora moći **konfigurirati vremenski period** arhiviranja.
+- Arhiviranje se **ne smije primijeniti na aktivne intervencije** (Otvoreno, U procesu).
+- Korisnik s odgovarajućim ovlastima mora moći **ručno arhivirati intervenciju** i van automatskog ciklusa.
 
 ---
 
@@ -1599,3 +1686,38 @@ Pauziranje intervencije daje strukturiran odgovor na blokere umjesto ostavljanja
 - Sistem mora evidentirati **vrijeme pauziranja i nastavka rada** radi računanja ukupnog vremena čekanja.
 - Ako je pauza vezana za korisnika, **korisnik mora dobiti in-app notifikaciju** s opisom šta se od njega očekuje.
 - Svako pauziranje i nastavak mora biti **vidljivo u historiji intervencije i audit logu**.
+
+---
+
+## Backlog
+
+---
+
+### PBI-037 – Automatska raspodjela intervencija
+
+**Tip:** Feature | **Prioritet:** Srednji | **Složenost:** 4 SP | **Sprint:** Backlog
+
+#### User Storiji
+
+> **Story 1 –** Kao **koordinator**, želim **da sistem automatski dodijeli novu intervenciju manje opterećenom serviseru**, kako bih **smanjio ručni posao dodjele i osigurao ravnomjernu distribuciju**.
+
+> **Story 2 –** Kao **koordinator**, želim **moći ručno izmijeniti automatski dodijeljenog servisera bez ograničenja**, kako bih **zadržao punu kontrolu nad rasporedom u slučaju posebnih okolnosti**.
+
+> **Story 3 –** Kao **administrator**, želim **moći aktivirati ili deaktivirati funkcionalnost automatske raspodjele iz konfiguracije sistema**, kako bih **prilagodio ponašanje sistema potrebama organizacije u različitim fazama rada**.
+
+#### Veze i zavisnosti
+
+- **Zavisi od:** PBI-006 (Dodjela servisera)
+- **Veza s:** PBI-012 (Notifikacije)
+
+---
+
+#### Acceptance Kriteriji
+
+- Kada se kreira nova intervencija, sistem mora **automatski dodijeliti je serviseru s najmanjim brojem aktivnih intervencija**.
+- Koordinator mora biti **jasno obaviješten da je dodjela automatski izvršena** (vizualna oznaka).
+- Koordinator mora moći **ručno izmijeniti automatski dodijeljenog servisera** bez ograničenja.
+- Serviser koji je automatski dobio intervenciju mora primiti **in-app notifikaciju** identičnu onoj pri ručnoj dodjeli.
+- Sistem mora **evidentirati da je dodjela bila automatska** u historiji intervencije.
+- Ako nema dostupnih servisera, **sistem ne smije blokirati kreiranje intervencije** – ostaje nedodijeljenom.
+- Admin mora moći **aktivirati ili deaktivirati** automatsku raspodjelu iz konfiguracije.
