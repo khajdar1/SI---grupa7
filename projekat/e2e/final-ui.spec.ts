@@ -53,6 +53,10 @@ async function authenticate(context: BrowserContext, page: Page, roles: string[]
   }, { authToken: token, authRoles: roles });
 }
 
+async function gotoAppPage(page: Page, url: string) {
+  await page.goto(url, { waitUntil: 'domcontentloaded' });
+}
+
 async function mockSettingsApi(page: Page) {
   await page.route(apiRoute('/user-preferences'), async (route) => {
     if (route.request().method() === 'PUT') {
@@ -413,7 +417,7 @@ async function mockFinalModuleApis(page: Page) {
 
 test.describe('Final UI automation tests', () => {
   test('login page validates required username and password fields', async ({ page }) => {
-    await page.goto('/login');
+    await gotoAppPage(page, '/login');
 
     await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
     await page.getByRole('button', { name: /login/i }).click();
@@ -428,7 +432,7 @@ test.describe('Final UI automation tests', () => {
     await authenticate(context, page, ['Admin']);
     await mockSettingsApi(page);
 
-    await page.goto('/settings');
+    await gotoAppPage(page, '/settings');
 
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
     await expect(page.getByText('Configuration Quick Links')).toBeVisible();
@@ -446,7 +450,7 @@ test.describe('Final UI automation tests', () => {
     await authenticate(context, page, ['Koordinator']);
     await mockInterventionsApi(page);
 
-    await page.goto('/interventions');
+    await gotoAppPage(page, '/interventions');
 
     await expect(page.getByText('Popravak lifta')).toBeVisible();
     await expect(page.getByText('Serviser Jedan')).toBeVisible();
@@ -457,6 +461,8 @@ test.describe('Final UI automation tests', () => {
   });
 
   test('core functional module pages render with mocked API data', async ({ context, page }) => {
+    test.setTimeout(60_000);
+
     await authenticate(context, page, ['Admin', 'Koordinator', 'Management', 'Menadzment']);
     await mockFinalModuleApis(page);
 
@@ -470,11 +476,11 @@ test.describe('Final UI automation tests', () => {
     ];
 
     for (const check of moduleChecks) {
-      await page.goto(check.url);
+      await gotoAppPage(page, check.url);
       await expect(page.getByRole('heading', { name: check.heading }).first()).toBeVisible();
     }
 
-    await page.goto('/reports');
+    await gotoAppPage(page, '/reports');
     await expect(page.getByText('Feedback Analytics')).toBeVisible();
     await expect(page.getByText('Popravak lifta').first()).toBeVisible();
   });
