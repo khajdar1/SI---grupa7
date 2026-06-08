@@ -1,0 +1,226 @@
+# Završni izvještaj — Sistem za upravljanje servisnim intervencijama
+## **Grupa 7**
+
+---
+
+## 1. Svrha projekta
+
+Cilj projekta bio je razvoj web-baziranog sistema za upravljanje servisnim intervencijama namijenjen komunalnim i servisnim preduzećima u Bosni i Hercegovini. Sistem treba zamijeniti nekoordinirane kanale prijave kvarova (telefonski pozivi, ručne evidencije) jednom centralnom platformom koja obuhvata cijeli životni ciklus intervencije - od prijave kvara, kroz dodjelu i praćenje, do zaključivanja i analize.
+
+---
+
+## 2. Problem koji sistem rješava
+
+Komunalna i servisna preduzeća u BiH (vodovod, plin, elektrodistribucija, internet provajderi) suočavaju se s više ključnih operativnih problema:
+
+- **Nekoordinirani kanali prijave** - kvarovi se prijavljuju telefonom, emailom ili usmeno, bez centralnog registra.
+- **Spori odzivi na hitne situacije** - bez prioritizacije, hitni kvarovi čekaju red kao i obični.
+- **Gubitak informacija** - ručne baze ne prate historiju, izmjene statusa ni ko je radio šta.
+- **Otežana koordinacija** - koordinatori nemaju uvid u raspoloživost servisera ni u broj istovremenih intervencija.
+- **Nemogućnost analize** - menadžment nema pristup statistikama, prosječnim vremenima rješavanja ni distribuciji po tipovima kvarova.
+
+Sistem rješava sve navedene probleme kroz jedinstven digitalni tok koji podržava sve učesnike procesa.
+
+---
+
+## 3. Glavne korisničke uloge
+
+Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ekranima:
+
+| Uloga | Opis |
+|---|---|
+| **Korisnik** | Prijavljuje kvarove, prati status svojih prijava, ostavlja feedback po završetku intervencije |
+| **Serviser** | Pregleda dodijeljene intervencije, ažurira status, unosi izvještaje o obavljenom radu |
+| **Koordinator** | Planira i zakazuje intervencije, dodjeljuje servisere, postavlja prioritete, blokira korisnike |
+| **KompanijaAdmin** | Upravlja profilom i podacima vlastite kompanije, koordinira unutar kompanije |
+| **Menadžment** | Pregleda dashboard statistike, eskalirane intervencije i izvještaje za donošenje odluka |
+| **SupportAgent** | Obrađuje tikete podrške, komunicira s korisnicima unutar tiket sistema |
+| **Admin** | Kreira i deaktivira korisničke račune, upravlja kategorijama, SLA konfiguracijom i sistemskim postavkama |
+
+---
+
+## 4. Glavne implementirane funkcionalnosti
+
+### 4.1 Autentikacija i upravljanje korisnicima
+- Registracija korisnika s dodjelom uloge
+- Prijava putem Keycloak identity provajdera (JWT / OAuth2 / OIDC)
+- Reset lozinke putem Gmail API (OAuth2, jednokratni vremenski ograničeni tokeni)
+- Upravljanje korisničkim profilom
+- Administrativno upravljanje računima (kreiranje, deaktivacija, dodjela uloga)
+- Role-Based Access Control (RBAC) na svim rutama
+
+### 4.2 Prijava i upravljanje kvarovima
+- Obrazac za prijavu kvara s kategorijom, lokacijom i opisom (dostupno i neprijavljenim korisnicima)
+- Detekcija potencijalnih duplikata pri prijavi - upozorenje, ne blokada
+- Kategorije i tipovi kvarova - administrativno upravljanje
+
+### 4.3 Upravljanje intervencijama
+- Planiranje i zakazivanje intervencija od strane koordinatora
+- Dodjela servisera intervenciji
+- Postavljanje i izmjena prioriteta (LOW / MEDIUM / HIGH / CRITICAL)
+- Praćenje i izmjena statusa (NEW → ASSIGNED → IN_PROGRESS → ON_HOLD → RESOLVED / CANCELLED / REJECTED)
+- Historija svih promjena statusa s vremenskom oznakom i korisnikom
+- Masovne akcije nad intervencijama 
+- Pauziranje intervencije zbog blokera
+- Eskalacije rizičnih intervencija prema menadžmentu
+- Zahtjev za ponovno otvaranje završene intervencije
+
+### 4.4 Operativni alati
+- Pregled liste aktivnih intervencija s filterima i rangiranjem po prioritetu
+- Evidencija izvještaja o intervenciji (opis radova, utrošeni materijal)
+- Komentari na intervencijama
+- Upravljanje attachmentima 
+- Kalendarski prikaz intervencija
+- Geografski/mapski prikaz intervencija s markerima
+- Export podataka u PDF format
+
+### 4.5 Notifikacije i komunikacija
+- In-app notifikacije u realnom vremenu putem Socket.IO (WebSocket)
+- Tiket sistem za podršku s dvosmjernom komunikacijom
+- Notifikacije za tiket sistem
+
+### 4.6 Planiranje i analitika
+- Planirana/preventivna održavanja s automatskim generisanjem periodičnih intervencija (dnevno, sedmično, mjesečno)
+- SLA konfiguracija - rokovi po prioritetu s praćenjem kašnjenja
+- Upravljanje dostupnošću i odsustvima servisera
+- Evidencija dolaska servisera i vremena na terenu
+- Digitalna potvrda izvršene intervencije (PIN / potpis)
+- Menadžment dashboard s ključnim statistikama
+
+### 4.7 Korisnički servis i unapređenja
+- Feedback korisnika po završetku intervencije (ocjena 1-5, opcionalni komentar, jednokratan unos)
+- Analitika feedbacka i kvaliteta usluge
+- Baza znanja s preporučenim rješenjima za kvarove
+- Potvrda i pomijeranje termina intervencije od strane korisnika
+- Blokiranje korisnika od strane koordinatora
+- Višejezična podrška (bosanski i engleski) s fallback mehanizmom
+- Settings stranica s korisničkim i jezičkim preferencijama
+- Upravljanje kompanijama i uloga KompanijaAdmin
+- Audit log svih akcija u sistemu
+
+---
+
+## 5. Pregled rada kroz sprintove
+
+### Sprint 1-4: Priprema i arhitektura
+Prva četiri sprinta posvećena su isključivo planiranju i tehničkom postavljanju projekta, bez implementacije funkcionalnosti. Definirani su: product vision, product backlog s 15+ PBI stavki, stakeholder mapa, arhitekturni pregled, domain model, use case dijagrami, risk register, test strategija, Definition of Done, inicijalni release plan i tehnički setup (struktura repozitorija, GitFlow branching strategija, Docker Compose, CI/CD pipeline).
+
+### Sprint 5: Tehnički temelj i core funkcionalnosti
+
+Uspostavljen tehnički temelj sistema: Prisma migracije, seed podaci, centralizovano logovanje, globalni error handler, auth middleware, Zod validacija i rate limiting. Implementirane prve funkcionalne stavke: registracija korisnika, login, prijava kvara, upravljanje kategorijama kvarova i SLA konfiguracija.
+
+
+### Sprint 6: Operativno jezgro sistema
+
+Implementirano operativno jezgro sistema: planiranje intervencija, dodjela servisera, postavljanje prioriteta, pregled aktivnih i historijskih intervencija, administrativno upravljanje korisničkim računima, komentari na intervencijama i upravljanje attachmentima.
+
+
+### Sprint 7: Dashboard, profili, kompanije, izvještaji
+
+Implementiran menadžment dashboard s ključnim statistikama, upravljanje korisničkim profilom i reset lozinke putem emaila, kalendarski prikaz intervencija, evidencija izvještaja o intervenciji te upravljanje kompanijama s novom ulogom KompanijaAdmin.
+
+### Sprint 8: Notifikacije, mapa, tiket sistem, export
+
+Implementirane in-app notifikacije u realnom vremenu (WebSocket), preventivna/planirana održavanja s automatskim generisanjem intervencija, detekcija duplikata prijava, tiket sistem s dvosmjernom komunikacijom, mapski prikaz intervencija, export u PDF i masovne akcije nad intervencijama.
+
+### Sprint 9: feedback, blokiranje, settings
+
+Implementirana višejezična podrška (bosanski/engleski) s fallback mehanizmom, feedback korisnika po završetku intervencije, blokiranje korisnika od strane koordinatora te Settings stranica s role-based prečicama.
+
+
+### Sprint 10: Napredne operativne funkcionalnosti
+
+Implementirane napredne operativne funkcionalnosti: eskalacije rizičnih intervencija, upravljanje dostupnošću servisera, potvrda i pomijeranje termina od strane korisnika, baza znanja s preporučenim rješenjima, evidencija utrošenog materijala, zahtjev za ponovnim otvaranjem završene intervencije, evidencija dolaska servisera na teren, digitalna potvrda izvršene intervencije i pauziranje intervencije zbog blokera.
+
+
+---
+
+## 6. Status implementiranih stavki
+
+### Potpuno završeno 
+Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje PBI stavke (PBI-001 do PBI-062, osim PBI-037 i PBI-022).
+
+### Djelimično završeno 
+- **Detekcija duplikata prijave kvara** -Detekcija duplikata prijave kvara ispravno radi uz GPS koordinate, unos iste adrese više puta nece uvijek prikazati duplikat.
+- **Praćenje statusa od strane servisera** - Masovne akcije promjene statusa (U toku, Riješeno, Otkazano) rade, ali mogućnosti servisera pri individualnoj izmjeni statusa nisu u potpunosti konzistentne s originalnim zahtjevom.
+- **Notifikacije za promjenu termina** - Notifikacije za promjenu termina intervencije nisu povezane sa WebSocket socketom u produkcijskom okruženju.
+- **Planirana/preventivna održavanja** - Ponavljajuće intervencije ne funkcionišu ispravno na mjesečnoj bazi ( ne garantuje isti dan u narednom mjesecu pri prelasku s kraja mjeseca).
+
+### Nije završeno 
+
+- **PBI-037 — Automatska raspodjela intervencija**: Nije implementirana. Postoje helperi za izračun opterećenja servisera u assignment.service.ts i UI labela „Auto assignment" u settings stranici, ali ne postoji stvarna logika automatske dodjele pri kreiranju intervencije.
+- **PBI-022 — Ponavljajuće intervencije** (mjesečno): Osnova postoji, ali mjesečni algoritam ima rubni bug i nije stabilan za produkcijsku upotrebu.
+---
+
+## 7. Glavne tehničke odluke
+
+### Monolitna modularna arhitektura umjesto mikroservisa
+Odabrana zbog funkcionalne povezanosti domena (kvarovi, intervencije, serviseri), smanjene infrastrukturne kompleksnosti i lakšeg testiranja u ranoj fazi projekta. 
+
+### Next.js 15 + React 19 za frontend
+App Router pristup omogućio je čistu organizaciju po ulogama (admin, koordinator, serviser, korisnik) s route-based zaštitom ruta i server-side rendering gdje je to potrebno.
+
+### Express.js + TypeScript + Prisma ORM za backend
+26 domenskih modula s jasnom strukturom (ruta + schema + servis) i dijeljenim middleware-om. Prisma je dala tipiziran pristup MySQL bazi i ubrzala razvoj eliminacijom ručnog SQL-a.
+
+### Keycloak 26 kao identity provider
+Umjesto lokalnog čuvanja lozinki i implementacije autentikacije od nule, odabran je Keycloak koji centralizuje upravljanje korisnicima, podržava OAuth2/OIDC i nudi gotovu password policy. Ovo je zahtijevalo značajan trud pri konfiguraciji, ali je osiguralo sigurniju i skalabilniju autentikaciju.
+
+### Socket.IO za real-time notifikacije
+WebSocket konekcija omogućila je in-app notifikacije bez potrebe za osvježavanjem stranice. Sistem podržava ciljano slanje po korisničkom ID-u, po ulozi i po tiketu.
+
+### GitFlow branching strategija
+`master` (stabilan) + `develop` (integracioni) + `feature/*`, `fix/*`, `release/*`, `hotfix/*`. CI/CD pipeline na GitHub Actions s automatskim deployem frontend-a na Cloudflare Pages i backend-a na Railway.
+
+### In-app notifikacije kao jedini kanal u MVP-u
+Eksterna SMS/email obavještenja za statusne promjene odgođena su za post-MVP fazu; Gmail API je korišten samo za reset lozinke. Ovo je svjesna kompromisna odluka dokumentovana u Decision logu.
+
+---
+
+## 8. Najveći problemi tokom razvoja i način rješavanja
+
+### Problem 1: SMTP blokada na Railway free planu
+Reset lozinke je bio tehnički gotov u Sprintu 5, ali Railway free plan ne podržava SMTP. Problem je otkriven kasno u sprintu. Riješen u Sprintu 7 prelaskom na Gmail API s OAuth2 autentikacijom koji radi unutar ograničenja platforme.
+
+### Problem 2: Keycloak integracija od nule
+Auth model nije bio zaključan pri početku Sprinta 5. Tim je morao istovremeno donijeti odluke o provajderu identiteta, pohrani tokena, zaštiti ruta i izvorima uloga. Riješeno kroz 19 Decision Log unosa koji su dokumentovali svaku odluku i razlog, uz idempotentnu seed skriptu koja je olakšala resetovanje lokalnih okruženja.
+
+### Problem 3: Sinkronizacija frontend/backend pri dodjeli servisera
+Prikaz dodijeljenih servisera nije bio ažuran u korisničkom interfejsu. Riješeno jasnom definicijom kad se status automatski mijenja (`NEW → ASSIGNED` pri prvoj dodjeli, `ASSIGNED → NEW` pri uklanjanju zadnjeg servisera) i dogovorom da se modal osvježava pri svakom otvaranju.
+
+### Problem 4: Višejezična podrška trajala duže od planiranog
+Prijevod svih UI elemenata bez parcijalnih prijevoda bio je zahtjevniji od procjene. Riješeno implementacijom fallback mehanizma na engleski koji je osigurao funkcionalno korisničko iskustvo čak i pri nepotpunim prijevodima, što je skratilo neophodan obim prijevoda za isporuku.
+
+### Problem 5: Greške u AI-generiranom kodu
+Tim je koristio AI alate (GitHub Copilot, Claude, ChatGPT, Gemini) za ubrzanje razvoja. Pogrešan redoslijed koda u `reports.route.ts`, duple rute s istim URL obrascem, testovi koji su padali zbog nedostajućih mock funkcija za Keycloak, nekompatibilne verzije paketa, sintaksne greške pri spajanju koda. Svaka greška je dokumentovana u AI Usage Logu. Uspostavljen je standard: nijedan AI-generisani kod nije prihvaćen bez code reviewa.
+
+### Problem 7: Kompleksnost Sprint 10 (10 PBI stavki)
+Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno zavisne. Riješeno pažljivim koordinisanjem implementacijskog redoslijeda i kraćim tehničkim sync sastancima unutar sprinta.
+
+---
+
+## 9. Šta bi tim unaprijedio da se projekat nastavlja
+
+### Tehnička unapređenja
+
+**Migracija file storage-a na Cloudflare R2** - lokalno čuvanje fajlova (`backend/uploads/`) nije skalabilno u produkcijskom okruženju. Plan migracije je definisan u arhitekturnom dokumentu i spreman za implementaciju.
+
+**Model izvještaja** - dodati polje `updatedAt` za bolju historijsku evidenciju.
+
+**Paginacija na svim listama** - pri većem broju intervencija performanse mogu opasti. Svaka lista treba server-side paginaciju.
+
+### Funkcionalna unapređenja
+
+**Export u CSV/Excel format** - korisnici s analitičkim potrebama često preferiraju tabele nad PDF-om.
+
+**SLA scheduler i automatska upozorenja** - SLA konfiguracija je implementirana, ali automatski scheduler koji bi generisao upozorenja pri kašnjenju nije bio u MVP scope-u.
+
+**Automatizovana raspodjela intervencija** - koordinator trenutno ručno dodjeljuje servisere. Algoritam koji bi preporučio servisera na osnovu lokacije, dostupnosti i opterećenja bio bi sljedeći logični korak.
+
+**Mobilni interfejs za terenske servisere** - web aplikacija je responsivna, ali namjenski mobilni interfejs ili PWA s offline podrškom bi značajno poboljšao iskustvo servisera na terenu s lošom mrežnom vezom.
+
+**Integracijski sloj s eksternim sistemima** - arhitektura je dizajnirana s integracionim slojem koji bi omogućio povezivanje s ERP sistemima komunalnih preduzeća. Ovo je eksplicitno ostavljeno za post-MVP fazu.
+
+
+---
+
