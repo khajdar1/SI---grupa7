@@ -1,6 +1,14 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
-const API_BASE = 'http://localhost:4000/api/v1';
+const API_ROUTE = '**/api/v1';
+
+function apiRoute(path: string) {
+  return `${API_ROUTE}${path}`;
+}
+
+function isApiPath(url: string, path: string) {
+  return new URL(url).pathname === `/api/v1${path}`;
+}
 
 function base64Url(input: string) {
   return Buffer.from(input)
@@ -46,7 +54,7 @@ async function authenticate(context: BrowserContext, page: Page, roles: string[]
 }
 
 async function mockSettingsApi(page: Page) {
-  await page.route(`${API_BASE}/user-preferences`, async (route) => {
+  await page.route(apiRoute('/user-preferences'), async (route) => {
     if (route.request().method() === 'PUT') {
       const body = route.request().postDataJSON() as {
         language?: string;
@@ -86,7 +94,7 @@ async function mockInterventionsApi(page: Page) {
   const future = new Date(now.getTime() + 60 * 60 * 1000).toISOString();
   const later = new Date(now.getTime() + 3 * 60 * 60 * 1000).toISOString();
 
-  await page.route(`${API_BASE}/categories`, async (route) => {
+  await page.route(apiRoute('/categories'), async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -96,7 +104,7 @@ async function mockInterventionsApi(page: Page) {
     });
   });
 
-  await page.route(`${API_BASE}/interventions/options`, async (route) => {
+  await page.route(apiRoute('/interventions/options'), async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -108,7 +116,7 @@ async function mockInterventionsApi(page: Page) {
     });
   });
 
-  await page.route(`${API_BASE}/interventions`, async (route) => {
+  await page.route(apiRoute('/interventions'), async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       await route.fulfill({
@@ -271,7 +279,7 @@ async function mockFinalModuleApis(page: Page) {
     ],
   };
 
-  await page.route(`${API_BASE}/**`, async (route) => {
+  await page.route(apiRoute('/**'), async (route) => {
     const request = route.request();
     const url = new URL(request.url());
     const path = url.pathname;
@@ -427,7 +435,7 @@ test.describe('Final UI automation tests', () => {
     await expect(page.getByRole('link', { name: /SLA Config/i })).toBeVisible();
 
     const saveRequest = page.waitForRequest((request) =>
-      request.url() === `${API_BASE}/user-preferences` && request.method() === 'PUT',
+      isApiPath(request.url(), '/user-preferences') && request.method() === 'PUT',
     );
 
     await page.getByRole('button', { name: /save changes/i }).click();
