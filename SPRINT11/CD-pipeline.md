@@ -78,6 +78,18 @@ Potrebni GitHub Secrets:
 | `NEXT_PUBLIC_API_BASE_URL` | Railway backend API URL |
 | `NEXT_PUBLIC_SOCKET_URL` | Railway backend Socket.IO URL |
 
+Trenutni frontend deployment URL:
+
+```text
+https://sigrupa7.pages.dev
+```
+
+Trenutni backend health URL:
+
+```text
+https://si-grupa7-production.up.railway.app/api/v1/health
+```
+
 ## 6. Smoke provjera
 
 Ako su postavljeni:

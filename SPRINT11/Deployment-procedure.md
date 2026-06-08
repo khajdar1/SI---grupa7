@@ -183,15 +183,15 @@ Upisati stvarne produkcijske URL-ove nakon potvrde deploya:
 
 | Servis | URL |
 | --- | --- |
-| Frontend / Cloudflare Pages | TBD |
-| Backend / Railway health | TBD |
+| Frontend / Cloudflare Pages | `https://sigrupa7.pages.dev` |
+| Backend / Railway health | `https://si-grupa7-production.up.railway.app/api/v1/health` |
 | Keycloak/admin | Interno ili zasticeno |
 
 ## 12. Poznata ogranicenja
 
 | Ogranicenje | Utjecaj |
 | --- | --- |
-| Produkcijski URL nije upisan dok tim ne potvrdi finalni javni link | Evaluator moze provjeriti lokalno i kroz GitHub/Railway/Cloudflare konfiguraciju |
+| Root ruta Railway backend-a moze vratiti 404 / `success:false` | Za provjeru backend deploymenta koristiti health endpoint `https://si-grupa7-production.up.railway.app/api/v1/health` |
 | Railway deploy je platform integration, ne poseban Railway CLI step u repo-u | Deployment se pokrece preko GitHub integracije na push u release granu |
 | Email notifikacije zavise od Gmail OAuth varijabli | Bez njih in-app funkcionalnosti rade, ali email slanje moze biti ograniceno |
 | Keycloak produkcijski secret-i moraju biti pravilno postavljeni | Login/role tokovi zavise od identity konfiguracije |

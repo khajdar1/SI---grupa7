@@ -39,12 +39,15 @@ npm run test:smoke
 Smoke test sa produkcijskim URL-ovima:
 
 ```powershell
-$env:BACKEND_HEALTH_URL="https://backend.example.com/api/v1/health"
-$env:FRONTEND_URL="https://frontend.example.com"
+$env:BACKEND_HEALTH_URL="https://si-grupa7-production.up.railway.app/api/v1/health"
+$env:FRONTEND_URL="https://sigrupa7.pages.dev"
 $env:SMOKE_RETRIES="12"
 $env:SMOKE_RETRY_DELAY_MS="10000"
 npm run test:smoke
 ```
+
+Frontend deployment je provjeren 8. 6. 2026. i `https://sigrupa7.pages.dev` vraca HTTP 200.
+Backend health endpoint je provjeren 9. 6. 2026. i `https://si-grupa7-production.up.railway.app/api/v1/health` vraca HTTP 200 sa `status: "ok"` i `database: "ok"`.
 
 ## 4. Zadnji dokaz rezultata
 
