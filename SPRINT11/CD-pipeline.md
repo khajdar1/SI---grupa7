@@ -107,7 +107,7 @@ npm run test:smoke
 
 Smoke test provjerava backend health endpoint i frontend stranicu. U release pipeline-u koristi retry postavke (`SMOKE_RETRIES=12`, `SMOKE_RETRY_DELAY_MS=10000`) da Cloudflare/Railway imaju vremena da zavrse propagaciju nakon deploya.
 
-## 8. Rizici
+## 7. Rizici
 
 | Rizik | Kontrola |
 | --- | --- |
