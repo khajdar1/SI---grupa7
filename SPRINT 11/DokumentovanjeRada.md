@@ -5,7 +5,7 @@
 
 ## 1. Svrha projekta
 
-Cilj projekta bio je razvoj web-baziranog sistema za upravljanje servisnim intervencijama namijenjen komunalnim i servisnim preduzećima u Bosni i Hercegovini. Sistem treba zamijeniti nekoordinirane kanale prijave kvarova (telefonski pozivi, ručne evidencije) jednom centralnom platformom koja obuhvata cijeli životni ciklus intervencije — od prijave kvara, kroz dodjelu i praćenje, do zaključivanja i analize.
+Cilj projekta bio je razvoj web-baziranog sistema za upravljanje servisnim intervencijama namijenjen komunalnim i servisnim preduzećima u Bosni i Hercegovini. Sistem treba zamijeniti nekoordinirane kanale prijave kvarova (telefonski pozivi, ručne evidencije) jednom centralnom platformom koja obuhvata cijeli životni ciklus intervencije - od prijave kvara, kroz dodjelu i praćenje, do zaključivanja i analize.
 
 ---
 
@@ -51,8 +51,8 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 
 ### 4.2 Prijava i upravljanje kvarovima
 - Obrazac za prijavu kvara s kategorijom, lokacijom i opisom (dostupno i neprijavljenim korisnicima)
-- Detekcija potencijalnih duplikata pri prijavi — upozorenje, ne blokada
-- Kategorije i tipovi kvarova — administrativno upravljanje
+- Detekcija potencijalnih duplikata pri prijavi - upozorenje, ne blokada
+- Kategorije i tipovi kvarova - administrativno upravljanje
 
 ### 4.3 Upravljanje intervencijama
 - Planiranje i zakazivanje intervencija od strane koordinatora
@@ -81,14 +81,14 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 
 ### 4.6 Planiranje i analitika
 - Planirana/preventivna održavanja s automatskim generisanjem periodičnih intervencija (dnevno, sedmično, mjesečno)
-- SLA konfiguracija — rokovi po prioritetu s praćenjem kašnjenja
+- SLA konfiguracija - rokovi po prioritetu s praćenjem kašnjenja
 - Upravljanje dostupnošću i odsustvima servisera
 - Evidencija dolaska servisera i vremena na terenu
 - Digitalna potvrda izvršene intervencije (PIN / potpis)
 - Menadžment dashboard s ključnim statistikama
 
 ### 4.7 Korisnički servis i unapređenja
-- Feedback korisnika po završetku intervencije (ocjena 1–5, opcionalni komentar, jednokratan unos)
+- Feedback korisnika po završetku intervencije (ocjena 1-5, opcionalni komentar, jednokratan unos)
 - Analitika feedbacka i kvaliteta usluge
 - Baza znanja s preporučenim rješenjima za kvarove
 - Potvrda i pomijeranje termina intervencije od strane korisnika
@@ -102,7 +102,7 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 
 ## 5. Pregled rada kroz sprintove
 
-### Sprint 1–4: Priprema i arhitektura
+### Sprint 1-4: Priprema i arhitektura
 Prva četiri sprinta posvećena su isključivo planiranju i tehničkom postavljanju projekta, bez implementacije funkcionalnosti. Definirani su: product vision, product backlog s 15+ PBI stavki, stakeholder mapa, arhitekturni pregled, domain model, use case dijagrami, risk register, test strategija, Definition of Done, inicijalni release plan i tehnički setup (struktura repozitorija, GitFlow branching strategija, Docker Compose, CI/CD pipeline).
 
 ### Sprint 5: Tehnički temelj i core funkcionalnosti
@@ -138,23 +138,24 @@ Implementirane napredne operativne funkcionalnosti: eskalacije rizičnih interve
 ## 6. Status implementiranih stavki
 
 ### Potpuno završeno 
-Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje sve PBI stavke (PBI-001 do PBI-062).
+Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje PBI stavke (PBI-001 do PBI-062, osim PBI-037 i PBI-022).
 
 ### Djelimično završeno 
-- **Validacija JWT potpisa** — backend provjerava prisustvo tokena, ali kriptografska validacija potpisa nije bila eksplicitno implementirana u ranim sprintovima (identifikovano u Sprint 5 retrospektivi kao tehnički dug).
-- **Cloud file storage** — planirana migracija na Cloudflare R2 nije realizovana; fajlovi se čuvaju lokalno u `backend/uploads/`.
-- **Evidencija materijala (PBI-056)** — implementirana bez posebne tabele; materijali se čuvaju kao JSON tekst u postojećoj koloni izvještaja (svjesna kompromisna odluka).
+- **Detekcija duplikata prijave kvara** -Detekcija duplikata prijave kvara ispravno radi uz GPS koordinate, unos iste adrese više puta nece uvijek prikazati duplikat.
+- **Praćenje statusa od strane servisera** - Masovne akcije promjene statusa (U toku, Riješeno, Otkazano) rade, ali mogućnosti servisera pri individualnoj izmjeni statusa nisu u potpunosti konzistentne s originalnim zahtjevom.
+- **Notifikacije za promjenu termina** - Notifikacije za promjenu termina intervencije nisu povezane sa WebSocket socketom u produkcijskom okruženju.
+- **Planirana/preventivna održavanja** - Ponavljajuće intervencije ne funkcionišu ispravno na mjesečnoj bazi ( ne garantuje isti dan u narednom mjesecu pri prelasku s kraja mjeseca).
 
 ### Nije završeno 
-- Export nije proširen van PDF formata (CSV, Excel eksplicitno van MVP scope-a).
-- Automatizovani SMS/email notifikacije za statusne promjene (van MVP scope-a, in-app notifikacije isporučene).
 
+- **PBI-037 — Automatska raspodjela intervencija**: Nije implementirana. Postoje helperi za izračun opterećenja servisera u assignment.service.ts i UI labela „Auto assignment" u settings stranici, ali ne postoji stvarna logika automatske dodjele pri kreiranju intervencije.
+- **PBI-022 — Ponavljajuće intervencije** (mjesečno): Osnova postoji, ali mjesečni algoritam ima rubni bug i nije stabilan za produkcijsku upotrebu.
 ---
 
 ## 7. Glavne tehničke odluke
 
 ### Monolitna modularna arhitektura umjesto mikroservisa
-Odabrana zbog funkcionalne povezanosti domena (kvarovi, intervencije, serviseri), smanjene infrastrukturne kompleksnosti i lakšeg testiranja u ranoj fazi projekta. Arhitektura je dizajnirana s jasnim modulima koji omogućavaju kasniju evoluciju prema mikroservisima.
+Odabrana zbog funkcionalne povezanosti domena (kvarovi, intervencije, serviseri), smanjene infrastrukturne kompleksnosti i lakšeg testiranja u ranoj fazi projekta. 
 
 ### Next.js 15 + React 19 za frontend
 App Router pristup omogućio je čistu organizaciju po ulogama (admin, koordinator, serviser, korisnik) s route-based zaštitom ruta i server-side rendering gdje je to potrebno.
@@ -170,9 +171,6 @@ WebSocket konekcija omogućila je in-app notifikacije bez potrebe za osvježavan
 
 ### GitFlow branching strategija
 `master` (stabilan) + `develop` (integracioni) + `feature/*`, `fix/*`, `release/*`, `hotfix/*`. CI/CD pipeline na GitHub Actions s automatskim deployem frontend-a na Cloudflare Pages i backend-a na Railway.
-
-### Zod za validaciju
-Centralizovana Zod validacija svih request tijela eliminisala je raštrkan validation kod i osigurala konzistentan anti-XSS sloj kroz `safeTextField()` funkciju.
 
 ### In-app notifikacije kao jedini kanal u MVP-u
 Eksterna SMS/email obavještenja za statusne promjene odgođena su za post-MVP fazu; Gmail API je korišten samo za reset lozinke. Ovo je svjesna kompromisna odluka dokumentovana u Decision logu.
@@ -194,10 +192,7 @@ Prikaz dodijeljenih servisera nije bio ažuran u korisničkom interfejsu. Riješ
 Prijevod svih UI elemenata bez parcijalnih prijevoda bio je zahtjevniji od procjene. Riješeno implementacijom fallback mehanizma na engleski koji je osigurao funkcionalno korisničko iskustvo čak i pri nepotpunim prijevodima, što je skratilo neophodan obim prijevoda za isporuku.
 
 ### Problem 5: Greške u AI-generiranom kodu
-Tim je koristio AI alate (GitHub Copilot, Claude, ChatGPT, Gemini) za ubrzanje razvoja. Identifikovano je 12 konkretnih grešaka: pogrešan redoslijed koda u `reports.route.ts`, duple rute s istim URL obrascem, testovi koji su padali zbog nedostajućih mock funkcija za Keycloak, nekompatibilne verzije paketa, sintaksne greške pri spajanju koda. Svaka greška je dokumentovana u AI Usage Logu. Uspostavljen je standard: nijedan AI-generisani kod nije prihvaćen bez code reviewa.
-
-### Problem 6: Nedostajuća dokumentacija sprinta (Sprint 6)
-Sprint Retrospective i Test Proof nisu završeni na vrijeme, što je rezultiralo odbitkom bodova (75% umjesto 100%). Riješeno uspostavljanjem pravila da se dokumentacija priprema paralelno s implementacijom, a ne nakon.
+Tim je koristio AI alate (GitHub Copilot, Claude, ChatGPT, Gemini) za ubrzanje razvoja. Pogrešan redoslijed koda u `reports.route.ts`, duple rute s istim URL obrascem, testovi koji su padali zbog nedostajućih mock funkcija za Keycloak, nekompatibilne verzije paketa, sintaksne greške pri spajanju koda. Svaka greška je dokumentovana u AI Usage Logu. Uspostavljen je standard: nijedan AI-generisani kod nije prihvaćen bez code reviewa.
 
 ### Problem 7: Kompleksnost Sprint 10 (10 PBI stavki)
 Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno zavisne. Riješeno pažljivim koordinisanjem implementacijskog redoslijeda i kraćim tehničkim sync sastancima unutar sprinta.
@@ -208,25 +203,23 @@ Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno 
 
 ### Tehnička unapređenja
 
-**Migracija file storage-a na Cloudflare R2** — lokalno čuvanje fajlova (`backend/uploads/`) nije skalabilno u produkcijskom okruženju. Plan migracije je definisan u arhitekturnom dokumentu i spreman za implementaciju.
+**Migracija file storage-a na Cloudflare R2** - lokalno čuvanje fajlova (`backend/uploads/`) nije skalabilno u produkcijskom okruženju. Plan migracije je definisan u arhitekturnom dokumentu i spreman za implementaciju.
 
-**Model izvještaja** — dodati polje `updatedAt` za bolju historijsku evidenciju.
+**Model izvještaja** - dodati polje `updatedAt` za bolju historijsku evidenciju.
 
-**Paginacija na svim listama** — pri većem broju intervencija performanse mogu opasti. Svaka lista treba server-side paginaciju.
+**Paginacija na svim listama** - pri većem broju intervencija performanse mogu opasti. Svaka lista treba server-side paginaciju.
 
 ### Funkcionalna unapređenja
 
-**Notifikacije za menadžment pri eskalacijama** — eskalacije su implementirane, ali push notifikacija menadžmentu nije. Ovo bi direktno poboljšalo reakciono vrijeme.
+**Export u CSV/Excel format** - korisnici s analitičkim potrebama često preferiraju tabele nad PDF-om.
 
-**Export u CSV/Excel format** — korisnici s analitičkim potrebama često preferiraju tabele nad PDF-om.
+**SLA scheduler i automatska upozorenja** - SLA konfiguracija je implementirana, ali automatski scheduler koji bi generisao upozorenja pri kašnjenju nije bio u MVP scope-u.
 
-**SLA scheduler i automatska upozorenja** — SLA konfiguracija je implementirana, ali automatski scheduler koji bi generisao upozorenja pri kašnjenju nije bio u MVP scope-u.
+**Automatizovana raspodjela intervencija** - koordinator trenutno ručno dodjeljuje servisere. Algoritam koji bi preporučio servisera na osnovu lokacije, dostupnosti i opterećenja bio bi sljedeći logični korak.
 
-**Automatizovana raspodjela intervencija** — koordinator trenutno ručno dodjeljuje servisere. Algoritam koji bi preporučio servisera na osnovu lokacije, dostupnosti i opterećenja bio bi sljedeći logični korak.
+**Mobilni interfejs za terenske servisere** - web aplikacija je responsivna, ali namjenski mobilni interfejs ili PWA s offline podrškom bi značajno poboljšao iskustvo servisera na terenu s lošom mrežnom vezom.
 
-**Mobilni interfejs za terenske servisere** — web aplikacija je responsivna, ali namjenski mobilni interfejs ili PWA s offline podrškom bi značajno poboljšao iskustvo servisera na terenu s lošom mrežnom vezom.
-
-**Integracijski sloj s eksternim sistemima** — arhitektura je dizajnirana s integracionim slojem koji bi omogućio povezivanje s ERP sistemima komunalnih preduzeća. Ovo je eksplicitno ostavljeno za post-MVP fazu.
+**Integracijski sloj s eksternim sistemima** - arhitektura je dizajnirana s integracionim slojem koji bi omogućio povezivanje s ERP sistemima komunalnih preduzeća. Ovo je eksplicitno ostavljeno za post-MVP fazu.
 
 
 ---
