@@ -1,5 +1,5 @@
 # Završni izvještaj — Sistem za upravljanje servisnim intervencijama
-**Grupa 7**
+## **Grupa 7**
 
 ---
 
@@ -56,11 +56,11 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 
 ### 4.3 Upravljanje intervencijama
 - Planiranje i zakazivanje intervencija od strane koordinatora
-- Dodjela jednog ili više servisera intervenciji
+- Dodjela servisera intervenciji
 - Postavljanje i izmjena prioriteta (LOW / MEDIUM / HIGH / CRITICAL)
 - Praćenje i izmjena statusa (NEW → ASSIGNED → IN_PROGRESS → ON_HOLD → RESOLVED / CANCELLED / REJECTED)
 - Historija svih promjena statusa s vremenskom oznakom i korisnikom
-- Masovne akcije nad intervencijama (atomarno izvršavanje)
+- Masovne akcije nad intervencijama 
 - Pauziranje intervencije zbog blokera
 - Eskalacije rizičnih intervencija prema menadžmentu
 - Zahtjev za ponovno otvaranje završene intervencije
@@ -69,14 +69,13 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 - Pregled liste aktivnih intervencija s filterima i rangiranjem po prioritetu
 - Evidencija izvještaja o intervenciji (opis radova, utrošeni materijal)
 - Komentari na intervencijama
-- Upravljanje attachmentima (lokalno čuvanje s planom migracije na Cloudflare R2)
+- Upravljanje attachmentima 
 - Kalendarski prikaz intervencija
 - Geografski/mapski prikaz intervencija s markerima
 - Export podataka u PDF format
 
 ### 4.5 Notifikacije i komunikacija
 - In-app notifikacije u realnom vremenu putem Socket.IO (WebSocket)
-- 19 tipova notifikacija (nova dodjela, promjena statusa, feedback, eskalacija itd.)
 - Tiket sistem za podršku s dvosmjernom komunikacijom
 - Notifikacije za tiket sistem
 
@@ -107,64 +106,44 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 Prva četiri sprinta posvećena su isključivo planiranju i tehničkom postavljanju projekta, bez implementacije funkcionalnosti. Definirani su: product vision, product backlog s 15+ PBI stavki, stakeholder mapa, arhitekturni pregled, domain model, use case dijagrami, risk register, test strategija, Definition of Done, inicijalni release plan i tehnički setup (struktura repozitorija, GitFlow branching strategija, Docker Compose, CI/CD pipeline).
 
 ### Sprint 5: Tehnički temelj i core funkcionalnosti
-**Cilj:** Infrastrukturni preduvjeti i osnovni korisnički tokovi.
 
-Završeno: Prisma migracije, seed podaci, centralizovano logovanje, globalni error handler, auth middleware, validacija (Zod), rate limiting, registracija, login, prijava kvara, kategorije kvarova, SLA konfiguracija.
+Uspostavljen tehnički temelj sistema: Prisma migracije, seed podaci, centralizovano logovanje, globalni error handler, auth middleware, Zod validacija i rate limiting. Implementirane prve funkcionalne stavke: registracija korisnika, login, prijava kvara, upravljanje kategorijama kvarova i SLA konfiguracija.
 
-Nije završeno: Reset lozinke (PBI-019) — tehnički implementiran, ali blokiran nedostupnim SMTP-om na Railway free planu.
-
-Product Owner ocjena: maksimum bodova.
 
 ### Sprint 6: Operativno jezgro sistema
-**Cilj:** Upravljanje intervencijama, dodjela servisera, admin funkcionalnosti.
 
-Završeno: Planiranje intervencija, prioriteti, dodjela servisera, pregled aktivnih intervencija, historija, upravljanje korisničkim računima, komentari, attachmenti.
+Implementirano operativno jezgro sistema: planiranje intervencija, dodjela servisera, postavljanje prioriteta, pregled aktivnih i historijskih intervencija, administrativno upravljanje korisničkim računima, komentari na intervencijama i upravljanje attachmentima.
 
-Nije završeno: Sprint Retrospective i Test Proof dokumentacija.
-
-Product Owner ocjena: 75% bodova (zbog nedostatka dokumentacije).
 
 ### Sprint 7: Dashboard, profili, kompanije, izvještaji
-**Cilj:** Menadžment alati i prošireno upravljanje korisnicima.
 
-Završeno: Menadžment dashboard, upravljanje korisničkim profilom, reset lozinke (konačno riješen SMTP), kalendarski prikaz intervencija, upravljanje kompanijama i uloga KompanijaAdmin, evidencija izvještaja o intervenciji.
-
-Nije završeno: Ništa — sve planirane stavke završene.
+Implementiran menadžment dashboard s ključnim statistikama, upravljanje korisničkim profilom i reset lozinke putem emaila, kalendarski prikaz intervencija, evidencija izvještaja o intervenciji te upravljanje kompanijama s novom ulogom KompanijaAdmin.
 
 ### Sprint 8: Notifikacije, mapa, tiket sistem, export
-**Cilj:** Komunikacijski alati i napredne operativne funkcionalnosti.
 
-Završeno: In-app notifikacije (Socket.IO), preventivna održavanja s automatskim generisanjem, detekcija duplikata, tiket sistem s dvosmjernom komunikacijom, mapski prikaz, export u PDF, masovne akcije.
+Implementirane in-app notifikacije u realnom vremenu (WebSocket), preventivna/planirana održavanja s automatskim generisanjem intervencija, detekcija duplikata prijava, tiket sistem s dvosmjernom komunikacijom, mapski prikaz intervencija, export u PDF i masovne akcije nad intervencijama.
 
-Nije završeno: Ništa — sve planirane stavke završene. Identifikovan bug s prikazom ID-eva umjesto naziva u filterima mape (zakrpan u Sprint 9).
+### Sprint 9: feedback, blokiranje, settings
 
-### Sprint 9: I18n, feedback, blokiranje, settings
-**Cilj:** Korisničko iskustvo i operativne kontrole.
+Implementirana višejezična podrška (bosanski/engleski) s fallback mehanizmom, feedback korisnika po završetku intervencije, blokiranje korisnika od strane koordinatora te Settings stranica s role-based prečicama.
 
-Završeno: Višejezična podrška (BS/EN s fallback mehanizmom), feedback korisnika, blokiranje korisnika od strane kompanije, Settings stranica s role-based prečicama.
-
-Nije završeno: Ništa — sve planirane stavke završene.
 
 ### Sprint 10: Napredne operativne funkcionalnosti
-**Cilj:** Eskalacije, dostupnost servisera, evidencija materijala, baza znanja.
 
-Završeno: Analitika feedbacka, upravljanje dostupnošću servisera, potvrda/pomijeranje termina, baza znanja, evidencija utrošenog materijala, eskalacije, zahtjev za ponovnim otvaranjem, evidencija dolaska servisera, digitalna potvrda, pauziranje intervencije.
+Implementirane napredne operativne funkcionalnosti: eskalacije rizičnih intervencija, upravljanje dostupnošću servisera, potvrda i pomijeranje termina od strane korisnika, baza znanja s preporučenim rješenjima, evidencija utrošenog materijala, zahtjev za ponovnim otvaranjem završene intervencije, evidencija dolaska servisera na teren, digitalna potvrda izvršene intervencije i pauziranje intervencije zbog blokera.
 
-Nije završeno: Sprint Review dokument nije kreiran.
 
 ---
 
 ## 6. Status implementiranih stavki
 
 ### Potpuno završeno 
-Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje svih 15 originalnih PBI stavki plus brojne dodatne stavke dodane kroz sprintove (PBI-016 do PBI-062).
+Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje sve PBI stavke (PBI-001 do PBI-062).
 
 ### Djelimično završeno 
 - **Validacija JWT potpisa** — backend provjerava prisustvo tokena, ali kriptografska validacija potpisa nije bila eksplicitno implementirana u ranim sprintovima (identifikovano u Sprint 5 retrospektivi kao tehnički dug).
 - **Cloud file storage** — planirana migracija na Cloudflare R2 nije realizovana; fajlovi se čuvaju lokalno u `backend/uploads/`.
 - **Evidencija materijala (PBI-056)** — implementirana bez posebne tabele; materijali se čuvaju kao JSON tekst u postojećoj koloni izvještaja (svjesna kompromisna odluka).
-- **"Siroče" Keycloak korisnici** — ako registracija padne nakon kreiranja korisnika u Keycloaku, lokalni zapis ne postoji. Automatsko čišćenje nije implementirano.
-- **Model izvještaja** — nema polje za datum zadnje izmjene.
 
 ### Nije završeno 
 - Export nije proširen van PDF formata (CSV, Excel eksplicitno van MVP scope-a).
@@ -189,7 +168,7 @@ App Router pristup omogućio je čistu organizaciju po ulogama (admin, koordinat
 Umjesto lokalnog čuvanja lozinki i implementacije autentikacije od nule, odabran je Keycloak koji centralizuje upravljanje korisnicima, podržava OAuth2/OIDC i nudi gotovu password policy. Ovo je zahtijevalo značajan trud pri konfiguraciji, ali je osiguralo sigurniju i skalabilniju autentikaciju.
 
 ### Socket.IO za real-time notifikacije
-WebSocket konekcija omogućila je in-app notifikacije bez potrebe za osvježavanjem stranice. Sistem podržava ciljano slanje po korisničkom ID-u, po ulozi i po tiket sobi.
+WebSocket konekcija omogućila je in-app notifikacije bez potrebe za osvježavanjem stranice. Sistem podržava ciljano slanje po korisničkom ID-u, po ulozi i po tiketu.
 
 ### GitFlow branching strategija
 `master` (stabilan) + `develop` (integracioni) + `feature/*`, `fix/*`, `release/*`, `hotfix/*`. CI/CD pipeline na GitHub Actions s automatskim deployem frontend-a na Cloudflare Pages i backend-a na Railway.
@@ -206,8 +185,6 @@ Eksterna SMS/email obavještenja za statusne promjene odgođena su za post-MVP f
 
 ### Problem 1: SMTP blokada na Railway free planu
 Reset lozinke je bio tehnički gotov u Sprintu 5, ali Railway free plan ne podržava SMTP. Problem je otkriven kasno u sprintu. Riješen u Sprintu 7 prelaskom na Gmail API s OAuth2 autentikacijom koji radi unutar ograničenja platforme.
-
-**Lekcija:** Infrastrukturna ograničenja eksternih servisa moraju se testirati na početku sprinta, ne pri kraju.
 
 ### Problem 2: Keycloak integracija od nule
 Auth model nije bio zaključan pri početku Sprinta 5. Tim je morao istovremeno donijeti odluke o provajderu identiteta, pohrani tokena, zaštiti ruta i izvorima uloga. Riješeno kroz 19 Decision Log unosa koji su dokumentovali svaku odluku i razlog, uz idempotentnu seed skriptu koja je olakšala resetovanje lokalnih okruženja.
@@ -233,21 +210,15 @@ Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno 
 
 ### Tehnička unapređenja
 
-**Kriptografska validacija JWT potpisa** — backend trenutno provjerava prisustvo tokena, ali ne i digitalni potpis. Ovo je evidentiran tehnički dug koji bi bio prioritet u narednom sprintu.
-
 **Migracija file storage-a na Cloudflare R2** — lokalno čuvanje fajlova (`backend/uploads/`) nije skalabilno u produkcijskom okruženju. Plan migracije je definisan u arhitekturnom dokumentu i spreman za implementaciju.
 
 **Model izvještaja** — dodati polje `updatedAt` za bolju historijsku evidenciju.
-
-**Separacija SLA validacijske logike** — dio validacijske logike za SLA ostao je na starom mjestu jer refaktor nije bio spreman za spajanje. Potrebno centralizovati.
 
 **Paginacija na svim listama** — pri većem broju intervencija performanse mogu opasti. Svaka lista treba server-side paginaciju.
 
 ### Funkcionalna unapređenja
 
 **Notifikacije za menadžment pri eskalacijama** — eskalacije su implementirane, ali push notifikacija menadžmentu nije. Ovo bi direktno poboljšalo reakciono vrijeme.
-
-**Grafički prikazi na menadžment dashboardu** — tabelarni prikaz isporučen u MVP-u, ali grafovi (trend kvarova, distribucija po kategorijama, SLA usklađenost) bili bi značajna dodana vrijednost.
 
 **Export u CSV/Excel format** — korisnici s analitičkim potrebama često preferiraju tabele nad PDF-om.
 
@@ -259,13 +230,6 @@ Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno 
 
 **Integracijski sloj s eksternim sistemima** — arhitektura je dizajnirana s integracionim slojem koji bi omogućio povezivanje s ERP sistemima komunalnih preduzeća. Ovo je eksplicitno ostavljeno za post-MVP fazu.
 
-### Procesna unapređenja
-
-**Ranije testiranje infrastrukturnih ograničenja** — iskustvo s SMTP-om pokazalo je da se ograničenja hosting platformi moraju testirati na početku sprinta, ne pri kraju.
-
-**Paralelna izrada dokumentacije** — dokumentacija je u nekim sprintovima kasnila za implementacijom. Pravilo "PR koji mijenja implementiranu arhitekturu mora ažurirati i relevantan dokument" uspostavljeno je, ali primjena nije bila konzistentna.
-
-**Regresiono testiranje suite** — tim je pisao testove po sprintovima, ali sveobuhvatni regresioni test suite koji pokriva sve module nije konsolidovan. Sa 26 backend modula i 22 frontend stranice, ovo postaje kritično.
 
 ---
 
