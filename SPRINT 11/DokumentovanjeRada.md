@@ -148,8 +148,6 @@ Gotovo sve planirane stavke iz product backloga su implementirane i demonstriran
 ### Nije završeno 
 - Export nije proširen van PDF formata (CSV, Excel eksplicitno van MVP scope-a).
 - Automatizovani SMS/email notifikacije za statusne promjene (van MVP scope-a, in-app notifikacije isporučene).
-- Grafički prikazi na menadžment dashboardu (eksplicitno van MVP scope-a, tabelarni prikaz implementiran).
-- Integracija s eksternim sistemima komunalnih preduzeća (van MVP scope-a).
 
 ---
 
