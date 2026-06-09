@@ -36,7 +36,7 @@ interface ReopenRequest {
 }
 
 export default function ReopenRequestsPage() {
-  const { language } = useI18n();
+  const { language, t } = useI18n();
   const router = useRouter();
   const [requests, setRequests] = useState<ReopenRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +53,7 @@ export default function ReopenRequestsPage() {
       const data = await getReopenRequests();
       setRequests(data);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load requests.');
+      setError(err instanceof Error ? err.message : t('reopen.loadFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +69,7 @@ export default function ReopenRequestsPage() {
       await approveReopenRequest(requestId);
       await loadRequests();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to approve request.');
+      setError(err instanceof Error ? err.message : t('reopen.approveFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -89,16 +89,16 @@ export default function ReopenRequestsPage() {
       setRejectDialogOpen(false);
       await loadRequests();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to reject request.');
+      setError(err instanceof Error ? err.message : t('reopen.rejectFailed'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const statusLabel = (status: string) => {
-    if (status === 'PENDING') return language === 'bs' ? 'Na čekanju' : 'Pending';
-    if (status === 'APPROVED') return language === 'bs' ? 'Prihvaćen' : 'Approved';
-    if (status === 'REJECTED') return language === 'bs' ? 'Odbijen' : 'Rejected';
+    if (status === 'PENDING') return t('reopen.pending');
+    if (status === 'APPROVED') return t('reopen.approved');
+    if (status === 'REJECTED') return t('reopen.rejected');
     return status;
   };
 
@@ -112,11 +112,11 @@ export default function ReopenRequestsPage() {
   return (
     <PageLayout className="space-y-6">
       <PageHeader
-        title={language === 'bs' ? 'Zahtjevi za ponovno otvaranje' : 'Reopen Requests'}
-        subtitle={language === 'bs' ? 'Pregled i upravljanje zahtjevima za ponovno otvaranje intervencija.' : 'Review and manage intervention reopen requests.'}
+        title={t('reopen.title')}
+        subtitle={t('reopen.subtitle')}
         breadcrumbs={[
-          { label: language === 'bs' ? 'Početna' : 'Dashboard', href: ROUTES.DASHBOARD },
-          { label: language === 'bs' ? 'Zahtjevi za ponovno otvaranje' : 'Reopen Requests' },
+          { label: t('nav.dashboard'), href: ROUTES.DASHBOARD },
+          { label: t('reopen.title') },
         ]}
       />
 
@@ -131,7 +131,7 @@ export default function ReopenRequestsPage() {
       ) : requests.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-muted-foreground">
-            {language === 'bs' ? 'Nema zahtjeva za ponovno otvaranje.' : 'No reopen requests found.'}
+            {t('reopen.noRequests')}
           </CardContent>
         </Card>
       ) : (
@@ -156,22 +156,22 @@ export default function ReopenRequestsPage() {
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
                 <p>
-                  <span className="text-muted-foreground">{language === 'bs' ? 'Podnosilac: ' : 'Requester: '}</span>
+                  <span className="text-muted-foreground">{t('reopen.requester')}: </span>
                   {req.requester.firstName} {req.requester.lastName} (@{req.requester.username})
                 </p>
                 <p>
-                  <span className="text-muted-foreground">{language === 'bs' ? 'Obrazloženje: ' : 'Reason: '}</span>
+                  <span className="text-muted-foreground">{t('reopen.reason')}: </span>
                   {req.reason}
                 </p>
                 {req.comment ? (
                   <p>
-                    <span className="text-muted-foreground">{language === 'bs' ? 'Komentar: ' : 'Comment: '}</span>
+                    <span className="text-muted-foreground">{t('reopen.comment')}: </span>
                     {req.comment}
                   </p>
                 ) : null}
                 {req.coordinatorComment ? (
                   <p>
-                    <span className="text-muted-foreground">{language === 'bs' ? 'Komentar koordinatora: ' : 'Coordinator comment: '}</span>
+                    <span className="text-muted-foreground">{t('reopen.coordinatorComment')}: </span>
                     {req.coordinatorComment}
                   </p>
                 ) : null}
@@ -186,7 +186,7 @@ export default function ReopenRequestsPage() {
                       disabled={isSubmitting}
                     >
                       <CheckCircle className="mr-1 size-4" />
-                      {language === 'bs' ? 'Prihvati' : 'Approve'}
+                      {t('reopen.approve')}
                     </Button>
                     <Button
                       size="sm"
@@ -195,7 +195,7 @@ export default function ReopenRequestsPage() {
                       disabled={isSubmitting}
                     >
                       <XCircle className="mr-1 size-4" />
-                      {language === 'bs' ? 'Odbij' : 'Reject'}
+                      {t('reopen.reject')}
                     </Button>
                   </div>
                 ) : null}
@@ -208,13 +208,13 @@ export default function ReopenRequestsPage() {
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{language === 'bs' ? 'Odbijanje zahtjeva' : 'Reject Request'}</DialogTitle>
+            <DialogTitle>{t('reopen.rejectTitle')}</DialogTitle>
             <DialogDescription>
-              {language === 'bs' ? 'Unesite komentar za odbijanje zahtjeva.' : 'Enter a comment for rejecting the request.'}
+              {t('reopen.rejectDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="reject-comment">{language === 'bs' ? 'Komentar' : 'Comment'}</Label>
+            <Label htmlFor="reject-comment">{t('reopen.comment')}</Label>
             <Textarea
               id="reject-comment"
               rows={3}
@@ -224,10 +224,10 @@ export default function ReopenRequestsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)} disabled={isSubmitting}>
-              {language === 'bs' ? 'Odustani' : 'Cancel'}
+              {t('tickets.cancel')}
             </Button>
             <Button variant="destructive" onClick={() => void handleRejectSubmit()} disabled={isSubmitting || !rejectComment.trim()}>
-              {language === 'bs' ? 'Odbij' : 'Reject'}
+              {t('reopen.reject')}
             </Button>
           </DialogFooter>
         </DialogContent>

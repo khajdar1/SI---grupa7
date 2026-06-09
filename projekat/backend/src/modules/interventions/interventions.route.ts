@@ -20,13 +20,14 @@ import { authorizeRoles } from "../../middleware/auth.middleware";
 import { validate } from "../../middleware/validate.middleware";
 import { asyncHandler } from "../../shared/async-handler";
 import { emitToUser } from "../../realtime/socket";
-import { shouldNotifyUser } from "../../shared/notification-preferences";
+import { getActiveUserIdsByKeycloakRole, shouldNotifyUser } from "../../shared/notification-preferences";
 import {
   BadRequestError,
   ForbiddenError,
   NotFoundError,
 } from "../../shared/errors";
 import { AuditService } from "../../shared/audit.service";
+import { formatMaterialItems } from "../../shared/material-item";
 import { computeNextGenerationAt } from "../../services/recurring.service";
 import { compactStoredLocation, resolvePersistableLocation } from "../../services/geocoding.service";
 import {
@@ -124,6 +125,19 @@ const FEEDBACK_NOTIFICATION_COPY = {
 } as const;
 
 type FeedbackNotificationLanguage = keyof typeof FEEDBACK_NOTIFICATION_COPY;
+
+const INTERVENTION_SCHEDULED_NOTIFICATION_COPY = {
+  en: {
+    title: "Appointment scheduled",
+    text: (name: string, startedAt: string) =>
+      `An appointment has been scheduled for intervention "${name}" on ${startedAt}. Please confirm or request a change.`,
+  },
+  bs: {
+    title: "Termin zakazan",
+    text: (name: string, startedAt: string) =>
+      `Termin je zakazan za intervenciju "${name}" na ${startedAt}. Molimo potvrdite ili zatražite promjenu.`,
+  },
+} as const;
 
 const EXECUTION_CONFIRMATION_NOTIFICATION_COPY = {
   en: {
@@ -687,6 +701,85 @@ async function notifyServicersAboutExecutionConfirmationResponse(input: {
   }));
 }
 
+async function notifyCoordinatorsAboutReopenRequest(input: {
+  interventionId: number;
+  interventionName: string;
+  requesterId: number;
+  reason: string;
+}) {
+  try {
+    const [coordinatorIds, adminIds] = await Promise.all([
+      getActiveUserIdsByKeycloakRole("koordinator"),
+      getActiveUserIdsByKeycloakRole("admin"),
+    ]);
+    const userIds = [...new Set([...coordinatorIds, ...adminIds])].filter(
+      (userId) => userId !== input.requesterId,
+    );
+
+    await Promise.all(userIds.map(async (userId) => {
+      if (!await shouldNotifyUser(userId, "REOPEN_REQUEST")) {
+        return;
+      }
+
+      const notification = await prisma.notification.create({
+        data: {
+          userId,
+          interventionId: input.interventionId,
+          type: NotificationType.REOPEN_REQUEST,
+          title: "Reopen request submitted",
+          text: `A user requested reopening for intervention "${input.interventionName}". Reason: ${input.reason}`,
+        },
+      });
+      emitToUser(userId, "notification:new", notification);
+    }));
+  } catch (error) {
+    console.warn("Failed to notify coordinators about reopen request.", error);
+  }
+}
+async function createScheduledNotification(input: {
+  interventionId: number;
+  interventionName: string;
+  reporterUserId: number | null | undefined;
+  startedAt: Date;
+}) {
+  if (!input.reporterUserId) return;
+
+  if (!await shouldNotifyUser(input.reporterUserId, 'INTERVENTION_SCHEDULED')) return;
+
+  const existingNotification = await prisma.notification.findFirst({
+    where: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+    },
+    select: { id: true },
+  });
+
+  if (existingNotification) return;
+
+  const preferences = await prisma.userPreference.findUnique({
+    where: { userId: input.reporterUserId },
+    select: { language: true },
+  });
+  const language = normalizeFeedbackNotificationLanguage(preferences?.language);
+  const copy = INTERVENTION_SCHEDULED_NOTIFICATION_COPY[language];
+  const formattedDate = input.startedAt.toLocaleString("en-GB", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
+
+  const notification = await prisma.notification.create({
+    data: {
+      userId: input.reporterUserId,
+      interventionId: input.interventionId,
+      type: NotificationType.INTERVENTION_SCHEDULED,
+      title: copy.title,
+      text: copy.text(input.interventionName, formattedDate),
+    },
+  });
+  emitToUser(input.reporterUserId, "notification:new", notification);
+}
+
 function isOverdue(intervention: { status: InterventionStatus; dueAt: Date | null }): boolean {
   if (
     !intervention.dueAt ||
@@ -711,6 +804,7 @@ function mapIntervention(intervention: {
   createdAt: Date;
   startedAt: Date | null;
   dueAt: Date | null;
+  appointmentConfirmedAt: Date | null;
   recurringPeriod?: RecurringPeriod | null;
   category: { id: number; name: string };
   company: { id: number; name: string };
@@ -780,6 +874,7 @@ function mapIntervention(intervention: {
     createdAt: intervention.createdAt.toISOString(),
     startedAt: intervention.startedAt?.toISOString() ?? null,
     dueAt: intervention.dueAt?.toISOString() ?? null,
+    appointmentConfirmedAt: intervention.appointmentConfirmedAt?.toISOString() ?? null,
     isOverdue: overdue,
     faultReport: intervention.faultReport
       ? {
@@ -870,7 +965,7 @@ function mapKnowledgeSolution(report: {
     title: report.intervention.name,
     problemDescription: report.intervention.description,
     solution: report.description,
-    material: report.material,
+    material: formatMaterialItems(report.material),
     notes: report.notes,
     locationHint: compactStoredLocation(report.intervention.location),
     categoryId: report.intervention.category.id,
@@ -1033,12 +1128,20 @@ interventionsRouter.get(
       where: {
         archived: false,
         status: {
-          in: [
-            InterventionStatus.NEW,
-            InterventionStatus.ASSIGNED,
-            InterventionStatus.IN_PROGRESS,
-            InterventionStatus.ON_HOLD,
-          ],
+          in: hasOperationalView
+            ? [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+              ]
+            : [
+                InterventionStatus.NEW,
+                InterventionStatus.ASSIGNED,
+                InterventionStatus.IN_PROGRESS,
+                InterventionStatus.ON_HOLD,
+                InterventionStatus.RESOLVED,
+              ],
         },
         ...(hasOperationalView
           ? {}
@@ -1351,6 +1454,17 @@ interventionsRouter.post(
       },
       include: interventionInclude,
     });
+
+    if (plannedStart) {
+      await AuditService.record({
+        action: "INTERVENTION_SCHEDULED",
+        entity: "Intervention",
+        entityId: intervention.id,
+        actorId: creator.id,
+        actorUsername: creator.username,
+        details: `Appointment scheduled for intervention "${intervention.name}" at ${plannedStart.toISOString()}`,
+      });
+    }
 
     res.status(HTTP_STATUS.CREATED).json(mapIntervention(intervention));
   }),
@@ -1742,6 +1856,7 @@ interventionsRouter.patch(
         name: true,
         status: true,
         startedAt: true,
+        fieldWorkEndedAt: true,
         archived: true,
         executionConfirmation: {
           select: {
@@ -1822,6 +1937,9 @@ interventionsRouter.patch(
           ...(input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt
             ? { startedAt: new Date() }
             : {}),
+          ...(input.status === InterventionStatus.RESOLVED && !existing.fieldWorkEndedAt
+            ? { fieldWorkEndedAt: new Date() }
+            : {}),
         },
         include: interventionInclude,
       });
@@ -1846,108 +1964,24 @@ interventionsRouter.patch(
       });
     }
 
-    res.json(mapIntervention(intervention));
-  }),
-);
-
-interventionsRouter.post(
-  "/:id/reopen-request",
-  validate(reopenRequestSchema),
-  asyncHandler(async (req, res) => {
-    const id = parseInterventionId(req.params.id);
-
-    const userId = req.user?.localUserId;
-
-    if (!userId) {
-      throw new ForbiddenError("User not found.");
-    }
-
-    const intervention = await prisma.intervention.findUnique({
-      where: { id },
-      include: {
-        faultReport: {
-          select: { userId: true },
-        },
-      },
-    });
-
-    if (!intervention) {
-      throw new NotFoundError("Intervention not found.");
-    }
-
-    if (intervention.faultReport?.userId !== userId) {
-      throw new ForbiddenError("Only the reporting user can request reopening.");
-    }
-
-    if (intervention.status !== InterventionStatus.RESOLVED) {
-      throw new ForbiddenError("Only resolved interventions can be reopened.");
-    }
-
-    const existingRequest = await prisma.interventionReopenRequest.findFirst({
-      where: {
+    if (input.status === InterventionStatus.IN_PROGRESS && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
         interventionId: id,
-        status: "PENDING",
-      },
-    });
-
-    if (existingRequest) {
-      throw new BadRequestError("An active reopen request already exists.");
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: new Date(),
+      });
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment auto-set for intervention "${existing.name}" on status change to IN_PROGRESS`,
+        oldValues: { startedAt: null },
+        newValues: { startedAt: new Date().toISOString() },
+      });
     }
-
-    const request = await prisma.interventionReopenRequest.create({
-      data: {
-        interventionId: id,
-        requesterId: userId,
-        reason: req.body.reason,
-        comment: req.body.comment ?? null,
-      },
-    });
-
-    const actor = await resolveCreator(req);
-
-    await AuditService.record({
-      action: "REOPEN_REQUEST_CREATED",
-      entity: "Intervention",
-      entityId: String(id),
-      actorId: actor.id,
-      actorUsername: actor.username,
-      details: req.body.reason,
-    });
-
-    res.status(201).json(request);
-  }),
-);
-
-interventionsRouter.patch(
-  "/:id/recurrence",
-  authorizeRoles(COORDINATOR_ACTION_ROLES),
-  validate(z.object({ recurringPeriod: z.nativeEnum(RecurringPeriod).nullable() })),
-  asyncHandler(async (req, res) => {
-    const id = parseInterventionId(req.params.id);
-    const input = req.body as { recurringPeriod: RecurringPeriod | null };
-
-    const existing = await prisma.intervention.findUnique({
-      where: { id },
-      select: { id: true, startedAt: true },
-    });
-
-    if (!existing) {
-      throw new NotFoundError("Intervention not found.");
-    }
-
-    const nextGenerationAt =
-      input.recurringPeriod && existing.startedAt
-        ? computeNextGenerationAt(existing.startedAt, input.recurringPeriod)
-        : null;
-
-    const intervention = await prisma.intervention.update({
-      where: { id },
-      data: {
-        recurringPeriod: input.recurringPeriod,
-        nextGenerationAt,
-      },
-      include: interventionInclude,
-    });
 
     res.json(mapIntervention(intervention));
   }),
@@ -2161,6 +2195,81 @@ interventionsRouter.post(
   }),
 );
 
+interventionsRouter.post(
+  "/:id/reopen-request",
+  authorizeInterventionAccess,
+  validate(reopenRequestSchema),
+  asyncHandler(async (req, res) => {
+    const id = parseInterventionId(req.params.id);
+    const userId = req.user?.localUserId;
+
+    if (!userId) {
+      throw new ForbiddenError("User not found.");
+    }
+
+    const intervention = await prisma.intervention.findUnique({
+      where: { id },
+      include: {
+        faultReport: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!intervention) {
+      throw new NotFoundError("Intervention not found.");
+    }
+
+    if (intervention.faultReport?.userId !== userId) {
+      throw new ForbiddenError("Only the reporting user can request reopening.");
+    }
+
+    if (intervention.status !== InterventionStatus.RESOLVED) {
+      throw new ForbiddenError("Only resolved interventions can be reopened.");
+    }
+
+    const existingRequest = await prisma.interventionReopenRequest.findFirst({
+      where: {
+        interventionId: id,
+        status: "PENDING",
+      },
+    });
+
+    if (existingRequest) {
+      throw new BadRequestError("An active reopen request already exists.");
+    }
+
+    const request = await prisma.interventionReopenRequest.create({
+      data: {
+        interventionId: id,
+        requesterId: userId,
+        reason: req.body.reason,
+        comment: req.body.comment ?? null,
+      },
+    });
+
+    const actor = await resolveCreator(req);
+
+    await AuditService.record({
+      action: "REOPEN_REQUEST_CREATED",
+      entity: "Intervention",
+      entityId: String(id),
+      actorId: actor.id,
+      actorUsername: actor.username,
+      details: req.body.reason,
+    });
+
+    await notifyCoordinatorsAboutReopenRequest({
+      interventionId: id,
+      interventionName: intervention.name,
+      requesterId: userId,
+      reason: req.body.reason,
+    });
+
+    res.status(HTTP_STATUS.CREATED).json(request);
+  }),
+);
+
 interventionsRouter.patch(
   "/:id",
   authorizeRoles(COORDINATOR_ACTION_ROLES),
@@ -2171,7 +2280,15 @@ interventionsRouter.patch(
 
     const existing = await prisma.intervention.findUnique({
       where: { id },
-      select: { id: true, status: true, priority: true, startedAt: true, dueAt: true },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        priority: true,
+        startedAt: true,
+        dueAt: true,
+        faultReport: { select: { userId: true } },
+      },
     });
 
     if (!existing) {
@@ -2226,6 +2343,30 @@ interventionsRouter.patch(
       );
     }
 
+    const newStartedAt = input.startedAt ?? existing.startedAt;
+    if (newStartedAt && !existing.startedAt && existing.faultReport?.userId) {
+      await createScheduledNotification({
+        interventionId: id,
+        interventionName: existing.name,
+        reporterUserId: existing.faultReport.userId,
+        startedAt: newStartedAt,
+      });
+    }
+
+    if (input.startedAt && (!existing.startedAt || input.startedAt.getTime() !== existing.startedAt.getTime())) {
+      const actor = await resolveCreator(req);
+      await AuditService.record({
+        action: "APPOINTMENT_CHANGED",
+        entity: "Intervention",
+        entityId: id,
+        actorId: actor.id,
+        actorUsername: actor.username,
+        details: `Appointment time changed for intervention "${existing.name}" from ${existing.startedAt?.toISOString() ?? "none"} to ${input.startedAt.toISOString()}`,
+        oldValues: { startedAt: existing.startedAt?.toISOString() ?? null },
+        newValues: { startedAt: input.startedAt.toISOString() },
+      });
+    }
+
     res.json(mapIntervention(intervention));
   }),
 );
@@ -2245,7 +2386,37 @@ interventionsRouter.get(
       throw new NotFoundError("Intervention not found.");
     }
 
-    res.json({ ...mapIntervention(intervention) });
+    const rescheduleRequests = await prisma.appointmentRescheduleRequest.findMany({
+      where: { interventionId: id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        requestedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+        respondedBy: {
+          select: { id: true, firstName: true, lastName: true, username: true },
+        },
+      },
+    });
+
+    res.json({
+      ...mapIntervention(intervention),
+      rescheduleRequests: rescheduleRequests.map((r) => ({
+        id: r.id,
+        proposedStartedAt: r.proposedStartedAt.toISOString(),
+        comment: r.comment,
+        status: r.status,
+        responseComment: r.responseComment,
+        respondedAt: r.respondedAt?.toISOString() ?? null,
+        createdAt: r.createdAt.toISOString(),
+        requestedBy: r.requestedBy
+          ? `${r.requestedBy.firstName} ${r.requestedBy.lastName}`.trim() || r.requestedBy.username
+          : null,
+        respondedBy: r.respondedBy
+          ? `${r.respondedBy.firstName} ${r.respondedBy.lastName}`.trim() || r.respondedBy.username
+          : null,
+      })),
+    });
   }),
 );
 
@@ -2401,7 +2572,6 @@ interventionsRouter.get(
   }),
 );
 
-// ─── BULK ACTIONS ─────────────────────────────────────────────────────────────
 const recurrenceUpdateSchema = z.object({
   recurringPeriod: z.nativeEnum(RecurringPeriod).nullable(),
 });
@@ -2478,13 +2648,7 @@ interventionsRouter.patch(
       notificationTitle = "Serviser je stigao";
       notificationText = "Serviser je stigao na lokaciju intervencije.";
     } else if (input.action === "END") {
-      if (!existing.arrivedAt) {
-        throw new BadRequestError("Cannot mark end before arrival.");
-      }
-      if (existing.fieldWorkEndedAt) {
-        throw new BadRequestError("Field work end time already recorded.");
-      }
-      updateData = { fieldWorkEndedAt: now };
+      throw new BadRequestError("Use the close action to finish field work and close the intervention.");
     }
 
     const intervention = await prisma.intervention.update({

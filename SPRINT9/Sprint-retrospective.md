@@ -36,6 +36,10 @@
 
 ## Konkretne akcije u Sprint 10
 
-* Implementirati automatsku raspodjelu intervencija od strane sistema 
-* Implementirati automatizovani backup i restore MySQL baze 
-* Implementirati scheduler za SLA i periodične pozadinske zadatke
+* Implementirati sistem eskalacija i komentara menadžmenta za praćenje i upravljanje rizičnim intervencijama.
+
+* Uvesti upravljanje dostupnošću servisera i praćenje vremena provedenog na terenu radi bolje organizacije radnih resursa.
+
+* Implementirati mehanizme potvrde izvođenja intervencija i mogućnost zahtjeva za ponovno otvaranje završenih intervencija.
+
+* Proširiti sistem o praćenje utrošenih materijala, izvještavanje i bazu znanja za rješavanje intervencija.

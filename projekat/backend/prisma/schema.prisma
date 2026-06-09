@@ -76,13 +76,23 @@ enum NotificationType {
   NEW_TICKET
   TICKET_REPLY
   INTERVENTION_PAUSED
-    REOPEN_REQUEST
-  REOPEN_APPROVED
-  REOPEN_REJECTED
   SERVICER_DISPATCHED
   SERVICER_ARRIVED
   EXECUTION_CONFIRMATION_REQUEST
   EXECUTION_CONFIRMATION_RESPONSE
+  REOPEN_REQUEST
+  REOPEN_APPROVED
+  REOPEN_REJECTED
+  INTERVENTION_SCHEDULED
+  APPOINTMENT_RESCHEDULE_REQUEST
+  APPOINTMENT_RESCHEDULE_RESPONSE
+  APPOINTMENT_RESCHEDULE_PROPOSED
+}
+
+enum RescheduleRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum PauseReason {
@@ -161,10 +171,11 @@ model User {
   unavailablePeriods   ServicerUnavailability[] @relation("ServicerUnavailablePeriods")
   pauseActions         InterventionPause[]      @relation("PauseActor")
   pauseResponsibilities InterventionPause[]     @relation("PauseResponsibleUser")
-
-  reopenRequests InterventionReopenRequest[] @relation("UserReopenRequests")
   escalationsCreated   InterventionEscalation[] @relation("EscalationCreator")
   escalationsReviewed  InterventionEscalation[] @relation("EscalationReviewer")
+  reopenRequests       InterventionReopenRequest[] @relation("UserReopenRequests")
+  rescheduleRequests   AppointmentRescheduleRequest[] @relation("RescheduleRequester")
+  rescheduleResponses  AppointmentRescheduleRequest[] @relation("RescheduleResponder")
 }
 
 model UserPreference {
@@ -267,6 +278,7 @@ model Intervention {
   dispatchedAt      DateTime?
   arrivedAt         DateTime?
   fieldWorkEndedAt  DateTime?
+  appointmentConfirmedAt DateTime?
   categoryId        Int
   category          Category           @relation(fields: [categoryId], references: [id])
   creatorId         Int
@@ -284,9 +296,29 @@ model Intervention {
   executionConfirmation ExecutionConfirmation?
   notifications     Notification[]
   pauses            InterventionPause[]
-
-  reopenRequests InterventionReopenRequest[]
   escalations       InterventionEscalation[]
+  reopenRequests    InterventionReopenRequest[]
+  rescheduleRequests AppointmentRescheduleRequest[]
+}
+
+model AppointmentRescheduleRequest {
+  id                Int                     @id @default(autoincrement())
+  interventionId     Int
+  requestedById      Int
+  proposedStartedAt  DateTime
+  comment            String                  @db.VarChar(1000)
+  status             RescheduleRequestStatus @default(PENDING)
+  respondedById      Int?
+  responseComment    String?                 @db.VarChar(1000)
+  respondedAt        DateTime?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  intervention       Intervention            @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+  requestedBy        User                    @relation("RescheduleRequester", fields: [requestedById], references: [id])
+  respondedBy        User?                   @relation("RescheduleResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+
+  @@index([interventionId])
+  @@index([status])
 }
 
 model ServicerUnavailability {

@@ -116,6 +116,7 @@ const INTERVENTION_CREATE_ROLE_NAMES = new Set([
   'administrator',
 ]);
 const BLOCKING_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
+const REOPEN_REQUEST_ROLE_NAMES = new Set(['koordinator', 'coordinator', 'admin', 'administrator']);
 
 const NAV_ICONS: Record<string, ReactNode> = {
   [ROUTES.HOME]: <Home className="size-4" />,
@@ -183,6 +184,11 @@ function translateNotificationTitle(notification: NotificationItem, language: La
     'Support trazi admin pregled': 'Podrška traži admin pregled',
     'User blocked': 'Korisnik blokiran',
     'User unblocked': 'Korisnik odblokiran',
+    'Appointment scheduled': 'Termin zakazan',
+    'Appointment change requested': 'Zahtjev za promjenu termina',
+    'Appointment change approved': 'Promjena termina odobrena',
+    'Appointment change rejected': 'Promjena termina odbijena',
+    'Alternative appointment proposed': 'Predložen alternativni termin',
   };
 
   return titleTranslations[notification.title] ?? notification.title;
@@ -344,6 +350,10 @@ function canViewOperationsRoute(route: string, roles: readonly string[]): boolea
 
   if (route === ROUTES.BLOCKED_USERS) {
     return hasAnyRole(roles, BLOCKING_ROLE_NAMES);
+  }
+
+  if (route === ROUTES.REOPEN_REQUESTS) {
+    return hasAnyRole(roles, REOPEN_REQUEST_ROLE_NAMES);
   }
 
   return true;
