@@ -31,6 +31,12 @@ Dnevno i sedmično ponavljanje rade ispravno. Nije završeno: (1) mjesečna peri
 **PBI-011 — Historija intervencija po lokaciji/uređaju**
 Historija po lokaciji implementirana. Historija po uređaju nije implementirana.
 
+**PBI-025 — Detekcija duplikata prijave kvara**
+Detekcija radi kada postoje GPS koordinate. Tekstualni fallback nije pouzdan jer se sirovi unos lokacije poredi s geokodiranom adresom, a endpoint prima `userId` iz zahtjeva bez dodatne provjere.
+
+**PBI-054 — Potvrda/pomijeranje termina**
+Tok potvrde i zahtjeva za promjenu termina postoji. Notifikacije rade lokalno, ali produkcijska WebSocket konfiguracija nije potvrđena i zbog toga se ne smije predstavljati kao potpuno stabilna produkcijska funkcionalnost.
+
 ---
 
 ## 3. Šta nije dio finalne isporuke
@@ -52,7 +58,7 @@ Historija po lokaciji implementirana. Historija po uređaju nije implementirana.
 |----|------|-----------|
 | BUG-001 | Predugački opis vraća `database error` umjesto validacijske poruke | PBI-004 |
 | BUG-002 | JWT token ističe prebrzo, korisnici se često odjavljuju; nema automatskog refresha | PBI-002 |
-| BUG-003 | Månjesečno ponavljanje preskače dane pri kraju mjeseca (31. jan → 3. mart); buduće instance nisu vidljive u kalendaru | PBI-022 |
+| BUG-003 | Mjesečno ponavljanje preskače dane pri kraju mjeseca (31. jan → 3. mart); buduće instance nisu vidljive u kalendaru | PBI-022 |
 | BUG-004 | Gmail OAuth refresh token može isteći (Testing mod, 6mj nekorištenja), reset lozinke prestaje raditi bez upozorenja | PBI-019 |
 | BUG-005 | Detekcija duplikata nepouzdana bez GPS-a; provjera se pokreće prije geolokacije pa se isti unos ne prepoznaje | PBI-025 |
 | BUG-006 | Greška u jednokratnoj lozinki zahtijeva brisanje cijelog korisničkog računa | PBI-013 |
@@ -102,7 +108,7 @@ Historija po lokaciji implementirana. Historija po uređaju nije implementirana.
 | PBI-022 | Planirana/preventivna održavanja | 8 | Partially Done |
 | PBI-023 | PDF export | 8 | Done |
 | PBI-024 | Validacija unosa | 5 | Done |
-| PBI-025 | Detekcija duplikata | 8 | Done |
+| PBI-025 | Detekcija duplikata | 8 | Partially Done |
 | PBI-026 | Arhiviranje intervencija | 8 | Done |
 | PBI-027 | Tiket sistem | 8 | Done |
 | PBI-028 | Komunikacija na tiketu | 8 | Done |
@@ -127,7 +133,7 @@ Historija po lokaciji implementirana. Historija po uređaju nije implementirana.
 | PBI-048 | Rate limiting | 5 | Done |
 | PBI-052 | Analitika feedbacka | 10 | Done |
 | PBI-053 | Dostupnost servisera | 10 | Done |
-| PBI-054 | Potvrda/pomijeranje termina | 10 | Done |
+| PBI-054 | Potvrda/pomijeranje termina | 10 | Partially Done |
 | PBI-055 | Baza znanja | 10 | Done |
 | PBI-056 | Evidencija materijala | 10 | Done |
 | PBI-058 | Eskalacije ka menadžmentu | 10 | Done |
@@ -140,4 +146,4 @@ Historija po lokaciji implementirana. Historija po uređaju nije implementirana.
 
 ## 7. Napomena
 
-**PBI-022** i **PBI-037** ne smiju se predstavljati kao potpuno završene. Sve ostale stavke označene kao Done implementirane su u skladu s Acceptance Kriterijima i Definition of Done.
+**PBI-011**, **PBI-022**, **PBI-025**, **PBI-054** i **PBI-037** ne smiju se predstavljati kao potpuno završene. Sve stavke označene kao Done implementirane su u skladu s Acceptance Kriterijima i Definition of Done.

@@ -70,8 +70,10 @@
 ## 4. Nedovršene i djelimično završene funkcionalnosti
 
 - **PBI-037 - Automatska raspodjela intervencija:** Nije implementirana. Postoje helperi za izračun opterećenja servisera i UI labela „Auto assignment" u settings stranici, ali ne postoji stvarna logika automatske dodjele pri kreiranju intervencije.
+- **PBI-011 - Historija intervencija po lokaciji/uređaju:** Historija po lokaciji postoji, ali historija po uređaju nije implementirana.
 - **PBI-022 - Ponavljajuće intervencije (mjesečno):** Osnova postoji, ali mjesečni algoritam ima rubni bug i nije stabilan za produkcijsku upotrebu.
 - **PBI-025 - Detekcija duplikata:** Funkcionira uz GPS koordinate, ali tekstualna detekcija kao fallback nije pouzdana; provjera se pokreće prije nego što se geolokacija očita, pa se sirovi unos korisnika poredi s geocodiranom verzijom iz baze i ista lokacija se ne prepoznaje kao duplikat.
+- **PBI-054 - Potvrda i promjena termina:** Tok potvrde/promjene termina postoji, ali produkcijske WebSocket notifikacije za ovaj tok nisu stabilno potvrđene.
 
 ---
 
@@ -100,4 +102,7 @@
 ## 7. Dijelovi sistema koje ne treba predstavljati kao potpuno završene
 
 - **Servis ponavljajućih intervencija** - osnova postoji, ali mjesečna logika zahtijeva dodatnu stabilizaciju prije produkcijske upotrebe.
+- **Historija intervencija po uređaju** - nije implementirana, iako historija po lokaciji postoji.
+- **Detekcija duplikata bez GPS-a** - nije dovoljno pouzdana i ne treba je predstavljati kao potpunu zaštitu od duplih prijava.
+- **Produkcijske notifikacije za promjenu termina** - rade lokalno, ali produkcijska WebSocket konfiguracija je poznat rizik.
 - **Auto assignment** - postoji UI i notifikacijska infrastruktura, ali stvarna logika automatske dodjele nije implementirana i ne smije se predstavljati kao funkcionalna.

@@ -51,7 +51,7 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 
 ### 4.2 Prijava i upravljanje kvarovima
 - Obrazac za prijavu kvara s kategorijom, lokacijom i opisom (dostupno i neprijavljenim korisnicima)
-- Detekcija potencijalnih duplikata pri prijavi - upozorenje, ne blokada
+- Detekcija potencijalnih duplikata pri prijavi - upozorenje, ne blokada; najpouzdanije radi uz GPS koordinate
 - Kategorije i tipovi kvarova - administrativno upravljanje
 
 ### 4.3 Upravljanje intervencijama
@@ -80,7 +80,7 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 - Notifikacije za tiket sistem
 
 ### 4.6 Planiranje i analitika
-- Planirana/preventivna održavanja s automatskim generisanjem periodičnih intervencija (dnevno, sedmično, mjesečno)
+- Planirana/preventivna održavanja s automatskim generisanjem periodičnih intervencija; dnevno i sedmično ponavljanje rade stabilno, a mjesečno je navedeno kao ograničenje
 - SLA konfiguracija - rokovi po prioritetu s praćenjem kašnjenja
 - Upravljanje dostupnošću i odsustvima servisera
 - Evidencija dolaska servisera i vremena na terenu
@@ -91,7 +91,7 @@ Sistem podržava sedam jasno definisanih uloga s odvojenim pravima pristupa i ek
 - Feedback korisnika po završetku intervencije (ocjena 1-5, opcionalni komentar, jednokratan unos)
 - Analitika feedbacka i kvaliteta usluge
 - Baza znanja s preporučenim rješenjima za kvarove
-- Potvrda i pomijeranje termina intervencije od strane korisnika
+- Potvrda i pomijeranje termina intervencije od strane korisnika; produkcijske WebSocket notifikacije za ovaj tok su navedene kao poznato ograničenje
 - Blokiranje korisnika od strane koordinatora
 - Višejezična podrška (bosanski i engleski) s fallback mehanizmom
 - Settings stranica s korisničkim i jezičkim preferencijama
@@ -138,17 +138,17 @@ Implementirane napredne operativne funkcionalnosti: eskalacije rizičnih interve
 ## 6. Status implementiranih stavki
 
 ### Potpuno završeno 
-Gotovo sve planirane stavke iz product backloga su implementirane i demonstrirane. To uključuje PBI stavke (PBI-001 do PBI-062, osim PBI-037 i PBI-022).
+Većina planiranih stavki iz product backloga je implementirana i demonstrirana. Stavke označene kao `Done` u finalnom backlogu smatraju se završenim u skladu s Definition of Done i stvarnim stanjem projekta.
 
 ### Djelimično završeno 
-- **Detekcija duplikata prijave kvara** -Detekcija duplikata prijave kvara ispravno radi uz GPS koordinate, unos iste adrese više puta nece uvijek prikazati duplikat.
-- **Notifikacije za promjenu termina** - Notifikacije za promjenu termina intervencije nisu povezane sa WebSocket socketom u produkcijskom okruženju.
-- **Planirana/preventivna održavanja** - Ponavljajuće intervencije ne funkcionišu ispravno na mjesečnoj bazi ( ne garantuje isti dan u narednom mjesecu pri prelasku s kraja mjeseca).
+- **PBI-011 — Historija intervencija po lokaciji/uređaju** - historija po lokaciji je implementirana, ali historija po uređaju nije.
+- **PBI-022 — Planirana/preventivna održavanja** - dnevno i sedmično ponavljanje rade, ali mjesečno ponavljanje ima bug pri kraju mjeseca i buduće instance nisu vidljive unaprijed u kalendaru.
+- **PBI-025 — Detekcija duplikata prijave kvara** - detekcija radi uz GPS koordinate; tekstualni fallback za istu adresu nije pouzdan, a `check-duplicates` endpoint ne provjerava da li `userId` odgovara prijavljenom korisniku.
+- **PBI-054 — Potvrda i promjena termina** - tok potvrde i promjene termina postoji; notifikacije rade lokalno, ali produkcijska WebSocket konfiguracija nije potvrđena.
 
-### Nije završeno 
+### Nije završeno / odgođeno
 
 - **PBI-037 — Automatska raspodjela intervencija**: Nije implementirana. Postoje helperi za izračun opterećenja servisera u assignment.service.ts i UI labela „Auto assignment" u settings stranici, ali ne postoji stvarna logika automatske dodjele pri kreiranju intervencije.
-- **PBI-022 — Ponavljajuće intervencije** (mjesečno): Osnova postoji, ali mjesečni algoritam ima rubni bug i nije stabilan za produkcijsku upotrebu.
 ---
 
 ## 7. Glavne tehničke odluke
@@ -193,7 +193,7 @@ Prijevod svih UI elemenata bez parcijalnih prijevoda bio je zahtjevniji od procj
 ### Problem 5: Greške u AI-generiranom kodu
 Tim je koristio AI alate (GitHub Copilot, Claude, ChatGPT, Gemini) za ubrzanje razvoja. Pogrešan redoslijed koda u `reports.route.ts`, duple rute s istim URL obrascem, testovi koji su padali zbog nedostajućih mock funkcija za Keycloak, nekompatibilne verzije paketa, sintaksne greške pri spajanju koda. Svaka greška je dokumentovana u AI Usage Logu. Uspostavljen je standard: nijedan AI-generisani kod nije prihvaćen bez code reviewa.
 
-### Problem 7: Kompleksnost Sprint 10 (10 PBI stavki)
+### Problem 6: Kompleksnost Sprint 10 (10 PBI stavki)
 Sprint 10 je imao najambiciozniji scope s 10 PBI stavki koje su bile međusobno zavisne. Riješeno pažljivim koordinisanjem implementacijskog redoslijeda i kraćim tehničkim sync sastancima unutar sprinta.
 
 ---
