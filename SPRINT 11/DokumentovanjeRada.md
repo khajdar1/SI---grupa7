@@ -142,7 +142,6 @@ Gotovo sve planirane stavke iz product backloga su implementirane i demonstriran
 
 ### Djelimično završeno 
 - **Detekcija duplikata prijave kvara** -Detekcija duplikata prijave kvara ispravno radi uz GPS koordinate, unos iste adrese više puta nece uvijek prikazati duplikat.
-- **Praćenje statusa od strane servisera** - Masovne akcije promjene statusa (U toku, Riješeno, Otkazano) rade, ali mogućnosti servisera pri individualnoj izmjeni statusa nisu u potpunosti konzistentne s originalnim zahtjevom.
 - **Notifikacije za promjenu termina** - Notifikacije za promjenu termina intervencije nisu povezane sa WebSocket socketom u produkcijskom okruženju.
 - **Planirana/preventivna održavanja** - Ponavljajuće intervencije ne funkcionišu ispravno na mjesečnoj bazi ( ne garantuje isti dan u narednom mjesecu pri prelasku s kraja mjeseca).
 
