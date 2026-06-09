@@ -19,6 +19,8 @@ jobs:
       NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
       NEXT_PUBLIC_SOCKET_URL: ${{ secrets.NEXT_PUBLIC_SOCKET_URL }}
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,6 +36,10 @@ jobs:
         run: |
           DATABASE_URL="${DATABASE_URL:-mysql://placeholder:placeholder@example.invalid:3306/placeholder}" \
           npm run prisma:generate --workspace backend
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run automation tests
+        run: npm run test:automation
       - name: Resolve release version
         id: version
         run: |
@@ -89,3 +95,9 @@ jobs:
             --project-name "$CLOUDFLARE_PROJECT_NAME" \
             --branch "${{ github.ref_name }}" \
             --commit-hash "${{ github.sha }}"
+      - name: Post-deployment smoke test
+        if: ${{ env.BACKEND_HEALTH_URL != '' && env.FRONTEND_URL != '' }}
+        env:
+          SMOKE_RETRIES: 12
+          SMOKE_RETRY_DELAY_MS: 10000
+        run: npm run test:smoke

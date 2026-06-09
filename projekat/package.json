@@ -11,6 +11,14 @@
     "dev:frontend": "npm run dev --workspace frontend",
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "test:backend": "npm run test --workspace backend",
+    "test:frontend": "npm run test --workspace frontend",
+    "test:coverage": "npm run test:coverage --workspaces",
+    "test:automation": "node scripts/automation-test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:smoke": "node scripts/smoke-test.mjs",
     "gmail:authorize": "npm run gmail:authorize --workspace backend",
     "compose:up": "docker compose up -d --build",
     "compose:down": "docker compose down"
@@ -23,6 +31,7 @@
     "@swc/helpers": "0.5.15"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "wrangler": "^3.114.17"
   }
 }
