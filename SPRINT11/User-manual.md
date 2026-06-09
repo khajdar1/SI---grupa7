@@ -314,6 +314,8 @@ Settings stranica dostupna je svim prijavljenim korisnicima i prikazuje isključ
 3. Kliknuti na **„Pošalji prijavu kvara"**.
 
 **Očekivani rezultat:** Sistem sprema prijavu i prikazuje potvrdu s jedinstvenim identifikatorom. Ako je sistem detektovao potencijalnu duplikatu prijave na istoj lokaciji, prikazuje se upozorenje; korisnik može nastaviti ili se vratiti na prethodni ekran.
+
+> **Napomena:** Upozorenje na duplikat je najpouzdanije kada su dostupne GPS koordinate. Ako korisnik unese samo tekstualnu adresu, ista lokacija se ne mora uvijek prepoznati kao duplikat.
  
 <img src="images/prijava-kvara.png" alt="Obrazac za prijavu kvara" width="800">
 
@@ -337,13 +339,14 @@ Intervencija se može kreirati na osnovu postojeće prijave kvara ili samostalno
    - **Prioritet** — Kritičan/Srednji/Visok/Nizak
    - **Tip intervencije**
    - **Datum početka** i **rok završetka** — klikom na polje kalendara odabrati datume
-   - **Ponavljanje** -Bez ponavljanja/Dnevno/Sedmično/mjesečno
+   - **Ponavljanje** - Bez ponavljanja / Dnevno / Sedmično / mjesečno
 3. Opciono: vezati intervenciju za postojeću prijavu kvara klikom na „Poveži s prijavom", pretraživanjem i odabirom odgovarajuće prijave.
 4. Kliknuti na **„Kreiraj intervenciju"**.
 
 **Očekivani rezultat:** Intervencija se odmah pojavljuje u listi aktivnih intervencija s ispravnim statusom **Novo**.
 
 > **Napomena:** Ako neki od obaveznih podataka nije unesen, sistem neće dozvoliti čuvanje i označit će problematična polja porukom o grešci (npr. „Name must contain at least 3 characters").
+> **Poznato ograničenje:** Dnevno i sedmično ponavljanje rade očekivano, ali mjesečno ponavljanje ima poznat problem pri datumima na kraju mjeseca i buduće instance nisu uvijek vidljive unaprijed u kalendaru.
 
 ---
 
@@ -500,7 +503,7 @@ Za razliku od reaktivnih intervencija, planirano održavanje koordinator kreira 
 
 **Očekivani rezultat:** Tiket dobija jedinstveni ID i status **Otvoren**. U okviru otvorenog tiketa moguće je razmjenjivati poruke s agentom podrške. Nakon zatvaranja tiketa, daljnja komunikacija nije moguća.
 
-> **Napomena:** Za razgovor na tiketu potrebno je kliknuti na njega. Notifkacije dobivaju i korisnik i agent podrške. Agent podrške može zatražiti review od admina.
+> **Napomena:** Za razgovor na tiketu potrebno je kliknuti na njega. Notifikacije dobivaju i korisnik i agent podrške. Agent podrške može zatražiti review od admina.
 
 <img src="images/tiket-razgovor.png" alt="Pregled i komunikacija u tiketu" width="800">
 
@@ -634,6 +637,9 @@ Blokiranje se vrši na nivou konkretnog tiketa (ticket-level block). Blokirani k
 - **Export podataka** dostupan je samo u PDF formatu. Excel i CSV formati nisu dio MVP verzije.
 - **Grafički prikazi** (chartovi, vizualizacije trendova) u menadžment dashboardu i historiji nisu implementirani -podaci su numerički i tabelarno prikazani.
 - **Automatska dodjela** intervencija serviseru nije implementirana.
+- **Mjesečno ponavljanje planiranih održavanja** ima poznato ograničenje pri datumima na kraju mjeseca; dnevno i sedmično ponavljanje rade stabilnije.
+- **Detekcija duplikata bez GPS koordinata** nije potpuno pouzdana.
+- **Notifikacije za promjenu termina** mogu zahtijevati dodatnu provjeru produkcijske WebSocket konfiguracije.
 - **Feedback** je moguće ostaviti samo jednom po intervenciji -naknadna izmjena ocjene nije podržana.
 - **Komunikacija na tiketu** prestaje biti dostupna čim je tiket zatvoren.
 - **Blokiranje korisnika** u tiketu ne deaktivira korisnički račun -to su dvije odvojene akcije.

@@ -11,9 +11,9 @@
 | **Naziv projekta** | Sistem za upravljanje servisnim intervencijama |
 | **Product Owner** | Kenan Halilović |
 | **Scrum Master** | Kerim Hajdar |
-| **Verzija backloga** | v3.0 |
+| **Verzija backloga** | v3.1 |
 | **Datum kreiranja** | 29.3.2026. |
-| **Posljednje ažuriranje** | 08.06.2026. |
+| **Posljednje ažuriranje** | 09.06.2026. |
 
 ---
 
@@ -68,10 +68,10 @@
 | PBI-019 | Reset lozinke | Korisnik može zatražiti reset lozinke putem emaila. | Feature | Kritičan | 3 SP | Done | Sprint 5 | |
 | PBI-020 | Kalendarski prikaz intervencija | Koordinator ima uvid u kalendarski prikaz prijavljenih intervencija. | Feature | Srednji | 5 SP | Done | Sprint 7 | |
 | PBI-021 | Pregled dostupnosti servisera (zasebna stavka) | Koordinator pri dodjeli intervencije vidi listu servisera sortiranu po broju aktivnih intervencija. | Feature | Visok | 3 SP | Done | Sprint 6 | Funkcionalnost integrirana u PBI-006 i PBI-053 |
-| PBI-022 | Planirana/preventivna održavanja | Koordinator može kreirati intervenciju bez prijave kvara. Moguće je definisati periodičnost, pri čemu sistem automatski generiše nove intervencije prema definisanom rasporedu. | Feature | Srednji | 5 SP | Partially Done | Sprint 8 | Podrška za ponavljanje |
+| PBI-022 | Planirana/preventivna održavanja | Koordinator može kreirati intervenciju bez prijave kvara. Moguće je definisati periodičnost, pri čemu sistem automatski generiše nove intervencije prema definisanom rasporedu. | Feature | Srednji | 5 SP | Partially Done | Sprint 8 | Dnevno i sedmično ponavljanje rade; mjesečno ponavljanje ima bug pri kraju mjeseca i buduće instance nisu vidljive unaprijed u kalendaru |
 | PBI-023 | Export podataka | Koordinator i menadžment mogu eksportovati kompletnu listu intervencija i izvještaje u PDF format. | Feature | Nizak | 5 SP | Done | Sprint 8 | |
 | PBI-024 | Validacija unosa podataka | Sistem validira sve korisničke unose (obavezna polja) prije spremanja podataka. | Feature | Visok | 5 SP | Done | Sprint 5 | |
-| PBI-025 | Detekcija duplikata prijave kvara | Sistem provjerava da li je isti korisnik u kratkom vremenskom periodu već prijavio isti kvar i upozorava korisnika. | Feature | Visok | 5 SP | Done | Sprint 8 | |
+| PBI-025 | Detekcija duplikata prijave kvara | Sistem provjerava da li je isti korisnik u kratkom vremenskom periodu već prijavio isti kvar i upozorava korisnika. | Feature | Visok | 5 SP | Partially Done | Sprint 8 | Radi pouzdano uz GPS koordinate; tekstualni fallback i provjera `userId` nisu dovoljno stabilni |
 | PBI-026 | Arhiviranje intervencija | Sistem arhivira završene ili otkazane intervencije nakon definisanog vremenskog perioda. | Feature | Nizak | 3 SP | Done | Sprint 8 | Implementirano u okviru PBI-038 |
 | PBI-027 | Sistem tiketa za korisničku podršku | Korisnik može kreirati tiket za korisničku podršku s mogućnošću dvosmjerne komunikacije između korisnika i agenta podrške. | Feature | Nizak | 8 SP | Done | Sprint 8 | Odvojeno od prijave kvara; uključuje kreiranje, komunikaciju i upravljanje statusima tiketa |
 | PBI-028 | Dvosmjerna komunikacija na tiketu | Korisnik i podrška mogu razmjenjivati tekstualne poruke unutar otvorenog tiketa. | Feature | Nizak | 5 SP | Done | Sprint 8 | Implementirano kao sastavni dio PBI-027 |
@@ -83,7 +83,7 @@
 | PBI-034 | Geografski/mapski prikaz intervencija | Koordinator vidi intervencije prikazane na mapi prema lokaciji. Dopunjuje vremensku dimenziju kalendarskog prikaza. | Feature | Visok | 4 SP | Done | Sprint 8 | |
 | PBI-035 | Konfiguracija vremenskih rokova (SLA) | Admin definira rok za svaki nivo prioriteta (npr. Hitan = 2h, Visok = 8h, Normalan = 24h, Nizak = 72h). Ovi rokovi koriste se u PBI-005. | Feature | Visok | 3 SP | Done | Sprint 5 | Preduvjet za SLA dio PBI-005 |
 | PBI-036 | Feedback korisnika po završetku intervencije | Korisnik koji je prijavio kvar dobija mogućnost ocjene intervencije nakon obavijesti o završetku. | Feature | Nizak | 3 SP | Done | Sprint 9 | |
-| PBI-037 | Automatska raspodjela intervencija | Sistem automatski dodjeljuje novu intervenciju manje opterećenom serviseru prema definisanim pravilima. | Feature | Srednji | 4 SP | Deffered | — | Odgođeno za buduću verziju; nije implementirano u MVP-u zbog nedostatka vremenskog prostora; |
+| PBI-037 | Automatska raspodjela intervencija | Sistem automatski dodjeljuje novu intervenciju manje opterećenom serviseru prema definisanim pravilima. | Feature | Srednji | 4 SP | Deferred | — | Odgođeno za buduću verziju; nije implementirano u MVP-u zbog nedostatka vremenskog prostora |
 | PBI-038 | Masovne akcije na intervencijama | Koordinator može odjednom promijeniti status, dodijeliti servisera ili arhivirati više intervencija. | Feature | Srednji | 4 SP | Done | Sprint 8 | |
 | PBI-039 | Blokiranje korisnika od strane firme | Koordinator može blokirati korisnika ukoliko procijeni da se radi o spamu ili zloupotrebi. | Feature | Nizak | 2 SP | Done | Sprint 9 | |
 | PBI-040 | Settings page | Prijavljeni korisnik može upravljati ličnim postavkama aplikacije, a admin kroz isti ekran dobija pregled i brze prečice prema konfiguracijama sistema kao što su SLA, attachment pravila, kategorije i korisnici. Stranica zamjenjuje trenutni placeholder i ne duplira Profile/Admin forme. | Feature | Srednji | 5 SP | Done | Sprint 9 | Objedinjuje lične preference i role-based navigaciju prema postojećim konfiguracijama |
@@ -97,7 +97,7 @@
 | PBI-051 | Settings stranica i upravljanje korisničkim preferencijama | Centralizovana Settings stranica s upravljanjem jezičkim preferencijama i postavkama notifikacija po korisničkom računu. Admin dobija role-based prečice prema konfiguracijama sistema. Zamjenjuje placeholder stranicu. | Feature | Srednji | 5 SP | Done | Sprint 9 | Objedinjuje lične preference i role-based navigaciju prema postojećim konfiguracijama |
 | PBI-052 | Analitika feedbacka i kvaliteta usluge | Menadžment i koordinator pregledaju agregirane trendove ocjena feedbacka s filterima po periodu, firmi, kategoriji i serviseru. Negativni feedback posebno označen. | Feature | Srednji | 5 SP | Done | Sprint 10 | Zavisi od PBI-036 (Feedback) |
 | PBI-053 | Upravljanje dostupnošću i odsustvima servisera | Serviser unosi periode nedostupnosti; koordinator pri dodjeli vidi dostupnost zajedno s opterećenjem servisera. Nedostupan serviser jasno označen. | Feature | Srednji | 5 SP | Done | Sprint 10 | Proširenje PBI-006 |
-| PBI-054 | Potvrda i promjena termina intervencije od strane korisnika | Korisnik prima in-app notifikaciju pri zakazivanju termina, može ga potvrditi ili zatražiti promjenu. Koordinator pregledava i prihvata/odbija zahtjeve za promjenu. | Feature | Srednji | 5 SP | Done | Sprint 10 | Zavisi od PBI-004 i PBI-012 |
+| PBI-054 | Potvrda i promjena termina intervencije od strane korisnika | Korisnik prima in-app notifikaciju pri zakazivanju termina, može ga potvrditi ili zatražiti promjenu. Koordinator pregledava i prihvata/odbija zahtjeve za promjenu. | Feature | Srednji | 5 SP | Partially Done | Sprint 10 | Tok potvrde/promjene termina postoji; notifikacije rade lokalno, ali produkcijska WebSocket konfiguracija nije potvrđena |
 | PBI-055 | Baza znanja i preporučena rješenja za kvarove | Koordinator označava finalizovane izvještaje kao preporučena rješenja. Serviser pretražuje bazu znanja po kategoriji. Relevantna rješenja prikazana na detalju intervencije. | Feature | Srednji | 5 SP | Done | Sprint 10 | Zavisi od PBI-010; samo finalizovani izvještaji mogu biti označeni |
 | PBI-056 | Evidencija materijala utrošenog na intervenciji | Serviser unosi listu materijala (naziv, količina, napomena) u sklopu izvještaja o intervenciji. Menadžment pregledava agregirane podatke o potrošnji. Bez obračuna cijena. | Feature | Srednji | 5 SP | Done | Sprint 10 | Zavisi od PBI-010; finansijska integracija nije u scopeu |
 | PBI-058 | Eskalacije i komentari ka menadžmentu za rizične intervencije | Koordinator označava intervenciju kao rizičnu uz obavezan razlog. Eskalacijski komentari odvojeni od redovnih. Menadžment pregled eskaliranih intervencija. | Feature | Visok | 5 SP | Done | Sprint 10 | Zavisi od PBI-007 i PBI-014 |
@@ -123,10 +123,13 @@
 - Nizak
 
 ### Status
+- Done
+- Partially Done
+- Not Done
+- Deferred
 - Todo
 - U toku
 - U pregledu
-- Done
 - Blokirano
 - Odgođeno
 - Otkazano
